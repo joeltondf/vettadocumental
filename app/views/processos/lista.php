@@ -1,0 +1,112 @@
+<?php
+// /app/views/processos/lista.php
+
+require_once __DIR__ . '/../layouts/header.php';
+
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+?>
+
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold">Lista de Serviços</h1>
+    </div>
+
+    <?php if (isset($_SESSION['success_message'])): ?>
+        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <span class="block sm:inline"><?php echo $_SESSION['success_message']; ?></span>
+        </div>
+        <?php unset($_SESSION['success_message']); ?>
+    <?php endif; ?>
+
+    <div class="bg-white shadow-md rounded-lg overflow-x-auto">
+        <table class="min-w-full leading-normal">
+            <thead>
+                <tr>
+                    <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">OS</th>
+                    <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Título</th>
+                    <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Cliente</th>
+                    <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                    <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Data de Entrada</th>
+                    <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Previsão de Entrega</th>
+                    <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Valor Total</th>
+                    <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Ações</th>
+                </tr>
+            </thead>
+                <tbody>
+                    <?php if (empty($processos)): ?>
+                        <tr>
+                            <td colspan="8" class="px-5 py-5 border-b border-gray-200 bg-white text-sm text-center">Nenhum processo encontrado.</td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($processos as $processo): ?>
+                            <?php
+                            // --- INÍCIO DA LÓGICA PARA DEFINIR AS CORES DO STATUS ---
+                            $status = $processo['status_processo'] ?? 'N/A';
+                            $statusClasses = ''; // Variável que guardará as classes de cor
+                
+                            switch ($status) {
+                                case 'Orçamento':
+                                    $statusClasses = 'bg-yellow-200 text-yellow-900';
+                                    break;
+                                case 'Aprovado':
+                                    $statusClasses = 'bg-blue-200 text-blue-900';
+                                    break;
+                                case 'Em Andamento':
+                                    $statusClasses = 'bg-cyan-200 text-cyan-900';
+                                    break;
+                                case 'Finalizado':
+                                    $statusClasses = 'bg-green-200 text-green-900';
+                                    break;
+                                case 'Arquivado':
+                                    $statusClasses = 'bg-gray-300 text-gray-700';
+                                    break;
+                                case 'Cancelado':
+                                    $statusClasses = 'bg-red-200 text-red-900';
+                                    break;
+                                default:
+                                    $statusClasses = 'bg-gray-200 text-gray-900';
+                                    break;
+                            }
+                            // --- FIM DA LÓGICA ---
+                            ?>
+                            <tr>
+                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-xs">
+                                    <p class="text-gray-900 whitespace-no-wrap font-semibold"><?php echo htmlspecialchars($processo['orcamento_numero'] ?? 'N/A'); ?></p>
+                                </td>
+                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-xs">
+                                    <p class="text-gray-900 whitespace-no-wrap"><?php echo htmlspecialchars($processo['titulo'] ?? ''); ?></p>
+                                </td>
+                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-xs">
+                                    <p class="text-gray-900 whitespace-no-wrap"><?php echo htmlspecialchars($processo['nome_cliente'] ?? ''); ?></p>
+                                </td>
+                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-xs whitespace-nowrap">
+                                    <span class="relative inline-block px-3 py-1 font-semibold leading-tight rounded-full <?php echo $statusClasses; ?>">
+                                        <span class="relative"><?php echo htmlspecialchars($status); ?></span>
+                                    </span>
+                                </td>
+                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-xs text-center">
+                                    <p class="text-gray-900 whitespace-no-wrap"><?php echo $processo['data_entrada'] ? date('d/m/Y', strtotime($processo['data_entrada'])) : 'N/A'; ?></p>
+                                </td>
+                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-xs text-center">
+                                    <p class="text-gray-900 whitespace-no-wrap"><?php echo $processo['data_previsao_entrega'] ? date('d/m/Y', strtotime($processo['data_previsao_entrega'])) : 'N/A'; ?></p>
+                                </td>
+                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-xs text-right">
+                                    <p class="text-gray-900 whitespace-no-wrap font-medium">
+                                        <?php echo $processo['valor_total'] ? 'R$ ' . number_format($processo['valor_total'], 2, ',', '.') : 'N/A'; ?>
+                                    </p>
+                                </td>
+                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-xs text-center">
+                                    <a href="processos.php?action=view&id=<?php echo $processo['id']; ?>" class="text-blue-600 hover:text-blue-900" title="Ver Detalhes">
+                                        Detalhes
+                                    </a>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+
+        </table>
+    </div>
+
+<?php require_once __DIR__ . '/../layouts/footer.php'; ?>

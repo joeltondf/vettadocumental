@@ -1,0 +1,725 @@
+<?php
+// /app/controllers/AdminController.php
+
+// Models e Serviços necessários
+require_once __DIR__ . '/../models/Configuracao.php';
+require_once __DIR__ . '/../models/AutomacaoModel.php';
+require_once __DIR__ . '/../models/Cliente.php';
+require_once __DIR__ . '/../models/User.php';
+require_once __DIR__ . '/../models/Vendedor.php';
+require_once __DIR__ . '/../models/Tradutor.php';
+require_once __DIR__ . '/../services/ContaAzulService.php';
+require_once __DIR__ . '/../services/DigicApiService.php';
+require_once __DIR__ . '/../services/EmailService.php';
+require_once __DIR__ . '/../models/SmtpConfigModel.php';
+
+class AdminController
+{
+    private $pdo;
+    private $configModel;
+    private $automacaoModel;
+    private $userModel;
+    private $vendedorModel;
+    private $tradutorModel;
+
+    public function __construct($pdo)
+    {
+        $this->pdo = $pdo;
+        $this->configModel = new Configuracao($pdo);
+        $this->automacaoModel = new AutomacaoModel($pdo);
+        $this->userModel = new User($pdo);
+        $this->vendedorModel = new Vendedor($pdo);
+        $this->tradutorModel = new Tradutor($pdo);
+    }
+
+    // Métodos de Administração Geral...
+    public function index()
+    {
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/admin/dashboard.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+
+    public function settings()
+    {
+        $settings = $this->configModel->getAll();
+        $contaAzulService = new ContaAzulService($this->configModel);
+        $contaAzulAuthUrl = $contaAzulService->getAuthorizationUrl();
+        $isContaAzulConnected = !empty($this->configModel->getSetting('conta_azul_access_token'));
+        
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/admin/settings.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+
+    public function saveSettings()
+    {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            foreach ($_POST as $key => $value) {
+                $this->configModel->save($key, $value);
+            }
+            $_SESSION['success_message'] = "Configurações salvas com sucesso!";
+        }
+        header('Location: admin.php?action=settings');
+        exit();
+    }
+    
+    // Gestão de Tradutores
+    public function listTradutores()
+    {
+        $pageTitle = "Gestão de Tradutores";
+        $tradutores = $this->tradutorModel->getAll();
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/tradutores/lista.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+    
+    // Gestão de Usuários
+    public function listUsers()
+    {
+        $pageTitle = "Gestão de Usuários";
+        $users = $this->userModel->getAll();
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/users/lista.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+    
+    public function createUser()
+    {
+        $pageTitle = "Novo Usuário";
+        $user = null; // Para o formulário saber que é um novo registro
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/users/form.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+
+    /**
+     * Salva o novo usuário no banco de dados.
+     */
+    public function storeUser()
+    {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if (empty($_POST['senha'])) {
+                $_SESSION['error_message'] = "O campo senha é obrigatório para novos usuários.";
+                header('Location: admin.php?action=create_user');
+                exit();
+            }
+
+            $userId = $this->userModel->create(
+                $_POST['nome_completo'],
+                $_POST['email'],
+                $_POST['senha'],
+                $_POST['perfil']
+            );
+
+            if ($userId) {
+                $_SESSION['success_message'] = "Usuário criado com sucesso!";
+            } else {
+                $_SESSION['error_message'] = "Erro ao criar usuário. O email pode já existir.";
+            }
+            header('Location: admin.php?action=users');
+            exit();
+        }
+    }
+
+    /**
+     * Mostra o formulário para editar um usuário existente.
+     */
+    public function editUser($id)
+    {
+        $user = $this->userModel->getById($id);
+        if (!$user) {
+            $_SESSION['error_message'] = "Usuário não encontrado.";
+            header('Location: admin.php?action=users');
+            exit();
+        }
+        $pageTitle = "Editar Usuário";
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/users/form.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+
+    /**
+     * Atualiza os dados de um usuário no banco.
+     */
+    public function updateUser()
+    {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $id = $_POST['id'];
+            $data = [
+                'nome_completo' => $_POST['nome_completo'],
+                'email'         => $_POST['email'],
+                'perfil'        => $_POST['perfil'],
+                'ativo'         => isset($_POST['ativo']) ? 1 : 0
+            ];
+
+            $this->userModel->update($id, $data);
+
+            if (!empty($_POST['senha'])) {
+                $this->userModel->updatePassword($id, $_POST['senha']);
+            }
+
+            $_SESSION['success_message'] = "Usuário atualizado com sucesso!";
+            header('Location: admin.php?action=users');
+            exit();
+        }
+    }
+
+    /**
+     * Exclui um usuário do sistema.
+     */
+    public function deleteUser($id)
+    {
+        if ($id == $_SESSION['user_id']) {
+            $_SESSION['error_message'] = "Você não pode excluir seu próprio usuário.";
+            header('Location: admin.php?action=users');
+            exit();
+        }
+        
+        if ($this->userModel->delete($id)) {
+            $_SESSION['success_message'] = "Usuário excluído com sucesso!";
+        } else {
+            $_SESSION['error_message'] = "Erro ao excluir o usuário.";
+        }
+        header('Location: admin.php?action=users');
+        exit();
+    }
+    
+    // Gestão de Vendedores
+    public function listVendedores()
+    {
+        $pageTitle = "Gestão de Vendedores";
+        $vendedores = $this->vendedorModel->getAll();
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/vendedores/lista.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+
+    // Gestão de Aparência
+    public function showConfiguracoes()
+    {
+        $pageTitle = "Configurações de Aparência";
+        $theme_color = $this->configModel->get('theme_color');
+        $system_logo = $this->configModel->get('system_logo');
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/admin/configuracoes.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+
+public function saveConfiguracoes()
+{
+    // Inicia a sessão para garantir que as mensagens de feedback funcionam
+    if (session_status() == PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $changes_made = false;
+
+        // 1. Salva a cor do tema
+        if (isset($_POST['theme_color'])) {
+            if ($this->configModel->save('theme_color', $_POST['theme_color'])) {
+                $changes_made = true;
+            }
+        }
+        
+        // 2. Processa o upload do logótipo, apenas se um ficheiro for enviado
+        if (isset($_FILES['system_logo']) && $_FILES['system_logo']['error'] != UPLOAD_ERR_NO_FILE) {
+            
+            if ($_FILES['system_logo']['error'] === UPLOAD_ERR_OK) {
+                
+                $uploadDir = __DIR__ . '/../../uploads/logos/';
+                
+                // Diagnóstico de permissões
+                if (!is_dir($uploadDir)) {
+                    if (!mkdir($uploadDir, 0777, true)) {
+                        $_SESSION['error_message'] = "ERRO FATAL: Falha ao criar o diretório de uploads. Verifique as permissões do servidor na pasta 'uploads'.";
+                        header('Location: admin.php?action=config');
+                        exit();
+                    }
+                } elseif (!is_writable($uploadDir)) {
+                    $_SESSION['error_message'] = "ERRO DE PERMISSÃO: O diretório 'uploads/logos/' não tem permissão de escrita. É necessário ajustar as permissões no servidor (ex: chmod 775).";
+                    header('Location: admin.php?action=config');
+                    exit();
+                }
+
+                $fileInfo = pathinfo($_FILES['system_logo']['name']);
+                $extension = strtolower($fileInfo['extension']);
+                $fileName = 'logo_' . time() . '.' . $extension;
+                $targetPath = $uploadDir . $fileName;
+
+                if (move_uploaded_file($_FILES['system_logo']['tmp_name'], $targetPath)) {
+                    if ($this->configModel->save('system_logo', 'uploads/logos/' . $fileName)) {
+                        $changes_made = true;
+                    }
+                } else {
+                    $_SESSION['error_message'] = "ERRO: Falha ao mover o ficheiro. Verifique as permissões do servidor.";
+                }
+
+            } else {
+                // Mensagens de erro de upload mais claras
+                $upload_errors = [
+                    UPLOAD_ERR_INI_SIZE   => "O ficheiro excede o limite de tamanho do servidor (upload_max_filesize).",
+                    UPLOAD_ERR_FORM_SIZE  => "O ficheiro excede o limite definido no formulário.",
+                    UPLOAD_ERR_PARTIAL    => "O upload do ficheiro foi feito apenas parcialmente.",
+                    UPLOAD_ERR_NO_TMP_DIR => "Erro de servidor: Falta uma pasta temporária.",
+                    UPLOAD_ERR_CANT_WRITE => "Erro de servidor: Falha ao escrever o ficheiro no disco.",
+                    UPLOAD_ERR_EXTENSION  => "Uma extensão do PHP interrompeu o upload.",
+                ];
+                $error_code = $_FILES['system_logo']['error'];
+                $_SESSION['error_message'] = $upload_errors[$error_code] ?? "Erro de upload desconhecido. Código: " . $error_code;
+            }
+        }
+
+        // Define a mensagem final para o utilizador
+        if (!isset($_SESSION['error_message'])) {
+            if ($changes_made) {
+                $_SESSION['success_message'] = "Configurações de aparência salvas com sucesso!";
+            } else {
+                // Se não houve erro, mas nada foi alterado (ex: clicou em salvar sem mudar nada)
+                $_SESSION['success_message'] = "Nenhuma alteração foi efetuada.";
+            }
+        }
+    }
+    
+    // Garante o redirecionamento correto para a página de configurações
+    header('Location: admin.php?action=config');
+    exit();
+}
+
+    // =======================================================================
+    // MÉTODOS DE AUTOMAÇÃO (NOVOS E ATUALIZADOS)
+    // =======================================================================
+
+    /**
+     * Exibe a página de listagem de campanhas de automação.
+     */
+    public function showAutomacaoCampanhas()
+    {
+        $regras = $this->automacaoModel->getAllCampanhas();
+        require_once __DIR__ . '/../views/admin/automacao_campanhas.php';
+    }
+
+    /**
+     * Exibe o formulário de configurações da API de automação.
+     */
+    public function showAutomacaoSettings()
+    {
+        $settings = $this->configModel->getAll();
+        require_once __DIR__ . '/../views/admin/automacao_settings.php';
+    }
+
+    /**
+     * Salva as configurações da API de automação.
+     */
+    public function saveAutomacaoSettings()
+    {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $data = $_POST;
+            
+            // Agora, esta função só salva as configurações da API Digisac.
+            $this->configModel->save('digisac_api_url', $data['digisac_api_url'] ?? '');
+            
+            // Apenas salva o token se um novo for digitado
+            if (!empty($data['digisac_api_token'])) {
+                $this->configModel->save('digisac_api_token', $data['digisac_api_token']);
+            }
+            
+            $_SESSION['success_message'] = "Configurações da API Digisac salvas com sucesso!";
+        }
+        header('Location: admin.php?action=automacao_settings');
+        exit();
+    }
+
+    /**
+     * Salva uma nova campanha de automação.
+     */
+    public function storeAutomacaoCampanha()
+    {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $data = [
+                'nome_campanha' => $_POST['nome_campanha'] ?? '',
+                'crm_gatilhos' => json_encode($_POST['crm_gatilhos'] ?? []),
+                'digisac_conexao_id' => $_POST['digisac_conexao_id'] ?? '',
+                'digisac_template_id' => $_POST['digisac_template_id'] ?? '',
+                'mapeamento_parametros' => $_POST['mapeamento_parametros'] ?? '{}',
+                'digisac_user_id' => $_POST['digisac_user_id'] ?? null,
+                'email_assunto' => $_POST['email_assunto'] ?? null,
+                'email_cabecalho' => $_POST['email_cabecalho'] ?? null,
+                'email_corpo' => $_POST['email_corpo'] ?? null,
+                'intervalo_reenvio_dias' => $_POST['intervalo_reenvio_dias'] ?? 30,
+                'ativo' => isset($_POST['ativo']) ? 1 : 0
+            ];
+            $this->automacaoModel->createCampanha($data);
+            $_SESSION['success_message'] = "Campanha criada com sucesso!";
+        }
+        header('Location: admin.php?action=automacao_campanhas');
+        exit();
+    }
+
+    /**
+     * Atualiza uma campanha de automação existente.
+     */
+    public function updateAutomacaoCampanha()
+    {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id'])) {
+            $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+            $data = [
+                'nome_campanha' => $_POST['nome_campanha'] ?? '',
+                'crm_gatilhos' => json_encode($_POST['crm_gatilhos'] ?? []),
+                'digisac_conexao_id' => $_POST['digisac_conexao_id'] ?? '',
+                'digisac_template_id' => $_POST['digisac_template_id'] ?? '',
+                'mapeamento_parametros' => $_POST['mapeamento_parametros'] ?? '{}',
+                'digisac_user_id' => $_POST['digisac_user_id'] ?? null,
+                'email_assunto' => $_POST['email_assunto'] ?? null,
+                'email_cabecalho' => $_POST['email_cabecalho'] ?? null,
+                'email_corpo' => $_POST['email_corpo'] ?? null,
+                'intervalo_reenvio_dias' => $_POST['intervalo_reenvio_dias'] ?? 30,
+                'ativo' => isset($_POST['ativo']) ? 1 : 0
+            ];
+            $this->automacaoModel->updateCampanha($id, $data);
+            $_SESSION['success_message'] = "Campanha atualizada com sucesso!";
+        }
+        header('Location: admin.php?action=automacao_campanhas');
+        exit();
+    }
+
+    /**
+     * Exclui uma campanha de automação.
+     */
+    public function deleteAutomacaoCampanha()
+    {
+        $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+        if ($id) {
+            $this->automacaoModel->deleteCampanha($id);
+            $_SESSION['success_message'] = "Campanha excluída com sucesso!";
+        }
+        header('Location: admin.php?action=automacao_campanhas');
+        exit();
+    }
+
+    /**
+     * Retorna os dados de uma campanha específica em JSON.
+     */
+    public function getAutomacaoCampanhaJson()
+    {
+        header('Content-Type: application/json');
+        $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+        $campanha = $this->automacaoModel->getCampanhaById($id);
+        
+        if ($campanha) {
+            $campanha['crm_gatilhos'] = json_decode($campanha['crm_gatilhos'], true);
+            echo json_encode(['success' => true, 'data' => $campanha]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Campanha não encontrada.']);
+        }
+        exit(); // <-- ADICIONE ESTA LINHA
+    }
+
+    // =======================================================================
+    // MÉTODOS AJAX DE INTEGRAÇÃO COM A DIGISAC
+    // =======================================================================
+
+    /**
+     * Retorna a lista de conexões da API Digisac em JSON.
+     */
+    public function getDigisacConexoesJson()
+    {
+        header('Content-Type: application/json');
+        $apiUrl = $this->configModel->get('digisac_api_url');
+        $token = $this->configModel->get('digisac_api_token');
+        $digicApi = new DigicApiService($apiUrl, $token);
+        $conexoes = $digicApi->getConexoes();
+        
+        if ($conexoes !== null) {
+            echo json_encode(['success' => true, 'data' => $conexoes]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Erro de conexão com a API Digisac. Verifique as credenciais.']);
+        }
+        exit();
+    }
+    
+    /**
+     * Retorna a lista de templates da API Digisac em JSON.
+     */
+    public function getDigisacTemplatesJson()
+    {
+        header('Content-Type: application/json');
+        $apiUrl = $this->configModel->get('digisac_api_url');
+        $token = $this->configModel->get('digisac_api_token');
+        $digicApi = new DigicApiService($apiUrl, $token);
+        $templates = $digicApi->getTemplates();
+        
+        if ($templates !== null) {
+            echo json_encode(['success' => true, 'data' => $templates]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Erro de conexão com a API Digisac. Verifique as credenciais.']);
+        }
+        exit();
+    }
+    
+    /**
+     * Retorna a lista de usuários da API Digisac em JSON.
+     */
+    public function getDigisacUsersJson()
+    {
+        header('Content-Type: application/json');
+        $apiUrl = $this->configModel->get('digisac_api_url');
+        $token = $this->configModel->get('digisac_api_token');
+        $digicApi = new DigicApiService($apiUrl, $token);
+        $users = $digicApi->getUsers();
+        
+        if ($users !== null) {
+            echo json_encode(['success' => true, 'data' => $users]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Erro de conexão com a API Digisac. Verifique as credenciais.']);
+        }
+        exit();
+    }
+    
+    /**
+     * Executa um teste de envio de mensagem de automação.
+     */
+    public function testAutomacaoCampanha()
+    {
+        header('Content-Type: application/json');
+        $log = [];
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Método de requisição inválido.']);
+            exit();
+        }
+
+        try {
+            $campanhaId = filter_input(INPUT_POST, 'campanha_id', FILTER_VALIDATE_INT);
+            $clienteId = filter_input(INPUT_POST, 'cliente_id', FILTER_VALIDATE_INT);
+            $testType = $_POST['test_type'] ?? 'whatsapp';
+            $testEmail = filter_input(INPUT_POST, 'test_email', FILTER_VALIDATE_EMAIL);
+            
+            $log[] = "INFO: Iniciando teste para Campanha #$campanhaId.";
+            $log[] = "INFO: Canal de teste selecionado: " . strtoupper($testType);
+            
+            $campanha = $this->automacaoModel->getCampanhaById($campanhaId);
+            if (!$campanha) throw new Exception("Campanha não encontrada.");
+
+            $cliente = null;
+            if ($clienteId) {
+                $clienteModel = new Cliente($this->pdo);
+                $cliente = $clienteModel->getById($clienteId);
+                $log[] = "INFO: Usando dados do Cliente ID #$clienteId: " . ($cliente['nome_cliente'] ?? 'Não encontrado');
+            } else {
+                $log[] = "INFO: Nenhum ID de cliente fornecido. Placeholders não serão substituídos.";
+                $cliente = ['nome_cliente' => '[NOME DO CLIENTE]', 'nome_responsavel' => '[NOME DO RESPONSAVEL]', 'email' => $testEmail, 'telefone' => '[TELEFONE]'];
+            }
+
+            if (!$cliente) throw new Exception("Cliente de teste com ID #$clienteId não encontrado.");
+
+            // Direciona para a função de teste correta
+            if ($testType === 'whatsapp') {
+                $this->testarCanalWhatsApp($campanha, $cliente, $log);
+            } elseif ($testType === 'email') {
+                $this->testarCanalEmail($campanha, $cliente, $testEmail, $log);
+            } else {
+                throw new Exception("Tipo de teste inválido.");
+            }
+
+        } catch (Exception $e) {
+            $log[] = "ERRO CRÍTICO: " . $e->getMessage();
+            echo json_encode(['success' => false, 'message' => $e->getMessage(), 'log' => $log]);
+        }
+        exit();
+    }
+    /**
+     * Executa o teste de envio para o canal WhatsApp.
+     */
+    private function testarCanalWhatsApp($campanha, $cliente, &$log) {
+        if (empty($cliente['telefone'])) {
+            throw new Exception("Cliente não possui um número de telefone cadastrado para o teste de WhatsApp.");
+        }
+
+        $apiUrl = $this->configModel->get('digisac_api_url');
+        $token = $this->configModel->get('digisac_api_token');
+        if (empty($apiUrl) || empty($token)) {
+            throw new Exception("API Digisac não configurada corretamente (URL ou Token ausentes).");
+        }
+
+        $digicApi = new DigicApiService($apiUrl, $token);
+        $mapeamento = json_decode($campanha['mapeamento_parametros'], true);
+        $params = [];
+        if (is_array($mapeamento)) {
+            ksort($mapeamento);
+            foreach ($mapeamento as $pos => $campo) {
+                $params[] = $cliente[$campo] ?? '';
+            }
+        }
+
+        $log[] = "DEBUG: Telefone Destino: " . $cliente['telefone'];
+        $log[] = "DEBUG: Conexão ID: " . ($campanha['digisac_conexao_id'] ?: 'Nenhum');
+        $log[] = "DEBUG: Usuário Remetente ID: " . ($campanha['digisac_user_id'] ?: 'Nenhum');
+        $log[] = "DEBUG: Template ID: " . ($campanha['digisac_template_id'] ?: 'Nenhum');
+        $log[] = "DEBUG: Parâmetros Mapeados: " . json_encode($params);
+        $log[] = "INFO: Enviando para a API Digisac...";
+        
+        $response = $digicApi->sendMessageByNumber(
+            $cliente['telefone'], 
+            $campanha['digisac_conexao_id'], 
+            $campanha['digisac_template_id'], 
+            $params,
+            $campanha['digisac_user_id']
+        );
+        
+        if ($response) {
+            $log[] = "SUCESSO: A API da Digisac aceitou a requisição.";
+            echo json_encode(['success' => true, 'log' => $log]);
+        } else {
+            throw new Exception("A API da Digisac retornou uma falha no envio.");
+        }
+    }
+
+    /**
+     * Executa o teste de envio para o canal E-mail.
+     */
+    private function testarCanalEmail($campanha, $cliente, $testEmail, &$log) {
+        $destinatario = $testEmail ?: ($cliente['email'] ?? '');
+        if (empty($destinatario)) {
+            throw new Exception("Nenhum e-mail de destino fornecido ou encontrado no cadastro do cliente.");
+        }
+        if (empty($campanha['email_assunto']) || empty($campanha['email_corpo'])) {
+            throw new Exception("A campanha não está configurada para envio de e-mail (assunto ou corpo vazios).");
+        }
+        
+        $log[] = "INFO: Destinatário do e-mail de teste: " . $destinatario;
+
+        // Substituir placeholders
+        $placeholders = [
+            '{{nome_cliente}}' => $cliente['nome_cliente'] ?? '',
+            '{{nome_responsavel}}' => $cliente['nome_responsavel'] ?? '',
+            '{{email}}' => $cliente['email'] ?? '',
+            '{{telefone}}' => $cliente['telefone'] ?? ''
+        ];
+        $assunto = str_replace(array_keys($placeholders), array_values($placeholders), $campanha['email_assunto']);
+        $cabecalho = str_replace(array_keys($placeholders), array_values($placeholders), $campanha['email_cabecalho']);
+        $corpo = str_replace(array_keys($placeholders), array_values($placeholders), $campanha['email_corpo']);
+        $corpo_final = $cabecalho . "<br><br>" . nl2br($corpo);
+        
+        $log[] = "DEBUG: Assunto Final: " . $assunto;
+        $log[] = "INFO: Tentando enviar e-mail via SMTP...";
+
+        // --- INÍCIO DA MELHORIA ---
+        // A chamada ao serviço agora está dentro de um bloco try...catch para
+        // capturar a exceção detalhada que o EmailService pode lançar.
+        try {
+            $emailService = new EmailService($this->pdo);
+            $enviado = $emailService->sendEmail($destinatario, $assunto, $corpo_final);
+
+            if ($enviado) {
+                $log[] = "SUCESSO: E-mail de teste enviado para " . $destinatario;
+                echo json_encode(['success' => true, 'log' => $log]);
+            } else {
+                throw new Exception("O serviço de e-mail retornou uma falha desconhecida.");
+            }
+        } catch (Exception $e) {
+            // Se o EmailService lançar a exceção, nós a capturamos aqui.
+            // A mensagem já virá formatada com os detalhes do PHPMailer.
+            throw new Exception($e->getMessage());
+        }
+        // --- FIM DA MELHORIA ---
+    }
+
+
+    // =============================================================
+    // LÓGICA PARA A NOVA PÁGINA DE CONFIGURAÇÃO DE SMTP
+    // =============================================================
+
+    /**
+     * Exibe a página de configurações de SMTP.
+     */
+    public function showSmtpSettings()
+    {
+        // 1. Carrega configurações de SMTP
+        $smtpConfigModel = new SmtpConfigModel($this->pdo);
+        $smtp_config = $smtpConfigModel->getSmtpConfig();
+        
+        // 2. Carrega configurações de Alertas (da tabela 'configuracoes')
+        $configModel = new Configuracao($this->pdo);
+        $alert_config = [
+            'alert_emails' => $configModel->get('alert_emails'),
+            'alert_servico_vencido_enabled' => $configModel->get('alert_servico_vencido_enabled')
+        ];
+
+        // 3. Define o título e carrega as views
+        $page_title = "Configurações de Notificações e Alertas";
+        
+        require_once __DIR__ . '/../views/layouts/header.php';
+        // Vamos passar ambas as configurações para a view
+        require_once __DIR__ . '/../views/admin/smtp_settings.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+
+    /**
+     * Salva as configurações de SMTP e Alertas.
+     */
+    public function saveSmtpSettings()
+    {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            // 1. Salva as configurações de SMTP
+            $smtpConfigModel = new SmtpConfigModel($this->pdo);
+            $smtp_data = [
+                'smtp_host'       => $_POST['smtp_host'] ?? '',
+                'smtp_port'       => $_POST['smtp_port'] ?? '',
+                'smtp_user'       => $_POST['smtp_user'] ?? '',
+                'smtp_pass'       => $_POST['smtp_pass'],
+                'smtp_security'   => $_POST['smtp_security'] ?? 'tls',
+                'smtp_from_email' => $_POST['smtp_from_email'] ?? '',
+                'smtp_from_name'  => $_POST['smtp_from_name'] ?? ''
+            ];
+            $smtpConfigModel->saveSmtpConfig($smtp_data);
+
+            // 2. Salva as configurações de Alertas na tabela 'configuracoes'
+            $configModel = new Configuracao($this->pdo);
+            $configModel->save('alert_emails', $_POST['alert_emails'] ?? '');
+            
+            // Para o checkbox, salvamos 1 se ele foi marcado, ou 0 se não foi
+            $servicoVencidoEnabled = isset($_POST['alert_servico_vencido_enabled']) ? '1' : '0';
+            $configModel->save('alert_servico_vencido_enabled', $servicoVencidoEnabled);
+            
+            // 3. Define a mensagem de sucesso
+            $_SESSION['message'] = "Configurações de notificações salvas com sucesso!";
+            $_SESSION['message_type'] = 'success';
+        }
+
+        header('Location: admin.php?action=smtp_settings');
+        exit();
+    }
+        /**
+     * Envia um e-mail de teste usando as configurações salvas em smtp_config.
+     */
+    public function testSmtpConnection()
+    {
+        require_once __DIR__ . '/../services/EmailService.php';
+
+        try {
+            $smtpConfigModel = new SmtpConfigModel($this->pdo);
+            $config = $smtpConfigModel->getSmtpConfig();
+            $recipient = $config['smtp_from_email'];
+
+            if (empty($recipient)) {
+                throw new Exception("Não há um 'E-mail do Remetente' salvo para receber o teste.");
+            }
+
+            $emailService = new EmailService($this->pdo);
+            $emailService->sendEmail($recipient, 'Teste de Conexão SMTP', '<h1>Teste OK!</h1><p>Suas configurações de SMTP estão funcionando.</p>');
+
+            $_SESSION['message'] = "E-mail de teste enviado com sucesso para " . htmlspecialchars($recipient);
+            $_SESSION['message_type'] = 'success';
+
+        } catch (Exception $e) {
+            $_SESSION['message'] = "FALHA AO ENVIAR: " . $e->getMessage();
+            $_SESSION['message_type'] = 'danger';
+        }
+
+        header('Location: admin.php?action=smtp_settings');
+        exit();
+    }
+
+}

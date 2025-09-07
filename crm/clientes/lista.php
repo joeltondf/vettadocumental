@@ -1,0 +1,89 @@
+<?php
+//  crm/clientes/lista.php 
+
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
+require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../app/core/auth_check.php';
+require_once __DIR__ . '/../../app/models/Cliente.php';
+
+$clienteModel = new Cliente($pdo);
+$clientes = $clienteModel->getCrmProspects();
+
+$pageTitle = "CRM - Lista de Contatos";
+require_once __DIR__ . '/../../app/views/layouts/header.php';
+?>
+
+<div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold text-gray-800"><?php echo $pageTitle; ?></h1>
+        <a href="<?php echo APP_URL; ?>/crm/clientes/novo.php" class="bg-blue-600 text-white py-2 px-4 rounded-md shadow-md hover:bg-blue-700 transition duration-300 flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+            Novo Contato
+        </a>
+    </div>
+
+    <?php if (isset($_SESSION['success_message'])): ?>
+        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6" role="alert">
+            <p><?php echo $_SESSION['success_message']; unset($_SESSION['success_message']); ?></p>
+        </div>
+    <?php endif; ?>
+    <?php if (isset($_SESSION['error_message'])): ?>
+        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
+            <p><?php echo $_SESSION['error_message']; unset($_SESSION['error_message']); ?></p>
+        </div>
+    <?php endif; ?>
+
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full leading-normal">
+                <thead>
+                    <tr>
+                        <th class="px-6 py-3 border-b-2 border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Nome / Empresa</th>
+                        <th class="px-6 py-3 border-b-2 border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Contato</th>
+                        <th class="px-6 py-3 border-b-2 border-gray-200 bg-gray-50 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 border-b-2 border-gray-200 bg-gray-50 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($clientes)): ?>
+                        <tr>
+                            <td colspan="4" class="px-6 py-5 border-b border-gray-200 bg-white text-sm text-center text-gray-500">Nenhuma prospecção encontrada.</td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($clientes as $cliente): ?>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 border-b border-gray-200 bg-white text-sm">
+                                    <p class="text-gray-900 whitespace-no-wrap font-medium"><?php echo htmlspecialchars($cliente['nome_cliente']); ?></p>
+                                </td>
+                                <td class="px-6 py-4 border-b border-gray-200 bg-white text-sm">
+                                    <p class="text-gray-900 whitespace-no-wrap"><?php echo htmlspecialchars($cliente['email']); ?></p>
+                                    <p class="text-gray-600 whitespace-no-wrap mt-1"><?php echo htmlspecialchars($cliente['telefone']); ?></p>
+                                </td>
+                                <td class="px-6 py-4 border-b border-gray-200 bg-white text-sm text-center">
+                                    <span class="inline-block px-3 py-1 text-sm font-semibold text-yellow-800 bg-yellow-200 rounded-full">Prospecção</span>
+                                </td>
+                                <td class="px-6 py-4 border-b border-gray-200 bg-white text-sm text-center">
+                                    <div class="flex justify-center items-center space-x-3">
+                                        <a href="<?php echo APP_URL; ?>/crm/clientes/editar_cliente.php?id=<?php echo $cliente['id']; ?>" class="text-blue-600 hover:text-blue-800 font-semibold">Editar</a>
+                                        
+                                        <form action="<?php echo APP_URL; ?>/crm/clientes/excluir_cliente.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este cliente?');">
+                                            <input type="hidden" name="id" value="<?php echo $cliente['id']; ?>">
+                                            <button type="submit" class="text-red-600 hover:text-red-800 font-semibold">Excluir</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<?php
+require_once __DIR__ . '/../../app/views/layouts/footer.php';
+?>
