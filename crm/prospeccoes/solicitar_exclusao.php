@@ -44,7 +44,7 @@ try {
         <ul>
             <li><strong>ID:</strong> " . htmlspecialchars($prospect['id_texto']) . "</li>
             <li><strong>Oportunidade:</strong> " . htmlspecialchars($prospect['nome_prospecto']) . "</li>
-            <li><strong>Contato:</strong> " . htmlspecialchars($prospect['nome_cliente']) . "</li>
+            <li><strong>Lead:</strong> " . htmlspecialchars($prospect['nome_cliente']) . "</li>
         </ul>
         <p><strong>Motivo da solicitação:</strong></p>
         <p style='padding: 10px; border: 1px solid #eee; background-color: #f9f9f9;'>" . nl2br(htmlspecialchars($motivo)) . "</p>

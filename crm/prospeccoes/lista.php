@@ -113,7 +113,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
             <!-- Campo de busca -->
             <div>
                 <label for="search" class="block text-sm font-medium text-gray-600 mb-2">Buscar</label>
-                <input type="text" name="search" id="search" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="<?php echo htmlspecialchars($search_term); ?>" placeholder="Nome do prospecto ou contato...">
+                <input type="text" name="search" id="search" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="<?php echo htmlspecialchars($search_term); ?>" placeholder="Nome do prospecto ou lead...">
             </div>
 
             <!-- Campo de status -->
@@ -172,7 +172,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
             <thead class="bg-gray-50">
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prospecto</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contato</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lead</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Responsável</th>
@@ -189,7 +189,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                     <?php foreach ($prospeccoes as $prospeccao): ?>
                         <tr>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($prospeccao['nome_prospecto']); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars($prospeccao['nome_cliente'] ?? 'N/A'); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars($prospeccao['nome_cliente'] ?? 'Lead não vinculado'); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                                 <span class="
                                     <?php 
