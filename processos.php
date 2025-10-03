@@ -27,7 +27,9 @@ switch ($action) {
 
     case 'edit':
     case 'change_status':
-    case 'lead_conversion_step':
+    case 'convert_to_service_client':
+    case 'convert_to_service_deadline':
+    case 'convert_to_service_payment':
         // Permite que o vendedor acesse estas rotas.
         require_permission(['admin', 'gerencia', 'supervisor', 'vendedor']);
         break;
@@ -94,8 +96,14 @@ switch ($action) {
     case 'change_status':
         $controller->changeStatus();
         break;
-    case 'lead_conversion_step':
-        $controller->leadConversionStep();
+    case 'convert_to_service_client':
+        $controller->convertToServiceClient($id);
+        break;
+    case 'convert_to_service_deadline':
+        $controller->convertToServiceDeadline($id);
+        break;
+    case 'convert_to_service_payment':
+        $controller->convertToServicePayment($id);
         break;
     case 'delete':
         $controller->delete($id); // Ajuste aqui para passar o $id
