@@ -103,12 +103,19 @@ class ProcessosController
 
         $anexos = $this->processoModel->getAnexosPorCategoria($id, 'anexo');
         $comprovantes = $this->processoModel->getAnexosPorCategoria($id, 'comprovante');
+        $cliente = null;
+        if (!empty($processoData['processo']['cliente_id'])) {
+            $cliente = $this->clienteModel->getById((int)$processoData['processo']['cliente_id']);
+        }
+        $leadConversionContext = $this->buildLeadConversionContext($processoData['processo'], $cliente);
         $pageTitle = "Detalhes: " . htmlspecialchars($processoData['processo']['titulo']);
         $this->render('detalhe', [
             'processo' => $processoData['processo'],
             'documentos' => $processoData['documentos'],
             'anexos' => $anexos,
             'comprovantes' => $comprovantes,
+            'cliente' => $cliente,
+            'leadConversionContext' => $leadConversionContext,
             'pageTitle' => $pageTitle,
         ]);
     }
@@ -613,131 +620,138 @@ class ProcessosController
             header('Location: dashboard.php');
             exit();
         }
-        $id = $_POST['id'] ?? null;
-        $status = $_POST['status_processo'] ?? null;
-        if (!$id || !$status) {
-            $_SESSION['error_message'] = "Dados insuficientes para atualizar o status.";
+
+        $processoId = isset($_POST['id']) ? (int)$_POST['id'] : 0;
+        $novoStatus = trim((string)($_POST['status_processo'] ?? ''));
+
+        if ($processoId <= 0 || $novoStatus === '') {
+            $_SESSION['error_message'] = 'Dados insuficientes para atualizar o status.';
             header('Location: dashboard.php');
             exit();
         }
 
-        // Busca os dados do processo antes de qualquer ação
-        $res = $this->processoModel->getById($id);
-        if (!$res || !isset($res['processo'])) {
-            $_SESSION['error_message'] = "Processo não encontrado.";
+        $resultado = $this->processoModel->getById($processoId);
+        if (!$resultado || !isset($resultado['processo'])) {
+            $_SESSION['error_message'] = 'Processo não encontrado.';
             header('Location: dashboard.php');
             exit();
         }
-        $processo = $res['processo'];
-        $statusAntigo = $processo['status_processo'];
+
+        $processo = $resultado['processo'];
+        $statusAnterior = $processo['status_processo'];
         $clienteId = (int)($processo['cliente_id'] ?? 0);
 
-        // Verificação de permissão
-        if ($_SESSION['user_perfil'] === 'vendedor') {
-            $vendedor_user_id = $this->vendedorModel->getUserIdByVendedorId($processo['vendedor_id']);
-            if ($vendedor_user_id != $_SESSION['user_id']) {
-                $_SESSION['error_message'] = "Você não tem permissão para executar esta ação.";
-                header('Location: dashboard.php');
-                exit();
-            }
-            $allowedStatuses = ['Orçamento'];
-            if (!in_array($status, $allowedStatuses, true)) {
-                $_SESSION['error_message'] = "Como vendedor, você só pode reenviar o orçamento para o cliente.";
-                header('Location: processos.php?action=view&id=' . $id);
-                exit();
-            }
-        } elseif (!in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'supervisor'])) {
-            $_SESSION['error_message'] = "Você não tem permissão para acessar esta página.";
-            header('Location: dashboard.php');
+        if (!$this->canUpdateStatus($processo, $novoStatus)) {
+            $_SESSION['error_message'] = 'Você não tem permissão para executar esta ação.';
+            header('Location: processos.php?action=view&id=' . $processoId);
             exit();
         }
 
-        // Prepara os campos a atualizar
-        $dataToUpdate = [
-            'status_processo' => $status,
-            'data_inicio_traducao' => $_POST['data_inicio_traducao'] ?? $processo['data_inicio_traducao'],
-            'traducao_prazo_tipo' => $_POST['traducao_prazo_tipo'] ?? $processo['traducao_prazo_tipo'],
-            'traducao_prazo_dias' => $_POST['traducao_prazo_dias'] ?? $processo['traducao_prazo_dias'],
-            'traducao_prazo_data' => $_POST['traducao_prazo_data'] ?? $processo['traducao_prazo_data'],
-        ];
+        $leadConversionRequested = $this->isLeadConversionRequest($_POST);
+        $uploadedProofs = [];
 
-        // Validação extra para perfis de gestão (admin, gerência ou supervisão)
-        if (in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'supervisor']) &&
-            $statusAntigo === 'Orçamento' && in_array($status, ['Aprovado', 'Em Andamento'], true)) {
-            $erros = [];
-            if (empty($dataToUpdate['data_inicio_traducao'])) $erros[] = 'Informe a Data de envio para o Tradutor.';
-            if (!empty($erros)) {
-                $_SESSION['error_message'] = implode(' ', $erros);
-                header('Location: processos.php?action=view&id=' . $id);
-                exit();
+        try {
+            $this->pdo->beginTransaction();
+
+            if ($leadConversionRequested) {
+                $clienteId = $this->handleLeadConversion($processoId, $clienteId, $_POST);
+                $processo['cliente_id'] = $clienteId;
             }
+
+            $this->validateWizardProcessData($processo, $_POST, $leadConversionRequested);
+
+            $paymentProofs = $this->processPaymentProofUploads($processoId);
+            $uploadedProofs = array_values($paymentProofs);
+
+            $dadosAtualizacao = $this->buildProcessUpdatePayload($processo, $_POST, $clienteId, $novoStatus, $paymentProofs);
+
+            if (!$this->processoModel->updateFromLeadConversion($processoId, $dadosAtualizacao)) {
+                throw new RuntimeException('Falha ao atualizar o processo.');
+            }
+
+            $this->pdo->commit();
+        } catch (Throwable $exception) {
+            $this->pdo->rollBack();
+            foreach ($uploadedProofs as $path) {
+                $this->removeUploadedFile($path);
+            }
+            error_log('Erro ao atualizar status do processo: ' . $exception->getMessage());
+            $_SESSION['error_message'] = 'Erro ao atualizar o processo: ' . $exception->getMessage();
+            header('Location: processos.php?action=view&id=' . $processoId);
+            exit();
         }
 
-        // Atualiza as etapas
-        if ($this->processoModel->updateEtapas($id, $dataToUpdate)) {
-            $link = "/processos.php?action=view&id={$id}";
-            $remetenteId = $_SESSION['user_id'];
+        $link = "/processos.php?action=view&id={$processoId}";
+        $remetenteId = $_SESSION['user_id'] ?? null;
+        $statusSaiuDePendencia = $statusAnterior === 'Pendente' && $novoStatus !== 'Pendente';
 
-            $statusSaiuDePendencia = $statusAntigo === 'Pendente' && $status !== 'Pendente';
+        $this->convertProspectIfNeeded($clienteId, $novoStatus);
 
-            $this->convertProspectIfNeeded($clienteId, $status);
+        if ($statusSaiuDePendencia) {
+            $this->notificacaoModel->deleteByLink($link);
+        }
 
-            if ($statusSaiuDePendencia) {
-                $this->notificacaoModel->deleteByLink($link);
-            }
-
-            $successMessage = 'Status do processo atualizado com sucesso!';
-            if ($status === 'Em Andamento' && $statusAntigo === 'Pendente') {
-                $successMessage = 'Serviço aprovado e status atualizado para Em Andamento.';
-            } elseif ($status === 'Orçamento') {
-                $successMessage = 'Orçamento enviado para o cliente.';
-            } elseif ($status === 'Aprovado' && $statusAntigo === 'Orçamento') {
-                $successMessage = 'Orçamento aprovado com sucesso!';
-            }
-            $_SESSION['success_message'] = $successMessage;
-
-            if ($this->shouldGenerateOmieOs($status)) {
-                $osNumero = $this->gerarOsOmie($id);
-                if ($osNumero) {
-                    $_SESSION['success_message'] .= " Ordem de Serviço #{$osNumero} gerada na Omie.";
-                }
-            }
-
-            if ($status === 'Cancelado') {
-                $this->cancelarOsOmie($id);
-            }
-
-            $vendedorUserId = $this->vendedorModel->getUserIdByVendedorId($processo['vendedor_id']);
-
-            switch ($status) {
-                case 'Orçamento':
-                    $this->sendBudgetEmails($id, $remetenteId);
-                    if ($vendedorUserId && $remetenteId !== $vendedorUserId) {
-                        $mensagem = "Seu orçamento #{$processo['orcamento_numero']} foi enviado ao cliente.";
-                        $this->notificacaoModel->criar($vendedorUserId, $remetenteId, $mensagem, $link);
-                    }
-                    break;
-                case 'Aprovado':
-                    if ($vendedorUserId) {
-                        $mensagem = "Seu orçamento #{$processo['orcamento_numero']} foi APROVADO!";
-                        $this->notificacaoModel->criar($vendedorUserId, $remetenteId, $mensagem, $link);
-                    }
-                    break;
-                case 'Recusado':
-                    if ($vendedorUserId) {
-                        $mensagem = "Seu orçamento #{$processo['orcamento_numero']} foi RECUSADO. Ajuste-o.";
-                        $this->notificacaoModel->criar($vendedorUserId, $remetenteId, $mensagem, $link);
-                    }
-                    break;
-                default:
-                    // Para os demais status não é necessário gerar notificações extras.
-                    break;
+        if ($novoStatus === 'Serviço Pendente') {
+            $_SESSION['success_message'] = 'Serviço convertido e aguardando aprovação da gerência.';
+            if ($clienteId > 0 && $remetenteId) {
+                $this->notificarGerenciaPendencia($processoId, $clienteId, $remetenteId, 'serviço');
             }
         } else {
-            $_SESSION['error_message'] = "Falha ao atualizar o processo.";
+            $mensagemSucesso = 'Status do processo atualizado com sucesso!';
+            if ($novoStatus === 'Em Andamento' && $statusAnterior === 'Pendente') {
+                $mensagemSucesso = 'Serviço aprovado e status atualizado para Em Andamento.';
+            } elseif ($novoStatus === 'Orçamento') {
+                $mensagemSucesso = 'Orçamento enviado para o cliente.';
+            } elseif ($novoStatus === 'Aprovado' && $statusAnterior === 'Orçamento') {
+                $mensagemSucesso = 'Orçamento aprovado com sucesso!';
+            }
+            $_SESSION['success_message'] = $mensagemSucesso;
         }
 
-        header('Location: processos.php?action=view&id=' . $id);
+        if ($this->shouldGenerateOmieOs($novoStatus)) {
+            $osNumero = $this->gerarOsOmie($processoId);
+            if ($osNumero) {
+                $_SESSION['success_message'] .= " Ordem de Serviço #{$osNumero} gerada na Omie.";
+            }
+        }
+
+        if ($novoStatus === 'Cancelado') {
+            $this->cancelarOsOmie($processoId);
+        }
+
+        $vendedorUserId = $this->vendedorModel->getUserIdByVendedorId($processo['vendedor_id']);
+
+        switch ($novoStatus) {
+            case 'Orçamento':
+                $this->sendBudgetEmails($processoId, $remetenteId);
+                if ($vendedorUserId && $remetenteId !== $vendedorUserId) {
+                    $mensagem = "Seu orçamento #{$processo['orcamento_numero']} foi enviado ao cliente.";
+                    $this->notificacaoModel->criar($vendedorUserId, $remetenteId, $mensagem, $link);
+                }
+                break;
+            case 'Aprovado':
+                if ($vendedorUserId) {
+                    $mensagem = "Seu orçamento #{$processo['orcamento_numero']} foi APROVADO!";
+                    $this->notificacaoModel->criar($vendedorUserId, $remetenteId, $mensagem, $link);
+                }
+                break;
+            case 'Recusado':
+                if ($vendedorUserId) {
+                    $mensagem = "Seu orçamento #{$processo['orcamento_numero']} foi RECUSADO. Ajuste-o.";
+                    $this->notificacaoModel->criar($vendedorUserId, $remetenteId, $mensagem, $link);
+                }
+                break;
+            case 'Serviço Pendente':
+                if ($vendedorUserId && $remetenteId !== $vendedorUserId) {
+                    $mensagem = "Seu orçamento #{$processo['orcamento_numero']} foi convertido em serviço pendente.";
+                    $this->notificacaoModel->criar($vendedorUserId, $remetenteId, $mensagem, $link);
+                }
+                break;
+            default:
+                break;
+        }
+
+        header('Location: processos.php?action=view&id=' . $processoId);
         exit();
     }
 
@@ -1101,6 +1115,612 @@ class ProcessosController
         }
     }
 
+    private function buildLeadConversionContext(array $processo, ?array $cliente): array
+    {
+        $perfil = $_SESSION['user_perfil'] ?? '';
+        $perfisPermitidos = ['admin', 'gerencia', 'supervisor'];
+
+        if (!in_array($perfil, $perfisPermitidos, true)) {
+            return ['shouldRender' => false];
+        }
+
+        $statusAtual = $processo['status_processo'] ?? '';
+        if (!in_array($statusAtual, ['Orçamento', 'Orçamento Pendente'], true)) {
+            return ['shouldRender' => false];
+        }
+
+        $clienteEhProspect = $cliente === null || (int)($cliente['is_prospect'] ?? 1) === 1;
+        if (!$clienteEhProspect) {
+            return ['shouldRender' => false];
+        }
+
+        $categoriaModel = new CategoriaFinanceira($this->pdo);
+        $produtos = $categoriaModel->getProdutosOrcamento();
+        $servicosMensalistas = [];
+
+        if ($cliente && isset($cliente['id'])) {
+            $servicosMensalistas = $this->clienteModel->getServicosMensalista((int)$cliente['id']);
+        }
+
+        return [
+            'shouldRender' => true,
+            'leadConversionRequired' => true,
+            'cliente' => $cliente,
+            'produtos' => $produtos,
+            'servicosMensalistas' => $servicosMensalistas,
+            'valorTotal' => $processo['valor_total'] ?? '',
+            'formaCobranca' => $processo['orcamento_forma_pagamento'] ?? '',
+            'parcelas' => $processo['orcamento_parcelas'] ?? '',
+            'valorEntrada' => $processo['orcamento_valor_entrada'] ?? '',
+            'dataPagamento1' => $processo['data_pagamento_1'] ?? '',
+            'dataPagamento2' => $processo['data_pagamento_2'] ?? '',
+            'dataInicioTraducao' => $processo['data_inicio_traducao'] ?? date('Y-m-d'),
+            'traducaoPrazoTipo' => $processo['traducao_prazo_tipo'] ?? 'dias',
+            'traducaoPrazoDias' => $processo['traducao_prazo_dias'] ?? '',
+            'traducaoPrazoData' => $processo['traducao_prazo_data'] ?? '',
+            'statusDestino' => 'Serviço Pendente',
+        ];
+    }
+
+    private function canUpdateStatus(array $processo, string $novoStatus): bool
+    {
+        $perfil = $_SESSION['user_perfil'] ?? '';
+        if ($perfil === 'vendedor') {
+            $vendedorId = $processo['vendedor_id'] ?? null;
+            $vendedorUserId = $this->vendedorModel->getUserIdByVendedorId($vendedorId);
+            if (!$vendedorUserId || $vendedorUserId != ($_SESSION['user_id'] ?? null)) {
+                return false;
+            }
+            return in_array($novoStatus, ['Orçamento'], true);
+        }
+
+        return in_array($perfil, ['admin', 'gerencia', 'supervisor'], true);
+    }
+
+    private function isLeadConversionRequest(array $input): bool
+    {
+        return isset($input['lead_conversion_required']) && $input['lead_conversion_required'] === '1';
+    }
+
+    private function handleLeadConversion(int $processoId, int $clienteAtualId, array $input): int
+    {
+        $this->validateLeadConversionInput($input);
+        $clientePayload = $this->normalizeLeadPayload($input);
+        $clienteId = $this->persistLeadData($clientePayload, $clienteAtualId);
+        $servicos = $input['lead_subscription_services'] ?? [];
+        $this->syncClientSubscriptionServices($clienteId, $clientePayload['tipo_assessoria'], $servicos);
+
+        return $clienteId;
+    }
+
+    private function normalizeLeadPayload(array $input): array
+    {
+        $tipoPessoa = $input['lead_tipo_pessoa'] ?? 'Jurídica';
+        if (!in_array($tipoPessoa, ['Física', 'Jurídica'], true)) {
+            $tipoPessoa = 'Jurídica';
+        }
+
+        $tipoAssessoria = $input['lead_tipo_cliente'] ?? 'À vista';
+        if (!in_array($tipoAssessoria, ['À vista', 'Mensalista'], true)) {
+            $tipoAssessoria = 'À vista';
+        }
+
+        $prazoDias = $input['lead_agreed_deadline_days'] ?? null;
+        $prazoDias = ($prazoDias === null || $prazoDias === '') ? null : (int)$prazoDias;
+
+        $cidadeValidation = $input['lead_city_validation_source'] ?? 'api';
+        if (!in_array($cidadeValidation, ['api', 'database'], true)) {
+            $cidadeValidation = 'api';
+        }
+
+        return [
+            'tipo_pessoa' => $tipoPessoa,
+            'tipo_assessoria' => $tipoAssessoria,
+            'prazo_acordado_dias' => $prazoDias,
+            'nome_cliente' => trim((string)($input['lead_nome_cliente'] ?? '')),
+            'nome_responsavel' => $tipoPessoa === 'Jurídica' ? trim((string)($input['lead_nome_responsavel'] ?? '')) : null,
+            'cpf_cnpj' => $this->sanitizeDigits($input['lead_cpf_cnpj'] ?? ''),
+            'email' => trim((string)($input['lead_email'] ?? '')),
+            'telefone' => trim((string)($input['lead_telefone'] ?? '')),
+            'endereco' => trim((string)($input['lead_endereco'] ?? '')),
+            'numero' => trim((string)($input['lead_numero'] ?? '')),
+            'complemento' => trim((string)($input['lead_complemento'] ?? '')),
+            'bairro' => trim((string)($input['lead_bairro'] ?? '')),
+            'cidade' => trim((string)($input['lead_cidade'] ?? '')),
+            'estado' => strtoupper(trim((string)($input['lead_estado'] ?? ''))),
+            'cep' => trim((string)($input['lead_cep'] ?? '')),
+            'cidade_validation_source' => $cidadeValidation,
+            'is_prospect' => 0,
+            'data_conversao' => date('Y-m-d H:i:s'),
+            'usuario_conversao_id' => $_SESSION['user_id'] ?? null,
+        ];
+    }
+
+    private function validateLeadConversionInput(array $input): void
+    {
+        $erros = [];
+        $tipoPessoa = $input['lead_tipo_pessoa'] ?? 'Jurídica';
+        $tipoCliente = $input['lead_tipo_cliente'] ?? '';
+        $nomeCliente = trim((string)($input['lead_nome_cliente'] ?? ''));
+        $cpfCnpj = $this->sanitizeDigits($input['lead_cpf_cnpj'] ?? '');
+
+        if (!in_array($tipoPessoa, ['Física', 'Jurídica'], true)) {
+            $erros[] = 'Selecione um tipo de pessoa válido.';
+        }
+
+        if (!in_array($tipoCliente, ['À vista', 'Mensalista'], true)) {
+            $erros[] = 'Selecione a condição comercial do cliente.';
+        }
+
+        if (mb_strlen($nomeCliente) < 3) {
+            $erros[] = 'O nome do cliente deve possuir ao menos três caracteres.';
+        }
+
+        if ($tipoPessoa === 'Física') {
+            if (!$this->isValidCpf($cpfCnpj)) {
+                $erros[] = 'CPF inválido.';
+            }
+        } else {
+            if (!$this->isValidCnpj($cpfCnpj)) {
+                $erros[] = 'CNPJ inválido.';
+            }
+            $responsavel = trim((string)($input['lead_nome_responsavel'] ?? ''));
+            if ($responsavel === '') {
+                $erros[] = 'Informe o nome do responsável pela empresa.';
+            }
+        }
+
+        $email = trim((string)($input['lead_email'] ?? ''));
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $erros[] = 'Informe um e-mail válido.';
+        }
+
+        $telefone = $this->sanitizeDigits($input['lead_telefone'] ?? '');
+        if (strlen($telefone) < 10) {
+            $erros[] = 'Informe um telefone válido com DDD.';
+        }
+
+        $cep = $this->sanitizeDigits($input['lead_cep'] ?? '');
+        if (strlen($cep) !== 8) {
+            $erros[] = 'Informe um CEP válido.';
+        }
+
+        $cidade = trim((string)($input['lead_cidade'] ?? ''));
+        if ($cidade === '') {
+            $erros[] = 'Selecione uma cidade.';
+        }
+
+        $estado = strtoupper(trim((string)($input['lead_estado'] ?? '')));
+        if (strlen($estado) !== 2) {
+            $erros[] = 'Informe a UF da cidade selecionada.';
+        }
+
+        $prazo = $input['lead_agreed_deadline_days'] ?? null;
+        if ($prazo !== null && $prazo !== '' && (!ctype_digit((string)$prazo) || (int)$prazo <= 0)) {
+            $erros[] = 'O prazo acordado deve ser um número inteiro maior que zero.';
+        }
+
+        $fonteCidade = $input['lead_city_validation_source'] ?? 'api';
+        if (!in_array($fonteCidade, ['api', 'database'], true)) {
+            $erros[] = 'Fonte de validação da cidade inválida.';
+        }
+
+        if (!empty($erros)) {
+            throw new InvalidArgumentException(implode(' ', $erros));
+        }
+    }
+
+    private function sanitizeDigits(?string $value): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        $digits = preg_replace('/\D+/', '', $value);
+        return $digits ?? '';
+    }
+
+    private function isValidCpf(string $cpf): bool
+    {
+        if (strlen($cpf) !== 11 || preg_match('/^(\d)\1{10}$/', $cpf)) {
+            return false;
+        }
+
+        for ($t = 9; $t < 11; $t++) {
+            $sum = 0;
+            for ($i = 0; $i < $t; $i++) {
+                $sum += (int)$cpf[$i] * (($t + 1) - $i);
+            }
+            $digit = ((10 * $sum) % 11) % 10;
+            if ((int)$cpf[$t] !== $digit) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function isValidCnpj(string $cnpj): bool
+    {
+        if (strlen($cnpj) !== 14 || preg_match('/^(\d)\1{13}$/', $cnpj)) {
+            return false;
+        }
+
+        $multiplicadores = [
+            5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2,
+            6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2,
+        ];
+
+        for ($t = 12; $t <= 13; $t++) {
+            $soma = 0;
+            for ($i = 0; $i < $t; $i++) {
+                $soma += (int)$cnpj[$i] * $multiplicadores[$i + (13 - $t)];
+            }
+            $digito = $soma % 11;
+            $digito = $digito < 2 ? 0 : 11 - $digito;
+            if ((int)$cnpj[$t] !== $digito) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function persistLeadData(array $clienteData, int $clienteAtualId): int
+    {
+        $registroAtual = null;
+
+        if ($clienteData['cpf_cnpj'] !== '') {
+            $stmt = $this->pdo->prepare('SELECT * FROM clientes WHERE cpf_cnpj = ? LIMIT 1');
+            $stmt->execute([$clienteData['cpf_cnpj']]);
+            $registroAtual = $stmt->fetch(PDO::FETCH_ASSOC);
+        }
+
+        if (!$registroAtual && $clienteAtualId > 0) {
+            $stmt = $this->pdo->prepare('SELECT * FROM clientes WHERE id = ? LIMIT 1');
+            $stmt->execute([$clienteAtualId]);
+            $registroAtual = $stmt->fetch(PDO::FETCH_ASSOC);
+        }
+
+        if ($registroAtual) {
+            $clienteId = (int)$registroAtual['id'];
+            $this->updateClienteRecord($clienteId, $clienteData, $registroAtual);
+            return $clienteId;
+        }
+
+        return $this->insertClienteRecord($clienteData);
+    }
+
+    private function updateClienteRecord(int $clienteId, array $clienteData, array $registroAtual): void
+    {
+        $campos = [
+            'tipo_pessoa', 'tipo_assessoria', 'prazo_acordado_dias', 'nome_cliente',
+            'nome_responsavel', 'email', 'telefone', 'endereco', 'numero', 'complemento',
+            'bairro', 'cidade', 'estado', 'cep', 'cidade_validation_source',
+        ];
+
+        $setParts = [];
+        $params = [':id' => $clienteId];
+
+        foreach ($campos as $campo) {
+            $valor = $clienteData[$campo] ?? null;
+            if ($campo === 'prazo_acordado_dias') {
+                $valor = $valor === null ? null : (int)$valor;
+            }
+            if ($campo === 'nome_responsavel' && $clienteData['tipo_pessoa'] === 'Física') {
+                $valor = null;
+            }
+            $params[":{$campo}"] = ($valor === '' ? null : $valor);
+            $setParts[] = "{$campo} = :{$campo}";
+        }
+
+        $setParts[] = 'is_prospect = 0';
+
+        $eraProspect = (int)($registroAtual['is_prospect'] ?? 1) === 1;
+        if ($eraProspect || empty($registroAtual['data_conversao'])) {
+            $params[':data_conversao'] = $clienteData['data_conversao'];
+            $params[':usuario_conversao_id'] = $clienteData['usuario_conversao_id'];
+            $setParts[] = 'data_conversao = :data_conversao';
+            $setParts[] = 'usuario_conversao_id = :usuario_conversao_id';
+        }
+
+        $sql = 'UPDATE clientes SET ' . implode(', ', $setParts) . ' WHERE id = :id';
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+    }
+
+    private function insertClienteRecord(array $clienteData): int
+    {
+        $sql = 'INSERT INTO clientes (
+            nome_cliente, nome_responsavel, cpf_cnpj, email, telefone, endereco, numero,
+            complemento, bairro, cidade, estado, cep, tipo_pessoa, tipo_assessoria,
+            prazo_acordado_dias, cidade_validation_source, data_conversao, usuario_conversao_id,
+            is_prospect, data_cadastro
+        ) VALUES (
+            :nome_cliente, :nome_responsavel, :cpf_cnpj, :email, :telefone, :endereco, :numero,
+            :complemento, :bairro, :cidade, :estado, :cep, :tipo_pessoa, :tipo_assessoria,
+            :prazo_acordado_dias, :cidade_validation_source, :data_conversao, :usuario_conversao_id,
+            0, NOW()
+        )';
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([
+            ':nome_cliente' => $clienteData['nome_cliente'],
+            ':nome_responsavel' => $clienteData['nome_responsavel'] ?? null,
+            ':cpf_cnpj' => $clienteData['cpf_cnpj'] ?: null,
+            ':email' => $clienteData['email'] ?: null,
+            ':telefone' => $clienteData['telefone'] ?: null,
+            ':endereco' => $clienteData['endereco'] ?: null,
+            ':numero' => $clienteData['numero'] ?: null,
+            ':complemento' => $clienteData['complemento'] ?: null,
+            ':bairro' => $clienteData['bairro'] ?: null,
+            ':cidade' => $clienteData['cidade'] ?: null,
+            ':estado' => $clienteData['estado'] ?: null,
+            ':cep' => $clienteData['cep'] ?: null,
+            ':tipo_pessoa' => $clienteData['tipo_pessoa'],
+            ':tipo_assessoria' => $clienteData['tipo_assessoria'],
+            ':prazo_acordado_dias' => $clienteData['prazo_acordado_dias'],
+            ':cidade_validation_source' => $clienteData['cidade_validation_source'],
+            ':data_conversao' => $clienteData['data_conversao'],
+            ':usuario_conversao_id' => $clienteData['usuario_conversao_id'],
+        ]);
+
+        return (int)$this->pdo->lastInsertId();
+    }
+
+    private function syncClientSubscriptionServices(int $clienteId, string $tipoAssessoria, array $servicos): void
+    {
+        $stmt = $this->pdo->prepare('UPDATE cliente_servicos_mensalistas SET ativo = 0, data_fim = CURDATE() WHERE cliente_id = ? AND ativo = 1');
+        $stmt->execute([$clienteId]);
+
+        if ($tipoAssessoria !== 'Mensalista') {
+            return;
+        }
+
+        if (empty($servicos)) {
+            return;
+        }
+
+        $categoriaModel = new CategoriaFinanceira($this->pdo);
+
+        foreach ($servicos as $servico) {
+            $produtoId = isset($servico['productBudgetId']) ? (int)$servico['productBudgetId'] : 0;
+            if ($produtoId <= 0) {
+                continue;
+            }
+
+            $valorInformado = $this->parseCurrencyValue($servico['standardValue'] ?? null);
+            $produto = $categoriaModel->getById($produtoId);
+            if (!$produto || (int)($produto['eh_produto_orcamento'] ?? 0) !== 1) {
+                throw new InvalidArgumentException('Produto de orçamento inválido informado.');
+            }
+
+            $valorPadraoProduto = isset($produto['valor_padrao']) ? (float)$produto['valor_padrao'] : null;
+            $valorParaSalvar = $valorInformado ?? $valorPadraoProduto;
+
+            if ($valorParaSalvar === null) {
+                throw new InvalidArgumentException('Informe o valor do serviço mensalista selecionado.');
+            }
+
+            if (!empty($produto['bloquear_valor_minimo']) && $valorPadraoProduto !== null && $valorParaSalvar < $valorPadraoProduto) {
+                throw new InvalidArgumentException('O valor informado está abaixo do mínimo permitido para o serviço mensalista.');
+            }
+
+            $stmtInsert = $this->pdo->prepare('INSERT INTO cliente_servicos_mensalistas (cliente_id, produto_orcamento_id, valor_padrao, servico_tipo, ativo, data_inicio) VALUES (?, ?, ?, ?, 1, CURDATE())');
+            $stmtInsert->execute([
+                $clienteId,
+                $produtoId,
+                $valorParaSalvar,
+                $produto['servico_tipo'] ?? 'Nenhum',
+            ]);
+        }
+    }
+
+    private function validateWizardProcessData(array $processo, array $input, bool $leadConversionRequested): void
+    {
+        $validarPrazo = $leadConversionRequested || isset($input['data_inicio_traducao']) || isset($input['traducao_prazo_tipo']);
+        if ($validarPrazo) {
+            $dataInicio = $input['data_inicio_traducao'] ?? $processo['data_inicio_traducao'] ?? null;
+            if (empty($dataInicio)) {
+                throw new InvalidArgumentException('Informe a data de início da tradução.');
+            }
+
+            $dataInicioObj = DateTime::createFromFormat('Y-m-d', $dataInicio);
+            if (!$dataInicioObj) {
+                throw new InvalidArgumentException('Data de início da tradução inválida.');
+            }
+
+            $hoje = new DateTime('today');
+            if ($dataInicioObj < $hoje) {
+                throw new InvalidArgumentException('A data de início da tradução não pode ser anterior à data atual.');
+            }
+
+            $prazoTipo = $input['traducao_prazo_tipo'] ?? $processo['traducao_prazo_tipo'] ?? 'dias';
+            if (!in_array($prazoTipo, ['dias', 'data'], true)) {
+                throw new InvalidArgumentException('Tipo de prazo da tradução inválido.');
+            }
+
+            if ($prazoTipo === 'dias') {
+                $dias = $input['traducao_prazo_dias'] ?? $processo['traducao_prazo_dias'] ?? null;
+                if ($dias === null || $dias === '' || (int)$dias < 1) {
+                    throw new InvalidArgumentException('Informe a quantidade de dias do prazo de tradução.');
+                }
+            } else {
+                $prazoData = $input['traducao_prazo_data'] ?? $processo['traducao_prazo_data'] ?? null;
+                if (empty($prazoData)) {
+                    throw new InvalidArgumentException('Informe a data de entrega da tradução.');
+                }
+                $prazoDataObj = DateTime::createFromFormat('Y-m-d', $prazoData);
+                if (!$prazoDataObj) {
+                    throw new InvalidArgumentException('Data de entrega da tradução inválida.');
+                }
+                if ($prazoDataObj <= $dataInicioObj) {
+                    throw new InvalidArgumentException('A data de entrega deve ser posterior à data de início.');
+                }
+            }
+        }
+
+        $validarPagamento = $leadConversionRequested || isset($input['forma_cobranca']) || isset($input['valor_entrada']);
+        if ($validarPagamento) {
+            $formaCobranca = $input['forma_cobranca'] ?? $processo['orcamento_forma_pagamento'] ?? null;
+            if ($formaCobranca === null || !in_array($formaCobranca, ['À vista', 'Parcelado', 'Mensal'], true)) {
+                throw new InvalidArgumentException('Informe uma forma de cobrança válida.');
+            }
+
+            $valorEntrada = $this->parseCurrencyValue($input['valor_entrada'] ?? null);
+            if ($valorEntrada === null || $valorEntrada <= 0) {
+                throw new InvalidArgumentException('Informe o valor pago ou de entrada.');
+            }
+
+            $valorTotal = $this->parseCurrencyValue($input['valor_total'] ?? ($processo['valor_total'] ?? null));
+            if ($valorTotal !== null && $valorEntrada > $valorTotal) {
+                throw new InvalidArgumentException('O valor de entrada não pode ser maior que o valor total.');
+            }
+
+            if ($formaCobranca === 'Parcelado') {
+                if ($valorTotal === null) {
+                    throw new InvalidArgumentException('Informe o valor total do processo para parcelamentos.');
+                }
+                if ($valorEntrada >= $valorTotal) {
+                    throw new InvalidArgumentException('O valor de entrada deve ser menor que o valor total para parcelamentos.');
+                }
+
+                $data1 = $input['data_pagamento_1'] ?? null;
+                $data2 = $input['data_pagamento_2'] ?? null;
+                if ($data1 && $data2) {
+                    $dt1 = DateTime::createFromFormat('Y-m-d', $data1);
+                    $dt2 = DateTime::createFromFormat('Y-m-d', $data2);
+                    if ($dt1 && $dt2 && $dt2 <= $dt1) {
+                        throw new InvalidArgumentException('A data da segunda parcela deve ser posterior à da primeira.');
+                    }
+                }
+            }
+        }
+    }
+
+    private function processPaymentProofUploads(int $processoId): array
+    {
+        $mapaCampos = [
+            'payment_proof_entry' => 'comprovante_pagamento_1',
+            'payment_proof_balance' => 'comprovante_pagamento_2',
+        ];
+
+        $resultado = [];
+
+        foreach ($mapaCampos as $inputName => $column) {
+            if (!isset($_FILES[$inputName]) || !is_array($_FILES[$inputName])) {
+                continue;
+            }
+
+            $file = $_FILES[$inputName];
+            if ($file['error'] === UPLOAD_ERR_NO_FILE) {
+                continue;
+            }
+
+            if ($file['error'] !== UPLOAD_ERR_OK) {
+                throw new RuntimeException('Falha ao enviar o arquivo de comprovante.');
+            }
+
+            $resultado[$column] = $this->uploadPaymentProof($file, $processoId, $column);
+        }
+
+        return $resultado;
+    }
+
+    private function uploadPaymentProof(array $file, int $processoId, string $column): string
+    {
+        $allowedExtensions = ['pdf', 'png', 'jpg', 'jpeg', 'webp'];
+        $originalName = $file['name'] ?? 'comprovante';
+        $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+
+        if ($extension === '' || !in_array($extension, $allowedExtensions, true)) {
+            throw new InvalidArgumentException('Formato de arquivo não suportado para comprovantes.');
+        }
+
+        $baseDir = dirname(__DIR__, 2) . '/uploads/comprovantes/';
+        if (!is_dir($baseDir) && !mkdir($baseDir, 0755, true) && !is_dir($baseDir)) {
+            throw new RuntimeException('Não foi possível preparar o diretório de comprovantes.');
+        }
+
+        $filename = sprintf('%s_%d_%s.%s', $column, $processoId, uniqid('', true), $extension);
+        $destino = $baseDir . $filename;
+
+        if (!move_uploaded_file($file['tmp_name'], $destino)) {
+            throw new RuntimeException('Erro ao salvar o comprovante de pagamento.');
+        }
+
+        return 'uploads/comprovantes/' . $filename;
+    }
+
+    private function removeUploadedFile(string $relativePath): void
+    {
+        $absolutePath = dirname(__DIR__, 2) . '/' . ltrim($relativePath, '/');
+        if (is_file($absolutePath)) {
+            @unlink($absolutePath);
+        }
+    }
+
+    private function buildProcessUpdatePayload(array $processo, array $input, int $clienteId, string $novoStatus, array $paymentProofs): array
+    {
+        $dataInicio = $input['data_inicio_traducao'] ?? $processo['data_inicio_traducao'] ?? null;
+        $prazoTipo = $input['traducao_prazo_tipo'] ?? $processo['traducao_prazo_tipo'] ?? 'dias';
+
+        $prazoDias = null;
+        $prazoData = null;
+        if ($prazoTipo === 'dias') {
+            $prazoDias = $input['traducao_prazo_dias'] ?? $processo['traducao_prazo_dias'] ?? null;
+            $prazoDias = ($prazoDias === null || $prazoDias === '') ? null : (int)$prazoDias;
+        } else {
+            $prazoData = $input['traducao_prazo_data'] ?? $processo['traducao_prazo_data'] ?? null;
+        }
+
+        $valorTotal = $this->parseCurrencyValue($input['valor_total'] ?? ($processo['valor_total'] ?? null));
+        $valorEntrada = $this->parseCurrencyValue($input['valor_entrada'] ?? ($processo['orcamento_valor_entrada'] ?? null));
+        $formaCobranca = $input['forma_cobranca'] ?? $processo['orcamento_forma_pagamento'] ?? null;
+        $parcelas = isset($input['parcelas']) ? (int)$input['parcelas'] : ($processo['orcamento_parcelas'] ?? null);
+
+        if ($formaCobranca === 'Parcelado') {
+            $parcelas = $parcelas && $parcelas > 1 ? $parcelas : 2;
+        } elseif ($formaCobranca !== null) {
+            $parcelas = 1;
+        }
+
+        $valorRestante = null;
+        if ($formaCobranca === 'Parcelado' && $valorTotal !== null && $valorEntrada !== null) {
+            $valorRestante = $valorTotal - $valorEntrada;
+        }
+
+        $dados = [
+            'status_processo' => $novoStatus,
+            'data_inicio_traducao' => $dataInicio ?: null,
+            'traducao_prazo_tipo' => $prazoTipo,
+            'traducao_prazo_dias' => $prazoDias,
+            'traducao_prazo_data' => $prazoData,
+            'valor_total' => $valorTotal,
+            'orcamento_forma_pagamento' => $formaCobranca,
+            'orcamento_parcelas' => $parcelas,
+            'orcamento_valor_entrada' => $valorEntrada,
+            'orcamento_valor_restante' => $valorRestante,
+            'data_pagamento_1' => $input['data_pagamento_1'] ?? $processo['data_pagamento_1'] ?? null,
+            'data_pagamento_2' => $input['data_pagamento_2'] ?? $processo['data_pagamento_2'] ?? null,
+        ];
+
+        if ($formaCobranca !== 'Parcelado') {
+            $dados['data_pagamento_2'] = null;
+            $dados['orcamento_valor_restante'] = null;
+        }
+
+        if ($clienteId > 0) {
+            $dados['cliente_id'] = $clienteId;
+        }
+
+        foreach ($paymentProofs as $column => $path) {
+            $dados[$column] = $path;
+        }
+
+        return $dados;
+    }
+
     /**
      * Verifica se algum documento utiliza um valor abaixo do mínimo permitido.
      * Considera serviços personalizados de clientes mensalistas e produtos do financeiro.
@@ -1202,22 +1822,55 @@ class ProcessosController
         }
 
         if (is_numeric($value)) {
-            return (float)$value;
+            return round((float)$value, 2);
         }
 
         if (!is_string($value)) {
             return null;
         }
 
-        $clean = preg_replace('/[^0-9,.-]/', '', $value);
-        if ($clean === '' || $clean === null) {
+        $normalized = str_replace(["R$", "\xc2\xa0", ' '], '', $value);
+        $normalized = trim($normalized);
+        $normalized = preg_replace('/[^0-9,.-]/u', '', $normalized ?? '');
+
+        if ($normalized === '' || $normalized === '-' || $normalized === '.' || $normalized === ',') {
             return null;
         }
 
-        $clean = str_replace('.', '', $clean);
-        $clean = str_replace(',', '.', $clean);
+        $dashPosition = strpos($normalized, '-');
+        if ($dashPosition !== false) {
+            if ($dashPosition !== 0) {
+                return null;
+            }
+            $normalized = '-' . str_replace('-', '', substr($normalized, 1));
+        }
 
-        return is_numeric($clean) ? (float)$clean : null;
+        $commaPosition = strrpos($normalized, ',');
+        $dotPosition = strrpos($normalized, '.');
+
+        if ($commaPosition !== false && $dotPosition !== false) {
+            $decimalSeparator = $commaPosition > $dotPosition ? ',' : '.';
+        } elseif ($commaPosition !== false) {
+            $decimalSeparator = ',';
+        } elseif ($dotPosition !== false) {
+            $decimalSeparator = '.';
+        } else {
+            $decimalSeparator = null;
+        }
+
+        if ($decimalSeparator !== null) {
+            $thousandSeparator = $decimalSeparator === ',' ? '.' : ',';
+            $normalized = str_replace($thousandSeparator, '', $normalized);
+            $normalized = str_replace($decimalSeparator, '.', $normalized);
+        } else {
+            $normalized = str_replace(['.', ','], '', $normalized);
+        }
+
+        if (!is_numeric($normalized)) {
+            return null;
+        }
+
+        return round((float)$normalized, 2);
     }
 
     /**

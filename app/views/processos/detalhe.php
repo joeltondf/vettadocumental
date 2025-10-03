@@ -34,10 +34,12 @@ switch ($status) {
     case 'Orçamento': $status_classes = 'bg-yellow-100 text-yellow-800'; break;
     case 'Aprovado': $status_classes = 'bg-blue-100 text-blue-800'; break;
     case 'Em Andamento': $status_classes = 'bg-cyan-100 text-cyan-800'; break;
+    case 'Serviço Pendente': $status_classes = 'bg-orange-100 text-orange-800'; break;
     case 'Finalizado': $status_classes = 'bg-green-100 text-green-800'; break;
     case 'Arquivado': $status_classes = 'bg-gray-200 text-gray-600'; break;
     case 'Cancelado': $status_classes = 'bg-red-100 text-red-800'; break;
 }
+$leadConversionContext = $leadConversionContext ?? ['shouldRender' => false];
 $isAprovadoOuSuperior = !in_array($status, ['Orçamento', 'Cancelado']);
 ?>
 
@@ -88,6 +90,9 @@ $isAprovadoOuSuperior = !in_array($status, ['Orçamento', 'Cancelado']);
                 </div>
             </div>
         </div>
+        <?php if (!empty($leadConversionContext['shouldRender'])): ?>
+            <?php include __DIR__ . '/request_service_form.php'; ?>
+        <?php endif; ?>
         <div class="bg-white shadow-lg rounded-lg p-6">
             <h2 class="text-xl font-semibold text-gray-700 border-b pb-3 mb-4">
                 <?php if ($processo['status_processo'] == 'Orçamento'): ?>
@@ -385,7 +390,7 @@ $isAprovadoOuSuperior = !in_array($status, ['Orçamento', 'Cancelado']);
                     <div>
                         <label for="status_processo" class="block text-sm font-medium text-gray-700">Mudar Status para:</label>
                         <select id="status_processo" name="status_processo" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                            <?php $allStatus = ['Orçamento', 'Aprovado', 'Em Andamento', 'Finalizado', 'Arquivado', 'Cancelado']; ?>
+                            <?php $allStatus = ['Orçamento', 'Serviço Pendente', 'Aprovado', 'Em Andamento', 'Finalizado', 'Arquivado', 'Cancelado']; ?>
                             <?php foreach ($allStatus as $stat): ?>
                                 <option value="<?php echo $stat; ?>" <?php echo ($processo['status_processo'] == $stat) ? 'selected' : ''; ?>>
                                     <?php echo $stat; ?>
@@ -888,6 +893,10 @@ $isAprovadoOuSuperior = !in_array($status, ['Orçamento', 'Cancelado']);
 </style>
 
 
+<?php if (!empty($leadConversionContext['shouldRender'])): ?>
+    <script src="assets/js/city-autocomplete.js"></script>
+    <script src="assets/js/wizard-controller.js"></script>
+<?php endif; ?>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
 

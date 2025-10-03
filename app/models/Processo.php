@@ -375,6 +375,57 @@ public function create($data, $files)
             return false;
         }
     }
+
+    public function updateFromLeadConversion(int $processoId, array $data): bool
+    {
+        $allowedFields = [
+            'status_processo',
+            'data_inicio_traducao',
+            'traducao_prazo_tipo',
+            'traducao_prazo_dias',
+            'traducao_prazo_data',
+            'valor_total',
+            'orcamento_forma_pagamento',
+            'orcamento_parcelas',
+            'orcamento_valor_entrada',
+            'orcamento_valor_restante',
+            'data_pagamento_1',
+            'data_pagamento_2',
+            'comprovante_pagamento_1',
+            'comprovante_pagamento_2',
+            'cliente_id',
+        ];
+
+        $setParts = [];
+        $params = [':id' => $processoId];
+
+        foreach ($allowedFields as $field) {
+            if (!array_key_exists($field, $data)) {
+                continue;
+            }
+
+            $value = $data[$field];
+
+            if (in_array($field, ['valor_total', 'orcamento_valor_entrada', 'orcamento_valor_restante'], true)) {
+                $value = $this->parseCurrency($value);
+            }
+
+            if (in_array($field, ['traducao_prazo_dias', 'orcamento_parcelas', 'cliente_id'], true)) {
+                $value = $value === null ? null : (int)$value;
+            }
+
+            $params[":" . $field] = ($value === '' ? null : $value);
+            $setParts[] = "`{$field}` = :{$field}";
+        }
+
+        if (empty($setParts)) {
+            return false;
+        }
+
+        $sql = 'UPDATE processos SET ' . implode(', ', $setParts) . ' WHERE id = :id';
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute($params);
+    }
     /**
      * Deleta um processo do banco de dados.
      * @param int $id ID do processo a ser deletado.
