@@ -153,10 +153,23 @@ public function create($data, $files)
 
         // Esta lógica de salvar arquivos e documentos já estava correta e foi mantida.
         // O formulário de serviço rápido envia arquivos no campo 'anexos', que serão salvos aqui.
-        $this->salvarArquivos($processoId, $files['anexos'] ?? null, 'anexo');
-        
-        // Se houver um campo 'comprovantes' no formulário, ele também será salvo corretamente.
-        $this->salvarArquivos($processoId, $files['comprovantes'] ?? null, 'comprovante');
+        $storageContext = $this->determineStorageContextKey(
+            $processoId,
+            $params['status_processo'] ?? null,
+            $params['orcamento_numero'] ?? null
+        );
+
+        $this->salvarArquivos($processoId, $files['translationFiles'] ?? null, 'traducao', $storageContext);
+
+        $crcFiles = $files['crcFiles'] ?? null;
+        $shouldReuseCrc = !empty($data['reuseTraducaoForCrc']);
+        if ($shouldReuseCrc) {
+            $this->replicarAnexosDeCategoria($processoId, 'traducao', 'crc', $storageContext);
+        } else {
+            $this->salvarArquivos($processoId, $crcFiles, 'crc', $storageContext);
+        }
+
+        $this->salvarArquivos($processoId, $files['paymentProofFiles'] ?? null, 'comprovante', $storageContext);
         
         $documents = $this->normalizeDocumentsForInsert($data);
         if (!empty($documents)) {
@@ -363,10 +376,19 @@ public function create($data, $files)
                 }
             }
             // --- FIM DA NOVA LÓGICA ---
-            // Salva Anexos Gerais
-            $this->salvarArquivos($id, $files['anexos'] ?? null, 'anexo');
-            // Salva Comprovantes de Pagamento
-            $this->salvarArquivos($id, $files['comprovantes'] ?? null, 'comprovante'); 
+            $storageContext = $this->determineStorageContextKey($id);
+
+            $this->salvarArquivos($id, $files['translationFiles'] ?? null, 'traducao', $storageContext);
+
+            $crcFiles = $files['crcFiles'] ?? null;
+            $shouldReuseCrc = !empty($data['reuseTraducaoForCrc']);
+            if ($shouldReuseCrc) {
+                $this->replicarAnexosDeCategoria($id, 'traducao', 'crc', $storageContext);
+            } else {
+                $this->salvarArquivos($id, $crcFiles, 'crc', $storageContext);
+            }
+
+            $this->salvarArquivos($id, $files['paymentProofFiles'] ?? null, 'comprovante', $storageContext);
             $this->pdo->commit();
             return true;
         } catch (Exception $e) {
@@ -443,9 +465,12 @@ public function create($data, $files)
             $stmtNotificacoes->execute([$link]);
 
             // 2. Exclui os anexos físicos e seus registros no banco de dados
-            $anexos = $this->getAnexosPorCategoria($id, 'anexo');
-            $comprovantes = $this->getAnexosPorCategoria($id, 'comprovante');
-            $todosAnexos = array_merge($anexos, $comprovantes);
+            $todosAnexos = array_merge(
+                $this->getAnexosPorCategoria($id, ['traducao']),
+                $this->getAnexosPorCategoria($id, ['crc']),
+                $this->getAnexosPorCategoria($id, ['comprovante']),
+                $this->getAnexosPorCategoria($id, ['anexo'])
+            );
             foreach ($todosAnexos as $anexo) {
                 $this->deleteAnexo($anexo['id']); // Reutiliza a função que já apaga o arquivo e o registro
             }
@@ -1586,40 +1611,224 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
         return $resultado;
     }
 
-    /** MÉTODO CENTRALIZADO: Salva arquivos de um processo, especificando uma categoria. */
-    private function salvarArquivos($processoId, $files, $categoria) {
-        if (isset($files) && $files['error'][0] != UPLOAD_ERR_NO_FILE) {
-            
-            // Cria um subdiretório para a categoria para melhor organização
-            $uploadDir = __DIR__ . '/../../uploads/processos/' . $processoId . '/' . $categoria . '/';
-            if (!file_exists($uploadDir)) {
-                mkdir($uploadDir, 0777, true);
+    /**
+     * Salva arquivos enviados para um processo em diretórios estruturados por data.
+     */
+    private function salvarArquivos(int $processoId, ?array $files, string $categoria, string $storageContext, ?string $month = null, ?string $day = null): array
+    {
+        $uploadedFiles = $this->normalizeUploadedFiles($files);
+        if (empty($uploadedFiles)) {
+            return [];
+        }
+
+        $month = $month ?? date('m');
+        $day = $day ?? date('d');
+
+        $baseDirectory = $this->resolveUploadDirectory($month, $day, $storageContext, $categoria);
+        if (!is_dir($baseDirectory) && !mkdir($baseDirectory, 0775, true) && !is_dir($baseDirectory)) {
+            throw new RuntimeException('Não foi possível criar o diretório de uploads.');
+        }
+
+        $sql = "INSERT INTO processo_anexos (processo_id, categoria, nome_arquivo_sistema, nome_arquivo_original, caminho_arquivo) VALUES (?, ?, ?, ?, ?)";
+        $stmt = $this->pdo->prepare($sql);
+
+        $stored = [];
+        foreach ($uploadedFiles as $file) {
+            if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+                continue;
             }
 
-            $sql = "INSERT INTO processo_anexos (processo_id, categoria, nome_arquivo_sistema, nome_arquivo_original, caminho_arquivo) VALUES (?, ?, ?, ?, ?)";
-            $stmt = $this->pdo->prepare($sql);
+            if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+                continue;
+            }
 
-            foreach ($files['tmp_name'] as $key => $tmp_name) {
-                if ($files['error'][$key] === UPLOAD_ERR_OK) {
-                    $originalName = basename($files['name'][$key]);
-                    $extension = pathinfo($originalName, PATHINFO_EXTENSION);
-                    $systemName = uniqid($categoria . '_', true) . '.' . $extension;
-                    $destination = $uploadDir . $systemName;
+            $originalName = basename($file['name'] ?? 'arquivo');
+            $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+            $systemName = uniqid($categoria . '_', true) . ($extension ? '.' . $extension : '');
+            $destination = $baseDirectory . $systemName;
 
-                    if (move_uploaded_file($tmp_name, $destination)) {
-                        $relativePath = 'uploads/processos/' . $processoId . '/' . $categoria . '/' . $systemName;
-                        $stmt->execute([$processoId, $categoria, $systemName, $originalName, $relativePath]);
-                    }
-                }
+            if (!move_uploaded_file($file['tmp_name'], $destination)) {
+                continue;
+            }
+
+            $relativePath = $this->buildRelativePath($month, $day, $storageContext, $categoria, $systemName);
+            $stmt->execute([$processoId, $categoria, $systemName, $originalName, $relativePath]);
+
+            $stored[] = [
+                'processo_id' => $processoId,
+                'categoria' => $categoria,
+                'nome_arquivo_sistema' => $systemName,
+                'nome_arquivo_original' => $originalName,
+                'caminho_arquivo' => $relativePath,
+            ];
+        }
+
+        return $stored;
+    }
+
+    private function normalizeUploadedFiles(?array $files): array
+    {
+        if (empty($files) || !isset($files['name'])) {
+            return [];
+        }
+
+        $normalized = [];
+
+        if (is_array($files['name'])) {
+            foreach ($files['name'] as $index => $name) {
+                $normalized[] = [
+                    'name' => $name,
+                    'type' => $files['type'][$index] ?? null,
+                    'tmp_name' => $files['tmp_name'][$index] ?? null,
+                    'error' => $files['error'][$index] ?? UPLOAD_ERR_NO_FILE,
+                    'size' => $files['size'][$index] ?? 0,
+                ];
+            }
+            return $normalized;
+        }
+
+        return [$files];
+    }
+
+    private function resolveUploadDirectory(string $month, string $day, string $storageContext, string $categoria): string
+    {
+        $segments = [
+            __DIR__ . '/../../uploads/',
+            sprintf('%02d', (int)$month) . '/',
+            sprintf('%02d', (int)$day) . '/',
+            trim($storageContext, '/') . '/',
+            trim($categoria, '/') . '/',
+        ];
+
+        return implode('', $segments);
+    }
+
+    private function buildRelativePath(string $month, string $day, string $storageContext, string $categoria, string $filename): string
+    {
+        return sprintf(
+            'uploads/%02d/%02d/%s/%s/%s',
+            (int)$month,
+            (int)$day,
+            trim($storageContext, '/'),
+            trim($categoria, '/'),
+            $filename
+        );
+    }
+
+    private function determineStorageContextKey(int $processoId, ?string $status = null, ?string $orcamentoNumero = null): string
+    {
+        if ($status === null || $orcamentoNumero === null) {
+            $stmt = $this->pdo->prepare('SELECT status_processo, orcamento_numero FROM processos WHERE id = ?');
+            $stmt->execute([$processoId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($row) {
+                $status = $status ?? $row['status_processo'];
+                $orcamentoNumero = $orcamentoNumero ?? $row['orcamento_numero'];
             }
         }
+
+        $status = is_string($status) ? mb_strtolower($status) : '';
+        if ($status === 'orçamento' || $status === 'orcamento') {
+            $safeNumber = preg_replace('/[^A-Za-z0-9_-]/', '', (string)$orcamentoNumero);
+            return $safeNumber ? 'orcamento-' . $safeNumber : 'orcamento';
+        }
+
+        return 'processo-' . $processoId;
+    }
+
+    private function replicarAnexosDeCategoria(int $processoId, string $categoriaOrigem, string $categoriaDestino, string $storageContext): void
+    {
+        $anexosOrigem = $this->getAnexosPorCategoria($processoId, $categoriaOrigem);
+        if (empty($anexosOrigem)) {
+            return;
+        }
+
+        $this->deleteAnexosByCategoria($processoId, $categoriaDestino);
+
+        $sql = "INSERT INTO processo_anexos (processo_id, categoria, nome_arquivo_sistema, nome_arquivo_original, caminho_arquivo) VALUES (?, ?, ?, ?, ?)";
+        $stmt = $this->pdo->prepare($sql);
+
+        foreach ($anexosOrigem as $anexo) {
+            $sourcePath = __DIR__ . '/../../' . ltrim($anexo['caminho_arquivo'], '/');
+            if (!is_file($sourcePath)) {
+                continue;
+            }
+
+            [$month, $day] = $this->extractDateSegmentsFromPath($anexo['caminho_arquivo']);
+            $month = $month ?? date('m');
+            $day = $day ?? date('d');
+
+            $destinationDir = $this->resolveUploadDirectory($month, $day, $storageContext, $categoriaDestino);
+            if (!is_dir($destinationDir) && !mkdir($destinationDir, 0775, true) && !is_dir($destinationDir)) {
+                continue;
+            }
+
+            $extension = strtolower(pathinfo($anexo['nome_arquivo_sistema'], PATHINFO_EXTENSION));
+            $systemName = uniqid($categoriaDestino . '_', true) . ($extension ? '.' . $extension : '');
+            $destination = $destinationDir . $systemName;
+
+            if (!copy($sourcePath, $destination)) {
+                continue;
+            }
+
+            $relativePath = $this->buildRelativePath($month, $day, $storageContext, $categoriaDestino, $systemName);
+            $stmt->execute([
+                $processoId,
+                $categoriaDestino,
+                $systemName,
+                $anexo['nome_arquivo_original'],
+                $relativePath,
+            ]);
+        }
+    }
+
+    private function deleteAnexosByCategoria(int $processoId, string $categoria): void
+    {
+        $stmt = $this->pdo->prepare('SELECT id, caminho_arquivo FROM processo_anexos WHERE processo_id = ? AND categoria = ?');
+        $stmt->execute([$processoId, $categoria]);
+        $anexos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (empty($anexos)) {
+            return;
+        }
+
+        $deleteStmt = $this->pdo->prepare('DELETE FROM processo_anexos WHERE id = ?');
+        foreach ($anexos as $anexo) {
+            $filePath = __DIR__ . '/../../' . ltrim($anexo['caminho_arquivo'], '/');
+            if (is_file($filePath)) {
+                @unlink($filePath);
+            }
+            $deleteStmt->execute([$anexo['id']]);
+        }
+    }
+
+    private function extractDateSegmentsFromPath(string $relativePath): array
+    {
+        $pattern = '#uploads/(\d{2})/(\d{2})/#';
+        if (preg_match($pattern, $relativePath, $matches)) {
+            return [$matches[1], $matches[2]];
+        }
+
+        return [null, null];
     }
 
     /** Busca os anexos de um processo por categoria.  */
     public function getAnexosPorCategoria($processoId, $categoria = 'anexo') {
-        $stmt = $this->pdo->prepare("SELECT * FROM processo_anexos WHERE processo_id = ? AND categoria = ? ORDER BY nome_arquivo_original");
-        $stmt->execute([$processoId, $categoria]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $categorias = is_array($categoria) ? $categoria : [$categoria];
+
+        $placeholders = implode(',', array_fill(0, count($categorias), '?'));
+        $params = array_merge([$processoId], $categorias);
+
+        $sql = "SELECT * FROM processo_anexos WHERE processo_id = ? AND categoria IN ($placeholders) ORDER BY nome_arquivo_original";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        $anexos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (empty($anexos) && in_array('traducao', $categorias, true) && !in_array('anexo', $categorias, true)) {
+            return $this->getAnexosPorCategoria($processoId, ['anexo']);
+        }
+
+        return $anexos;
     }
 
     /** Exclui um anexo (agora funciona para qualquer categoria).*/

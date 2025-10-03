@@ -11,10 +11,10 @@ $financeiroServicos = $financeiroServicos ?? [
     'Postagem' => [],
 ];
 
-$existingAttachments = $existingAttachments ?? ($anexos ?? []);
-if (!is_array($existingAttachments)) {
-    $existingAttachments = [];
-}
+$translationAttachments = isset($translationAttachments) && is_array($translationAttachments) ? $translationAttachments : [];
+$crcAttachments = isset($crcAttachments) && is_array($crcAttachments) ? $crcAttachments : [];
+$paymentProofAttachments = isset($paymentProofAttachments) && is_array($paymentProofAttachments) ? $paymentProofAttachments : [];
+$reuseTranslationForCrc = !empty($formData['reuseTraducaoForCrc'] ?? null);
 
 $legacyDocuments = $formData['documentos'] ?? [];
 $parseLegacyCurrency = static function ($value) {
@@ -259,22 +259,23 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
             </div>
 
             <div class="mt-6 space-y-4">
-                <h3 class="text-md font-semibold text-gray-800">Anexar documentos de tradução</h3>
-                <div class="space-y-2">
-                    <label for="anexos_traducao" class="sr-only">Escolher arquivos</label>
-                    <input type="file" name="anexos[]" id="anexos_traducao" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200">
-                    <p class="text-xs text-gray-600">
-                        <?php echo empty($existingAttachments)
-                            ? 'Sem nenhum arquivo anexado.'
-                            : 'Arquivos anexados anteriormente estão listados abaixo.'; ?>
-                    </p>
-                    <p class="text-xs text-gray-500">Inclua tradução, referências e outros documentos de tradução.</p>
+                <div class="flex items-center justify-between">
+                    <h3 class="text-md font-semibold text-gray-800">Anexar documentos de tradução</h3>
+                    <span class="text-xs text-blue-700 font-medium" data-upload-counter="translation">0 arquivos novos</span>
                 </div>
-                <?php if (!empty($existingAttachments)): ?>
+                <div class="space-y-2">
+                    <label for="fastTranslationFiles" class="sr-only">Escolher arquivos</label>
+                    <input type="file" name="translationFiles[]" id="fastTranslationFiles" multiple data-preview-target="translation" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200">
+                    <p class="text-xs text-gray-500">Inclua tradução, referências e outros documentos de apoio.</p>
+                    <ul class="text-xs text-gray-700 bg-white border border-blue-100 rounded-md divide-y" data-upload-preview="translation" data-empty-message="Nenhum arquivo selecionado.">
+                        <li class="py-2 px-3 text-gray-500" data-upload-placeholder="translation">Nenhum arquivo selecionado.</li>
+                    </ul>
+                </div>
+                <?php if (!empty($translationAttachments)): ?>
                     <div class="rounded-md border border-blue-200 bg-white p-4">
-                        <h4 class="text-sm font-semibold text-blue-700 mb-2">Documentos já anexados</h4>
+                        <h4 class="text-sm font-semibold text-blue-700 mb-2">Arquivos já anexados</h4>
                         <ul class="space-y-2">
-                            <?php foreach ($existingAttachments as $anexo): ?>
+                            <?php foreach ($translationAttachments as $anexo): ?>
                                 <li class="flex items-center justify-between text-sm text-gray-700">
                                     <a href="visualizar_anexo.php?id=<?= $anexo['id'] ?>" target="_blank" class="text-blue-600 hover:underline">
                                         <?= htmlspecialchars($anexo['nome_arquivo_original']); ?>
@@ -304,13 +305,65 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
                 <button type="button" class="add-doc-row bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700 transition duration-150 ease-in-out" data-section="crc">Adicionar</button>
             </div>
             <div class="space-y-2">
-                <h3 class="text-md font-semibold text-gray-800">Anexar documentos CRC</h3>
-                <input type="file" name="anexos[]" id="anexos_crc" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-green-100 file:text-green-700 hover:file:bg-green-200">
-                <p class="text-xs text-gray-600">Sem nenhum arquivo anexado.</p>
+                <div class="flex items-center justify-between">
+                    <h3 class="text-md font-semibold text-gray-800">Anexar documentos CRC</h3>
+                    <span class="text-xs text-green-700 font-medium" data-upload-counter="crc">0 arquivos novos</span>
+                </div>
+                <input type="file" name="crcFiles[]" id="fastCrcFiles" multiple data-preview-target="crc" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-green-100 file:text-green-700 hover:file:bg-green-200" <?php echo $reuseTranslationForCrc ? 'disabled' : ''; ?>>
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" id="fastReuseTranslationForCrc" name="reuseTraducaoForCrc" value="1" class="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500" <?php echo $reuseTranslationForCrc ? 'checked' : ''; ?>>
+                    <label for="fastReuseTranslationForCrc" class="text-xs text-gray-700">Reutilizar automaticamente os arquivos enviados para Tradução</label>
+                </div>
                 <p class="text-xs text-gray-500">Inclua arquivos legais para a etapa do CRC, como por exemplo, certidões.</p>
+                <ul class="text-xs text-gray-700 bg-white border border-green-100 rounded-md divide-y" data-upload-preview="crc" data-empty-message="Nenhum arquivo selecionado.">
+                    <li class="py-2 px-3 text-gray-500" data-upload-placeholder="crc"><?php echo $reuseTranslationForCrc ? 'Os arquivos de tradução serão reutilizados.' : 'Nenhum arquivo selecionado.'; ?></li>
+                </ul>
             </div>
             <div id="documentos-container-crc" class="space-y-4"></div>
+            <?php if (!empty($crcAttachments)): ?>
+                <div class="rounded-md border border-green-200 bg-white p-4">
+                    <h4 class="text-sm font-semibold text-green-700 mb-2">Arquivos já anexados</h4>
+                    <ul class="space-y-2">
+                        <?php foreach ($crcAttachments as $anexo): ?>
+                            <li class="flex items-center justify-between text-sm text-gray-700">
+                                <a href="visualizar_anexo.php?id=<?= $anexo['id'] ?>" target="_blank" class="text-green-600 hover:underline">
+                                    <?= htmlspecialchars($anexo['nome_arquivo_original']); ?>
+                                </a>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php endif; ?>
         </div>
+    </div>
+
+    <div class="bg-gray-50 p-6 rounded-lg shadow-lg border border-gray-200 mt-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-semibold text-gray-700">Comprovantes de Pagamento</h2>
+            <span class="text-xs text-gray-600 font-medium" data-upload-counter="payment">0 arquivos novos</span>
+        </div>
+        <div class="space-y-2">
+            <label for="fastPaymentProofFiles" class="sr-only">Escolher arquivos</label>
+            <input type="file" name="paymentProofFiles[]" id="fastPaymentProofFiles" multiple data-preview-target="payment" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-gray-200 file:text-gray-700 hover:file:bg-gray-300">
+            <p class="text-xs text-gray-500">Anexe comprovantes de pagamento para agilizar a conciliação financeira.</p>
+            <ul class="text-xs text-gray-700 bg-white border border-gray-200 rounded-md divide-y" data-upload-preview="payment" data-empty-message="Nenhum arquivo selecionado.">
+                <li class="py-2 px-3 text-gray-500" data-upload-placeholder="payment">Nenhum arquivo selecionado.</li>
+            </ul>
+        </div>
+        <?php if (!empty($paymentProofAttachments)): ?>
+            <div class="rounded-md border border-gray-200 bg-white p-4 mt-4">
+                <h4 class="text-sm font-semibold text-gray-700 mb-2">Comprovantes já anexados</h4>
+                <ul class="space-y-2">
+                    <?php foreach ($paymentProofAttachments as $anexo): ?>
+                        <li class="flex items-center justify-between text-sm text-gray-700">
+                            <a href="visualizar_anexo.php?id=<?= $anexo['id'] ?>" target="_blank" class="text-gray-700 hover:underline">
+                                <?= htmlspecialchars($anexo['nome_arquivo_original']); ?>
+                            </a>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
     </div>
 
     <div id="section-container-apostilamento" class="bg-yellow-50 p-6 rounded-lg shadow-lg border border-yellow-200 mt-6" style="display: none;">
@@ -400,7 +453,7 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700" for="billing_unique_receipt">Comprovante do pagamento</label>
-                        <input type="file" id="billing_unique_receipt" data-field-name="comprovantes[]" class="mt-1 block w-full text-sm text-gray-500">
+                        <input type="file" id="billing_unique_receipt" data-field-name="paymentProofFiles[]" class="mt-1 block w-full text-sm text-gray-500">
                     </div>
                 </div>
             </div>
@@ -418,7 +471,7 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700" for="billing_parcelado_receipt1">Comprovante da 1ª parcela</label>
-                        <input type="file" id="billing_parcelado_receipt1" data-field-name="comprovantes[]" class="mt-1 block w-full text-sm text-gray-500">
+                        <input type="file" id="billing_parcelado_receipt1" data-field-name="paymentProofFiles[]" class="mt-1 block w-full text-sm text-gray-500">
                     </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -432,7 +485,7 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700" for="billing_parcelado_receipt2">Comprovante da 2ª parcela</label>
-                        <input type="file" id="billing_parcelado_receipt2" data-field-name="comprovantes[]" class="mt-1 block w-full text-sm text-gray-500">
+                        <input type="file" id="billing_parcelado_receipt2" data-field-name="paymentProofFiles[]" class="mt-1 block w-full text-sm text-gray-500">
                     </div>
                 </div>
             </div>
@@ -450,7 +503,7 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700" for="billing_mensal_receipt">Comprovante do pagamento</label>
-                        <input type="file" id="billing_mensal_receipt" data-field-name="comprovantes[]" class="mt-1 block w-full text-sm text-gray-500">
+                        <input type="file" id="billing_mensal_receipt" data-field-name="paymentProofFiles[]" class="mt-1 block w-full text-sm text-gray-500">
                     </div>
                 </div>
             </div>
@@ -576,6 +629,95 @@ document.addEventListener('DOMContentLoaded', function () {
     let clienteCache = { tipo: 'À vista', servicos: [] };
     const billingTypeSelect = document.getElementById('billing_type');
     const billingSections = document.querySelectorAll('[data-billing-section]');
+
+    function setPreviewMessage(target, message = null) {
+        const preview = document.querySelector(`[data-upload-preview="${target}"]`);
+        if (!preview) {
+            return;
+        }
+
+        preview.innerHTML = '';
+        const item = document.createElement('li');
+        item.className = 'py-2 px-3 text-gray-500';
+        item.dataset.uploadPlaceholder = target;
+        item.textContent = message || preview.dataset.emptyMessage || 'Nenhum arquivo selecionado.';
+        preview.appendChild(item);
+    }
+
+    function refreshUploadSummary(input) {
+        if (!input) {
+            return;
+        }
+
+        const target = input.dataset.previewTarget;
+        if (!target) {
+            return;
+        }
+
+        const preview = document.querySelector(`[data-upload-preview="${target}"]`);
+        const counter = document.querySelector(`[data-upload-counter="${target}"]`);
+        if (!preview) {
+            return;
+        }
+
+        const files = Array.from(input.files || []);
+        if (files.length === 0) {
+            setPreviewMessage(target);
+            if (counter) {
+                counter.textContent = '0 arquivos novos';
+            }
+            return;
+        }
+
+        preview.innerHTML = '';
+        files.forEach(file => {
+            const item = document.createElement('li');
+            item.className = 'py-2 px-3 flex items-center justify-between gap-3';
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'truncate font-medium text-gray-700';
+            nameSpan.textContent = file.name;
+
+            const sizeSpan = document.createElement('span');
+            sizeSpan.className = 'text-gray-500 text-[11px] uppercase';
+            sizeSpan.textContent = `${(file.size / 1024).toFixed(1)} KB`;
+
+            item.appendChild(nameSpan);
+            item.appendChild(sizeSpan);
+            preview.appendChild(item);
+        });
+
+        if (counter) {
+            counter.textContent = files.length === 1 ? '1 arquivo novo' : `${files.length} arquivos novos`;
+        }
+    }
+
+    const uploadInputs = document.querySelectorAll('input[type="file"][data-preview-target]');
+    uploadInputs.forEach(input => {
+        input.addEventListener('change', () => refreshUploadSummary(input));
+    });
+
+    const fastReuseCheckbox = document.getElementById('fastReuseTranslationForCrc');
+    const fastCrcInput = document.getElementById('fastCrcFiles');
+    if (fastReuseCheckbox && fastCrcInput) {
+        const applyReuseState = () => {
+            if (fastReuseCheckbox.checked) {
+                fastCrcInput.value = '';
+                fastCrcInput.setAttribute('disabled', 'disabled');
+                setPreviewMessage('crc', 'Os arquivos de tradução serão reutilizados.');
+                const counter = document.querySelector('[data-upload-counter="crc"]');
+                if (counter) {
+                    counter.textContent = '0 arquivos novos';
+                }
+            } else {
+                fastCrcInput.removeAttribute('disabled');
+                setPreviewMessage('crc');
+            }
+        };
+
+        fastReuseCheckbox.addEventListener('change', applyReuseState);
+        applyReuseState();
+    }
 
     // --- Campo oculto para controle de status proposto ---
     // Criado dinamicamente para que o backend saiba se o serviço deve iniciar 'Pendente' ou 'Em andamento'.
