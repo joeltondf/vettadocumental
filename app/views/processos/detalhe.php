@@ -70,13 +70,12 @@ $isAprovadoOuSuperior = !in_array($status, ['Orçamento', 'Orçamento Pendente',
             <?php echo htmlspecialchars($status); ?>
         </span>
         <?php if (!empty($leadConversionContext['shouldRender'])): ?>
-            <button
-                type="button"
-                id="open-lead-conversion-modal"
+            <a
+                href="processos.php?action=convert_to_service_client&id=<?php echo (int)$processo['id']; ?>"
                 class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg shadow-sm"
             >
                 Converter em Serviço
-            </button>
+            </a>
         <?php endif; ?>
         <a
             href="processos.php?action=exibir_orcamento&id=<?php echo $processo['id']; ?>"
@@ -115,22 +114,6 @@ $isAprovadoOuSuperior = !in_array($status, ['Orçamento', 'Orçamento Pendente',
                 </div>
             </div>
         </div>
-        <?php if (!empty($leadConversionContext['shouldRender'])): ?>
-            <div
-                id="lead-conversion-modal"
-                class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black bg-opacity-60"
-                aria-hidden="true"
-            >
-                <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl lg:w-4/5 xl:w-3/4 overflow-y-auto" style="max-height: 80vh;">
-                    <div class="sticky top-0 flex items-center justify-end px-6 py-4 bg-white border-b border-gray-200">
-                        <button type="button" id="close-lead-conversion-modal" class="text-sm text-gray-500 hover:text-gray-700">Fechar ✕</button>
-                    </div>
-                    <div class="px-6 pb-6">
-                        <?php include __DIR__ . '/request_service_form.php'; ?>
-                    </div>
-                </div>
-            </div>
-        <?php endif; ?>
         <div class="bg-white shadow-lg rounded-lg p-6">
             <h2 class="text-xl font-semibold text-gray-700 border-b pb-3 mb-4">
                 <?php if ($processo['status_processo'] == 'Orçamento'): ?>
@@ -912,10 +895,6 @@ $isAprovadoOuSuperior = !in_array($status, ['Orçamento', 'Orçamento Pendente',
 </style>
 
 
-<?php if (!empty($leadConversionContext['shouldRender'])): ?>
-    <script src="assets/js/city-autocomplete.js"></script>
-    <script src="assets/js/wizard-controller.js"></script>
-<?php endif; ?>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
 
@@ -932,48 +911,6 @@ document.addEventListener('DOMContentLoaded', function() {
       inputEl.value = `${yyyy}-${mm}-${dd}`;
     }
   };
-
-  const leadConversionModal = $id('lead-conversion-modal');
-  const closeLeadConversionModalBtn = $id('close-lead-conversion-modal');
-  const openLeadConversionModalBtn = $id('open-lead-conversion-modal');
-
-  const toggleBodyScroll = (shouldLock) => {
-    if (!document.body) {
-      return;
-    }
-    document.body.classList[shouldLock ? 'add' : 'remove']('overflow-hidden');
-  };
-
-  const showLeadConversionModal = () => {
-    if (!leadConversionModal) {
-      return;
-    }
-    leadConversionModal.classList.remove('hidden');
-    leadConversionModal.setAttribute('aria-hidden', 'false');
-    toggleBodyScroll(true);
-  };
-
-  const hideLeadConversionModal = () => {
-    if (!leadConversionModal) {
-      return;
-    }
-    leadConversionModal.classList.add('hidden');
-    leadConversionModal.setAttribute('aria-hidden', 'true');
-    toggleBodyScroll(false);
-  };
-
-  if (openLeadConversionModalBtn) {
-    openLeadConversionModalBtn.addEventListener('click', showLeadConversionModal);
-  }
-
-  if (leadConversionModal && closeLeadConversionModalBtn) {
-    closeLeadConversionModalBtn.addEventListener('click', hideLeadConversionModal);
-    leadConversionModal.addEventListener('click', (event) => {
-      if (event.target === leadConversionModal) {
-        hideLeadConversionModal();
-      }
-    });
-  }
 
   //-----------------------------------------------------
   // Lógica 1: Validação de Mudança de Status para "Aprovado" / "Em Andamento"
