@@ -48,6 +48,10 @@ $financeiroServicos = [
     'Tradução' => $tipos_traducao,
     'CRC' => $tipos_crc,
 ];
+$translationAttachments = isset($translationAttachments) && is_array($translationAttachments) ? $translationAttachments : [];
+$crcAttachments = isset($crcAttachments) && is_array($crcAttachments) ? $crcAttachments : [];
+$paymentProofAttachments = isset($paymentProofAttachments) && is_array($paymentProofAttachments) ? $paymentProofAttachments : [];
+$reuseTranslationForCrc = !empty($processo['reuseTraducaoForCrc'] ?? $formData['reuseTraducaoForCrc'] ?? null);
 ?>
 
 <div class="flex items-center justify-between mb-6">
@@ -214,23 +218,30 @@ $financeiroServicos = [
                 </div>
             </div>
             <div class="space-y-4">
-                <h3 class="text-md font-semibold text-gray-800">Anexar documentos de tradução</h3>
-                <div class="space-y-2">
-                    <label class="sr-only" for="anexos_traducao">Escolher arquivos</label>
-                    <input type="file" name="anexos[]" id="anexos_traducao" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200">
-                    <p class="text-xs text-gray-600">Sem nenhum arquivo anexado.</p>
-                    <p class="text-xs text-gray-500">Inclua tradução, referências e outros documentos de tradução.</p>
+                <div class="flex items-center justify-between">
+                    <h3 class="text-md font-semibold text-gray-800">Anexar documentos de tradução</h3>
+                    <span class="text-xs text-blue-700 font-medium" data-upload-counter="translation">0 arquivos novos</span>
                 </div>
-                <?php if (!empty($anexos)): ?>
+                <div class="space-y-2">
+                    <label class="sr-only" for="translationFiles">Escolher arquivos</label>
+                    <input type="file" name="translationFiles[]" id="translationFiles" multiple data-preview-target="translation" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200">
+                    <p class="text-xs text-gray-500">Inclua tradução, referências e outros documentos necessários.</p>
+                    <ul class="text-xs text-gray-700 bg-white border border-blue-100 rounded-md divide-y" data-upload-preview="translation" data-empty-message="Nenhum arquivo selecionado.">
+                        <li class="py-2 px-3 text-gray-500" data-upload-placeholder="translation">Nenhum arquivo selecionado.</li>
+                    </ul>
+                </div>
+                <?php if (!empty($translationAttachments)): ?>
                     <div class="rounded-md border border-blue-200 bg-white p-4">
-                        <h4 class="text-sm font-semibold text-blue-700 mb-2">Documentos para Tradução</h4>
-                        <ul class="space-y-2" data-translation-attachments-list>
-                            <?php foreach ($anexos as $anexo): ?>
+                        <h4 class="text-sm font-semibold text-blue-700 mb-2">Arquivos já anexados</h4>
+                        <ul class="space-y-2">
+                            <?php foreach ($translationAttachments as $anexo): ?>
                                 <li class="flex items-center justify-between text-sm text-gray-700">
                                     <a href="visualizar_anexo.php?id=<?= $anexo['id'] ?>" target="_blank" class="text-blue-600 hover:underline">
                                         <?= htmlspecialchars($anexo['nome_arquivo_original']); ?>
                                     </a>
-                                    <a href="processos.php?action=excluir_anexo&id=<?= $processo['id'] ?>&anexo_id=<?= $anexo['id'] ?>" class="text-red-500 hover:text-red-700 text-xs font-semibold" onclick="return confirm('Tem certeza que deseja excluir este anexo?');">Remover</a>
+                                    <?php if (!empty($processo['id'])): ?>
+                                        <a href="processos.php?action=excluir_anexo&id=<?= $processo['id'] ?>&anexo_id=<?= $anexo['id'] ?>" class="text-red-500 hover:text-red-700 text-xs font-semibold" onclick="return confirm('Tem certeza que deseja excluir este anexo?');">Remover</a>
+                                    <?php endif; ?>
                                 </li>
                             <?php endforeach; ?>
                         </ul>
@@ -253,12 +264,21 @@ $financeiroServicos = [
         <fieldset class="border border-green-200 rounded-md p-6 bg-green-50 space-y-6">
             <legend class="text-lg font-semibold text-green-800 px-2 ml-4">Documentos CRC</legend>
             <div class="space-y-4">
-                <h3 class="text-md font-semibold text-gray-800">Anexar documentos CRC</h3>
+                <div class="flex items-center justify-between">
+                    <h3 class="text-md font-semibold text-gray-800">Anexar documentos CRC</h3>
+                    <span class="text-xs text-green-700 font-medium" data-upload-counter="crc">0 arquivos novos</span>
+                </div>
                 <div class="space-y-2">
-                    <label class="sr-only" for="anexos_crc">Escolher arquivos</label>
-                    <input type="file" name="anexos[]" id="anexos_crc" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-green-100 file:text-green-700 hover:file:bg-green-200">
-                    <p class="text-xs text-gray-600">Sem nenhum arquivo anexado.</p>
+                    <label class="sr-only" for="crcFiles">Escolher arquivos</label>
+                    <input type="file" name="crcFiles[]" id="crcFiles" multiple data-preview-target="crc" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-green-100 file:text-green-700 hover:file:bg-green-200" <?php echo $reuseTranslationForCrc ? 'disabled' : ''; ?>>
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" id="reuseTranslationForCrc" name="reuseTraducaoForCrc" value="1" class="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500" <?php echo $reuseTranslationForCrc ? 'checked' : ''; ?>>
+                        <label for="reuseTranslationForCrc" class="text-xs text-gray-700">Reutilizar automaticamente os arquivos enviados para Tradução</label>
+                    </div>
                     <p class="text-xs text-gray-500">Inclua arquivos legais para a etapa do CRC, como por exemplo, certidões.</p>
+                    <ul class="text-xs text-gray-700 bg-white border border-green-100 rounded-md divide-y" data-upload-preview="crc" data-empty-message="Nenhum arquivo selecionado.">
+                        <li class="py-2 px-3 text-gray-500" data-upload-placeholder="crc"><?php echo $reuseTranslationForCrc ? 'Os arquivos de tradução serão reutilizados.' : 'Nenhum arquivo selecionado.'; ?></li>
+                    </ul>
                 </div>
             </div>
             <div class="space-y-4">
@@ -268,6 +288,57 @@ $financeiroServicos = [
                 </div>
                 <div class="doc-container space-y-3" data-container-type="crc"></div>
             </div>
+            <?php if (!empty($crcAttachments)): ?>
+                <div class="rounded-md border border-green-200 bg-white p-4">
+                    <h4 class="text-sm font-semibold text-green-700 mb-2">Arquivos já anexados</h4>
+                    <ul class="space-y-2">
+                        <?php foreach ($crcAttachments as $anexo): ?>
+                            <li class="flex items-center justify-between text-sm text-gray-700">
+                                <a href="visualizar_anexo.php?id=<?= $anexo['id'] ?>" target="_blank" class="text-green-600 hover:underline">
+                                    <?= htmlspecialchars($anexo['nome_arquivo_original']); ?>
+                                </a>
+                                <?php if (!empty($processo['id'])): ?>
+                                    <a href="processos.php?action=excluir_anexo&id=<?= $processo['id'] ?>&anexo_id=<?= $anexo['id'] ?>" class="text-red-500 hover:text-red-700 text-xs font-semibold" onclick="return confirm('Tem certeza que deseja excluir este anexo?');">Remover</a>
+                                <?php endif; ?>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php endif; ?>
+        </fieldset>
+    </div>
+
+    <div class="mt-6">
+        <fieldset class="border border-gray-200 rounded-md p-6 bg-gray-50 space-y-4">
+            <div class="flex items-center justify-between">
+                <legend class="text-lg font-semibold text-gray-700 px-2">Comprovantes de Pagamento</legend>
+                <span class="text-xs text-gray-600 font-medium" data-upload-counter="payment">0 arquivos novos</span>
+            </div>
+            <div class="space-y-2">
+                <label class="sr-only" for="paymentProofFiles">Escolher arquivos</label>
+                <input type="file" name="paymentProofFiles[]" id="paymentProofFiles" multiple data-preview-target="payment" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-gray-200 file:text-gray-700 hover:file:bg-gray-300">
+                <p class="text-xs text-gray-500">Faça o upload de comprovantes de pagamento para registrar entradas financeiras.</p>
+                <ul class="text-xs text-gray-700 bg-white border border-gray-200 rounded-md divide-y" data-upload-preview="payment" data-empty-message="Nenhum arquivo selecionado.">
+                    <li class="py-2 px-3 text-gray-500" data-upload-placeholder="payment">Nenhum arquivo selecionado.</li>
+                </ul>
+            </div>
+            <?php if (!empty($paymentProofAttachments)): ?>
+                <div class="rounded-md border border-gray-200 bg-white p-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">Comprovantes já anexados</h4>
+                    <ul class="space-y-2">
+                        <?php foreach ($paymentProofAttachments as $anexo): ?>
+                            <li class="flex items-center justify-between text-sm text-gray-700">
+                                <a href="visualizar_anexo.php?id=<?= $anexo['id'] ?>" target="_blank" class="text-gray-700 hover:underline">
+                                    <?= htmlspecialchars($anexo['nome_arquivo_original']); ?>
+                                </a>
+                                <?php if (!empty($processo['id'])): ?>
+                                    <a href="processos.php?action=excluir_anexo&id=<?= $processo['id'] ?>&anexo_id=<?= $anexo['id'] ?>" class="text-red-500 hover:text-red-700 text-xs font-semibold" onclick="return confirm('Tem certeza que deseja excluir este anexo?');">Remover</a>
+                                <?php endif; ?>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php endif; ?>
         </fieldset>
     </div>
 
@@ -465,6 +536,95 @@ document.addEventListener('DOMContentLoaded', function() {
     function formatInteger(value) {
         if (!value) return '0';
         return String(value).replace(/\D/g, '');
+    }
+
+    function setPreviewMessage(target, message = null) {
+        const preview = document.querySelector(`[data-upload-preview="${target}"]`);
+        if (!preview) {
+            return;
+        }
+
+        preview.innerHTML = '';
+        const item = document.createElement('li');
+        item.className = 'py-2 px-3 text-gray-500';
+        item.dataset.uploadPlaceholder = target;
+        item.textContent = message || preview.dataset.emptyMessage || 'Nenhum arquivo selecionado.';
+        preview.appendChild(item);
+    }
+
+    function refreshUploadSummary(input) {
+        if (!input) {
+            return;
+        }
+
+        const target = input.dataset.previewTarget;
+        if (!target) {
+            return;
+        }
+
+        const preview = document.querySelector(`[data-upload-preview="${target}"]`);
+        const counter = document.querySelector(`[data-upload-counter="${target}"]`);
+        if (!preview) {
+            return;
+        }
+
+        const files = Array.from(input.files || []);
+        if (files.length === 0) {
+            setPreviewMessage(target);
+            if (counter) {
+                counter.textContent = '0 arquivos novos';
+            }
+            return;
+        }
+
+        preview.innerHTML = '';
+        files.forEach(file => {
+            const item = document.createElement('li');
+            item.className = 'py-2 px-3 flex items-center justify-between gap-3';
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'truncate font-medium text-gray-700';
+            nameSpan.textContent = file.name;
+
+            const sizeSpan = document.createElement('span');
+            sizeSpan.className = 'text-gray-500 text-[11px] uppercase';
+            sizeSpan.textContent = `${(file.size / 1024).toFixed(1)} KB`;
+
+            item.appendChild(nameSpan);
+            item.appendChild(sizeSpan);
+            preview.appendChild(item);
+        });
+
+        if (counter) {
+            counter.textContent = files.length === 1 ? '1 arquivo novo' : `${files.length} arquivos novos`;
+        }
+    }
+
+    const uploadInputs = document.querySelectorAll('input[type="file"][data-preview-target]');
+    uploadInputs.forEach(input => {
+        input.addEventListener('change', () => refreshUploadSummary(input));
+    });
+
+    const reuseCrcCheckbox = document.getElementById('reuseTranslationForCrc');
+    const crcInput = document.getElementById('crcFiles');
+    if (reuseCrcCheckbox && crcInput) {
+        const applyReuseState = () => {
+            if (reuseCrcCheckbox.checked) {
+                crcInput.value = '';
+                crcInput.setAttribute('disabled', 'disabled');
+                setPreviewMessage('crc', 'Os arquivos de tradução serão reutilizados.');
+                const counter = document.querySelector('[data-upload-counter="crc"]');
+                if (counter) {
+                    counter.textContent = '0 arquivos novos';
+                }
+            } else {
+                crcInput.removeAttribute('disabled');
+                setPreviewMessage('crc');
+            }
+        };
+
+        reuseCrcCheckbox.addEventListener('change', applyReuseState);
+        applyReuseState();
     }
 
     function getAvailableServices(servicoTipo) {

@@ -102,8 +102,9 @@ class ProcessosController
             exit();
         }
 
-        $anexos = $this->processoModel->getAnexosPorCategoria($id, 'anexo');
-        $comprovantes = $this->processoModel->getAnexosPorCategoria($id, 'comprovante');
+        $translationAttachments = $this->processoModel->getAnexosPorCategoria($id, ['traducao']);
+        $crcAttachments = $this->processoModel->getAnexosPorCategoria($id, ['crc']);
+        $paymentProofAttachments = $this->processoModel->getAnexosPorCategoria($id, ['comprovante']);
         $cliente = null;
         if (!empty($processoData['processo']['cliente_id'])) {
             $cliente = $this->clienteModel->getById((int)$processoData['processo']['cliente_id']);
@@ -113,8 +114,9 @@ class ProcessosController
         $this->render('detalhe', [
             'processo' => $processoData['processo'],
             'documentos' => $processoData['documentos'],
-            'anexos' => $anexos,
-            'comprovantes' => $comprovantes,
+            'translationAttachments' => $translationAttachments,
+            'crcAttachments' => $crcAttachments,
+            'paymentProofAttachments' => $paymentProofAttachments,
             'cliente' => $cliente,
             'leadConversionContext' => $leadConversionContext,
             'pageTitle' => $pageTitle,
@@ -197,6 +199,9 @@ class ProcessosController
             'tipos_crc' => $tipos_crc,
             'pageTitle' => $pageTitle,
             'formData' => $formData,
+            'translationAttachments' => [],
+            'crcAttachments' => [],
+            'paymentProofAttachments' => [],
         ]);
     }
 
@@ -386,8 +391,9 @@ class ProcessosController
             exit();
         }
 
-        $anexos = $this->processoModel->getAnexosPorCategoria($id, 'anexo');
-        $comprovantes = $this->processoModel->getAnexosPorCategoria($id, 'comprovante');
+        $translationAttachments = $this->processoModel->getAnexosPorCategoria($id, ['traducao']);
+        $crcAttachments = $this->processoModel->getAnexosPorCategoria($id, ['crc']);
+        $paymentProofAttachments = $this->processoModel->getAnexosPorCategoria($id, ['comprovante']);
         $processo = $processoData['processo'];
         $formData = $this->consumeFormInput(self::SESSION_KEY_PROCESS_FORM);
 
@@ -410,8 +416,9 @@ class ProcessosController
         $this->render('form', [
             'processo' => !empty($formData) ? array_merge($processo, $formData) : $processo,
             'documentos' => $processoData['documentos'],
-            'anexos' => $anexos,
-            'comprovantes' => $comprovantes,
+            'translationAttachments' => $translationAttachments,
+            'crcAttachments' => $crcAttachments,
+            'paymentProofAttachments' => $paymentProofAttachments,
             'clientes' => $this->getClientesForOrcamentoForm($processo),
             'vendedores' => $this->vendedorModel->getAll(),
             'tradutores' => $this->tradutorModel->getAll(),
@@ -479,6 +486,9 @@ class ProcessosController
             'financeiroServicos' => $financeiroServicos,
             'pageTitle' => $pageTitle,
             'formData' => $formData,
+            'translationAttachments' => [],
+            'crcAttachments' => [],
+            'paymentProofAttachments' => [],
         ]);
     }
 
@@ -858,11 +868,15 @@ class ProcessosController
     {
         $this->auth_check();
         $processo_info = $this->processoModel->getById($id);
-        $anexos = $this->processoModel->getAnexos($id);
+        $translationAttachments = $this->processoModel->getAnexosPorCategoria($id, ['traducao']);
+        $crcAttachments = $this->processoModel->getAnexosPorCategoria($id, ['crc']);
+        $paymentProofAttachments = $this->processoModel->getAnexosPorCategoria($id, ['comprovante']);
         $this->render('processos/detalhe', [
             'processo' => $processo_info['processo'],
             'documentos' => $processo_info['documentos'],
-            'anexos' => $anexos,
+            'translationAttachments' => $translationAttachments,
+            'crcAttachments' => $crcAttachments,
+            'paymentProofAttachments' => $paymentProofAttachments,
             'pageTitle' => 'Detalhes do Processo',
         ]);
     }
