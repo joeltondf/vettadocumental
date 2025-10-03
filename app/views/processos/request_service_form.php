@@ -38,6 +38,7 @@ $prazoAcordado = $clienteContext['prazo_acordado_dias'] ?? ($context['prazoAcord
         method="POST"
         enctype="multipart/form-data"
         data-wizard-form
+        data-step-endpoint="processos.php?action=lead_conversion_step"
     >
         <input type="hidden" name="id" value="<?php echo (int)$processo['id']; ?>">
         <input type="hidden" name="status_processo" value="<?php echo htmlspecialchars($context['statusDestino'] ?? 'Serviço Pendente'); ?>">
