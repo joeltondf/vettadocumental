@@ -660,24 +660,279 @@ class ProcessosController
         }
 
         $leadConversionRequested = $this->isLeadConversionRequest($_POST);
+
+        try {
+            $resultadoAlteracao = $this->applyStatusChange($processoId, $processo, $novoStatus, $_POST, $leadConversionRequested);
+        } catch (Throwable $exception) {
+            error_log('Erro ao atualizar status do processo: ' . $exception->getMessage());
+            $_SESSION['error_message'] = 'Erro ao atualizar o processo: ' . $exception->getMessage();
+            header('Location: processos.php?action=view&id=' . $processoId);
+            exit();
+        }
+
+        $clienteId = $resultadoAlteracao['clienteId'];
+        $statusAnterior = $resultadoAlteracao['statusAnterior'];
+
+        $this->finalizeStatusChange(
+            $processoId,
+            $processo,
+            $novoStatus,
+            $statusAnterior,
+            $clienteId,
+            $leadConversionRequested
+        );
+
+        header('Location: processos.php?action=view&id=' . $processoId);
+        exit();
+    }
+
+    public function convertToServiceClient($id)
+    {
+        $processId = (int)$id;
+        if ($processId <= 0) {
+            header('Location: dashboard.php');
+            exit();
+        }
+
+        $processData = $this->processoModel->getById($processId);
+        if (!$processData || !isset($processData['processo'])) {
+            $_SESSION['error_message'] = 'Processo não encontrado.';
+            header('Location: dashboard.php');
+            exit();
+        }
+
+        $process = $processData['processo'];
+        $customer = null;
+        if (!empty($process['cliente_id'])) {
+            $customer = $this->clienteModel->getById((int)$process['cliente_id']);
+        }
+
+        $conversionContext = $this->requireConversionContext($processId, $process, $customer);
+        $budgetProducts = $conversionContext['produtos'] ?? (new CategoriaFinanceira($this->pdo))->getProdutosOrcamento();
+        $existingSubscriptions = $conversionContext['servicosMensalistas'] ?? [];
+        $formData = $this->prepareClientConversionInitialData($process, $conversionContext);
+        $submittedServices = [];
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $formData = array_merge($formData, $_POST);
+            $submittedServices = $this->normalizeSubmittedSubscriptionServices($_POST);
+
+            try {
+                $this->pdo->beginTransaction();
+                $currentCustomerId = (int)($process['cliente_id'] ?? 0);
+                $customerId = $this->handleLeadConversion($processId, $currentCustomerId, $_POST);
+                $this->processoModel->updateFromLeadConversion($processId, [
+                    'cliente_id' => $customerId > 0 ? $customerId : null,
+                ]);
+                $this->pdo->commit();
+
+                $syncResult = $this->attemptSyncConvertedClientWithOmie($customerId);
+                if (!$syncResult['success']) {
+                    $_SESSION['warning_message'] = $syncResult['message'] ?? 'Cliente salvo, mas não foi possível sincronizar com a Omie.';
+                } else {
+                    $_SESSION['success_message'] = $syncResult['message'] ?? 'Cliente atualizado com sucesso.';
+                }
+
+                header('Location: processos.php?action=convert_to_service_deadline&id=' . $processId);
+                exit();
+            } catch (InvalidArgumentException $exception) {
+                $this->pdo->rollBack();
+                $_SESSION['error_message'] = $exception->getMessage();
+            } catch (Throwable $exception) {
+                $this->pdo->rollBack();
+                error_log('Erro ao salvar dados do cliente na conversão: ' . $exception->getMessage());
+                $_SESSION['error_message'] = 'Erro ao salvar os dados do cliente.';
+            }
+        }
+
+        $pageTitle = 'Converter em Serviço — Dados do Cliente';
+
+        $this->render('conversao_cliente', [
+            'processo' => $process,
+            'formData' => $formData,
+            'produtosOrcamento' => $budgetProducts,
+            'servicosMensalistas' => !empty($submittedServices) ? $submittedServices : $existingSubscriptions,
+            'submittedServices' => !empty($submittedServices) ? $submittedServices : [],
+            'pageTitle' => $pageTitle,
+        ]);
+    }
+
+    public function convertToServiceDeadline($id)
+    {
+        $processId = (int)$id;
+        if ($processId <= 0) {
+            header('Location: dashboard.php');
+            exit();
+        }
+
+        $processData = $this->processoModel->getById($processId);
+        if (!$processData || !isset($processData['processo'])) {
+            $_SESSION['error_message'] = 'Processo não encontrado.';
+            header('Location: dashboard.php');
+            exit();
+        }
+
+        $process = $processData['processo'];
+        $customer = null;
+        if (!empty($process['cliente_id'])) {
+            $customer = $this->clienteModel->getById((int)$process['cliente_id']);
+        }
+
+        $this->requireConversionContext($processId, $process, $customer);
+
+        if (empty($process['cliente_id'])) {
+            $_SESSION['error_message'] = 'Cadastre os dados do cliente antes de definir o prazo.';
+            header('Location: processos.php?action=convert_to_service_client&id=' . $processId);
+            exit();
+        }
+
+        $formData = [
+            'data_inicio_traducao' => $process['data_inicio_traducao'] ?? date('Y-m-d'),
+            'traducao_prazo_tipo' => $process['traducao_prazo_tipo'] ?? 'dias',
+            'traducao_prazo_dias' => $process['traducao_prazo_dias'] ?? '',
+            'traducao_prazo_data' => $process['traducao_prazo_data'] ?? '',
+        ];
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $formData = array_merge($formData, $_POST);
+
+            try {
+                $this->validateWizardProcessData($process, $_POST, false);
+
+                $payload = [
+                    'data_inicio_traducao' => $_POST['data_inicio_traducao'] ?? null,
+                    'traducao_prazo_tipo' => $_POST['traducao_prazo_tipo'] ?? null,
+                    'traducao_prazo_dias' => ($_POST['traducao_prazo_tipo'] ?? '') === 'dias'
+                        ? ($_POST['traducao_prazo_dias'] ?? null)
+                        : null,
+                    'traducao_prazo_data' => ($_POST['traducao_prazo_tipo'] ?? '') === 'data'
+                        ? ($_POST['traducao_prazo_data'] ?? null)
+                        : null,
+                ];
+
+                if (!$this->processoModel->updateFromLeadConversion($processId, $payload)) {
+                    throw new RuntimeException('Falha ao salvar o prazo do serviço.');
+                }
+
+                $_SESSION['success_message'] = 'Prazo do serviço atualizado. Informe os dados de pagamento.';
+                header('Location: processos.php?action=convert_to_service_payment&id=' . $processId);
+                exit();
+            } catch (InvalidArgumentException $exception) {
+                $_SESSION['error_message'] = $exception->getMessage();
+            } catch (Throwable $exception) {
+                error_log('Erro ao salvar prazo da conversão: ' . $exception->getMessage());
+                $_SESSION['error_message'] = 'Erro ao salvar o prazo do serviço.';
+            }
+        }
+
+        $pageTitle = 'Converter em Serviço — Prazo';
+
+        $this->render('conversao_prazo', [
+            'processo' => $process,
+            'formData' => $formData,
+            'pageTitle' => $pageTitle,
+        ]);
+    }
+
+    public function convertToServicePayment($id)
+    {
+        $processId = (int)$id;
+        if ($processId <= 0) {
+            header('Location: dashboard.php');
+            exit();
+        }
+
+        $processData = $this->processoModel->getById($processId);
+        if (!$processData || !isset($processData['processo'])) {
+            $_SESSION['error_message'] = 'Processo não encontrado.';
+            header('Location: dashboard.php');
+            exit();
+        }
+
+        $process = $processData['processo'];
+        $customer = null;
+        if (!empty($process['cliente_id'])) {
+            $customer = $this->clienteModel->getById((int)$process['cliente_id']);
+        }
+
+        $this->requireConversionContext($processId, $process, $customer);
+
+        if (empty($process['cliente_id'])) {
+            $_SESSION['error_message'] = 'Cadastre os dados do cliente antes de finalizar a conversão.';
+            header('Location: processos.php?action=convert_to_service_client&id=' . $processId);
+            exit();
+        }
+
+        if (empty($process['data_inicio_traducao'])) {
+            $_SESSION['error_message'] = 'Defina o prazo do serviço antes de informar os dados de pagamento.';
+            header('Location: processos.php?action=convert_to_service_deadline&id=' . $processId);
+            exit();
+        }
+
+        $formData = [
+            'forma_cobranca' => $process['orcamento_forma_pagamento'] ?? 'À vista',
+            'valor_total' => $process['valor_total'] ?? '',
+            'valor_entrada' => $process['orcamento_valor_entrada'] ?? '',
+            'parcelas' => $process['orcamento_parcelas'] ?? 1,
+            'data_pagamento_1' => $process['data_pagamento_1'] ?? '',
+            'data_pagamento_2' => $process['data_pagamento_2'] ?? '',
+        ];
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $formData = array_merge($formData, $_POST);
+
+            try {
+                $resultadoAlteracao = $this->applyStatusChange($processId, $process, 'Serviço Pendente', $_POST, false);
+                $this->finalizeStatusChange(
+                    $processId,
+                    $process,
+                    'Serviço Pendente',
+                    $resultadoAlteracao['statusAnterior'],
+                    $resultadoAlteracao['clienteId'],
+                    true
+                );
+
+                header('Location: processos.php?action=view&id=' . $processId);
+                exit();
+            } catch (InvalidArgumentException $exception) {
+                $_SESSION['error_message'] = $exception->getMessage();
+            } catch (Throwable $exception) {
+                error_log('Erro ao concluir conversão em serviço: ' . $exception->getMessage());
+                $_SESSION['error_message'] = 'Erro ao salvar os dados de pagamento.';
+            }
+        }
+
+        $pageTitle = 'Converter em Serviço — Pagamento';
+
+        $this->render('conversao_pagamento', [
+            'processo' => $process,
+            'formData' => $formData,
+            'pageTitle' => $pageTitle,
+        ]);
+    }
+
+    private function applyStatusChange(int $processId, array $process, string $newStatus, array $input, bool $leadConversionRequested): array
+    {
+        $customerId = (int)($process['cliente_id'] ?? 0);
+        $previousStatus = $process['status_processo'] ?? '';
         $uploadedProofs = [];
 
         try {
             $this->pdo->beginTransaction();
 
             if ($leadConversionRequested) {
-                $clienteId = $this->handleLeadConversion($processoId, $clienteId, $_POST);
-                $processo['cliente_id'] = $clienteId;
+                $customerId = $this->handleLeadConversion($processId, $customerId, $input);
+                $process['cliente_id'] = $customerId;
             }
 
-            $this->validateWizardProcessData($processo, $_POST, $leadConversionRequested);
+            $this->validateWizardProcessData($process, $input, $leadConversionRequested);
 
-            $paymentProofs = $this->processPaymentProofUploads($processoId);
+            $paymentProofs = $this->processPaymentProofUploads($processId);
             $uploadedProofs = array_values($paymentProofs);
 
-            $dadosAtualizacao = $this->buildProcessUpdatePayload($processo, $_POST, $clienteId, $novoStatus, $paymentProofs);
+            $payload = $this->buildProcessUpdatePayload($process, $input, $customerId, $newStatus, $paymentProofs);
 
-            if (!$this->processoModel->updateFromLeadConversion($processoId, $dadosAtualizacao)) {
+            if (!$this->processoModel->updateFromLeadConversion($processId, $payload)) {
                 throw new RuntimeException('Falha ao atualizar o processo.');
             }
 
@@ -687,260 +942,169 @@ class ProcessosController
             foreach ($uploadedProofs as $path) {
                 $this->removeUploadedFile($path);
             }
-            error_log('Erro ao atualizar status do processo: ' . $exception->getMessage());
-            $_SESSION['error_message'] = 'Erro ao atualizar o processo: ' . $exception->getMessage();
-            header('Location: processos.php?action=view&id=' . $processoId);
-            exit();
+            throw $exception;
         }
 
-        $link = "/processos.php?action=view&id={$processoId}";
-        $remetenteId = $_SESSION['user_id'] ?? null;
-        $statusPendente = ['Pendente', 'Serviço Pendente'];
-        $statusSaiuDePendencia = in_array($statusAnterior, $statusPendente, true)
-            && !in_array($novoStatus, $statusPendente, true);
+        return [
+            'clienteId' => $customerId,
+            'statusAnterior' => $previousStatus,
+        ];
+    }
 
-        $this->convertProspectIfNeeded($clienteId, $novoStatus);
+    private function finalizeStatusChange(
+        int $processId,
+        array $process,
+        string $newStatus,
+        string $previousStatus,
+        int $customerId,
+        bool $leadConversionRequested
+    ): void {
+        $link = "/processos.php?action=view&id={$processId}";
+        $senderId = $_SESSION['user_id'] ?? null;
+        $pendingStatuses = ['Pendente', 'Serviço Pendente'];
+        $leftPending = in_array($previousStatus, $pendingStatuses, true)
+            && !in_array($newStatus, $pendingStatuses, true);
+
+        $this->convertProspectIfNeeded($customerId, $newStatus);
 
         if ($leadConversionRequested) {
-            $this->syncConvertedClientWithOmie($clienteId);
+            $this->syncConvertedClientWithOmie($customerId);
         }
 
-        if ($statusSaiuDePendencia) {
+        if ($leftPending) {
             $this->notificacaoModel->deleteByLink($link);
         }
 
-        if ($novoStatus === 'Serviço Pendente') {
+        if ($newStatus === 'Serviço Pendente') {
             $_SESSION['success_message'] = 'Serviço convertido e aguardando aprovação da gerência.';
-            if ($clienteId > 0 && $remetenteId) {
-                $this->notificarGerenciaPendencia($processoId, $clienteId, $remetenteId, 'serviço');
+            if ($customerId > 0 && $senderId) {
+                $this->notificarGerenciaPendencia($processId, $customerId, $senderId, 'serviço');
             }
         } else {
-            $mensagemSucesso = 'Status do processo atualizado com sucesso!';
-            if (in_array($novoStatus, ['Em Andamento', 'Serviço em Andamento'], true)
-                && in_array($statusAnterior, $statusPendente, true)) {
-                $mensagemSucesso = 'Serviço aprovado e status atualizado para Em Andamento.';
-            } elseif ($novoStatus === 'Orçamento') {
-                $mensagemSucesso = 'Orçamento enviado para o cliente.';
-            } elseif ($novoStatus === 'Aprovado' && $statusAnterior === 'Orçamento') {
-                $mensagemSucesso = 'Orçamento aprovado com sucesso!';
+            $successMessage = 'Status do processo atualizado com sucesso!';
+            if (in_array($newStatus, ['Em Andamento', 'Serviço em Andamento'], true)
+                && in_array($previousStatus, $pendingStatuses, true)) {
+                $successMessage = 'Serviço aprovado e status atualizado para Em Andamento.';
+            } elseif ($newStatus === 'Orçamento') {
+                $successMessage = 'Orçamento enviado para o cliente.';
+            } elseif ($newStatus === 'Aprovado' && $previousStatus === 'Orçamento') {
+                $successMessage = 'Orçamento aprovado com sucesso!';
             }
-            $_SESSION['success_message'] = $mensagemSucesso;
+            $_SESSION['success_message'] = $successMessage;
         }
 
-        if ($this->shouldGenerateOmieOs($novoStatus)) {
-            $osNumero = $this->gerarOsOmie($processoId);
+        if ($this->shouldGenerateOmieOs($newStatus)) {
+            $osNumero = $this->gerarOsOmie($processId);
             if ($osNumero) {
                 $_SESSION['success_message'] .= " Ordem de Serviço #{$osNumero} gerada na Omie.";
             }
         }
 
-        if ($novoStatus === 'Cancelado') {
-            $this->cancelarOsOmie($processoId);
+        if ($newStatus === 'Cancelado') {
+            $this->cancelarOsOmie($processId);
         }
 
-        $vendedorUserId = $this->vendedorModel->getUserIdByVendedorId($processo['vendedor_id']);
+        $sellerUserId = $this->vendedorModel->getUserIdByVendedorId($process['vendedor_id']);
 
-        switch ($novoStatus) {
+        switch ($newStatus) {
             case 'Orçamento':
-                $this->sendBudgetEmails($processoId, $remetenteId);
-                if ($vendedorUserId && $remetenteId !== $vendedorUserId) {
-                    $mensagem = "Seu orçamento #{$processo['orcamento_numero']} foi enviado ao cliente.";
-                    $this->notificacaoModel->criar($vendedorUserId, $remetenteId, $mensagem, $link);
+                $this->sendBudgetEmails($processId, $senderId);
+                if ($sellerUserId && $senderId !== $sellerUserId) {
+                    $message = "Seu orçamento #{$process['orcamento_numero']} foi enviado ao cliente.";
+                    $this->notificacaoModel->criar($sellerUserId, $senderId, $message, $link);
                 }
                 break;
             case 'Aprovado':
-                if ($vendedorUserId) {
-                    $mensagem = "Seu orçamento #{$processo['orcamento_numero']} foi APROVADO!";
-                    $this->notificacaoModel->criar($vendedorUserId, $remetenteId, $mensagem, $link);
+                if ($sellerUserId) {
+                    $message = "Seu orçamento #{$process['orcamento_numero']} foi APROVADO!";
+                    $this->notificacaoModel->criar($sellerUserId, $senderId, $message, $link);
                 }
                 break;
             case 'Recusado':
-                if ($vendedorUserId) {
-                    $mensagem = "Seu orçamento #{$processo['orcamento_numero']} foi RECUSADO. Ajuste-o.";
-                    $this->notificacaoModel->criar($vendedorUserId, $remetenteId, $mensagem, $link);
+                if ($sellerUserId) {
+                    $message = "Seu orçamento #{$process['orcamento_numero']} foi RECUSADO. Ajuste-o.";
+                    $this->notificacaoModel->criar($sellerUserId, $senderId, $message, $link);
                 }
                 break;
             case 'Serviço Pendente':
-                if ($vendedorUserId && $remetenteId !== $vendedorUserId) {
-                    $mensagem = "Seu orçamento #{$processo['orcamento_numero']} foi convertido em serviço pendente.";
-                    $this->notificacaoModel->criar($vendedorUserId, $remetenteId, $mensagem, $link);
+                if ($sellerUserId && $senderId !== $sellerUserId) {
+                    $message = "Seu orçamento #{$process['orcamento_numero']} foi convertido em serviço pendente.";
+                    $this->notificacaoModel->criar($sellerUserId, $senderId, $message, $link);
                 }
                 break;
             case 'Serviço em Andamento':
-                if ($vendedorUserId && $remetenteId !== $vendedorUserId) {
-                    $mensagem = "Seu serviço #{$processo['orcamento_numero']} foi aprovado e está em andamento.";
-                    $this->notificacaoModel->criar($vendedorUserId, $remetenteId, $mensagem, $link);
+                if ($sellerUserId && $senderId !== $sellerUserId) {
+                    $message = "Seu serviço #{$process['orcamento_numero']} foi aprovado e está em andamento.";
+                    $this->notificacaoModel->criar($sellerUserId, $senderId, $message, $link);
                 }
                 break;
             default:
                 break;
         }
-
-        header('Location: processos.php?action=view&id=' . $processoId);
-        exit();
     }
 
-    public function leadConversionStep()
+    private function requireConversionContext(int $processId, array $process, ?array $customer): array
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'message' => 'Método não permitido.']);
+        $context = $this->buildLeadConversionContext($process, $customer);
+        if (empty($context['shouldRender'])) {
+            $_SESSION['error_message'] = 'Este processo não está elegível para conversão em serviço.';
+            header('Location: processos.php?action=view&id=' . $processId);
             exit();
         }
 
-        header('Content-Type: application/json');
-
-        $processoId = isset($_POST['id']) ? (int)$_POST['id'] : 0;
-        $step = $_POST['lead_conversion_step'] ?? '';
-
-        if ($processoId <= 0 || $step === '') {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Dados da etapa inválidos.']);
-            exit();
-        }
-
-        $resultado = $this->processoModel->getById($processoId);
-        if (!$resultado || !isset($resultado['processo'])) {
-            http_response_code(404);
-            echo json_encode(['success' => false, 'message' => 'Processo não encontrado.']);
-            exit();
-        }
-
-        $processo = $resultado['processo'];
-        $statusAtual = $processo['status_processo'] ?? '';
-        if (!in_array($statusAtual, ['Orçamento', 'Orçamento Pendente'], true)) {
-            http_response_code(409);
-            echo json_encode(['success' => false, 'message' => 'O processo não está em um status elegível para conversão.']);
-            exit();
-        }
-
-        if (!$this->canUpdateStatus($processo, 'Serviço Pendente')) {
-            http_response_code(403);
-            echo json_encode(['success' => false, 'message' => 'Você não tem permissão para converter este processo.']);
-            exit();
-        }
-
-        $input = $_POST;
-
-        switch ($step) {
-            case 'client':
-                $this->handleLeadConversionClientStep($processoId, $processo, $input);
-                break;
-            case 'deadline':
-                $this->handleLeadConversionDeadlineStep($processoId, $processo, $input);
-                break;
-            default:
-                http_response_code(400);
-                echo json_encode(['success' => false, 'message' => 'Etapa de conversão desconhecida.']);
-                exit();
-        }
+        return $context;
     }
 
-    private function handleLeadConversionClientStep(int $processoId, array $processo, array $input): void
+    private function prepareClientConversionInitialData(array $process, array $context): array
     {
-        $clienteAtualId = (int)($processo['cliente_id'] ?? 0);
-        $clienteId = $clienteAtualId;
+        $customer = $context['cliente'] ?? [];
 
-        try {
-            $this->pdo->beginTransaction();
-            $clienteId = $this->handleLeadConversion($processoId, $clienteAtualId, $input);
-            $this->processoModel->updateFromLeadConversion($processoId, [
-                'cliente_id' => $clienteId > 0 ? $clienteId : null,
-            ]);
-            $this->pdo->commit();
-        } catch (InvalidArgumentException $exception) {
-            $this->pdo->rollBack();
-            http_response_code(422);
-            echo json_encode([
-                'success' => false,
-                'message' => $exception->getMessage(),
-                'alertType' => 'error',
-            ]);
-            exit();
-        } catch (Throwable $exception) {
-            $this->pdo->rollBack();
-            error_log('Erro ao salvar dados do cliente na conversão: ' . $exception->getMessage());
-            http_response_code(500);
-            echo json_encode([
-                'success' => false,
-                'message' => 'Erro inesperado ao salvar os dados do cliente.',
-                'alertType' => 'error',
-            ]);
-            exit();
-        }
-
-        $resultadoSincronizacao = $this->attemptSyncConvertedClientWithOmie($clienteId);
-        if (!$resultadoSincronizacao['success']) {
-            http_response_code(422);
-            echo json_encode([
-                'success' => false,
-                'message' => $resultadoSincronizacao['message'] ?? 'Falha ao sincronizar o cliente com a Omie.',
-                'alertType' => 'error',
-            ]);
-            exit();
-        }
-
-        echo json_encode([
-            'success' => true,
-            'message' => $resultadoSincronizacao['message'] ?? 'Cliente sincronizado com sucesso.',
-            'alertType' => 'success',
-            'clienteId' => $clienteId,
-        ]);
-        exit();
+        return [
+            'lead_tipo_pessoa' => $customer['tipo_pessoa'] ?? 'Jurídica',
+            'lead_tipo_cliente' => $customer['tipo_assessoria'] ?? 'À vista',
+            'lead_agreed_deadline_days' => $customer['prazo_acordado_dias'] ?? '',
+            'lead_nome_cliente' => $customer['nome_cliente'] ?? ($process['nome_cliente'] ?? ''),
+            'lead_nome_responsavel' => $customer['nome_responsavel'] ?? '',
+            'lead_cpf_cnpj' => $customer['cpf_cnpj'] ?? '',
+            'lead_email' => $customer['email'] ?? '',
+            'lead_telefone' => $customer['telefone'] ?? '',
+            'lead_endereco' => $customer['endereco'] ?? '',
+            'lead_numero' => $customer['numero'] ?? '',
+            'lead_complemento' => $customer['complemento'] ?? '',
+            'lead_bairro' => $customer['bairro'] ?? '',
+            'lead_cidade' => $customer['cidade'] ?? '',
+            'lead_estado' => $customer['estado'] ?? '',
+            'lead_cep' => $customer['cep'] ?? '',
+            'lead_city_validation_source' => $customer['cidade_validation_source'] ?? 'api',
+        ];
     }
 
-    private function handleLeadConversionDeadlineStep(int $processoId, array $processo, array $input): void
+    private function normalizeSubmittedSubscriptionServices(array $input): array
     {
-        try {
-            $this->validateWizardProcessData($processo, $input, false);
+        if (empty($input['lead_subscription_services']) || !is_array($input['lead_subscription_services'])) {
+            return [];
+        }
 
-            $dataInicio = $input['data_inicio_traducao'] ?? $processo['data_inicio_traducao'] ?? null;
-            $prazoTipo = $input['traducao_prazo_tipo'] ?? $processo['traducao_prazo_tipo'] ?? 'dias';
-            $prazoTipo = $prazoTipo === 'data' ? 'data' : 'dias';
+        $normalized = [];
 
-            $prazoDiasEntrada = $input['traducao_prazo_dias'] ?? null;
-            $prazoDias = ($prazoTipo === 'dias' && $prazoDiasEntrada !== null && $prazoDiasEntrada !== '')
-                ? (int)$prazoDiasEntrada
-                : null;
-
-            $prazoDataEntrada = $input['traducao_prazo_data'] ?? null;
-            $prazoData = $prazoTipo === 'data' ? $prazoDataEntrada : null;
-
-            $payload = [
-                'data_inicio_traducao' => $dataInicio,
-                'traducao_prazo_tipo' => $prazoTipo,
-                'traducao_prazo_dias' => $prazoDias,
-                'traducao_prazo_data' => $prazoData,
-            ];
-
-            if (!$this->processoModel->updateFromLeadConversion($processoId, $payload)) {
-                throw new RuntimeException('Falha ao salvar o prazo da tradução.');
+        foreach ($input['lead_subscription_services'] as $service) {
+            if (!is_array($service)) {
+                continue;
             }
 
-            echo json_encode([
-                'success' => true,
-                'message' => 'Prazo atualizado com sucesso.',
-                'alertType' => 'success',
-            ]);
-        } catch (InvalidArgumentException $exception) {
-            http_response_code(422);
-            echo json_encode([
-                'success' => false,
-                'message' => $exception->getMessage(),
-                'alertType' => 'error',
-            ]);
-        } catch (Throwable $exception) {
-            error_log('Erro ao salvar prazo na conversão: ' . $exception->getMessage());
-            http_response_code(500);
-            echo json_encode([
-                'success' => false,
-                'message' => 'Erro inesperado ao salvar o prazo da tradução.',
-                'alertType' => 'error',
-            ]);
+            $productId = isset($service['productBudgetId']) ? (int)$service['productBudgetId'] : 0;
+            if ($productId <= 0) {
+                continue;
+            }
+
+            $normalized[] = [
+                'produto_orcamento_id' => $productId,
+                'valor_padrao' => $service['standardValue'] ?? null,
+                'servico_tipo' => $service['serviceType'] ?? null,
+            ];
         }
 
-        exit();
+        return $normalized;
     }
 
     /**
@@ -1531,7 +1695,6 @@ class ProcessosController
         $tipoPessoa = $input['lead_tipo_pessoa'] ?? 'Jurídica';
         $tipoCliente = $input['lead_tipo_cliente'] ?? '';
         $nomeCliente = trim((string)($input['lead_nome_cliente'] ?? ''));
-        $cpfCnpj = DocumentValidator::sanitizeNumber((string)($input['lead_cpf_cnpj'] ?? ''));
 
         if (!in_array($tipoPessoa, ['Física', 'Jurídica'], true)) {
             $erros[] = 'Selecione um tipo de pessoa válido.';
@@ -1545,14 +1708,7 @@ class ProcessosController
             $erros[] = 'O nome do cliente deve possuir ao menos três caracteres.';
         }
 
-        if ($tipoPessoa === 'Física') {
-            if (!DocumentValidator::isValidCpf($cpfCnpj)) {
-                $erros[] = 'CPF inválido.';
-            }
-        } else {
-            if (!DocumentValidator::isValidCnpj($cpfCnpj)) {
-                $erros[] = 'CNPJ inválido.';
-            }
+        if ($tipoPessoa !== 'Física') {
             $responsavel = trim((string)($input['lead_nome_responsavel'] ?? ''));
             if ($responsavel === '') {
                 $erros[] = 'Informe o nome do responsável pela empresa.';
@@ -1562,16 +1718,6 @@ class ProcessosController
         $email = trim((string)($input['lead_email'] ?? ''));
         if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $erros[] = 'Informe um e-mail válido.';
-        }
-
-        $telefone = $this->sanitizeDigits($input['lead_telefone'] ?? '');
-        if (strlen($telefone) < 10) {
-            $erros[] = 'Informe um telefone válido com DDD.';
-        }
-
-        $cep = $this->sanitizeDigits($input['lead_cep'] ?? '');
-        if (strlen($cep) !== 8) {
-            $erros[] = 'Informe um CEP válido.';
         }
 
         $cidade = trim((string)($input['lead_cidade'] ?? ''));

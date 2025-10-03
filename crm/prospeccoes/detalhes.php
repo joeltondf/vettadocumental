@@ -68,6 +68,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                     $statusAtual = $prospect['status'] ?? '';
                 ?>
                 <div class="flex justify-between items-start mb-6">
+                    <?php $leadResponsavelNome = $prospect['lead_responsavel_nome'] ?? $prospect['nome_prospecto'] ?? ''; ?>
                     <div>
                         <h2 class="text-2xl font-bold text-gray-900"><?php echo htmlspecialchars($leadNome); ?></h2>
                         <p class="text-sm text-gray-500">Responsável: <span class="font-medium text-indigo-600"><?php echo htmlspecialchars($leadResponsavelNome); ?></span></p>
