@@ -25,39 +25,30 @@ $dashboardVendedorUrl = $baseAppUrl . '/dashboard_vendedor.php';
     </div>
 </div>
 
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-    <a href="?filtro_card=ativos" class="bg-blue-100 p-4 rounded-lg shadow-md flex items-center hover:bg-blue-200 transition-colors">
-        <div class="bg-blue-500 rounded-full p-3 mr-4">
-            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+<div class="mb-8">
+    <h2 class="text-lg font-semibold text-gray-700 mb-3">Resumo de Performance</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div class="bg-white p-5 rounded-lg shadow-md flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm">Vendas (Mês)</p>
+                <p class="text-2xl font-bold text-gray-800">R$ <?php echo number_format($totalVendasMes ?? 0, 2, ',', '.'); ?></p>
+            </div>
+            <span class="bg-purple-100 text-purple-600 p-3 rounded-full"><i class="fas fa-dollar-sign"></i></span>
         </div>
-        <div>
-            <p class="text-gray-600 text-sm">Processos Ativos</p>
-            <p class="text-2xl font-bold text-gray-800"><?php echo htmlspecialchars($stats['processos_ativos'] ?? 0); ?></p>
+        <div class="bg-white p-5 rounded-lg shadow-md flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm">Comissão Estimada</p>
+                <p class="text-2xl font-bold text-gray-800">R$ <?php echo number_format($valorComissao ?? 0, 2, ',', '.'); ?></p>
+            </div>
+            <span class="bg-teal-100 text-teal-600 p-3 rounded-full"><i class="fas fa-hand-holding-usd"></i></span>
         </div>
-    </a>
-</div>
-
-<h2 class="text-lg font-semibold text-gray-700 mb-3">Resumo de Performance</h2>
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-    <div class="bg-white p-4 rounded-lg shadow-md flex items-center">
-        <div class="bg-purple-100 p-3 rounded-full"><i class="fas fa-dollar-sign fa-lg text-purple-500"></i></div>
-        <div class="ml-4"><p class="text-gray-500 text-sm">Vendas (Mês)</p><p class="text-xl font-bold text-gray-800">R$ <?php echo number_format($totalVendasMes ?? 0, 2, ',', '.'); ?></p></div>
-    </div>
-    <div class="bg-white p-4 rounded-lg shadow-md flex items-center">
-        <div class="bg-teal-100 p-3 rounded-full"><i class="fas fa-hand-holding-usd fa-lg text-teal-500"></i></div>
-        <div class="ml-4"><p class="text-gray-500 text-sm">Comissão Estimada</p><p class="text-xl font-bold text-gray-800">R$ <?php echo number_format($valorComissao ?? 0, 2, ',', '.'); ?></p></div>
-    </div>
-    <div class="bg-white p-4 rounded-lg shadow-md flex items-center">
-        <div class="bg-blue-100 p-3 rounded-full"><i class="fas fa-users fa-lg text-blue-500"></i></div>
-        <div class="ml-4"><p class="text-gray-500 text-sm">Novos Leads (Mês)</p><p class="text-xl font-bold text-gray-800"><?php echo $crmStats['novos_leads_mes'] ?? 0; ?></p></div>
-    </div>
-    <div class="bg-white p-4 rounded-lg shadow-md flex items-center">
-        <div class="bg-green-100 p-3 rounded-full"><i class="fas fa-calendar-check fa-lg text-green-500"></i></div>
-        <div class="ml-4"><p class="text-gray-500 text-sm">Reuniões (Mês)</p><p class="text-xl font-bold text-gray-800"><?php echo $crmStats['reunioes_agendadas_mes'] ?? 0; ?></p></div>
-    </div>
-    <div class="bg-white p-4 rounded-lg shadow-md flex items-center">
-        <div class="bg-yellow-100 p-3 rounded-full"><i class="fas fa-chart-line fa-lg text-yellow-500"></i></div>
-        <div class="ml-4"><p class="text-gray-500 text-sm">Conversão Geral</p><p class="text-xl font-bold text-gray-800"><?php echo number_format($crmStats['taxa_conversao'] ?? 0, 1, ',', '.'); ?>%</p></div>
+        <div class="bg-white p-5 rounded-lg shadow-md flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm">Conversão Geral</p>
+                <p class="text-2xl font-bold text-gray-800"><?php echo number_format($crmStats['taxa_conversao'] ?? 0, 1, ',', '.'); ?>%</p>
+            </div>
+            <span class="bg-yellow-100 text-yellow-600 p-3 rounded-full"><i class="fas fa-chart-line"></i></span>
+        </div>
     </div>
 </div>
 
@@ -89,23 +80,10 @@ $dashboardVendedorUrl = $baseAppUrl . '/dashboard_vendedor.php';
 <div class="w-full bg-white p-5 rounded-lg shadow-xl border border-gray-200 mb-6">
     <h4 class="text-xl font-bold text-gray-800 mb-5 border-b pb-2">Filtrar Meus Processos</h4>
     <form action="dashboard_vendedor.php" method="GET" id="filter-form">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-5">
             <div>
                 <label for="titulo" class="text-sm font-semibold text-gray-700 mb-1 block">Serviço/Processo</label>
                 <input type="text" id="titulo" name="titulo" placeholder="Digite para buscar" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg" value="<?php echo htmlspecialchars($filters['titulo'] ?? ''); ?>">
-            </div>
-            <div>
-                <label for="cliente_id" class="text-sm font-semibold text-gray-700 mb-1 block">Assessoria</label>
-                <select id="cliente_id" name="cliente_id" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg">
-                    <option value="">Todas as Assessorias</option>
-                    <?php foreach($clientesParaFiltro as $cliente): ?>
-                        <option value="<?php echo $cliente['id']; ?>" <?php echo (($filters['cliente_id'] ?? '') == $cliente['id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($cliente['nome_cliente'] ?? ''); ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div>
-                <label for="os_numero" class="text-sm font-semibold text-gray-700 mb-1 block">Chave OS Omie</label>
-                <input type="text" id="os_numero" name="os_numero" placeholder="Ex: 12345" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg" value="<?php echo htmlspecialchars($filters['os_numero'] ?? ''); ?>">
             </div>
             <div>
                 <label for="tipo_servico" class="text-sm font-semibold text-gray-700 mb-1 block">Tipo de Serviço</label>
@@ -120,7 +98,7 @@ $dashboardVendedorUrl = $baseAppUrl . '/dashboard_vendedor.php';
                 <label for="status" class="text-sm font-semibold text-gray-700 mb-1 block">Status</label>
                 <select id="status" name="status" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg">
                     <option value="">Todos os Status</option>
-                    <?php $status_list = ['Orçamento', 'Aprovado', 'Em Andamento', 'Finalizado', 'Arquivado', 'Cancelado']; foreach($status_list as $s): ?>
+                    <?php $status_list = ['Orçamento', 'Orçamento Pendente', 'Em andamento', 'Serviço Pendente', 'Finalizado']; foreach($status_list as $s): ?>
                         <option value="<?php echo $s; ?>" <?php echo (($filters['status'] ?? '') == $s) ? 'selected' : ''; ?>><?php echo $s; ?></option>
                     <?php endforeach; ?>
                 </select>
@@ -152,10 +130,10 @@ $dashboardVendedorUrl = $baseAppUrl . '/dashboard_vendedor.php';
                     <th class="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase">Família</th>
                     <th class="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase">Assessoria</th>
                     <th class="px-3 py-2 text-center text-sm font-medium text-gray-500 uppercase">Doc.</th>
-                    <th class="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase">OS Omie</th>
                     <th class="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase">Serviços</th>
                     <th class="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase">Entrada</th>
                     <th class="px-3 py-2 text-right text-sm font-medium text-gray-500 uppercase">Valor Total</th>
+                    <th class="px-3 py-2 text-center text-sm font-medium text-gray-500 uppercase">Detalhes</th>
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
@@ -165,20 +143,33 @@ $dashboardVendedorUrl = $baseAppUrl . '/dashboard_vendedor.php';
                     <?php foreach ($processos as $processo): ?>
                         <?php
                             $rowClass = 'hover:bg-gray-50';
-                            switch ($processo['status_processo']) {
-                                case 'Orçamento': $rowClass = 'bg-blue-50 hover:bg-blue-100'; break;
-                                case 'Aprovado': $rowClass = 'bg-green-50 hover:bg-green-100'; break;
-                                case 'Finalizado': $rowClass = 'bg-purple-50 hover:bg-purple-100'; break;
-                                case 'Cancelado': $rowClass = 'bg-red-50 hover:bg-red-100'; break;
+                            $statusAtual = strtolower($processo['status_processo'] ?? '');
+                            switch ($statusAtual) {
+                                case 'orçamento':
+                                    $rowClass = 'bg-blue-50 hover:bg-blue-100';
+                                    break;
+                                case 'orçamento pendente':
+                                    $rowClass = 'bg-yellow-50 hover:bg-yellow-100';
+                                    break;
+                                case 'em andamento':
+                                    $rowClass = 'bg-indigo-50 hover:bg-indigo-100';
+                                    break;
+                                case 'serviço pendente':
+                                    $rowClass = 'bg-rose-50 hover:bg-rose-100';
+                                    break;
+                                case 'finalizado':
+                                    $rowClass = 'bg-green-50 hover:bg-green-100';
+                                    break;
                             }
                         ?>
                         <tr class="<?php echo $rowClass; ?>">
                             <td class="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-800">
-                                <?php echo htmlspecialchars($processo['titulo']); ?>
+                                <a href="processos.php?action=view&amp;id=<?php echo $processo['id']; ?>" class="text-blue-600 hover:underline">
+                                    <?php echo htmlspecialchars($processo['titulo']); ?>
+                                </a>
                             </td>
                             <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($processo['nome_cliente']); ?></td>
                             <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500 text-center"><?php echo $processo['total_documentos_soma']; ?></td>
-                            <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars(empty($processo['os_numero_omie']) ? 'Aguardando Omie' : $processo['os_numero_omie']); ?></td>
                             <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
                                 <?php
                                 $servicos = explode(',', $processo['categorias_servico'] ?? '');
@@ -191,7 +182,13 @@ $dashboardVendedorUrl = $baseAppUrl . '/dashboard_vendedor.php';
                                 ?>
                             </td>
                             <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500"><?php echo date('d/m/Y', strtotime($processo['data_criacao'])); ?></td>
-                            <td class="px-3 py-2 whitespace-nowrap text-sm text-right font-medium"><?php echo 'R$ ' . number_format($processo['valor_total'] ?? 0, 2, ',', '.'); ?></td>
+                            <td class="px-3 py-2 whitespace-nowrap text-sm text-right font-mono"><?php echo 'R$ ' . number_format($processo['valor_total'] ?? 0, 2, ',', '.'); ?></td>
+                            <td class="px-3 py-2 whitespace-nowrap text-center">
+                                <a href="processos.php?action=view&amp;id=<?php echo $processo['id']; ?>" class="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-800">
+                                    <i class="fas fa-external-link-alt"></i>
+                                    Ver
+                                </a>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -258,16 +255,23 @@ $dashboardVendedorUrl = $baseAppUrl . '/dashboard_vendedor.php';
                         if (data.length > 0) {
                             data.forEach(processo => {
                                 const row = `
-                                    <tr>
-                                        <td class="px-3 py-2 whitespace-nowrap text-sm font-medium text-blue-600 hover:underline">
-                                            <a href="processos.php?action=view&id=${processo.id}">${escapeHTML(processo.titulo)}</a>
+                                    <tr class="${resolveRowClass(processo.status_processo)}">
+                                        <td class="px-3 py-2 whitespace-nowrap text-sm font-medium">
+                                            <a href="processos.php?action=view&id=${processo.id}" class="text-blue-600 hover:underline">
+                                                ${escapeHTML(processo.titulo)}
+                                            </a>
                                         </td>
                                         <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">${escapeHTML(processo.nome_cliente)}</td>
                                         <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500 text-center">${processo.total_documentos_soma}</td>
-                                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">${escapeHTML(processo.os_numero_omie || 'Aguardando Omie')}</td>
                                         <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">${formatServices(processo.categorias_servico)}</td>
                                         <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">${formatDate(processo.data_criacao)}</td>
                                         <td class="px-3 py-2 whitespace-nowrap text-sm text-right font-mono">R$ ${formatCurrency(processo.valor_total)}</td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-center">
+                                            <a href="processos.php?action=view&id=${processo.id}" class="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-800">
+                                                <i class="fas fa-external-link-alt"></i>
+                                                Ver
+                                            </a>
+                                        </td>
                                     </tr>
                                 `;
                                 tableBody.insertAdjacentHTML('beforeend', row);
@@ -318,6 +322,24 @@ $dashboardVendedorUrl = $baseAppUrl . '/dashboard_vendedor.php';
                 }
                 return '';
             }).join('');
+        }
+
+        function resolveRowClass(status) {
+            if (!status) return 'hover:bg-gray-50';
+            switch (status.toLowerCase()) {
+                case 'orçamento':
+                    return 'bg-blue-50 hover:bg-blue-100';
+                case 'orçamento pendente':
+                    return 'bg-yellow-50 hover:bg-yellow-100';
+                case 'em andamento':
+                    return 'bg-indigo-50 hover:bg-indigo-100';
+                case 'serviço pendente':
+                    return 'bg-rose-50 hover:bg-rose-100';
+                case 'finalizado':
+                    return 'bg-green-50 hover:bg-green-100';
+                default:
+                    return 'hover:bg-gray-50';
+            }
         }
     });
 </script>
