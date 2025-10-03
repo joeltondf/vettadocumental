@@ -22,6 +22,7 @@ require_once __DIR__ . '/../models/CategoriaFinanceira.php';
 require_once __DIR__ . '/../models/LancamentoFinanceiro.php';
 require_once __DIR__ . '/../services/EmailService.php';
 require_once __DIR__ . '/../models/Notificacao.php';
+require_once __DIR__ . '/../utils/OmiePayloadBuilder.php';
 class ProcessosController
 {
     private const DEFAULT_OMIE_SERVICE_TAXATION_CODE = '01';
@@ -683,9 +684,15 @@ class ProcessosController
 
         $link = "/processos.php?action=view&id={$processoId}";
         $remetenteId = $_SESSION['user_id'] ?? null;
-        $statusSaiuDePendencia = $statusAnterior === 'Pendente' && $novoStatus !== 'Pendente';
+        $statusPendente = ['Pendente', 'Serviço Pendente'];
+        $statusSaiuDePendencia = in_array($statusAnterior, $statusPendente, true)
+            && !in_array($novoStatus, $statusPendente, true);
 
         $this->convertProspectIfNeeded($clienteId, $novoStatus);
+
+        if ($leadConversionRequested) {
+            $this->syncConvertedClientWithOmie($clienteId);
+        }
 
         if ($statusSaiuDePendencia) {
             $this->notificacaoModel->deleteByLink($link);
@@ -698,7 +705,8 @@ class ProcessosController
             }
         } else {
             $mensagemSucesso = 'Status do processo atualizado com sucesso!';
-            if ($novoStatus === 'Em Andamento' && $statusAnterior === 'Pendente') {
+            if (in_array($novoStatus, ['Em Andamento', 'Serviço em Andamento'], true)
+                && in_array($statusAnterior, $statusPendente, true)) {
                 $mensagemSucesso = 'Serviço aprovado e status atualizado para Em Andamento.';
             } elseif ($novoStatus === 'Orçamento') {
                 $mensagemSucesso = 'Orçamento enviado para o cliente.';
@@ -747,6 +755,12 @@ class ProcessosController
                     $this->notificacaoModel->criar($vendedorUserId, $remetenteId, $mensagem, $link);
                 }
                 break;
+            case 'Serviço em Andamento':
+                if ($vendedorUserId && $remetenteId !== $vendedorUserId) {
+                    $mensagem = "Seu serviço #{$processo['orcamento_numero']} foi aprovado e está em andamento.";
+                    $this->notificacaoModel->criar($vendedorUserId, $remetenteId, $mensagem, $link);
+                }
+                break;
             default:
                 break;
         }
@@ -761,7 +775,7 @@ class ProcessosController
     public function painelNotificacoes()
     {
         $pageTitle = "Painel de Notificações";
-        $status_para_buscar = ['Pendente'];
+        $status_para_buscar = ['Pendente', 'Serviço Pendente'];
         $processos_pendentes = $this->processoModel->getByMultipleStatus($status_para_buscar);
         $this->render('painel_notificacoes', [
             'processos_pendentes' => $processos_pendentes,
@@ -1118,9 +1132,19 @@ class ProcessosController
     private function buildLeadConversionContext(array $processo, ?array $cliente): array
     {
         $perfil = $_SESSION['user_perfil'] ?? '';
-        $perfisPermitidos = ['admin', 'gerencia', 'supervisor'];
+        $usuarioId = $_SESSION['user_id'] ?? null;
+        $perfisGerenciais = ['admin', 'gerencia', 'supervisor'];
+        $usuarioAutorizado = in_array($perfil, $perfisGerenciais, true);
 
-        if (!in_array($perfil, $perfisPermitidos, true)) {
+        if (!$usuarioAutorizado && $perfil === 'vendedor') {
+            $vendedorId = $processo['vendedor_id'] ?? null;
+            if ($vendedorId) {
+                $vendedorUserId = $this->vendedorModel->getUserIdByVendedorId((int)$vendedorId);
+                $usuarioAutorizado = $vendedorUserId && $usuarioId && (int)$vendedorUserId === (int)$usuarioId;
+            }
+        }
+
+        if (!$usuarioAutorizado) {
             return ['shouldRender' => false];
         }
 
@@ -1171,7 +1195,7 @@ class ProcessosController
             if (!$vendedorUserId || $vendedorUserId != ($_SESSION['user_id'] ?? null)) {
                 return false;
             }
-            return in_array($novoStatus, ['Orçamento'], true);
+            return in_array($novoStatus, ['Orçamento', 'Orçamento Pendente', 'Serviço Pendente'], true);
         }
 
         return in_array($perfil, ['admin', 'gerencia', 'supervisor'], true);
@@ -1191,6 +1215,64 @@ class ProcessosController
         $this->syncClientSubscriptionServices($clienteId, $clientePayload['tipo_assessoria'], $servicos);
 
         return $clienteId;
+    }
+
+    private function syncConvertedClientWithOmie(int $clienteId): void
+    {
+        if ($clienteId <= 0) {
+            return;
+        }
+
+        try {
+            $cliente = $this->clienteModel->getById($clienteId);
+            if (!$cliente) {
+                return;
+            }
+
+            $cliente = $this->ensureClientIntegrationIdentifiers($cliente);
+            $hasOmieId = !empty($cliente['omie_id']);
+            $payload = $hasOmieId
+                ? OmiePayloadBuilder::buildAlterarClientePayload($cliente)
+                : OmiePayloadBuilder::buildIncluirClientePayload($cliente);
+
+            $response = $hasOmieId
+                ? $this->omieService->alterarCliente($payload)
+                : $this->omieService->incluirCliente($payload);
+
+            if (!empty($response['codigo_cliente_omie'])) {
+                $this->clienteModel->updateIntegrationIdentifiers(
+                    $clienteId,
+                    $cliente['codigo_cliente_integracao'] ?? null,
+                    (int)$response['codigo_cliente_omie']
+                );
+            }
+        } catch (Throwable $exception) {
+            error_log('Falha ao sincronizar cliente convertido com a Omie: ' . $exception->getMessage());
+            if (empty($_SESSION['warning_message'])) {
+                $_SESSION['warning_message'] = 'O cliente foi convertido, mas a sincronização com a Omie falhou. Verifique as configurações da API.';
+            }
+        }
+    }
+
+    private function ensureClientIntegrationIdentifiers(array $cliente): array
+    {
+        $integrationCode = $cliente['codigo_cliente_integracao'] ?? '';
+        if (($integrationCode === '' || $integrationCode === null) && $this->clienteModel->supportsIntegrationCodeColumn()) {
+            $integrationCode = $this->generateClientIntegrationCode((int)$cliente['id']);
+            $this->clienteModel->updateIntegrationIdentifiers(
+                (int)$cliente['id'],
+                $integrationCode,
+                isset($cliente['omie_id']) ? (int)$cliente['omie_id'] : null
+            );
+            $cliente['codigo_cliente_integracao'] = $integrationCode;
+        }
+
+        return $cliente;
+    }
+
+    private function generateClientIntegrationCode(int $clientId): string
+    {
+        return 'CLI-' . str_pad((string)$clientId, 6, '0', STR_PAD_LEFT);
     }
 
     private function normalizeLeadPayload(array $input): array
@@ -1892,9 +1974,14 @@ class ProcessosController
     private function getStatusClasses($status)
     {
         switch ($status) {
-            case 'Orçamento': return 'bg-yellow-100 text-yellow-800';
+            case 'Orçamento':
+            case 'Orçamento Pendente':
+                return 'bg-yellow-100 text-yellow-800';
             case 'Aprovado': return 'bg-blue-100 text-blue-800';
-            case 'Em Andamento': return 'bg-cyan-100 text-cyan-800';
+            case 'Serviço Pendente': return 'bg-orange-100 text-orange-800';
+            case 'Em Andamento':
+            case 'Serviço em Andamento':
+                return 'bg-cyan-100 text-cyan-800';
             case 'Finalizado': return 'bg-green-100 text-green-800';
             case 'Arquivado': return 'bg-gray-200 text-gray-600';
             case 'Cancelado': return 'bg-red-100 text-red-800';
@@ -1938,7 +2025,7 @@ class ProcessosController
             return false;
         }
         $normalizedStatus = strtolower(trim($status));
-        return in_array($normalizedStatus, ['em andamento', 'aprovado'], true);
+        return in_array($normalizedStatus, ['em andamento', 'aprovado', 'serviço em andamento'], true);
     }
 
     private function shouldConvertProspectToClient(?string $status): bool
@@ -1948,7 +2035,7 @@ class ProcessosController
         }
 
         $normalized = mb_strtolower(trim($status));
-        $serviceStatuses = ['aprovado', 'em andamento', 'pendente', 'finalizado'];
+        $serviceStatuses = ['aprovado', 'em andamento', 'serviço em andamento', 'pendente', 'serviço pendente', 'finalizado'];
 
         return in_array($normalized, $serviceStatuses, true);
     }

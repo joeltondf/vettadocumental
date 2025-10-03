@@ -126,7 +126,7 @@ $initialProcessLimit = 50; // Altere este valor conforme necessário
                     <label for="status" class="text-sm font-semibold text-gray-700 mb-1">Status</label>
                     <select id="status" name="status" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition duration-200">
                         <option value="">Todos os Status</option>
-                        <?php $status_list = ['Orçamento', 'Aprovado', 'Em Andamento', 'Finalizado', 'Arquivado', 'Cancelado']; foreach($status_list as $s): ?>
+                        <?php $status_list = ['Orçamento', 'Orçamento Pendente', 'Serviço Pendente', 'Serviço em Andamento', 'Em Andamento', 'Aprovado', 'Finalizado', 'Arquivado', 'Cancelado']; foreach(array_unique($status_list) as $s): ?>
                             <option value="<?php echo $s; ?>" <?php echo (($filters['status'] ?? '') == $s) ? 'selected' : ''; ?>><?php echo $s; ?></option>
                         <?php endforeach; ?>
                     </select>
@@ -194,16 +194,23 @@ $initialProcessLimit = 50; // Altere este valor conforme necessário
                             $rowClass = 'hover:bg-gray-50'; // Cor padrão
                             switch ($processo['status_processo']) {
                                 case 'Orçamento':
+                                case 'Orçamento Pendente':
                                     $rowClass = 'bg-blue-50 hover:bg-blue-100';
                                     break;
                                 case 'Aprovado':
                                     $rowClass = 'bg-green-50 hover:bg-green-100';
+                                    break;
+                                case 'Serviço Pendente':
+                                    $rowClass = 'bg-orange-50 hover:bg-orange-100';
                                     break;
                                 case 'Finalizado':
                                     $rowClass = 'bg-purple-50 hover:bg-purple-100';
                                     break;
                                 case 'Cancelado':
                                     $rowClass = 'bg-red-50 hover:bg-red-100';
+                                    break;
+                                case 'Serviço em Andamento':
+                                    $rowClass = 'bg-cyan-50 hover:bg-cyan-100';
                                     break;
                                 // 'Em Andamento' fica com a cor padrão
                             }

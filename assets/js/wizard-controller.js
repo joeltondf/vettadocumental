@@ -115,16 +115,27 @@
 
     function renumberServices(container) {
         collectServiceItems(container).forEach((item, index) => {
-            item.querySelectorAll('select, input').forEach((field) => {
-                const name = field.getAttribute('name');
-                if (!name) {
-                    return;
+            item.querySelectorAll('label[data-label-template]').forEach((label) => {
+                const template = label.dataset.labelTemplate;
+                if (template) {
+                    label.htmlFor = template.replace(/__index__/g, String(index));
                 }
-                const updatedName = name.replace(/lead_subscription_services\[[0-9]+\]/, `lead_subscription_services[${index}]`);
-                field.setAttribute('name', updatedName);
-                if (field.id) {
-                    const updatedId = field.id.replace(/-(\d+)$/, `-${index}`);
-                    field.id = updatedId;
+            });
+
+            item.querySelectorAll('select, input').forEach((field) => {
+                const nameTemplate = field.dataset.nameTemplate;
+                if (nameTemplate) {
+                    field.name = nameTemplate.replace(/__index__/g, String(index));
+                } else if (field.name) {
+                    const updatedName = field.name.replace(/lead_subscription_services\[[0-9]+\]/, `lead_subscription_services[${index}]`);
+                    field.name = updatedName;
+                }
+
+                const idTemplate = field.dataset.idTemplate;
+                if (idTemplate) {
+                    field.id = idTemplate.replace(/__index__/g, String(index));
+                } else if (field.id) {
+                    field.id = field.id.replace(/-(\d+)$/, `-${index}`);
                 }
             });
         });
@@ -469,9 +480,15 @@
                 });
                 if (addServiceButton) {
                     addServiceButton.addEventListener('click', () => {
-                        const templateContent = serviceTemplate.firstElementChild.cloneNode(true);
-                        serviceList.appendChild(templateContent);
+                        const templateSource = serviceTemplate.content || serviceTemplate;
+                        const templateRoot = templateSource.firstElementChild;
+                        if (!templateRoot) {
+                            return;
+                        }
+                        const newItem = templateRoot.cloneNode(true);
+                        serviceList.appendChild(newItem);
                         renumberServices(serviceList);
+                        updateServiceDetails(newItem, newItem.querySelector('[data-service-select]')?.selectedOptions?.[0]);
                     });
                 }
             }
