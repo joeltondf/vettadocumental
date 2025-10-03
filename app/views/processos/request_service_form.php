@@ -146,6 +146,7 @@ $prazoAcordado = $clienteContext['prazo_acordado_dias'] ?? ($context['prazoAcord
                         data-city-selected="<?php echo $cidadeAtual !== '' ? '1' : '0'; ?>"
                         data-initial-city-selected="<?php echo $cidadeAtual !== '' ? '1' : '0'; ?>"
                         aria-haspopup="listbox"
+                        data-wizard-validate-on-value="true"
                         aria-expanded="false"
                         aria-controls="lead_cidade-options"
                         required
