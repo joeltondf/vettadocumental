@@ -140,18 +140,16 @@ class CategoriaFinanceira
     public function getProdutosOrcamento(bool $includeInactive = false) {
         $selectFields = ['cf.*'];
 
-        $selectFields[] = $this->tableHasColumn('omie_produtos', 'codigo')
-            ? 'op.codigo AS omie_codigo'
-            : 'COALESCE(op.codigo_produto, op.codigo_integracao) AS omie_codigo';
+        $selectFields[] = $this->buildOmieCodigoExpression();
 
         $selectFields = array_merge($selectFields, [
-            'op.codigo_produto AS omie_codigo_produto',
-            'op.codigo_integracao AS omie_codigo_integracao',
-            'op.ncm AS omie_ncm',
-            'op.unidade AS omie_unidade',
-            'op.cfop AS omie_cfop',
-            'op.codigo_servico_municipal AS omie_codigo_servico_municipal',
-            'op.valor_unitario AS omie_valor_unitario'
+            $this->selectColumnOrNull('omie_produtos', 'codigo_produto', 'omie_codigo_produto'),
+            $this->selectColumnOrNull('omie_produtos', 'codigo_integracao', 'omie_codigo_integracao'),
+            $this->selectColumnOrNull('omie_produtos', 'ncm', 'omie_ncm'),
+            $this->selectColumnOrNull('omie_produtos', 'unidade', 'omie_unidade'),
+            $this->selectColumnOrNull('omie_produtos', 'cfop', 'omie_cfop'),
+            $this->selectColumnOrNull('omie_produtos', 'codigo_servico_municipal', 'omie_codigo_servico_municipal'),
+            $this->selectColumnOrNull('omie_produtos', 'valor_unitario', 'omie_valor_unitario')
         ]);
 
         $selectColumns = implode(",\n                ", $selectFields);
@@ -234,5 +232,45 @@ class CategoriaFinanceira
         $stmt->execute(['column' => $column]);
 
         return (bool)$stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    private function buildOmieCodigoExpression(): string
+    {
+        $hasCodigo = $this->tableHasColumn('omie_produtos', 'codigo');
+        $hasCodigoProduto = $this->tableHasColumn('omie_produtos', 'codigo_produto');
+        $hasCodigoIntegracao = $this->tableHasColumn('omie_produtos', 'codigo_integracao');
+
+        if ($hasCodigo) {
+            return 'op.codigo AS omie_codigo';
+        }
+
+        $availableColumns = [];
+
+        if ($hasCodigoProduto) {
+            $availableColumns[] = 'op.codigo_produto';
+        }
+
+        if ($hasCodigoIntegracao) {
+            $availableColumns[] = 'op.codigo_integracao';
+        }
+
+        if (!$availableColumns) {
+            return 'NULL AS omie_codigo';
+        }
+
+        if (count($availableColumns) === 1) {
+            return $availableColumns[0] . ' AS omie_codigo';
+        }
+
+        return 'COALESCE(' . implode(', ', $availableColumns) . ') AS omie_codigo';
+    }
+
+    private function selectColumnOrNull(string $table, string $column, string $alias): string
+    {
+        if ($this->tableHasColumn($table, $column)) {
+            return "op.{$column} AS {$alias}";
+        }
+
+        return "NULL AS {$alias}";
     }
 }
