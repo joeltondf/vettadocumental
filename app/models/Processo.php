@@ -554,7 +554,7 @@ public function getFilteredProcesses(array $filters = [], int $limit = 50, int $
     $params = [];
     // Se nenhum filtro de status for aplicado, exclui os orçamentos por padrão.
     if (empty($filters['status'])) {
-        $where_clauses[] = "p.status_processo NOT IN ('Orçamento', 'Recusado', 'Pendente')";
+        $where_clauses[] = "p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Recusado', 'Pendente', 'Serviço Pendente')";
 
     }
 
@@ -564,7 +564,7 @@ public function getFilteredProcesses(array $filters = [], int $limit = 50, int $
     if (!empty($filters['filtro_card'])) {
         switch ($filters['filtro_card']) {
             case 'ativos':
-                $where_clauses[] = "p.status_processo IN ('Aprovado', 'Em Andamento')";
+                $where_clauses[] = "p.status_processo IN ('Aprovado', 'Em Andamento', 'Serviço em Andamento')";
                 break;
             case 'finalizados_mes':
                 $where_clauses[] = "p.status_processo = 'Finalizado' AND MONTH(p.data_finalizacao_real) = MONTH(CURDATE()) AND YEAR(p.data_finalizacao_real) = YEAR(CURDATE())";
@@ -627,8 +627,8 @@ public function getFilteredProcesses(array $filters = [], int $limit = 50, int $
     }
 
     $where_part = !empty($where_clauses) ? ' WHERE ' . implode(' AND ', $where_clauses) : '';
-    $order_part = " ORDER BY 
-        (CASE WHEN p.status_processo = 'Orçamento' THEN 1 ELSE 0 END),
+    $order_part = " ORDER BY
+        (CASE WHEN p.status_processo IN ('Orçamento', 'Orçamento Pendente') THEN 1 ELSE 0 END),
         p.data_criacao DESC";
     $limit_offset_part = " LIMIT :limit OFFSET :offset";
     $sql = $select_part . $from_part . $where_part . $order_part . $limit_offset_part;
@@ -663,7 +663,7 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
     
     // Garante que a contagem também exclua os orçamentos por padrão.
     if (empty($filters['status'])) {
-        $where_clauses[] = "p.status_processo NOT IN ('Orçamento', 'Recusado', 'Pendente')";
+        $where_clauses[] = "p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Recusado', 'Pendente', 'Serviço Pendente')";
 
     }
 
@@ -757,7 +757,7 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
                 LEFT JOIN users AS u ON v.user_id = u.id
                 LEFT JOIN formas_pagamento AS fp ON p.forma_pagamento_id = fp.id";
 
-        $where = ["p.status_processo NOT IN ('Orçamento', 'Cancelado')"];
+        $where = ["p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado')"];
         $params = [];
 
         if (!empty($filters['data_inicio'])) {
@@ -806,7 +806,7 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
     public function getOverallFinancialSummary($start_date, $end_date, array $filters = []): array
     {
         // --- Constrói a base da query e das cláusulas WHERE ---
-        $base_where_sql = " FROM processos p WHERE p.data_criacao BETWEEN :start_date AND :end_date AND p.status_processo NOT IN ('Orçamento', 'Cancelado')";
+        $base_where_sql = " FROM processos p WHERE p.data_criacao BETWEEN :start_date AND :end_date AND p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado')";
         $params = [
             ':start_date' => $start_date . ' 00:00:00',
             ':end_date' => $end_date . ' 23:59:59'
@@ -1371,7 +1371,7 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
         $sql = "SELECT SUM(p.valor_total) as total_vendas_mes
                 FROM processos p
                 WHERE p.vendedor_id = :vendedor_id
-                  AND p.status_processo NOT IN ('Orçamento', 'Cancelado')
+                  AND p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado')
                   AND MONTH(p.data_criacao) = MONTH(CURDATE())
                   AND YEAR(p.data_criacao) = YEAR(CURDATE())";
     

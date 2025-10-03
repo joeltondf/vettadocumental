@@ -31,19 +31,32 @@ function format_prazo_countdown($dateString) {
 $status = $processo['status_processo'] ?? 'N/A';
 $status_classes = 'bg-gray-100 text-gray-800';
 switch ($status) {
-    case 'Orçamento': $status_classes = 'bg-yellow-100 text-yellow-800'; break;
-    case 'Aprovado': $status_classes = 'bg-blue-100 text-blue-800'; break;
-    case 'Em Andamento': $status_classes = 'bg-cyan-100 text-cyan-800'; break;
-    case 'Serviço Pendente': $status_classes = 'bg-orange-100 text-orange-800'; break;
-    case 'Finalizado': $status_classes = 'bg-green-100 text-green-800'; break;
-    case 'Arquivado': $status_classes = 'bg-gray-200 text-gray-600'; break;
-    case 'Cancelado': $status_classes = 'bg-red-100 text-red-800'; break;
+    case 'Orçamento':
+    case 'Orçamento Pendente':
+        $status_classes = 'bg-yellow-100 text-yellow-800';
+        break;
+    case 'Aprovado':
+        $status_classes = 'bg-blue-100 text-blue-800';
+        break;
+    case 'Serviço Pendente':
+        $status_classes = 'bg-orange-100 text-orange-800';
+        break;
+    case 'Em Andamento':
+    case 'Serviço em Andamento':
+        $status_classes = 'bg-cyan-100 text-cyan-800';
+        break;
+    case 'Finalizado':
+        $status_classes = 'bg-green-100 text-green-800';
+        break;
+    case 'Arquivado':
+        $status_classes = 'bg-gray-200 text-gray-600';
+        break;
+    case 'Cancelado':
+        $status_classes = 'bg-red-100 text-red-800';
+        break;
 }
 $leadConversionContext = $leadConversionContext ?? ['shouldRender' => false];
-$isAprovadoOuSuperior = !in_array($status, ['Orçamento', 'Cancelado']);
-$translationAttachments = isset($translationAttachments) && is_array($translationAttachments) ? $translationAttachments : [];
-$crcAttachments = isset($crcAttachments) && is_array($crcAttachments) ? $crcAttachments : [];
-$paymentProofAttachments = isset($paymentProofAttachments) && is_array($paymentProofAttachments) ? $paymentProofAttachments : [];
+$isAprovadoOuSuperior = !in_array($status, ['Orçamento', 'Orçamento Pendente', 'Cancelado']);
 ?>
 
 
@@ -56,6 +69,15 @@ $paymentProofAttachments = isset($paymentProofAttachments) && is_array($paymentP
         <span id="display-status-badge" class="px-3 py-1.5 inline-flex text-sm leading-5 font-semibold rounded-full <?php echo $status_classes; ?>">
             <?php echo htmlspecialchars($status); ?>
         </span>
+        <?php if (!empty($leadConversionContext['shouldRender'])): ?>
+            <button
+                type="button"
+                id="open-lead-conversion-modal"
+                class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg shadow-sm"
+            >
+                Converter em Serviço
+            </button>
+        <?php endif; ?>
         <a
             href="processos.php?action=exibir_orcamento&id=<?php echo $processo['id']; ?>"
             target="_blank"
@@ -94,7 +116,11 @@ $paymentProofAttachments = isset($paymentProofAttachments) && is_array($paymentP
             </div>
         </div>
         <?php if (!empty($leadConversionContext['shouldRender'])): ?>
-            <div id="lead-conversion-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+            <div
+                id="lead-conversion-modal"
+                class="fixed inset-0 z-50 hidden items-center justify-center bg-black bg-opacity-60"
+                aria-hidden="true"
+            >
                 <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl" style="width:70%; max-height:80vh; overflow-y:auto;">
                     <div class="sticky top-0 flex items-center justify-end px-6 py-4 bg-white border-b border-gray-200">
                         <button type="button" id="close-lead-conversion-modal" class="text-sm text-gray-500 hover:text-gray-700">Fechar ✕</button>
@@ -347,7 +373,7 @@ $paymentProofAttachments = isset($paymentProofAttachments) && is_array($paymentP
                     <div>
                         <label for="status_processo" class="block text-sm font-medium text-gray-700">Mudar Status para:</label>
                         <select id="status_processo" name="status_processo" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                            <?php $allStatus = ['Orçamento', 'Serviço Pendente', 'Aprovado', 'Em Andamento', 'Finalizado', 'Arquivado', 'Cancelado']; ?>
+                            <?php $allStatus = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Aprovado', 'Em Andamento', 'Finalizado', 'Arquivado', 'Cancelado']; ?>
                             <?php foreach ($allStatus as $stat): ?>
                                 <option value="<?php echo $stat; ?>" <?php echo ($processo['status_processo'] == $stat) ? 'selected' : ''; ?>>
                                     <?php echo $stat; ?>
@@ -909,9 +935,43 @@ document.addEventListener('DOMContentLoaded', function() {
 
   const leadConversionModal = $id('lead-conversion-modal');
   const closeLeadConversionModalBtn = $id('close-lead-conversion-modal');
+  const openLeadConversionModalBtn = $id('open-lead-conversion-modal');
+
+  const toggleBodyScroll = (shouldLock) => {
+    if (!document.body) {
+      return;
+    }
+    document.body.classList[shouldLock ? 'add' : 'remove']('overflow-hidden');
+  };
+
+  const showLeadConversionModal = () => {
+    if (!leadConversionModal) {
+      return;
+    }
+    leadConversionModal.classList.remove('hidden');
+    leadConversionModal.setAttribute('aria-hidden', 'false');
+    toggleBodyScroll(true);
+  };
+
+  const hideLeadConversionModal = () => {
+    if (!leadConversionModal) {
+      return;
+    }
+    leadConversionModal.classList.add('hidden');
+    leadConversionModal.setAttribute('aria-hidden', 'true');
+    toggleBodyScroll(false);
+  };
+
+  if (openLeadConversionModalBtn) {
+    openLeadConversionModalBtn.addEventListener('click', showLeadConversionModal);
+  }
+
   if (leadConversionModal && closeLeadConversionModalBtn) {
-    closeLeadConversionModalBtn.addEventListener('click', () => {
-      leadConversionModal.remove();
+    closeLeadConversionModalBtn.addEventListener('click', hideLeadConversionModal);
+    leadConversionModal.addEventListener('click', (event) => {
+      if (event.target === leadConversionModal) {
+        hideLeadConversionModal();
+      }
     });
   }
 
