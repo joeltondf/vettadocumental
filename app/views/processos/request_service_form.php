@@ -212,12 +212,18 @@ $prazoAcordado = $clienteContext['prazo_acordado_dias'] ?? ($context['prazoAcord
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
-                <div class="hidden" data-service-template>
+                <template data-service-template>
                     <div class="p-4 border border-gray-200 rounded-lg space-y-4" data-service-item>
                         <div class="flex items-start justify-between gap-4">
                             <div class="flex-1">
-                                <label class="block text-sm font-medium text-gray-700">Produto / Serviço *</label>
-                                <select class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500 text-sm" required data-service-select>
+                                <label class="block text-sm font-medium text-gray-700" data-label-template="service-product-__index__">Produto / Serviço *</label>
+                                <select
+                                    class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500 text-sm"
+                                    required
+                                    data-service-select
+                                    data-name-template="lead_subscription_services[__index__][productBudgetId]"
+                                    data-id-template="service-product-__index__"
+                                >
                                     <option value="">Selecione um produto</option>
                                     <?php foreach ($produtosOrcamento as $produto): ?>
                                         <?php
@@ -240,8 +246,15 @@ $prazoAcordado = $clienteContext['prazo_acordado_dias'] ?? ($context['prazoAcord
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">Valor padrão *</label>
-                                <input type="text" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500" required data-service-value>
+                                <label class="block text-sm font-medium text-gray-700" data-label-template="service-value-__index__">Valor padrão *</label>
+                                <input
+                                    type="text"
+                                    class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
+                                    required
+                                    data-service-value
+                                    data-name-template="lead_subscription_services[__index__][standardValue]"
+                                    data-id-template="service-value-__index__"
+                                >
                                 <p class="mt-1 text-xs text-gray-500" data-minimum-hint></p>
                             </div>
                             <div class="flex items-end">
@@ -249,7 +262,7 @@ $prazoAcordado = $clienteContext['prazo_acordado_dias'] ?? ($context['prazoAcord
                             </div>
                         </div>
                     </div>
-                </div>
+                </template>
             </div>
         </div>
 

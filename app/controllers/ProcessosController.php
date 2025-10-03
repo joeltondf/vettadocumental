@@ -22,6 +22,7 @@ require_once __DIR__ . '/../models/CategoriaFinanceira.php';
 require_once __DIR__ . '/../models/LancamentoFinanceiro.php';
 require_once __DIR__ . '/../services/EmailService.php';
 require_once __DIR__ . '/../models/Notificacao.php';
+require_once __DIR__ . '/../utils/OmiePayloadBuilder.php';
 class ProcessosController
 {
     private const DEFAULT_OMIE_SERVICE_TAXATION_CODE = '01';
@@ -699,6 +700,10 @@ class ProcessosController
 
         $this->convertProspectIfNeeded($clienteId, $novoStatus);
 
+        if ($leadConversionRequested) {
+            $this->syncConvertedClientWithOmie($clienteId);
+        }
+
         if ($statusSaiuDePendencia) {
             $this->notificacaoModel->deleteByLink($link);
         }
@@ -1224,6 +1229,64 @@ class ProcessosController
         $this->syncClientSubscriptionServices($clienteId, $clientePayload['tipo_assessoria'], $servicos);
 
         return $clienteId;
+    }
+
+    private function syncConvertedClientWithOmie(int $clienteId): void
+    {
+        if ($clienteId <= 0) {
+            return;
+        }
+
+        try {
+            $cliente = $this->clienteModel->getById($clienteId);
+            if (!$cliente) {
+                return;
+            }
+
+            $cliente = $this->ensureClientIntegrationIdentifiers($cliente);
+            $hasOmieId = !empty($cliente['omie_id']);
+            $payload = $hasOmieId
+                ? OmiePayloadBuilder::buildAlterarClientePayload($cliente)
+                : OmiePayloadBuilder::buildIncluirClientePayload($cliente);
+
+            $response = $hasOmieId
+                ? $this->omieService->alterarCliente($payload)
+                : $this->omieService->incluirCliente($payload);
+
+            if (!empty($response['codigo_cliente_omie'])) {
+                $this->clienteModel->updateIntegrationIdentifiers(
+                    $clienteId,
+                    $cliente['codigo_cliente_integracao'] ?? null,
+                    (int)$response['codigo_cliente_omie']
+                );
+            }
+        } catch (Throwable $exception) {
+            error_log('Falha ao sincronizar cliente convertido com a Omie: ' . $exception->getMessage());
+            if (empty($_SESSION['warning_message'])) {
+                $_SESSION['warning_message'] = 'O cliente foi convertido, mas a sincronização com a Omie falhou. Verifique as configurações da API.';
+            }
+        }
+    }
+
+    private function ensureClientIntegrationIdentifiers(array $cliente): array
+    {
+        $integrationCode = $cliente['codigo_cliente_integracao'] ?? '';
+        if (($integrationCode === '' || $integrationCode === null) && $this->clienteModel->supportsIntegrationCodeColumn()) {
+            $integrationCode = $this->generateClientIntegrationCode((int)$cliente['id']);
+            $this->clienteModel->updateIntegrationIdentifiers(
+                (int)$cliente['id'],
+                $integrationCode,
+                isset($cliente['omie_id']) ? (int)$cliente['omie_id'] : null
+            );
+            $cliente['codigo_cliente_integracao'] = $integrationCode;
+        }
+
+        return $cliente;
+    }
+
+    private function generateClientIntegrationCode(int $clientId): string
+    {
+        return 'CLI-' . str_pad((string)$clientId, 6, '0', STR_PAD_LEFT);
     }
 
     private function normalizeLeadPayload(array $input): array

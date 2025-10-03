@@ -118,10 +118,10 @@ $isAprovadoOuSuperior = !in_array($status, ['Orçamento', 'Orçamento Pendente',
         <?php if (!empty($leadConversionContext['shouldRender'])): ?>
             <div
                 id="lead-conversion-modal"
-                class="fixed inset-0 z-50 hidden items-center justify-center bg-black bg-opacity-60"
+                class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black bg-opacity-60"
                 aria-hidden="true"
             >
-                <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl" style="width:70%; max-height:80vh; overflow-y:auto;">
+                <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl lg:w-4/5 xl:w-3/4 overflow-y-auto" style="max-height: 80vh;">
                     <div class="sticky top-0 flex items-center justify-end px-6 py-4 bg-white border-b border-gray-200">
                         <button type="button" id="close-lead-conversion-modal" class="text-sm text-gray-500 hover:text-gray-700">Fechar ✕</button>
                     </div>
