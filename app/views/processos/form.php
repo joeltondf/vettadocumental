@@ -84,19 +84,22 @@ $financeiroServicos = [
         <input type="hidden" name="vendedor_id" value="<?php echo htmlspecialchars($vendedor_id_selecionado); ?>">
     <?php endif; ?>
 
-    <fieldset class="border border-gray-200 rounded-md p-6">
+    <fieldset class="border border-gray-200 rounded-md p-6 space-y-6">
         <legend class="text-lg font-semibold text-gray-700 px-2 bg-white ml-4">Informações Gerais</legend>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div>
                 <label for="orcamento_numero" class="block text-sm font-medium text-gray-700">Nº Orçamento</label>
                 <input type="text" name="orcamento_numero" id="orcamento_numero" class="mt-1 block w-full p-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" value="<?php echo htmlspecialchars($processo['orcamento_numero'] ?? 'Será gerado ao salvar'); ?>" readonly>
             </div>
-            <div>
+            <div class="md:col-span-2 lg:col-span-1">
                 <label for="titulo" class="block text-sm font-medium text-gray-700">Nome do Serviço / Família *</label>
                 <input type="text" name="titulo" id="titulo" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" value="<?php echo htmlspecialchars($processo['titulo'] ?? ''); ?>" required>
             </div>
-            <div>
-                <label for="cliente_id" class="block text-sm font-medium text-gray-700">Cliente (Assessoria) *</label>
+            <div class="md:col-span-2 lg:col-span-1">
+                <?php
+                    $clienteLabel = $isVendedor ? 'Lead' : 'Cliente (Assessoria) *';
+                ?>
+                <label for="cliente_id" class="block text-sm font-medium text-gray-700"><?php echo $clienteLabel; ?></label>
                 <div class="flex items-center space-x-2 mt-1">
                     <select name="cliente_id" id="cliente_id" class="block w-full p-2 border border-gray-300 rounded-md shadow-sm" required <?php if ($disableFields) echo 'disabled'; ?>>
                         <option value="">Selecione...</option>
@@ -120,12 +123,14 @@ $financeiroServicos = [
                     <?php endforeach; endif; ?>
                 </select>
             </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
                 <label for="orcamento_origem" class="block text-sm font-medium text-gray-700">Origem do Orçamento</label>
                 <select name="orcamento_origem" id="orcamento_origem" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                     <option value="">Selecione a origem</option>
                     <?php
-                    $origens = ['Bitrix', 'Facebook', 'Instagram', 'Google', 'Indicação Cartório', 'Indicação Cliente'];
+                    $origens = ['Bitrix', 'Facebook', 'Instagram', 'Google', 'Indicação Cartório', 'Indicação Cliente', 'Website', 'LinkedIn', 'Whatsapp'];
                     foreach ($origens as $origem) {
                         $selected = (($processo['orcamento_origem'] ?? '') == $origem) ? 'selected' : '';
                         echo "<option value='{$origem}' {$selected}>{$origem}</option>";
@@ -133,141 +138,136 @@ $financeiroServicos = [
                     ?>
                 </select>
             </div>
+        </div>
+    </fieldset>
 
-            <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200 mt-6">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4">Anexar Arquivos</h3>
-                
-                <div>
-                    <label for="anexos" class="block text-sm font-medium text-gray-700 mb-2">Selecione um ou mais arquivos</label>
-                    <input type="file" name="anexos[]" id="anexos" multiple 
-                        class="block w-full text-sm text-gray-500
-                                file:mr-4 file:py-2 file:px-4
-                                file:rounded-full file:border-0
-                                file:text-sm file:font-semibold
-                                file:bg-blue-50 file:text-blue-700
-                                hover:file:bg-blue-100">
-                    <p class="mt-1 text-xs text-gray-500">Você pode selecionar múltiplos arquivos segurando a tecla Ctrl (ou Cmd em Mac).</p>
-                </div>
-
-                <?php if (!empty($anexos)): ?>
-                    <div class="mt-6 pt-4 border-t">
-                        <h4 class="text-md font-medium text-gray-700 mb-2">Arquivos Anexados:</h4>
-                        <ul class="list-disc pl-5 space-y-2">
-                            <?php foreach ($anexos as $anexo): ?>
-                                <li class="text-sm text-gray-600 flex justify-between items-center">
-                                    <a href="visualizar_anexo.php?id=<?= $anexo['id'] ?>" target="_blank" class="text-blue-600 hover:underline">
-                                        <?= htmlspecialchars($anexo['nome_arquivo_original']) ?>
-                                    </a>
-                                    <a href="processos.php?action=excluir_anexo&id=<?= $processo['id'] ?>&anexo_id=<?= $anexo['id'] ?>" 
-                                    class="text-red-500 hover:text-red-700 text-xs font-semibold"
-                                    onclick="return confirm('Tem certeza que deseja excluir este anexo?');">
-                                    Excluir
-                                    </a>
-                                </li>
-                            <?php endforeach; ?>
-                        </ul>
-                    </div>
-                <?php endif; ?>
-            </div>
-
-            <div class="md:col-span-3 mt-4 pt-4 border-t border-gray-200">
-                <label class="block text-base font-bold text-gray-800 mb-3">
-                    <?php if (isset($processo['status_processo']) && $processo['status_processo'] != 'Orçamento'): ?>
-                        Serviços Contratados *
-                    <?php else: ?>
-                        Serviços Orçados *
-                    <?php endif; ?>                
+    <fieldset class="border border-gray-200 rounded-md p-6 mt-6">
+        <legend class="text-lg font-semibold text-gray-700 px-2 bg-white ml-4">Serviços Orçados</legend>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
+            <?php
+            $categorias = ['Tradução', 'CRC', 'Apostilamento', 'Postagem'];
+            $categoriasRaw = $processo['categorias_servico'] ?? [];
+            if (is_string($categoriasRaw)) {
+                $categorias_selecionadas = array_filter(array_map('trim', explode(',', $categoriasRaw)));
+            } elseif (is_array($categoriasRaw)) {
+                $categorias_selecionadas = $categoriasRaw;
+            } else {
+                $categorias_selecionadas = [];
+            }
+            $slug_map = ['Tradução' => 'traducao', 'CRC' => 'crc', 'Apostilamento' => 'apostilamento', 'Postagem' => 'postagem'];
+            $labelColorMap = [
+                'Tradução' => 'border-blue-300 bg-blue-50 hover:bg-blue-100',
+                'CRC' => 'border-green-300 bg-green-50 hover:bg-green-100',
+                'Apostilamento' => 'border-yellow-300 bg-yellow-50 hover:bg-yellow-100',
+                'Postagem' => 'border-purple-300 bg-purple-50 hover:bg-purple-100',
+            ];
+            $checkboxColorMap = [
+                'Tradução' => 'text-blue-600 focus:ring-blue-500',
+                'CRC' => 'text-green-600 focus:ring-green-500',
+                'Apostilamento' => 'text-yellow-600 focus:ring-yellow-500',
+                'Postagem' => 'text-purple-600 focus:ring-purple-500',
+            ];
+            $textColorMap = [
+                'Tradução' => 'text-blue-800',
+                'CRC' => 'text-green-800',
+                'Apostilamento' => 'text-yellow-800',
+                'Postagem' => 'text-purple-800',
+            ];
+            foreach ($categorias as $cat):
+                $slug = $slug_map[$cat];
+                $labelClasses = $labelColorMap[$cat];
+                $checkboxClasses = $checkboxColorMap[$cat];
+                $textClasses = $textColorMap[$cat];
+            ?>
+                <label for="cat_<?php echo $slug; ?>" class="flex items-center p-3 border rounded-lg cursor-pointer transition-all duration-200 <?php echo $labelClasses; ?>">
+                    <input id="cat_<?php echo $slug; ?>" name="categorias_servico[]" type="checkbox" value="<?php echo $cat; ?>" class="h-5 w-5 border-gray-300 rounded service-checkbox <?php echo $checkboxClasses; ?>" data-target="section-<?php echo $slug; ?>" <?php echo in_array($cat, $categorias_selecionadas) ? 'checked' : ''; ?>>
+                    <span class="ml-3 block text-sm font-semibold <?php echo $textClasses; ?>"><?php echo $cat; ?></span>
                 </label>
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-4">
-                    <?php
-                    $categorias = ['Tradução', 'CRC', 'Apostilamento', 'Postagem'];
-                    $categoriasRaw = $processo['categorias_servico'] ?? [];
-                    if (is_string($categoriasRaw)) {
-                        $categorias_selecionadas = array_filter(array_map('trim', explode(',', $categoriasRaw)));
-                    } elseif (is_array($categoriasRaw)) {
-                        $categorias_selecionadas = $categoriasRaw;
-                    } else {
-                        $categorias_selecionadas = [];
-                    }
-                    $slug_map = ['Tradução' => 'traducao', 'CRC' => 'crc', 'Apostilamento' => 'apostilamento', 'Postagem' => 'postagem'];
-
-                    // Mapeamento de cores para cada serviço
-                    $labelColorMap = [
-                        'Tradução' => 'border-blue-300 bg-blue-50 hover:bg-blue-100',
-                        'CRC' => 'border-green-300 bg-green-50 hover:bg-green-100',
-                        'Apostilamento' => 'border-yellow-300 bg-yellow-50 hover:bg-yellow-100',
-                        'Postagem' => 'border-purple-300 bg-purple-50 hover:bg-purple-100',
-                    ];
-
-                    $checkboxColorMap = [
-                        'Tradução' => 'text-blue-600 focus:ring-blue-500',
-                        'CRC' => 'text-green-600 focus:ring-green-500',
-                        'Apostilamento' => 'text-yellow-600 focus:ring-yellow-500',
-                        'Postagem' => 'text-purple-600 focus:ring-purple-500',
-                    ];
-
-                    $textColorMap = [
-                        'Tradução' => 'text-blue-800',
-                        'CRC' => 'text-green-800',
-                        'Apostilamento' => 'text-yellow-800',
-                        'Postagem' => 'text-purple-800',
-                    ];
-
-                    foreach ($categorias as $cat):
-                        $slug = $slug_map[$cat];
-                        $labelClasses = $labelColorMap[$cat];
-                        $checkboxClasses = $checkboxColorMap[$cat];
-                        $textClasses = $textColorMap[$cat];
-                    ?>
-                        <label for="cat_<?php echo $slug; ?>" class="flex items-center p-3 border rounded-lg cursor-pointer transition-all duration-200 <?php echo $labelClasses; ?>">
-                            <input id="cat_<?php echo $slug; ?>" name="categorias_servico[]" type="checkbox" value="<?php echo $cat; ?>" class="h-5 w-5 border-gray-300 rounded service-checkbox <?php echo $checkboxClasses; ?>" data-target="section-<?php echo $slug; ?>" <?php echo in_array($cat, $categorias_selecionadas) ? 'checked' : ''; ?>>
-                            <span class="ml-3 block text-sm font-semibold <?php echo $textClasses; ?>"><?php echo $cat; ?></span>
-                        </label>
-                    <?php endforeach; ?>
-                </div>
-            </div>
+            <?php endforeach; ?>
         </div>
     </fieldset>
 
     <div id="section-traducao" class="service-section hidden">
-        <fieldset class="border border-blue-200 rounded-md p-6 bg-blue-50">
+        <fieldset class="border border-blue-200 rounded-md p-6 bg-blue-50 space-y-6">
             <legend class="text-lg font-semibold text-blue-800 px-2 ml-4">Detalhes da Tradução</legend>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label for="idioma" class="block text-sm font-medium text-gray-700">Idioma *</label>
+                    <label for="idioma" class="block text-sm font-medium text-gray-700">Idioma</label>
                     <select name="idioma" id="idioma" class="mt-1 block w-full p-2 border border-blue-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                        <option value="Italiano" <?php echo (($processo['idioma'] ?? '') == 'Italiano') ? 'selected' : ''; ?>>Italiano</option>
-                        <option value="Espanhol" <?php echo (($processo['idioma'] ?? '') == 'Espanhol') ? 'selected' : ''; ?>>Espanhol</option>
-                        <option value="Inglês" <?php echo (($processo['idioma'] ?? '') == 'Inglês') ? 'selected' : ''; ?>>Inglês</option>
-                        <option value="Francês" <?php echo (($processo['idioma'] ?? '') == 'Francês') ? 'selected' : ''; ?>>Francês</option>
-                        <option value="Alemão" <?php echo (($processo['idioma'] ?? '') == 'Alemão') ? 'selected' : ''; ?>>Alemão</option>
+                        <option value="">Selecione o idioma</option>
+                        <?php
+                        $idiomas = ['Italiano', 'Espanhol', 'Inglês', 'Francês', 'Alemão'];
+                        foreach ($idiomas as $idioma):
+                            $selected = (($processo['idioma'] ?? '') === $idioma) ? 'selected' : '';
+                            echo "<option value='{$idioma}' {$selected}>{$idioma}</option>";
+                        endforeach;
+                        ?>
                     </select>
                 </div>
                 <div>
-                    <label for="modalidade_assinatura" class="block text-sm font-medium text-gray-700">Modalidade da Assinatura *</label>
+                    <label for="modalidade_assinatura" class="block text-sm font-medium text-gray-700">Modalidade da Assinatura</label>
                     <select name="modalidade_assinatura" id="modalidade_assinatura" class="mt-1 block w-full p-2 border border-blue-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Selecione a modalidade</option>
                         <option value="Assinatura Digital" <?php echo (($processo['modalidade_assinatura'] ?? '') == 'Assinatura Digital') ? 'selected' : ''; ?>>Assinatura Digital</option>
                         <option value="Assinatura Física" <?php echo (($processo['modalidade_assinatura'] ?? '') == 'Assinatura Física') ? 'selected' : ''; ?>>Assinatura Física</option>
                     </select>
                 </div>
             </div>
-            <hr class="my-6 border-blue-200">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-md font-medium text-gray-800">Documentos para Tradução</h3>
-                <button type="button" class="add-doc-btn bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-1.5 px-4 rounded-md transition duration-200 ease-in-out" data-type="traducao">Adicionar + 1 documento</button>
+            <div class="space-y-4">
+                <h3 class="text-md font-semibold text-gray-800">Anexar documentos de tradução</h3>
+                <div class="space-y-2">
+                    <label class="sr-only" for="anexos_traducao">Escolher arquivos</label>
+                    <input type="file" name="anexos[]" id="anexos_traducao" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200">
+                    <p class="text-xs text-gray-600">Sem nenhum arquivo anexado.</p>
+                    <p class="text-xs text-gray-500">Inclua tradução, referências e outros documentos de tradução.</p>
+                </div>
+                <?php if (!empty($anexos)): ?>
+                    <div class="rounded-md border border-blue-200 bg-white p-4">
+                        <h4 class="text-sm font-semibold text-blue-700 mb-2">Documentos para Tradução</h4>
+                        <ul class="space-y-2" data-translation-attachments-list>
+                            <?php foreach ($anexos as $anexo): ?>
+                                <li class="flex items-center justify-between text-sm text-gray-700">
+                                    <a href="visualizar_anexo.php?id=<?= $anexo['id'] ?>" target="_blank" class="text-blue-600 hover:underline">
+                                        <?= htmlspecialchars($anexo['nome_arquivo_original']); ?>
+                                    </a>
+                                    <a href="processos.php?action=excluir_anexo&id=<?= $processo['id'] ?>&anexo_id=<?= $anexo['id'] ?>" class="text-red-500 hover:text-red-700 text-xs font-semibold" onclick="return confirm('Tem certeza que deseja excluir este anexo?');">Remover</a>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php else: ?>
+                    <div class="rounded-md border border-blue-100 bg-white p-4 text-sm text-gray-500">Documentos para Tradução: Nenhum documento listado.</div>
+                <?php endif; ?>
             </div>
-            <div class="doc-container space-y-3" data-container-type="traducao"></div>
+            <div class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-md font-medium text-gray-800">Documentos para Tradução</h3>
+                    <button type="button" class="add-doc-btn bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-1.5 px-4 rounded-md transition duration-200 ease-in-out" data-type="traducao">Adicionar + Documento</button>
+                </div>
+                <div class="doc-container space-y-3" data-container-type="traducao"></div>
+            </div>
         </fieldset>
     </div>
 
     <div id="section-crc" class="service-section hidden">
-        <fieldset class="border border-green-200 rounded-md p-6 bg-green-50">
+        <fieldset class="border border-green-200 rounded-md p-6 bg-green-50 space-y-6">
             <legend class="text-lg font-semibold text-green-800 px-2 ml-4">Documentos CRC</legend>
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-md font-medium text-gray-800">Documentos para CRC</h3>
-                <button type="button" class="add-doc-btn bg-green-600 hover:bg-green-700 text-white text-sm font-bold py-1.5 px-4 rounded-md transition duration-200 ease-in-out" data-type="crc">Adicionar + documento</button>
+            <div class="space-y-4">
+                <h3 class="text-md font-semibold text-gray-800">Anexar documentos CRC</h3>
+                <div class="space-y-2">
+                    <label class="sr-only" for="anexos_crc">Escolher arquivos</label>
+                    <input type="file" name="anexos[]" id="anexos_crc" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-green-100 file:text-green-700 hover:file:bg-green-200">
+                    <p class="text-xs text-gray-600">Sem nenhum arquivo anexado.</p>
+                    <p class="text-xs text-gray-500">Inclua arquivos legais para a etapa do CRC, como por exemplo, certidões.</p>
+                </div>
             </div>
-            <div class="doc-container space-y-3" data-container-type="crc"></div>
+            <div class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-md font-medium text-gray-800">Documentos para CRC</h3>
+                    <button type="button" class="add-doc-btn bg-green-600 hover:bg-green-700 text-white text-sm font-bold py-1.5 px-4 rounded-md transition duration-200 ease-in-out" data-type="crc">Adicionar + Documento</button>
+                </div>
+                <div class="doc-container space-y-3" data-container-type="crc"></div>
+            </div>
         </fieldset>
     </div>
 
@@ -276,16 +276,16 @@ $financeiroServicos = [
             <legend class="text-lg font-semibold text-yellow-800 px-2 ml-4">Etapa Apostilamento</legend>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
                 <div>
-                    <label for="apostilamento_quantidade" class="block text-sm font-medium text-gray-700">Quantidade *</label>
+                    <label for="apostilamento_quantidade" class="block text-sm font-medium text-gray-700">Quantidade</label>
                     <input type="number" name="apostilamento_quantidade" id="apostilamento_quantidade" class="mt-1 block w-full p-2 calculation-trigger border border-yellow-300 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500" value="<?php echo htmlspecialchars($processo['apostilamento_quantidade'] ?? '0'); ?>">
                 </div>
                 <div>
-                    <label for="apostilamento_valor_unitario" class="block text-sm font-medium text-gray-700">Valor Unitário (R$) *</label>
+                    <label for="apostilamento_valor_unitario" class="block text-sm font-medium text-gray-700">Valor Unitário (R$)</label>
                     <input type="text" name="apostilamento_valor_unitario" id="apostilamento_valor_unitario" class="mt-1 block w-full p-2 calculation-trigger border border-yellow-300 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500" placeholder="0,00" value="<?php echo htmlspecialchars($processo['apostilamento_valor_unitario'] ?? '0,00'); ?>">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-500">Valor Total (R$)</label>
-                    <p id="total-apostilamento" class="mt-2 text-lg font-bold text-gray-800">R$ 0,00</p>
+                    <label for="apostilamento_valor_total" class="block text-sm font-medium text-gray-700">Valor Total (R$)</label>
+                    <input type="text" name="apostilamento_valor_total" id="apostilamento_valor_total" class="mt-1 block w-full p-2 border border-yellow-300 rounded-md shadow-sm bg-gray-100" value="<?php echo htmlspecialchars($processo['apostilamento_valor_total'] ?? '0,00'); ?>" readonly>
                 </div>
             </div>
         </fieldset>
@@ -296,85 +296,31 @@ $financeiroServicos = [
             <legend class="text-lg font-semibold text-purple-800 px-2 ml-4">Etapa Postagem / Envio</legend>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
                 <div>
-                    <label for="postagem_quantidade" class="block text-sm font-medium text-gray-700">Quantidade *</label>
+                    <label for="postagem_quantidade" class="block text-sm font-medium text-gray-700">Quantidade</label>
                     <input type="number" name="postagem_quantidade" id="postagem_quantidade" class="mt-1 block w-full p-2 calculation-trigger border border-purple-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500" value="<?php echo htmlspecialchars($processo['postagem_quantidade'] ?? '0'); ?>">
                 </div>
                 <div>
-                    <label for="postagem_valor_unitario" class="block text-sm font-medium text-gray-700">Valor Unitário (R$) *</label>
+                    <label for="postagem_valor_unitario" class="block text-sm font-medium text-gray-700">Valor Unitário (R$)</label>
                     <input type="text" name="postagem_valor_unitario" id="postagem_valor_unitario" class="mt-1 block w-full p-2 calculation-trigger border border-purple-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500" placeholder="0,00" value="<?php echo htmlspecialchars($processo['postagem_valor_unitario'] ?? '0,00'); ?>">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-500">Valor Total (R$)</label>
-                    <p id="total-postagem" class="mt-2 text-lg font-bold text-gray-800">R$ 0,00</p>
+                    <label for="postagem_valor_total" class="block text-sm font-medium text-gray-700">Valor Total (R$)</label>
+                    <input type="text" name="postagem_valor_total" id="postagem_valor_total" class="mt-1 block w-full p-2 border border-purple-300 rounded-md shadow-sm bg-gray-100" value="<?php echo htmlspecialchars($processo['postagem_valor_total'] ?? '0,00'); ?>" readonly>
                 </div>
             </div>
         </fieldset>
     </div>
 
-<?php if ($isEditMode): ?>
-    <fieldset class="border border-yellow-300 rounded-md p-6 bg-yellow-50 rounded-md p-6">
-        <legend class="text-lg font-semibold text-yellow-700 px-2 ml-4">Financeiro</legend>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4 items-end">
-            <div>
-                <label for="orcamento_forma_pagamento" class="block text-sm font-medium text-gray-700">Forma de Pagamento *</label>
-                <select name="orcamento_forma_pagamento" id="orcamento_forma_pagamento" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
-                    <option value="À vista" <?php echo (($processo['orcamento_forma_pagamento'] ?? 'À vista') == 'À vista') ? 'selected' : ''; ?>>À vista</option>
-                    <option value="Faturado" <?php echo (($processo['orcamento_forma_pagamento'] ?? '') == 'Faturado') ? 'selected' : ''; ?>>Faturado</option>
-                </select>
-            </div>
-            <div id="pagamento_a_vista_container" class="contents">
-                <div>
-                    <label for="orcamento_parcelas" class="block text-sm font-medium text-gray-700">Parcelas *</label>
-                    <select name="orcamento_parcelas" id="orcamento_parcelas" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                        <option value="1" <?php echo (($processo['orcamento_parcelas'] ?? '1') == '1') ? 'selected' : ''; ?>>1x</option>
-                        <option value="2" <?php echo (($processo['orcamento_parcelas'] ?? '') == '2') ? 'selected' : ''; ?>>2x</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="comprovantes" class="block text-sm font-medium text-gray-700 mb-2">Anexar Comprovantes de Pagamento</label>
-                    <input type="file" name="comprovantes[]" id="comprovantes" multiple 
-                        class="block w-full text-sm text-gray-500
-                                file:mr-4 file:py-2 file:px-4
-                                file:rounded-full file:border-0
-                                file:text-sm file:font-semibold
-                                file:bg-green-50 file:text-green-700
-                                hover:file:bg-green-100">
-                    <p class="mt-1 text-xs text-gray-500">Você pode selecionar múltiplos arquivos.</p>
-                </div>
-
-            </div>
-        </div>
-        <div id="parcelas_container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-4 items-end">
-            <div id="parcela1_fields">
-                <label id="label_parcela1" class="block text-sm font-medium text-gray-700">Valor *</label>
-                <input type="text" name="orcamento_valor_entrada" id="orcamento_valor_entrada" class="mt-1 block w-full p-2 calculation-trigger border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="0.00" value="<?php echo htmlspecialchars($processo['orcamento_valor_entrada'] ?? '0.00'); ?>">
-            </div>
-            <div id="data1_fields">
-                <label id="label_data1" class="block text-sm font-medium text-gray-700">Data Pagamento *</label>
-                <input type="date" name="data_pagamento_1" id="data_pagamento_1" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" value="<?php echo htmlspecialchars($processo['data_pagamento_1'] ?? ''); ?>">
-            </div>
-            <div id="data2_fields">
-                <label class="block text-sm font-medium text-gray-700">Data 2ª Parcela *</label>
-                <input type="date" name="data_pagamento_2" id="data_pagamento_2" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" value="<?php echo htmlspecialchars($processo['data_pagamento_2'] ?? ''); ?>">
-            </div>
-            <div id="parcela2_fields">
-                <label class="block text-sm font-medium text-gray-700">Valor Restante</label>
-                <p id="valor-restante-display" class="mt-2 text-lg font-bold text-red-600">R$ 0.00</p>
-            </div>
-        </div>
-    </fieldset>
-<?php endif; ?>
-
 <fieldset class="border border-gray-200 rounded-md p-6 mt-6">
     <legend class="text-lg font-semibold text-gray-700 px-2 bg-white ml-4">Resumo do Orçamento</legend>
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-4 items-center">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4 items-center">
         <div>
-            <label class="block text-sm font-medium text-gray-500">Total Documentos</label>
+            <label class="block text-sm font-medium text-gray-500">Total de Documentos</label>
             <p id="total-documentos" class="mt-1 text-xl font-bold text-gray-800">0</p>
         </div>
-        <div>
-            <label class="block text-sm font-medium text-gray-500">Valor Total do Processo</label>
-            <p id="total-geral" class="mt-1 text-xl font-bold text-green-600">R$ 0.00</p>
+        <div class="md:col-span-2">
+            <label for="resumo_valor_total" class="block text-sm font-medium text-gray-500">Valor Total do Orçamento (R$)</label>
+            <input type="text" id="resumo_valor_total" class="mt-1 block w-full p-3 text-xl font-semibold text-green-600 border border-green-200 rounded-md bg-green-50" value="R$ 0,00" readonly>
             <input type="hidden" name="valor_total_hidden" id="valor_total_hidden">
         </div>
     </div>
@@ -693,7 +639,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // inclusive os que forem criados dinamicamente (.doc-price).
     document.body.addEventListener('input', function(e) {
         const target = e.target;
-        if (target.matches('#apostilamento_valor_unitario, #postagem_valor_unitario, #orcamento_valor_entrada, .doc-price')) {
+        if (target.matches('#apostilamento_valor_unitario, #postagem_valor_unitario, .doc-price')) {
             const raw = target.value.replace(/\D/g, '');
             if (raw === '') {
                 target.value = '';
@@ -723,37 +669,45 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const apostilamentoSection = document.getElementById('section-apostilamento');
         if (apostilamentoSection && !apostilamentoSection.classList.contains('hidden')) {
-            const qtd = parseInt(document.getElementById('apostilamento_quantidade').value) || 0;
-            const valorUnit = parseCurrency(document.getElementById('apostilamento_valor_unitario').value);
-            const totalApos = qtd * valorUnit;
-            document.getElementById('total-apostilamento').textContent = formatCurrency(totalApos * 100);
+            const quantidadeInput = document.getElementById('apostilamento_quantidade');
+            const valorUnitarioInput = document.getElementById('apostilamento_valor_unitario');
+            const totalInput = document.getElementById('apostilamento_valor_total');
+            const qtd = parseInt(quantidadeInput.value, 10) || 0;
+            const valorUnitario = parseCurrency(valorUnitarioInput.value);
+            const totalApos = qtd * valorUnitario;
+            if (totalInput) {
+                totalInput.value = formatCurrency(totalApos * 100);
+            }
             totalGeral += totalApos;
         }
 
         const postagemSection = document.getElementById('section-postagem');
         if (postagemSection && !postagemSection.classList.contains('hidden')) {
-            const qtd = parseInt(document.getElementById('postagem_quantidade').value) || 0;
-            const valorUnit = parseCurrency(document.getElementById('postagem_valor_unitario').value);
-            const totalPost = qtd * valorUnit;
-            document.getElementById('total-postagem').textContent = formatCurrency(totalPost * 100);
+            const quantidadeInput = document.getElementById('postagem_quantidade');
+            const valorUnitarioInput = document.getElementById('postagem_valor_unitario');
+            const totalInput = document.getElementById('postagem_valor_total');
+            const qtd = parseInt(quantidadeInput.value, 10) || 0;
+            const valorUnitario = parseCurrency(valorUnitarioInput.value);
+            const totalPost = qtd * valorUnitario;
+            if (totalInput) {
+                totalInput.value = formatCurrency(totalPost * 100);
+            }
             totalGeral += totalPost;
         }
 
-        const entradaInput = document.getElementById('orcamento_valor_entrada');
-        if (entradaInput) {
-            const valorEntrada   = parseCurrency(entradaInput.value);
-            const valorRestante  = totalGeral - valorEntrada;
-            const displayEl      = document.getElementById('valor-restante-display');
-            if (displayEl) {
-                displayEl.textContent = formatCurrency(valorRestante * 100);
-                displayEl.classList.toggle('text-red-600', valorRestante > 0);
-                displayEl.classList.toggle('text-green-600', valorRestante <= 0);
-            }
-        }
+        const totalDocumentosEl = document.getElementById('total-documentos');
+        const resumoTotalInput = document.getElementById('resumo_valor_total');
+        const hiddenTotalInput = document.getElementById('valor_total_hidden');
 
-        document.getElementById('total-documentos').textContent = totalDocumentos;
-        document.getElementById('total-geral').textContent      = formatCurrency(totalGeral * 100);
-        document.getElementById('valor_total_hidden').value     = formatCurrency(totalGeral * 100);
+        if (totalDocumentosEl) {
+            totalDocumentosEl.textContent = totalDocumentos;
+        }
+        if (resumoTotalInput) {
+            resumoTotalInput.value = formatCurrency(totalGeral * 100);
+        }
+        if (hiddenTotalInput) {
+            hiddenTotalInput.value = formatCurrency(totalGeral * 100);
+        }
     }
 
     const form = document.getElementById('processo-form');
@@ -761,7 +715,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Formatação e cálculo no blur
         form.addEventListener('blur', function(e) {
             const target = e.target;
-            if (target.matches('#apostilamento_valor_unitario, #postagem_valor_unitario, .doc-price, #orcamento_valor_entrada')) {
+            if (target.matches('#apostilamento_valor_unitario, #postagem_valor_unitario, .doc-price')) {
                 const parsedValue = parseCurrency(target.value);
                 target.value = formatCurrency(parsedValue * 100);
             }
@@ -857,17 +811,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function togglePaymentFields() {
-        const isEditMode = <?php echo isset($processo['id']) ? 'true' : 'false'; ?>;
-        if (!isEditMode) return;
-        const formaPagamento = document.getElementById('orcamento_forma_pagamento').value;
-        const parcelas = document.getElementById('orcamento_parcelas').value;
-        document.getElementById('pagamento_a_vista_container').classList.toggle('hidden', formaPagamento !== 'À vista');
-        document.getElementById('parcela2_fields').classList.toggle('hidden', parcelas !== '2');
-        document.getElementById('data2_fields').classList.toggle('hidden', parcelas !== '2');
-        document.getElementById('label_parcela1').textContent = (parcelas === '2') ? 'Valor 1ª Parcela *' : 'Valor Total *';
-    }
-
     form.addEventListener('change', function(e) {
         if (e.target.matches('.servico-select')) {
             applyServiceSelection(e.target);
@@ -905,12 +848,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    document.querySelectorAll('.service-checkbox').forEach(cb => cb.addEventListener('change', toggleServiceSections));
-    document.querySelectorAll('input[name="traducao_prazo_tipo"]').forEach(radio => radio.addEventListener('change', togglePrazoInputs));
-    if (document.getElementById('orcamento_forma_pagamento')) {
-        document.getElementById('orcamento_forma_pagamento').addEventListener('change', togglePaymentFields);
-        document.getElementById('orcamento_parcelas').addEventListener('change', togglePaymentFields);
-    }
+    document.querySelectorAll('.service-checkbox').forEach(cb => cb.addEventListener('change', toggleServiceSections));
+    document.querySelectorAll('input[name="traducao_prazo_tipo"]').forEach(radio => radio.addEventListener('change', togglePrazoInputs));
     
     function loadExistingData() {
         docIndex = 0;
@@ -951,7 +890,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         toggleServiceSections();
         togglePrazoInputs();
-        if (document.getElementById('orcamento_forma_pagamento')) togglePaymentFields();
         updateAllCalculations();
         evaluateBudgetMinValues();
     }

@@ -11,6 +11,97 @@ $financeiroServicos = $financeiroServicos ?? [
     'Postagem' => [],
 ];
 
+$existingAttachments = $existingAttachments ?? ($anexos ?? []);
+if (!is_array($existingAttachments)) {
+    $existingAttachments = [];
+}
+
+$legacyDocuments = $formData['documentos'] ?? [];
+$parseLegacyCurrency = static function ($value) {
+    if ($value === null || $value === '') {
+        return null;
+    }
+    if (is_numeric($value)) {
+        return (float) $value;
+    }
+    $normalized = preg_replace('/[^0-9,.-]/', '', (string) $value);
+    if ($normalized === '' || $normalized === null) {
+        return null;
+    }
+    $normalized = str_replace('.', '', $normalized);
+    $normalized = str_replace(',', '.', $normalized);
+    return is_numeric($normalized) ? (float) $normalized : null;
+};
+
+$aggregateLegacySection = static function (array $docs) use ($parseLegacyCurrency) {
+    $totalQuantity = 0;
+    $totalValue = 0.0;
+
+    foreach ($docs as $doc) {
+        if (!is_array($doc)) {
+            continue;
+        }
+
+        $quantity = isset($doc['quantidade']) ? (int) $doc['quantidade'] : 0;
+        $quantity = $quantity > 0 ? $quantity : 1;
+
+        $lineTotal = $parseLegacyCurrency($doc['valor_total'] ?? null);
+        $unitValue = $parseLegacyCurrency($doc['valor_unitario'] ?? null);
+
+        if ($lineTotal === null && $unitValue !== null) {
+            $lineTotal = $unitValue * $quantity;
+        }
+
+        if ($unitValue === null && $lineTotal !== null && $quantity > 0) {
+            $unitValue = $lineTotal / $quantity;
+        }
+
+        if ($quantity > 0) {
+            $totalQuantity += $quantity;
+        }
+
+        if ($lineTotal !== null) {
+            $totalValue += $lineTotal;
+        }
+    }
+
+    if ($totalQuantity <= 0 || $totalValue <= 0) {
+        return null;
+    }
+
+    $unit = $totalValue / $totalQuantity;
+
+    return [
+        'quantidade' => $totalQuantity,
+        'valor_unitario' => $unit,
+        'valor_total' => $totalValue,
+    ];
+};
+
+if (!empty($legacyDocuments['apostilamento'])
+    && empty($formData['apostilamento_quantidade'])
+    && empty($formData['apostilamento_valor_unitario'])
+) {
+    $legacyApostilamento = $aggregateLegacySection($legacyDocuments['apostilamento']);
+    if ($legacyApostilamento !== null) {
+        $formData['apostilamento_quantidade'] = (string) $legacyApostilamento['quantidade'];
+        $formData['apostilamento_valor_unitario'] = number_format($legacyApostilamento['valor_unitario'], 2, ',', '.');
+        $formData['apostilamento_valor_total'] = number_format($legacyApostilamento['valor_total'], 2, ',', '.');
+    }
+}
+
+if (!empty($legacyDocuments['postagem'])
+    && empty($formData['postagem_quantidade'])
+    && empty($formData['postagem_valor_unitario'])
+) {
+    $legacyPostagem = $aggregateLegacySection($legacyDocuments['postagem']);
+    if ($legacyPostagem !== null) {
+        $formData['postagem_quantidade'] = (string) $legacyPostagem['quantidade'];
+        $formData['postagem_valor_unitario'] = number_format($legacyPostagem['valor_unitario'], 2, ',', '.');
+        $formData['postagem_valor_total'] = number_format($legacyPostagem['valor_total'], 2, ',', '.');
+    }
+}
+
 $categoriasSelecionadas = [];
 if (!empty($formData['categorias_servico'])) {
     if (is_array($formData['categorias_servico'])) {
@@ -43,11 +134,11 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
                 <input type="text" name="titulo" id="titulo" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" value="<?php echo htmlspecialchars($formData['titulo'] ?? ''); ?>" required>
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700">Número da OS Omie</label>
+                <label class="block text-sm font-medium text-gray-700">Número da OS Omni</label>
                 <div class="mt-1 block w-full p-2 border border-dashed border-gray-300 rounded-md bg-gray-50 text-sm text-gray-600">
-                    Será gerada automaticamente pela Omie após a criação do serviço.
+                    Será gerado automaticamente pela Omni após a criação do serviço.
                 </div>
-                <p class="text-xs text-gray-500 mt-1">O número será exibido no dashboard quando a Omie retornar a OS.</p>
+                <p class="text-xs text-gray-500 mt-1">O número será exibido no dashboard quando a Omni retornar a OS.</p>
             </div>
             <div>
                 <label for="cliente_id" class="block text-sm font-medium text-gray-700">Cliente Associado</label>
@@ -58,6 +149,7 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
                             <option
                                 value="<?php echo $cliente['id']; ?>"
                                 data-tipo-assessoria="<?php echo $cliente['tipo_assessoria']; ?>"
+                                data-prazo-acordado="<?php echo htmlspecialchars($cliente['prazo_acordado_dias'] ?? ''); ?>"
                                 <?php
                                     $isSelected = ($cliente_pre_selecionado_id == $cliente['id']);
                                     echo $isSelected ? 'selected' : '';
@@ -72,6 +164,7 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
                         +
                     </a>
                 </div>
+                <p class="text-xs text-gray-500 mt-2">Prazo acordado de <span id="prazo-acordado-display" class="font-semibold text-gray-700">--</span> dia(s).</p>
             </div>
             <div class="md:col-span-3">
                 <label class="block text-sm font-semibold text-gray-700">Serviços Contratados *</label>
@@ -164,7 +257,35 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
                     </select>
                 </div>
             </div>
-            
+
+            <div class="mt-6 space-y-4">
+                <h3 class="text-md font-semibold text-gray-800">Anexar documentos de tradução</h3>
+                <div class="space-y-2">
+                    <label for="anexos_traducao" class="sr-only">Escolher arquivos</label>
+                    <input type="file" name="anexos[]" id="anexos_traducao" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200">
+                    <p class="text-xs text-gray-600">
+                        <?php echo empty($existingAttachments)
+                            ? 'Sem nenhum arquivo anexado.'
+                            : 'Arquivos anexados anteriormente estão listados abaixo.'; ?>
+                    </p>
+                    <p class="text-xs text-gray-500">Inclua tradução, referências e outros documentos de tradução.</p>
+                </div>
+                <?php if (!empty($existingAttachments)): ?>
+                    <div class="rounded-md border border-blue-200 bg-white p-4">
+                        <h4 class="text-sm font-semibold text-blue-700 mb-2">Documentos já anexados</h4>
+                        <ul class="space-y-2">
+                            <?php foreach ($existingAttachments as $anexo): ?>
+                                <li class="flex items-center justify-between text-sm text-gray-700">
+                                    <a href="visualizar_anexo.php?id=<?= $anexo['id'] ?>" target="_blank" class="text-blue-600 hover:underline">
+                                        <?= htmlspecialchars($anexo['nome_arquivo_original']); ?>
+                                    </a>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php endif; ?>
+            </div>
+
             <div class="mt-6 pt-6 border-t border-blue-200">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="font-semibold text-gray-700">Documentos para Tradução</h3>
@@ -176,75 +297,162 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
                     </div>
             </div>
         </div>
-    <?php
-    $sections = [
-        'crc' => ['title' => 'Documentos CRC', 'category' => 'CRC', 'color' => 'green'],
-        'apostilamento' => ['title' => 'Etapa Apostilamento', 'category' => 'Apostilamento', 'color' => 'yellow'],
-        'postagem' => ['title' => 'Etapa Postagem / Envio', 'category' => 'Postagem', 'color' => 'purple']
-    ];
-    ?>
-
-    <?php foreach ($sections as $key => $section): ?>
-    <div id="section-container-<?php echo strtolower($section['category']); ?>" class="bg-<?php echo $section['color']; ?>-50 p-6 rounded-lg shadow-lg border border-<?php echo $section['color']; ?>-200" style="display: none;">
-        <div class="flex justify-between items-center mb-4 border-b border-<?php echo $section['color']; ?>-200 pb-2">
-            <h2 class="text-xl font-semibold text-<?php echo $section['color']; ?>-800"><?php echo $section['title']; ?></h2>
-            <button type="button" class="add-doc-row bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700 transition duration-150 ease-in-out" data-section="<?php echo $key; ?>">Adicionar</button>
-        </div>
-        <div id="documentos-container-<?php echo $key; ?>" class="space-y-4">
+    <div id="section-container-crc" class="bg-green-50 p-6 rounded-lg shadow-lg border border-green-200" style="display: none;">
+        <div class="space-y-4">
+            <div class="flex items-center justify-between border-b border-green-200 pb-2">
+                <h2 class="text-xl font-semibold text-green-800">Documentos CRC</h2>
+                <button type="button" class="add-doc-row bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700 transition duration-150 ease-in-out" data-section="crc">Adicionar</button>
+            </div>
+            <div class="space-y-2">
+                <h3 class="text-md font-semibold text-gray-800">Anexar documentos CRC</h3>
+                <input type="file" name="anexos[]" id="anexos_crc" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-green-100 file:text-green-700 hover:file:bg-green-200">
+                <p class="text-xs text-gray-600">Sem nenhum arquivo anexado.</p>
+                <p class="text-xs text-gray-500">Inclua arquivos legais para a etapa do CRC, como por exemplo, certidões.</p>
+            </div>
+            <div id="documentos-container-crc" class="space-y-4"></div>
         </div>
     </div>
-    <?php endforeach; ?>
+
+    <div id="section-container-apostilamento" class="bg-yellow-50 p-6 rounded-lg shadow-lg border border-yellow-200 mt-6" style="display: none;">
+        <h2 class="text-xl font-semibold text-yellow-800 border-b border-yellow-200 pb-2">Etapa Apostilamento</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+            <div>
+                <label for="apostilamento_quantidade" class="block text-sm font-medium text-gray-700">Quantidade</label>
+                <input type="number" name="apostilamento_quantidade" id="apostilamento_quantidade" value="<?php echo htmlspecialchars($formData['apostilamento_quantidade'] ?? '0'); ?>" class="mt-1 block w-full p-2 border border-yellow-300 rounded-md shadow-sm calculation-trigger">
+            </div>
+            <div>
+                <label for="apostilamento_valor_unitario" class="block text-sm font-medium text-gray-700">Valor Unitário (R$)</label>
+                <input type="text" name="apostilamento_valor_unitario" id="apostilamento_valor_unitario" value="<?php echo htmlspecialchars($formData['apostilamento_valor_unitario'] ?? '0,00'); ?>" class="mt-1 block w-full p-2 border border-yellow-300 rounded-md shadow-sm calculation-trigger">
+            </div>
+            <div>
+                <label for="apostilamento_valor_total" class="block text-sm font-medium text-gray-700">Valor Total (R$)</label>
+                <input type="text" name="apostilamento_valor_total" id="apostilamento_valor_total" value="<?php echo htmlspecialchars($formData['apostilamento_valor_total'] ?? '0,00'); ?>" class="mt-1 block w-full p-2 border border-yellow-300 rounded-md shadow-sm bg-gray-100" readonly>
+            </div>
+        </div>
+    </div>
+
+    <div id="section-container-postagem" class="bg-purple-50 p-6 rounded-lg shadow-lg border border-purple-200 mt-6" style="display: none;">
+        <h2 class="text-xl font-semibold text-purple-800 border-b border-purple-200 pb-2">Etapa Postagem / Envio</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+            <div>
+                <label for="postagem_quantidade" class="block text-sm font-medium text-gray-700">Quantidade</label>
+                <input type="number" name="postagem_quantidade" id="postagem_quantidade" value="<?php echo htmlspecialchars($formData['postagem_quantidade'] ?? '0'); ?>" class="mt-1 block w-full p-2 border border-purple-300 rounded-md shadow-sm calculation-trigger">
+            </div>
+            <div>
+                <label for="postagem_valor_unitario" class="block text-sm font-medium text-gray-700">Valor Unitário (R$)</label>
+                <input type="text" name="postagem_valor_unitario" id="postagem_valor_unitario" value="<?php echo htmlspecialchars($formData['postagem_valor_unitario'] ?? '0,00'); ?>" class="mt-1 block w-full p-2 border border-purple-300 rounded-md shadow-sm calculation-trigger">
+            </div>
+            <div>
+                <label for="postagem_valor_total" class="block text-sm font-medium text-gray-700">Valor Total (R$)</label>
+                <input type="text" name="postagem_valor_total" id="postagem_valor_total" value="<?php echo htmlspecialchars($formData['postagem_valor_total'] ?? '0,00'); ?>" class="mt-1 block w-full p-2 border border-purple-300 rounded-md shadow-sm bg-gray-100" readonly>
+            </div>
+        </div>
+    </div>
 
     <fieldset class="border border-gray-200 rounded-md p-6 mt-6">
-        <legend class="text-lg font-semibold text-gray-700 px-2 bg-white ml-4">Resumo e Anexos</legend>
+        <legend class="text-lg font-semibold text-gray-700 px-2 bg-white ml-4">Resumo do Serviço</legend>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4 items-start">
-
             <div>
-                <label class="block text-sm font-medium text-gray-500">Total Documentos</label>
+                <label class="block text-sm font-medium text-gray-500">Total de Documentos</label>
                 <p id="total-documentos-display" class="mt-1 text-xl font-bold text-gray-800">0</p>
             </div>
-
             <div>
-                <label class="block text-sm font-medium text-gray-500">Valor Total do Processo</label>
+                <label class="block text-sm font-medium text-gray-500">Valor Total do Serviço</label>
                 <p id="total-geral-display" class="mt-1 text-xl font-bold text-green-600">R$ 0,00</p>
                 <input type="hidden" name="valor_total_hidden" id="valor_total_hidden" value="<?php echo htmlspecialchars($formData['valor_total_hidden'] ?? ''); ?>">
             </div>
-
             <div>
-                <h3 class="text-lg font-semibold text-gray-800 mb-4">Anexar Arquivos</h3>
-                
-                <div>
-                    <label for="anexos" class="block text-sm font-medium text-gray-700 mb-2">Selecione um ou mais arquivos</label>
-                    <input type="file" name="anexos[]" id="anexos" multiple 
-                        class="block w-full text-sm text-gray-500
-                                file:mr-4 file:py-2 file:px-4
-                                file:rounded-full file:border-0
-                                file:text-sm file:font-semibold
-                                file:bg-blue-50 file:text-blue-700
-                                hover:file:bg-blue-100">
-                    <p class="mt-1 text-xs text-gray-500">Você pode selecionar múltiplos arquivos segurando a tecla Ctrl (ou Cmd em Mac).</p>
-                </div>
+                <label class="block text-sm font-medium text-gray-500">Valor Total (cópia para pagamento)</label>
+                <input type="text" id="valor_total_servico" class="mt-1 block w-full p-2 border border-green-200 rounded-md bg-green-50 text-green-700 font-semibold" value="R$ 0,00" readonly>
+            </div>
+        </div>
+    </fieldset>
 
-                <?php if (!empty($anexos)): ?>
-                    <div class="mt-6 pt-4 border-t">
-                        <h4 class="text-md font-medium text-gray-700 mb-2">Arquivos Anexados:</h4>
-                        <ul class="list-disc pl-5 space-y-2">
-                            <?php foreach ($anexos as $anexo): ?>
-                                <li class="text-sm text-gray-600 flex justify-between items-center">
-                                    <a href="visualizar_anexo.php?id=<?= $anexo['id'] ?>" target="_blank" class="text-blue-600 hover:underline">
-                                        <?= htmlspecialchars($anexo['nome_arquivo_original']) ?>
-                                    </a>
-                                    <a href="processos.php?action=excluir_anexo&id=<?= $processo['id'] ?>&anexo_id=<?= $anexo['id'] ?>" 
-                                    class="text-red-500 hover:text-red-700 text-xs font-semibold"
-                                    onclick="return confirm('Tem certeza que deseja excluir este anexo?');">
-                                    Excluir
-                                    </a>
-                                </li>
-                            <?php endforeach; ?>
-                        </ul>
+    <fieldset class="border border-gray-200 rounded-md p-6 mt-6">
+        <legend class="text-lg font-semibold text-gray-700 px-2 bg-white ml-4">Condições de Pagamento</legend>
+        <div class="space-y-6 mt-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                    <label for="billing_type" class="block text-sm font-medium text-gray-700">Forma de Cobrança</label>
+                    <select name="orcamento_forma_pagamento" id="billing_type" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                        <option value="Pagamento único">Pagamento único</option>
+                        <option value="Pagamento Parcelado">Pagamento Parcelado</option>
+                        <option value="Pagamento Mensal">Pagamento Mensal</option>
+                    </select>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700" for="billing_total_display">Valor Total do Serviço</label>
+                    <input type="text" id="billing_total_display" class="mt-1 block w-full p-2 border border-blue-200 rounded-md bg-blue-50 text-blue-700 font-semibold" value="R$ 0,00" readonly>
+                </div>
+            </div>
+
+            <div class="space-y-4" data-billing-section="Pagamento único">
+                <h3 class="text-md font-semibold text-gray-800">Pagamento único</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="billing_unique_amount">Valor pago</label>
+                        <input type="text" id="billing_unique_amount" data-field-name="orcamento_valor_entrada" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm valor-servico" placeholder="R$ 0,00">
                     </div>
-                <?php endif; ?>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="billing_unique_date">Data do pagamento</label>
+                        <input type="date" id="billing_unique_date" data-field-name="data_pagamento_1" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="billing_unique_receipt">Comprovante do pagamento</label>
+                        <input type="file" id="billing_unique_receipt" data-field-name="comprovantes[]" class="mt-1 block w-full text-sm text-gray-500">
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-4 hidden" data-billing-section="Pagamento Parcelado">
+                <h3 class="text-md font-semibold text-gray-800">Pagamento Parcelado</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="billing_parcelado_entrada">Valor da 1ª parcela</label>
+                        <input type="text" id="billing_parcelado_entrada" data-field-name="orcamento_valor_entrada" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm valor-servico" placeholder="R$ 0,00">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="billing_parcelado_data1">Data da 1ª parcela</label>
+                        <input type="date" id="billing_parcelado_data1" data-field-name="data_pagamento_1" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="billing_parcelado_receipt1">Comprovante da 1ª parcela</label>
+                        <input type="file" id="billing_parcelado_receipt1" data-field-name="comprovantes[]" class="mt-1 block w-full text-sm text-gray-500">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="billing_parcelado_restante">Valor Restante</label>
+                        <input type="text" id="billing_parcelado_restante" data-field-name="orcamento_valor_restante" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm bg-gray-100" value="R$ 0,00" readonly>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="billing_parcelado_data2">Data da 2ª parcela</label>
+                        <input type="date" id="billing_parcelado_data2" data-field-name="data_pagamento_2" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="billing_parcelado_receipt2">Comprovante da 2ª parcela</label>
+                        <input type="file" id="billing_parcelado_receipt2" data-field-name="comprovantes[]" class="mt-1 block w-full text-sm text-gray-500">
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-4 hidden" data-billing-section="Pagamento Mensal">
+                <h3 class="text-md font-semibold text-gray-800">Pagamento Mensal</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="billing_mensal_amount">Valor pago</label>
+                        <input type="text" id="billing_mensal_amount" data-field-name="orcamento_valor_entrada" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm valor-servico" placeholder="R$ 0,00">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="billing_mensal_date">Data do pagamento</label>
+                        <input type="date" id="billing_mensal_date" data-field-name="data_pagamento_1" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="billing_mensal_receipt">Comprovante do pagamento</label>
+                        <input type="file" id="billing_mensal_receipt" data-field-name="comprovantes[]" class="mt-1 block w-full text-sm text-gray-500">
+                    </div>
+                </div>
             </div>
         </div>
     </fieldset>
@@ -277,48 +485,6 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
         <div>
             <label class="block text-sm font-medium text-gray-700">Valor</label>
             <input type="text" name="documentos[crc][{index}][valor_unitario]" class="doc-valor valor-servico mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2" placeholder="0,00">
-        </div>
-        <div class="flex justify-end md:justify-start">
-            <button type="button" class="remove-doc-row bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 text-sm transition duration-150 ease-in-out">Remover</button>
-        </div>
-    </div>
-</template>
-
-<template id="template-apostilamento">
-    <div class="doc-row grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border border-gray-200 rounded-md bg-gray-50 relative items-end">
-        <input type="hidden" name="documentos[apostilamento][{index}][categoria]" value="Apostilamento">
-        <div class="md:col-span-1">
-            <label class="block text-sm font-medium text-gray-700">Quantidade</label>
-            <input type="number" name="documentos[apostilamento][{index}][quantidade]" value="1" class="doc-qtd mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2">
-        </div>
-        <div class="md:col-span-1">
-            <label class="block text-sm font-medium text-gray-700">Valor Unitário (R$)</label>
-            <input type="text" name="documentos[apostilamento][{index}][valor_unitario]" class="doc-valor mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2" placeholder="0,00">
-        </div>
-        <div class="md:col-span-1">
-            <label class="block text-sm font-medium text-gray-700">Valor Total (R$)</label>
-            <input type="text" name="documentos[apostilamento][{index}][valor_total]" readonly class="doc-total bg-gray-100 mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2">
-        </div>
-        <div class="flex justify-end md:justify-start">
-            <button type="button" class="remove-doc-row bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 text-sm transition duration-150 ease-in-out">Remover</button>
-        </div>
-    </div>
-</template>
-
-<template id="template-postagem">
-    <div class="doc-row grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border border-gray-200 rounded-md bg-gray-50 relative items-end">
-        <input type="hidden" name="documentos[postagem][{index}][categoria]" value="Postagem">
-        <div class="md:col-span-1">
-            <label class="block text-sm font-medium text-gray-700">Quantidade</label>
-            <input type="number" name="documentos[postagem][{index}][quantidade]" value="1" class="doc-qtd mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2">
-        </div>
-        <div class="md:col-span-1">
-            <label class="block text-sm font-medium text-gray-700">Valor Unitário (R$)</label>
-            <input type="text" name="documentos[postagem][{index}][valor_unitario]" class="doc-valor mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2" placeholder="0,00">
-        </div>
-        <div class="md:col-span-1">
-            <label class="block text-sm font-medium text-gray-700">Valor Total (R$)</label>
-            <input type="text" name="documentos[postagem][{index}][valor_total]" readonly class="doc-total bg-gray-100 mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2">
         </div>
         <div class="flex justify-end md:justify-start">
             <button type="button" class="remove-doc-row bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 text-sm transition duration-150 ease-in-out">Remover</button>
@@ -400,13 +566,16 @@ document.addEventListener('DOMContentLoaded', function () {
     // === ELEMENTOS DO FORMULÁRIO E VARIÁVEIS GLOBAIS ===
     const clienteSelect = document.getElementById('cliente_id');
     const tipoAssessoriaInput = document.getElementById('cliente_tipo_assessoria');
+    const prazoAcordadoDisplay = document.getElementById('prazo-acordado-display');
     const servicosCheckboxes = document.querySelectorAll('.service-checkbox');
     const userPerfil = "<?php echo $_SESSION['user_perfil'] ?? 'colaborador'; ?>";
-    const sectionCounters = { tradução: 0, crc: 0, apostilamento: 0, postagem: 0 };
+    const sectionCounters = { tradução: 0, crc: 0 };
     const financeServices = <?php echo json_encode($financeiroServicos, JSON_UNESCAPED_UNICODE); ?>;
     const isGestor = ['admin', 'gerencia', 'supervisor'].includes(userPerfil);
     const minValueAlertMessage = 'Atenção: O valor informado está abaixo do mínimo cadastrado. A supervisão irá validar e o serviço ficará pendente até a aprovação.';
     let clienteCache = { tipo: 'À vista', servicos: [] };
+    const billingTypeSelect = document.getElementById('billing_type');
+    const billingSections = document.querySelectorAll('[data-billing-section]');
 
     // --- Campo oculto para controle de status proposto ---
     // Criado dinamicamente para que o backend saiba se o serviço deve iniciar 'Pendente' ou 'Em andamento'.
@@ -429,6 +598,10 @@ document.addEventListener('DOMContentLoaded', function () {
     // Lógica para clientes mensalistas: carrega serviços via API.
     $(clienteSelect).on('change', function() {
         const selectedOption = $(this).find('option:selected');
+        if (prazoAcordadoDisplay) {
+            const prazoValue = selectedOption.data('prazo-acordado');
+            prazoAcordadoDisplay.textContent = prazoValue ? prazoValue : '--';
+        }
         const tipo = selectedOption.data('tipo-assessoria') || 'À vista';
         if (tipoAssessoriaInput) {
             tipoAssessoriaInput.value = tipo;
@@ -640,6 +813,16 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     document.body.addEventListener('click', e => {
+        const addButton = e.target.closest('.add-doc-row');
+        if (addButton) {
+            e.preventDefault();
+            const section = addButton.dataset.section;
+            if (section) {
+                adicionarDocumento(section);
+            }
+            return;
+        }
+
         const target = e.target.closest('.remove-doc-row');
         if (target) {
             target.closest('.doc-row').remove();
@@ -654,15 +837,32 @@ document.addEventListener('DOMContentLoaded', function () {
             const raw = target.value.replace(/\D/g, '');
             target.value = (raw === '') ? '' : formatCurrency(raw);
             triggerMinValueAlert(target, minValueAlertMessage);
+            updateParceladoRestante();
         } else if (target.matches('.doc-valor')) {
             const raw = target.value.replace(/\D/g, '');
             target.value = (raw === '') ? '' : formatCurrency(raw);
+        } else if (target.matches('#apostilamento_valor_unitario, #postagem_valor_unitario')) {
+            const raw = target.value.replace(/\D/g, '');
+            target.value = (raw === '') ? '' : formatCurrency(raw);
         }
-        if (target.matches('.doc-valor, .doc-qtd, .valor-servico') || target.id === 'total_documentos') {
+        if (target.matches('.doc-valor, .doc-qtd, .valor-servico, #apostilamento_quantidade, #postagem_quantidade, #apostilamento_valor_unitario, #postagem_valor_unitario')) {
             updateAllCalculations();
             evaluateValorMinimo();
+            updateParceladoRestante();
         }
     });
+
+    document.body.addEventListener('blur', function(e) {
+        const target = e.target;
+        if (target.matches('#apostilamento_valor_unitario, #postagem_valor_unitario, .valor-servico, .doc-valor')) {
+            const parsed = parseCurrency(target.value);
+            target.value = parsed > 0 ? formatCurrency(Math.round(parsed * 100)) : '';
+        }
+        if (target.matches('#apostilamento_quantidade, #postagem_quantidade')) {
+            const digits = target.value.replace(/\D/g, '');
+            target.value = digits;
+        }
+    }, true);
 
     // === FUNÇÕES AUXILIARES ===
     function triggerMinValueAlert(input, message) {
@@ -693,30 +893,134 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    function isSectionVisible(sectionId) {
+        const element = document.getElementById(sectionId);
+        if (!element) {
+            return false;
+        }
+        return window.getComputedStyle(element).display !== 'none';
+    }
+
     function updateAllCalculations() {
         let totalDocumentos = 0;
         let totalGeralCents = 0;
-        ['tradução', 'crc', 'apostilamento', 'postagem'].forEach(sectionKey => {
-            const sectionContainer = document.getElementById(`section-container-${sectionKey.toLowerCase()}`);
-            if (sectionContainer && sectionContainer.style.display !== 'none') {
-                const container = document.getElementById(`documentos-container-${sectionKey.toLowerCase()}`);
-                container.querySelectorAll('.doc-row').forEach(row => {
-                    const qtd = parseInt(row.querySelector('.doc-qtd')?.value || 1);
-                    totalDocumentos += qtd;
-                    const valorUnit = parseCurrency(row.querySelector('.doc-valor')?.value || '0');
-                    const totalLinhaCents = Math.round(valorUnit * 100) * qtd;
-                    totalGeralCents += totalLinhaCents;
-                    const totalInput = row.querySelector('.doc-total');
-                    if(totalInput) totalInput.value = formatCurrency(totalLinhaCents);
-                });
+
+        const traducaoSectionVisible = isSectionVisible('section-container-tradução');
+        const traducaoContainer = document.getElementById('documentos-container-tradução');
+        if (traducaoSectionVisible && traducaoContainer) {
+            traducaoContainer.querySelectorAll('.doc-row').forEach(row => {
+                totalDocumentos += 1;
+                const valorUnit = parseCurrency(row.querySelector('.doc-valor')?.value || '0');
+                totalGeralCents += Math.round(valorUnit * 100);
+            });
+        }
+
+        const crcSectionVisible = isSectionVisible('section-container-crc');
+        const crcContainer = document.getElementById('documentos-container-crc');
+        if (crcSectionVisible && crcContainer) {
+            crcContainer.querySelectorAll('.doc-row').forEach(row => {
+                totalDocumentos += 1;
+                const valorUnit = parseCurrency(row.querySelector('.doc-valor')?.value || '0');
+                totalGeralCents += Math.round(valorUnit * 100);
+            });
+        }
+
+        const apostQtdInput = document.getElementById('apostilamento_quantidade');
+        const apostUnitInput = document.getElementById('apostilamento_valor_unitario');
+        const apostTotalInput = document.getElementById('apostilamento_valor_total');
+        const apostVisible = isSectionVisible('section-container-apostilamento');
+        if (apostQtdInput && apostUnitInput && apostTotalInput) {
+            const qtd = parseInt(apostQtdInput.value, 10) || 0;
+            const valorUnit = parseCurrency(apostUnitInput.value || '0');
+            const linhaCents = Math.round(valorUnit * 100) * qtd;
+            apostTotalInput.value = formatCurrency(linhaCents);
+            if (apostVisible) {
+                totalDocumentos += qtd;
+                totalGeralCents += linhaCents;
             }
-        });
+        }
+
+        const postQtdInput = document.getElementById('postagem_quantidade');
+        const postUnitInput = document.getElementById('postagem_valor_unitario');
+        const postTotalInput = document.getElementById('postagem_valor_total');
+        const postVisible = isSectionVisible('section-container-postagem');
+        if (postQtdInput && postUnitInput && postTotalInput) {
+            const qtd = parseInt(postQtdInput.value, 10) || 0;
+            const valorUnit = parseCurrency(postUnitInput.value || '0');
+            const linhaCents = Math.round(valorUnit * 100) * qtd;
+            postTotalInput.value = formatCurrency(linhaCents);
+            if (postVisible) {
+                totalDocumentos += qtd;
+                totalGeralCents += linhaCents;
+            }
+        }
+
         const totalDocsDisplay = document.getElementById('total-documentos-display');
-        if(totalDocsDisplay) totalDocsDisplay.textContent = totalDocumentos;
+        if (totalDocsDisplay) {
+            totalDocsDisplay.textContent = totalDocumentos;
+        }
+
+        const formattedTotal = formatCurrency(totalGeralCents);
         const totalGeralDisplay = document.getElementById('total-geral-display');
-        if(totalGeralDisplay) totalGeralDisplay.textContent = formatCurrency(totalGeralCents);
+        if (totalGeralDisplay) {
+            totalGeralDisplay.textContent = formattedTotal;
+        }
+        const totalServicoInput = document.getElementById('valor_total_servico');
+        if (totalServicoInput) {
+            totalServicoInput.value = formattedTotal;
+        }
+        const billingTotalDisplay = document.getElementById('billing_total_display');
+        if (billingTotalDisplay) {
+            billingTotalDisplay.value = formattedTotal;
+        }
+
         const hiddenTotal = document.getElementById('valor_total_hidden');
-        if(hiddenTotal) hiddenTotal.value = totalGeralCents / 100;
+        if (hiddenTotal) {
+            hiddenTotal.value = (totalGeralCents / 100).toFixed(2);
+        }
+
+        updateParceladoRestante();
+    }
+
+    function updateParceladoRestante() {
+        const restanteInput = document.getElementById('billing_parcelado_restante');
+        if (!restanteInput) {
+            return;
+        }
+        const entradaInput = document.getElementById('billing_parcelado_entrada');
+        const hiddenTotal = document.getElementById('valor_total_hidden');
+        if (!entradaInput || !hiddenTotal) {
+            restanteInput.value = 'R$ 0,00';
+            return;
+        }
+        const total = parseFloat(hiddenTotal.value || '0');
+        const entrada = parseCurrency(entradaInput.value || '0');
+        const restante = Math.max((Number.isNaN(total) ? 0 : total) - entrada, 0);
+        restanteInput.value = formatCurrency(Math.round(restante * 100));
+    }
+
+    function toggleBillingSections() {
+        if (!billingSections || billingSections.length === 0) {
+            return;
+        }
+        const selectedType = billingTypeSelect ? billingTypeSelect.value : '';
+        billingSections.forEach(section => {
+            const isActive = section.dataset.billingSection === selectedType;
+            section.classList.toggle('hidden', !isActive);
+            section.querySelectorAll('[data-field-name]').forEach(input => {
+                if (isActive) {
+                    input.name = input.dataset.fieldName;
+                    input.disabled = false;
+                } else {
+                    input.removeAttribute('name');
+                    input.disabled = true;
+                    if (input.type === 'file') {
+                        input.value = '';
+                    }
+                }
+            });
+        });
+        updateParceladoRestante();
     }
 
     function toggleServiceSection(checkbox) {
@@ -759,6 +1063,11 @@ document.addEventListener('DOMContentLoaded', function () {
         toggleServiceSection(cb); // Verifica o estado inicial
         cb.addEventListener('change', () => toggleServiceSection(cb)); // Adiciona o evento de clique
     });
+
+    if (billingTypeSelect) {
+        toggleBillingSections();
+        billingTypeSelect.addEventListener('change', () => toggleBillingSections());
+    }
 
     function formatCurrency(valueInCents) {
         if (isNaN(valueInCents)) return '';

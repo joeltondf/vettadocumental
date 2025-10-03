@@ -91,7 +91,16 @@ $isAprovadoOuSuperior = !in_array($status, ['Orçamento', 'Cancelado']);
             </div>
         </div>
         <?php if (!empty($leadConversionContext['shouldRender'])): ?>
-            <?php include __DIR__ . '/request_service_form.php'; ?>
+            <div id="lead-conversion-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+                <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl" style="width:70%; max-height:80vh; overflow-y:auto;">
+                    <div class="sticky top-0 flex items-center justify-end px-6 py-4 bg-white border-b border-gray-200">
+                        <button type="button" id="close-lead-conversion-modal" class="text-sm text-gray-500 hover:text-gray-700">Fechar ✕</button>
+                    </div>
+                    <div class="px-6 pb-6">
+                        <?php include __DIR__ . '/request_service_form.php'; ?>
+                    </div>
+                </div>
+            </div>
         <?php endif; ?>
         <div class="bg-white shadow-lg rounded-lg p-6">
             <h2 class="text-xl font-semibold text-gray-700 border-b pb-3 mb-4">
@@ -320,61 +329,6 @@ $isAprovadoOuSuperior = !in_array($status, ['Orçamento', 'Cancelado']);
         
 
         <?php if (isset($_SESSION['user_perfil']) && in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'supervisor', 'financeiro'])): ?>
-            <div class="bg-white shadow-lg rounded-lg p-6">
-                <h2 class="text-xl font-semibold text-gray-700 border-b pb-3 mb-4">Resumo Financeiro</h2>
-                <div class="space-y-4">
-                    <div>
-                        <p class="text-sm font-medium text-gray-500">Valor Total do Processo</p>
-                        <p class="text-2xl font-bold text-green-600">R$ <?php echo number_format($processo['valor_total'] ?? 0, 2, ',', '.'); ?></p>
-                    </div>
-                    <div>
-                        <p class="text-sm font-medium text-gray-500">Forma de Pagamento</p>
-                        <p class="text-lg text-gray-800"><?php echo htmlspecialchars($processo['orcamento_forma_pagamento'] ?? 'N/A'); ?></p>
-                    </div>
-                    <div>
-                        <p class="text-sm font-medium text-gray-500">Valor de Entrada</p>
-                        <p class="text-lg text-gray-800">R$ <?php echo number_format($processo['orcamento_valor_entrada'] ?? 0, 2, ',', '.'); ?></p>
-                    </div>
-                    <div>
-                        <p class="text-sm font-medium text-gray-500">Valor Restante</p>
-                        <?php $restante = ($processo['valor_total'] ?? 0) - ($processo['orcamento_valor_entrada'] ?? 0); ?>
-                        <p class="text-lg font-bold text-red-600">R$ <?php echo number_format($restante, 2, ',', '.'); ?></p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200 mt-6">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4">
-                    <i class="fas fa-receipt mr-2 text-gray-400"></i>Comprovantes de Pagamento
-                </h3>
-                
-                <?php 
-                    // Busca os comprovantes usando o novo método
-                    $comprovantes = $this->processoModel->getAnexosPorCategoria($processo['id'], 'comprovante');
-                ?>
-
-                <?php if (!empty($comprovantes)): ?>
-                    <ul class="space-y-3">
-                        <?php foreach ($comprovantes as $anexo): ?>
-                            <li class="flex items-center justify-between p-2 rounded-md bg-gray-50 hover:bg-gray-100">
-                                <div class="flex items-center">
-                                    <i class="fas fa-file-invoice-dollar text-green-500 mr-3"></i>
-                                    <a href="visualizar_anexo.php?id=<?= $anexo['id'] ?>" target="_blank" class="text-sm font-medium text-blue-600 hover:underline">
-                                        <?= htmlspecialchars($anexo['nome_arquivo_original']) ?>
-                                    </a>
-                                </div>
-                                <a href="processos.php?action=excluir_anexo&id=<?= $processo['id'] ?>&anexo_id=<?= $anexo['id'] ?>" 
-                                class="text-red-500 hover:text-red-700 text-xs font-semibold"
-                                onclick="return confirm('Tem certeza que deseja excluir este comprovante?');">
-                                EXCLUIR
-                                </a>
-                            </li>
-                        <?php endforeach; ?>
-                    </ul>
-                <?php else: ?>
-                    <p class="text-sm text-gray-500">Nenhum comprovante de pagamento anexado.</p>
-                <?php endif; ?>
-            </div>
         <?php endif; ?>
         <?php if (isset($_SESSION['user_perfil']) && in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'supervisor'])): ?>
             <div class="bg-white shadow-lg rounded-lg p-6">
@@ -913,6 +867,14 @@ document.addEventListener('DOMContentLoaded', function() {
       inputEl.value = `${yyyy}-${mm}-${dd}`;
     }
   };
+
+  const leadConversionModal = $id('lead-conversion-modal');
+  const closeLeadConversionModalBtn = $id('close-lead-conversion-modal');
+  if (leadConversionModal && closeLeadConversionModalBtn) {
+    closeLeadConversionModalBtn.addEventListener('click', () => {
+      leadConversionModal.remove();
+    });
+  }
 
   //-----------------------------------------------------
   // Lógica 1: Validação de Mudança de Status para "Aprovado" / "Em Andamento"
