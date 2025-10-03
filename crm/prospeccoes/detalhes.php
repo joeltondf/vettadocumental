@@ -62,7 +62,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                 <div class="flex justify-between items-start mb-6">
                     <div>
                         <h2 class="text-2xl font-bold text-gray-900"><?php echo htmlspecialchars($prospect['nome_prospecto'] ?? ''); ?></h2>
-                        <p class="text-sm text-gray-500">Contato: <span class="font-medium text-indigo-600"><?php echo htmlspecialchars($prospect['nome_cliente'] ?? 'Cliente não vinculado'); ?></span></p>
+                        <p class="text-sm text-gray-500">Lead: <span class="font-medium text-indigo-600"><?php echo htmlspecialchars($prospect['nome_cliente'] ?? 'Lead não vinculado'); ?></span></p>
                         <p class="text-sm text-gray-500 mt-1">ID: <?php echo htmlspecialchars($prospect['id_texto'] ?? ''); ?></p>
                     </div>
                     
@@ -108,7 +108,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                         <div>
                             <label for="status" class="block text-sm font-medium text-gray-700">Status</label>
                             <select name="status" id="status" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
-                                <option value="Cliente ativo" <?php echo ($prospect['status'] == 'Cliente ativo') ? 'selected' : ''; ?>>Contato ativo</option>
+                                <option value="Cliente ativo" <?php echo ($prospect['status'] == 'Cliente ativo') ? 'selected' : ''; ?>>Lead ativo</option>
                                 <option value="Primeiro contato" <?php echo ($prospect['status'] == 'Primeiro contato') ? 'selected' : ''; ?>>Primeiro contato</option>
                                 <option value="Segundo contato" <?php echo ($prospect['status'] == 'Segundo contato') ? 'selected' : ''; ?>>Segundo contato</option>
                                 <option value="Terceiro contato" <?php echo ($prospect['status'] == 'Terceiro contato') ? 'selected' : ''; ?>>Terceiro contato</option>

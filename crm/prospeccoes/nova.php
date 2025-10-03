@@ -8,7 +8,7 @@ try {
     $stmt_clientes = $pdo->query("SELECT id, nome_cliente FROM clientes WHERE is_prospect = 1 ORDER BY nome_cliente ASC");
     $clientes = $stmt_clientes->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    die("Erro ao buscar contatos: " . $e->getMessage());
+    die("Erro ao buscar leads: " . $e->getMessage());
 }
 
 $cliente_pre_selecionado_id = filter_input(INPUT_GET, 'cliente_id', FILTER_VALIDATE_INT);
@@ -41,14 +41,14 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
 
     <?php if (empty($clientes)): ?>
         <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6" role="alert">
-            <p class="font-bold">Nenhum contato encontrado!</p>
-            <p>Você precisa cadastrar um contato antes. <a href="<?php echo APP_URL; ?>/crm/clientes/novo.php" class="font-bold underline hover:text-yellow-800">Clique aqui para cadastrar.</a></p>
+            <p class="font-bold">Nenhum lead encontrado!</p>
+            <p>Você precisa cadastrar um lead antes. <a href="<?php echo APP_URL; ?>/crm/clientes/novo.php" class="font-bold underline hover:text-yellow-800">Clique aqui para cadastrar.</a></p>
         </div>
     <?php else: ?>
         <form action="<?php echo APP_URL; ?>/crm/prospeccoes/salvar.php" method="POST" id="form-nova-prospeccao" class="space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="md:col-span-2">
-                    <label for="cliente_id" class="block text-sm font-medium text-gray-700">Contato Associado</label>
+                    <label for="cliente_id" class="block text-sm font-medium text-gray-700">Lead Associado</label>
                     <div class="flex items-center space-x-2 mt-1">
                         <select name="cliente_id" id="cliente_id" class="block w-full">
                             <option></option> <?php foreach ($clientes as $cliente): ?>
@@ -57,9 +57,9 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                                 </option>
                             <?php endforeach; ?>
                         </select>
-                        <a href="<?php echo APP_URL; ?>/crm/clientes/novo.php?redirect_url=<?php echo urlencode(APP_URL . '/crm/prospeccoes/nova.php'); ?>" 
+                        <a href="<?php echo APP_URL; ?>/crm/clientes/novo.php?redirect_url=<?php echo urlencode(APP_URL . '/crm/prospeccoes/nova.php'); ?>"
                         class="flex-shrink-0 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md text-sm">
-                            Novo Contato
+                            Novo Lead
                         </a>
                     </div>
                 </div>                
@@ -74,7 +74,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                 <div class="md:col-span-2">
                     <label for="status" class="block text-sm font-medium text-gray-700">Status Inicial</label>
                     <select name="status" id="status" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
-                        <option value="Cliente ativo">Contato ativo</option>
+                        <option value="Cliente ativo">Lead ativo</option>
                         <option value="Primeiro contato">Primeiro contato</option>
                         <option value="Segundo contato">Segundo contato</option>
                         <option value="Terceiro contato">Terceiro contato</option>
@@ -108,7 +108,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
         // --- INÍCIO DA CORREÇÃO PRINCIPAL ---
         
         $('#cliente_id').select2({
-            placeholder: "Selecione um contato...",
+            placeholder: "Selecione um lead...",
             allowClear: true
         });
 
@@ -122,7 +122,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                 // Se o valor for nulo ou vazio, impede o envio e mostra um alerta
                 if (!clienteId || clienteId === '') {
                     event.preventDefault(); // Impede o envio do formulário
-                    alert('Erro: Por favor, selecione um contato associado.');
+                    alert('Erro: Por favor, selecione um lead associado.');
                 }
                 // Se houver um valor, o formulário será enviado normalmente.
             });

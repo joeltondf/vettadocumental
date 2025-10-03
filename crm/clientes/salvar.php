@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Validação
     if (empty($nome_cliente) || empty($canal_origem)) {
-        $_SESSION['error_message'] = "Nome do Cliente e Canal de Origem são obrigatórios.";
+        $_SESSION['error_message'] = "Nome do Lead e Canal de Origem são obrigatórios.";
         header('Location: ' . $redirectUrl);
         exit();
     }
@@ -42,13 +42,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $clienteExistente = $stmtCheckProspect->fetch(PDO::FETCH_ASSOC);
 
             if (!$clienteExistente) {
-                $_SESSION['error_message'] = "Cliente não encontrado.";
+                $_SESSION['error_message'] = "Lead não encontrado.";
                 header('Location: ' . APP_URL . '/crm/clientes/lista.php');
                 exit();
             }
 
             if ((int) ($clienteExistente['is_prospect'] ?? 0) !== 1) {
-                $_SESSION['error_message'] = "Este contato já foi convertido em cliente e deve ser gerenciado pelo sistema principal.";
+                $_SESSION['error_message'] = "Este lead já foi convertido em cliente e deve ser gerenciado pelo sistema principal.";
                 header('Location: ' . APP_URL . '/crm/clientes/lista.php');
                 exit();
             }
@@ -67,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
 
-            $_SESSION['success_message'] = "Cliente atualizado com sucesso!";
+            $_SESSION['success_message'] = "Lead atualizado com sucesso!";
             $redirect_location = APP_URL . '/crm/clientes/lista.php';
 
         } else {
@@ -86,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute($params);
 
             $novo_cliente_id = $pdo->lastInsertId();
-            $_SESSION['success_message'] = "Contato criado com sucesso! Agora cadastre a prospecção.";
+            $_SESSION['success_message'] = "Lead criado com sucesso! Agora cadastre a prospecção.";
 
             $redirectBase = $_POST['redirect_url'] ?? '';
             if (empty($redirectBase) || strpos($redirectBase, APP_URL) !== 0) {
@@ -101,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
 
     } catch (PDOException $e) {
-        die("Erro ao salvar cliente: " . $e->getMessage());
+        die("Erro ao salvar lead: " . $e->getMessage());
     }
 
 } else {

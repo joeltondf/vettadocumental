@@ -86,7 +86,7 @@ try {
                 $pdo->beginTransaction();
 
                 if (!$clienteModel->promoteProspectToClient($clienteId)) {
-                    throw new RuntimeException('Falha ao promover o contato a cliente.');
+                    throw new RuntimeException('Falha ao promover o lead a cliente.');
                 }
 
                 $novoProcessoId = $processoModel->createFromProspeccao($dadosParaProcesso);
