@@ -40,18 +40,14 @@ try {
         $old_data = $stmt_old->fetch(PDO::FETCH_ASSOC);
 
         $new_data = [
-            'nome_prospecto' => trim($_POST['nome_prospecto']),
             'status' => trim($_POST['status']),
-            'valor_proposto' => !empty($_POST['valor_proposto']) ? (float)str_replace(',', '.', $_POST['valor_proposto']) : null,
             'data_reuniao_agendada' => !empty($_POST['data_reuniao_agendada']) ? $_POST['data_reuniao_agendada'] : null,
             'reuniao_compareceu' => isset($_POST['reuniao_compareceu']) ? 1 : 0
         ];
 
-        $sql_update = "UPDATE prospeccoes SET 
-                            nome_prospecto = :nome_prospecto,
-                            status = :status, 
-                            valor_proposto = :valor_proposto,
-                            data_reuniao_agendada = :data_reuniao_agendada, 
+        $sql_update = "UPDATE prospeccoes SET
+                            status = :status,
+                            data_reuniao_agendada = :data_reuniao_agendada,
                             reuniao_compareceu = :reuniao_compareceu
                         WHERE id = :id";
         $stmt_update = $pdo->prepare($sql_update);
@@ -69,8 +65,8 @@ try {
             $emailService = new EmailService($pdo);
             $dadosParaProcesso = [
                 'cliente_id' => $old_data['cliente_id'],
-                'titulo' => $new_data['nome_prospecto'],
-                'valor_proposto' => $new_data['valor_proposto'],
+                'titulo' => $old_data['nome_prospecto'],
+                'valor_proposto' => $old_data['valor_proposto'],
                 'vendedor_id' => $old_data['responsavel_id'],
                 'status_processo' => 'Orçamento'
             ];

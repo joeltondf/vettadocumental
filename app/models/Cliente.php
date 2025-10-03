@@ -402,7 +402,7 @@ class Cliente
         /**
      * Busca apenas os clientes que são prospecções (para o CRM).
      */
-    public function getCrmProspects()
+    public function getCrmProspects(?int $currentUserId = null, string $currentUserPerfil = '')
     {
         $sql = "SELECT c.*, (
                     SELECT COUNT(*)
@@ -410,11 +410,19 @@ class Cliente
                     WHERE p.cliente_id = c.id
                 ) AS totalProspeccoes
                 FROM clientes c
-                WHERE c.is_prospect = 1
-                ORDER BY c.nome_cliente ASC";
+                WHERE c.is_prospect = 1";
+
+        $params = [];
+
+        if ($currentUserPerfil === 'vendedor' && $currentUserId) {
+            $sql .= " AND c.crmOwnerId = :ownerId";
+            $params[':ownerId'] = $currentUserId;
+        }
+
+        $sql .= " ORDER BY c.nome_cliente ASC";
 
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute();
+        $stmt->execute($params);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }

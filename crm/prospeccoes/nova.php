@@ -5,13 +5,37 @@ require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
 
 try {
-    $stmt_clientes = $pdo->query("SELECT id, nome_cliente FROM clientes WHERE is_prospect = 1 ORDER BY nome_cliente ASC");
+    $userPerfil = $_SESSION['user_perfil'] ?? '';
+    $userId = (int)($_SESSION['user_id'] ?? 0);
+
+    $sqlClientes = "SELECT id, nome_cliente, nome_responsavel, crmOwnerId FROM clientes WHERE is_prospect = 1";
+    $paramsClientes = [];
+
+    if ($userPerfil === 'vendedor' && $userId > 0) {
+        $sqlClientes .= " AND crmOwnerId = :ownerId";
+        $paramsClientes[':ownerId'] = $userId;
+    }
+
+    $sqlClientes .= " ORDER BY nome_cliente ASC";
+
+    $stmt_clientes = $pdo->prepare($sqlClientes);
+    $stmt_clientes->execute($paramsClientes);
     $clientes = $stmt_clientes->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     die("Erro ao buscar leads: " . $e->getMessage());
 }
 
 $cliente_pre_selecionado_id = filter_input(INPUT_GET, 'cliente_id', FILTER_VALIDATE_INT);
+
+if (!empty($cliente_pre_selecionado_id)) {
+    $clienteDisponivel = array_filter($clientes, static function (array $cliente) use ($cliente_pre_selecionado_id) {
+        return (int)$cliente['id'] === (int)$cliente_pre_selecionado_id;
+    });
+
+    if (empty($clienteDisponivel)) {
+        $cliente_pre_selecionado_id = null;
+    }
+}
 
 require_once __DIR__ . '/../../app/views/layouts/header.php';
 ?>
@@ -51,8 +75,9 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                     <label for="cliente_id" class="block text-sm font-medium text-gray-700">Lead Associado</label>
                     <div class="flex items-center space-x-2 mt-1">
                         <select name="cliente_id" id="cliente_id" class="block w-full">
-                            <option></option> <?php foreach ($clientes as $cliente): ?>
-                                <option value="<?php echo $cliente['id']; ?>" <?php echo ($cliente['id'] == $cliente_pre_selecionado_id) ? 'selected' : ''; ?>>
+                            <option></option>
+                            <?php foreach ($clientes as $cliente): ?>
+                                <option value="<?php echo $cliente['id']; ?>" data-responsavel="<?php echo htmlspecialchars($cliente['nome_responsavel'] ?? '', ENT_QUOTES); ?>" <?php echo ($cliente['id'] == $cliente_pre_selecionado_id) ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($cliente['nome_cliente']); ?>
                                 </option>
                             <?php endforeach; ?>
@@ -64,25 +89,9 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                     </div>
                 </div>                
                 <div>
-                    <label for="nome_prospecto" class="block text-sm font-medium text-gray-700">Nome da Oportunidade</label>
-                    <input type="text" name="nome_prospecto" id="nome_prospecto" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
-                </div>
-                <div>
-                    <label for="valor_proposto" class="block text-sm font-medium text-gray-700">Valor Proposto (R$)</label>
-                    <input type="text" name="valor_proposto" id="valor_proposto" data-currency-input class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" placeholder="R$ 0,00">
-                </div>
-                <div class="md:col-span-2">
-                    <label for="status" class="block text-sm font-medium text-gray-700">Status Inicial</label>
-                    <select name="status" id="status" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
-                        <option value="Cliente ativo">Lead ativo</option>
-                        <option value="Primeiro contato">Primeiro contato</option>
-                        <option value="Segundo contato">Segundo contato</option>
-                        <option value="Terceiro contato">Terceiro contato</option>
-                        <option value="Reunião agendada">Reunião agendada</option>
-                        <option value="Proposta enviada">Proposta enviada</option>
-                        <option value="Fechamento">Fechamento</option>
-                        <option value="Pausar">Pausar</option>
-                    </select>
+                    <label for="lead_responsavel_display" class="block text-sm font-medium text-gray-700">Responsável do Lead</label>
+                    <input type="text" id="lead_responsavel_display" class="mt-1 block w-full border border-gray-200 rounded-md shadow-sm py-2 px-3 bg-gray-100 text-gray-600" value="" readonly>
+                    <input type="hidden" name="nome_prospecto" id="nome_prospecto" value="">
                 </div>
             </div>
             
@@ -101,8 +110,6 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script src="<?php echo APP_URL; ?>/assets/js/currency-mask.js"></script>
-
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // --- INÍCIO DA CORREÇÃO PRINCIPAL ---
@@ -113,18 +120,49 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
         });
 
         const form = document.getElementById('form-nova-prospeccao');
+        const leadSelect = document.getElementById('cliente_id');
+        const responsavelInput = document.getElementById('lead_responsavel_display');
+        const nomeProspectoHidden = document.getElementById('nome_prospecto');
+
+        function updateResponsavelDisplay() {
+            if (!leadSelect) {
+                return;
+            }
+
+            const selectedOption = leadSelect.options[leadSelect.selectedIndex];
+            if (!selectedOption || !selectedOption.value) {
+                responsavelInput.value = '';
+                nomeProspectoHidden.value = '';
+                return;
+            }
+
+            const responsavel = selectedOption.getAttribute('data-responsavel') || '';
+            const fallback = selectedOption.textContent.trim();
+            const displayValue = responsavel.trim() !== '' ? responsavel.trim() : fallback;
+
+            responsavelInput.value = displayValue;
+            nomeProspectoHidden.value = displayValue;
+        }
+
+        if (leadSelect) {
+            leadSelect.addEventListener('change', updateResponsavelDisplay);
+            updateResponsavelDisplay();
+        }
 
         if (form) {
             form.addEventListener('submit', function(event) {
-                // Pega o valor do Select2 no momento exato do envio
                 const clienteId = $('#cliente_id').val();
 
-                // Se o valor for nulo ou vazio, impede o envio e mostra um alerta
                 if (!clienteId || clienteId === '') {
-                    event.preventDefault(); // Impede o envio do formulário
+                    event.preventDefault();
                     alert('Erro: Por favor, selecione um lead associado.');
+                    return;
                 }
-                // Se houver um valor, o formulário será enviado normalmente.
+
+                if (!nomeProspectoHidden.value) {
+                    event.preventDefault();
+                    alert('Erro: Não foi possível identificar o responsável do lead selecionado.');
+                }
             });
         }
         // --- FIM DA CORREÇÃO PRINCIPAL ---

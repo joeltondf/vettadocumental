@@ -6,6 +6,9 @@ require_once __DIR__ . '/../../app/core/auth_check.php';
 require_once __DIR__ . '/../../app/utils/PhoneUtils.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    $currentUserId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+    $currentUserPerfil = $_SESSION['user_perfil'] ?? '';
     
     // Recebe os dados com os nomes corretos do formulário
     $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
@@ -37,12 +40,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         if ($id) {
-            $stmtCheckProspect = $pdo->prepare("SELECT is_prospect FROM clientes WHERE id = :id");
+            $stmtCheckProspect = $pdo->prepare("SELECT is_prospect, crmOwnerId FROM clientes WHERE id = :id");
             $stmtCheckProspect->execute([':id' => $id]);
             $clienteExistente = $stmtCheckProspect->fetch(PDO::FETCH_ASSOC);
 
             if (!$clienteExistente) {
                 $_SESSION['error_message'] = "Lead não encontrado.";
+                header('Location: ' . APP_URL . '/crm/clientes/lista.php');
+                exit();
+            }
+
+            if ($currentUserPerfil === 'vendedor' && (int)($clienteExistente['crmOwnerId'] ?? 0) !== $currentUserId) {
+                $_SESSION['error_message'] = "Você não tem permissão para alterar este lead.";
                 header('Location: ' . APP_URL . '/crm/clientes/lista.php');
                 exit();
             }
@@ -71,8 +80,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $redirect_location = APP_URL . '/crm/clientes/lista.php';
 
         } else {
-            $sql = "INSERT INTO clientes (nome_cliente, nome_responsavel, email, telefone, canal_origem, categoria, is_prospect)
-                    VALUES (:nome_cliente, :nome_responsavel, :email, :telefone, :canal_origem, :categoria, :is_prospect)";
+            $sql = "INSERT INTO clientes (nome_cliente, nome_responsavel, email, telefone, canal_origem, categoria, is_prospect, crmOwnerId)
+                    VALUES (:nome_cliente, :nome_responsavel, :email, :telefone, :canal_origem, :categoria, :is_prospect, :crm_owner_id)";
             $params = [
                 ':nome_cliente' => $nome_cliente,
                 ':nome_responsavel' => $nome_responsavel,
@@ -80,7 +89,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':telefone' => $telefone,
                 ':canal_origem' => $canal_origem,
                 ':categoria' => $categoria,
-                ':is_prospect' => 1
+                ':is_prospect' => 1,
+                ':crm_owner_id' => $currentUserId
             ];
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
