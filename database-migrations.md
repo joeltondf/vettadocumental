@@ -11,12 +11,14 @@ ALTER TABLE `clientes`
   ADD COLUMN `cidade_validation_source` ENUM('api', 'database') NULL DEFAULT 'api' AFTER `estado`,
   ADD COLUMN `data_conversao` DATETIME NULL DEFAULT NULL AFTER `cidade_validation_source`,
   ADD COLUMN `usuario_conversao_id` INT UNSIGNED NULL DEFAULT NULL AFTER `data_conversao`,
+  ADD COLUMN `crmOwnerId` INT UNSIGNED NULL DEFAULT NULL AFTER `usuario_conversao_id`,
   ADD COLUMN `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER `data_cadastro`,
   ADD COLUMN `deleted_at` DATETIME NULL DEFAULT NULL AFTER `updated_at`;
 
 CREATE INDEX `idx_clientes_tipo_pessoa` ON `clientes` (`tipo_pessoa`);
 CREATE INDEX `idx_clientes_tipo_assessoria` ON `clientes` (`tipo_assessoria`);
 CREATE INDEX `idx_clientes_is_prospect` ON `clientes` (`is_prospect`);
+CREATE INDEX `idx_clientes_crm_owner` ON `clientes` (`crmOwnerId`);
 CREATE INDEX `idx_clientes_data_conversao` ON `clientes` (`data_conversao`);
 ```
 

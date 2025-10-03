@@ -23,6 +23,15 @@ try {
         exit;
     }
 
+    $currentUserPerfil = $_SESSION['user_perfil'] ?? '';
+    $currentUserId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+
+    if ($currentUserPerfil === 'vendedor' && (int)($cliente['crmOwnerId'] ?? 0) !== $currentUserId) {
+        $_SESSION['error_message'] = "Você não tem permissão para acessar este lead.";
+        header('Location: ' . APP_URL . '/crm/clientes/lista.php');
+        exit;
+    }
+
 } catch (PDOException $e) {
     die("Erro ao buscar dados do lead: " . $e->getMessage());
 }

@@ -14,10 +14,10 @@ if (!$prospeccao_id) {
 try {
     // A consulta já está correta
     $stmt = $pdo->prepare("
-        SELECT p.*, u.nome_completo AS responsavel_nome, c.nome_cliente 
-        FROM prospeccoes p 
-        LEFT JOIN users u ON p.responsavel_id = u.id 
-        LEFT JOIN clientes c ON p.cliente_id = c.id 
+        SELECT p.*, u.nome_completo AS responsavel_nome, c.nome_cliente, c.nome_responsavel AS lead_responsavel_nome
+        FROM prospeccoes p
+        LEFT JOIN users u ON p.responsavel_id = u.id
+        LEFT JOIN clientes c ON p.cliente_id = c.id
         WHERE p.id = :id
     ");
     $stmt->execute(['id' => $prospeccao_id]);
@@ -60,8 +60,9 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
         <div class="bg-white shadow sm:rounded-lg">
             <div class="px-4 py-5 sm:p-6">
                 <div class="flex justify-between items-start mb-6">
+                    <?php $leadResponsavelNome = $prospect['lead_responsavel_nome'] ?? $prospect['nome_prospecto'] ?? ''; ?>
                     <div>
-                        <h2 class="text-2xl font-bold text-gray-900"><?php echo htmlspecialchars($prospect['nome_prospecto'] ?? ''); ?></h2>
+                        <h2 class="text-2xl font-bold text-gray-900"><?php echo htmlspecialchars($leadResponsavelNome); ?></h2>
                         <p class="text-sm text-gray-500">Lead: <span class="font-medium text-indigo-600"><?php echo htmlspecialchars($prospect['nome_cliente'] ?? 'Lead não vinculado'); ?></span></p>
                         <p class="text-sm text-gray-500 mt-1">ID: <?php echo htmlspecialchars($prospect['id_texto'] ?? ''); ?></p>
                     </div>
@@ -95,16 +96,10 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                     <input type="hidden" name="action" value="update_prospect">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label for="nome_prospecto" class="block text-sm font-medium text-gray-700">Nome da Oportunidade</label>
-                            <input type="text" name="nome_prospecto" id="nome_prospecto" value="<?php echo htmlspecialchars($prospect['nome_prospecto'] ?? ''); ?>" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                            <label class="block text-sm font-medium text-gray-700">Responsável do Lead</label>
+                            <input type="text" value="<?php echo htmlspecialchars($leadResponsavelNome); ?>" class="mt-1 block w-full border-gray-200 rounded-md shadow-sm py-2 px-3 bg-gray-100 text-gray-600 cursor-not-allowed" disabled>
                         </div>
-                        
-                        <div>
-                            <label for="responsavel_nome" class="block text-sm font-medium text-gray-700">SDR Responsável</label>
-                            <input type="text" id="responsavel_nome" value="<?php echo htmlspecialchars($prospect['responsavel_nome'] ?? 'Não atribuído'); ?>" 
-                                   class="mt-1 block w-full border-gray-200 rounded-md shadow-sm py-2 px-3 bg-gray-100 text-gray-500 cursor-not-allowed" disabled>
-                        </div>
-                        
+
                         <div>
                             <label for="status" class="block text-sm font-medium text-gray-700">Status</label>
                             <select name="status" id="status" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
@@ -117,10 +112,6 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                                 <option value="Fechamento" <?php echo ($prospect['status'] == 'Fechamento') ? 'selected' : ''; ?>>Fechamento</option>
                                 <option value="Pausar" <?php echo ($prospect['status'] == 'Pausar') ? 'selected' : ''; ?>>Pausar</option>
                             </select>
-                        </div>
-                        <div>
-                            <label for="valor_proposto" class="block text-sm font-medium text-gray-700">Valor Proposto (R$)</label>
-                            <input type="text" name="valor_proposto" id="valor_proposto" data-currency-input value="<?php echo htmlspecialchars($prospect['valor_proposto'] ?? '0'); ?>" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" placeholder="R$ 0,00">
                         </div>
                         <div>
                             <label for="data_reuniao_agendada" class="block text-sm font-medium text-gray-700">Data da Reunião</label>

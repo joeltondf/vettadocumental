@@ -6,6 +6,9 @@ require_once __DIR__ . '/../../app/core/auth_check.php';
 
 header('Content-Type: application/json');
 
+$currentUserPerfil = $_SESSION['user_perfil'] ?? '';
+$currentUserId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+
 $action = $_GET['action'] ?? '';
 
 try {
@@ -37,8 +40,18 @@ try {
         case 'search_clientes':
             $term = $_GET['term'] ?? '';
             // Correção: Usar 'nome_cliente' em vez de 'nome_empresa'
-            $stmt = $pdo->prepare("SELECT id, nome_cliente AS text FROM clientes WHERE nome_cliente LIKE ? AND is_prospect = 1 ORDER BY nome_cliente LIMIT 10");
-            $stmt->execute(["%$term%"]);
+            $sqlClientes = "SELECT id, nome_cliente AS text FROM clientes WHERE nome_cliente LIKE ? AND is_prospect = 1";
+            $paramsClientes = ["%$term%"];
+
+            if ($currentUserPerfil === 'vendedor' && $currentUserId) {
+                $sqlClientes .= " AND crmOwnerId = ?";
+                $paramsClientes[] = $currentUserId;
+            }
+
+            $sqlClientes .= " ORDER BY nome_cliente LIMIT 10";
+
+            $stmt = $pdo->prepare($sqlClientes);
+            $stmt->execute($paramsClientes);
             $clientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
             echo json_encode(['results' => $clientes]);
             break;
@@ -61,6 +74,18 @@ try {
             $stmt = $pdo->prepare("SELECT id, nome_cliente AS text FROM clientes WHERE id = ?");
             $stmt->execute([$cliente_id]);
             $cliente = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($cliente && $currentUserPerfil === 'vendedor') {
+                $stmtOwner = $pdo->prepare("SELECT crmOwnerId FROM clientes WHERE id = ?");
+                $stmtOwner->execute([$cliente_id]);
+                $ownerData = $stmtOwner->fetch(PDO::FETCH_ASSOC);
+
+                if ((int)($ownerData['crmOwnerId'] ?? 0) !== $currentUserId) {
+                    echo json_encode(['error' => 'Lead não autorizado.']);
+                    exit();
+                }
+            }
+
             echo json_encode($cliente);
             break;
 
