@@ -7,16 +7,16 @@ error_reporting(E_ALL);
 
 // 1. Configurações de Conexão com a Base de Dados
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'u371107598_novalis');
-define('DB_USER', 'u371107598_novalis');
-define('DB_PASS', '@Jujuba0550');
+define('DB_NAME', 'u371107598_vetta');
+define('DB_USER', 'u371107598_vetta_user');
+define('DB_PASS', '@Amora051307');
 // ADICIONAMOS A CONSTANTE QUE FALTAVA
 define('DB_CHARSET', 'utf8mb4'); 
 
 
 // 2. Configurações Gerais da Aplicação
-define('APP_URL', 'https://ndocumental.com.br');
-define('APP_NAME', 'ndocumental');
+define('APP_URL', 'https://vettadocumental.com');
+define('APP_NAME', 'vettadocumental');
 
 // 3. Iniciar a Sessão
 if (session_status() == PHP_SESSION_NONE) {

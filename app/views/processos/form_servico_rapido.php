@@ -33,16 +33,21 @@ $cliente_pre_selecionado_id = $_GET['cliente_id'] ?? null;
                 <label for="cliente_id" class="block text-sm font-medium text-gray-700">Cliente Associado</label>
                 <div class="flex items-center space-x-2 mt-1">
                     <select name="cliente_id" id="cliente_id" class="block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-                        <option></option>
+                        <option value=""></option>
                         <?php foreach ($clientes as $cliente): ?>
-                            <option value="<?php echo $cliente['id']; ?>" <?php 
-                                $isSelected = ($isEditMode && $processo['cliente_id'] == $cliente['id']) || ($cliente_pre_selecionado_id == $cliente['id']);
-                                echo $isSelected ? 'selected' : ''; 
-                            ?>>
+                            <option
+                                value="<?php echo $cliente['id']; ?>"
+                                data-tipo-assessoria="<?php echo $cliente['tipo_assessoria']; ?>"
+                                <?php
+                                    $isSelected = ($isEditMode && $processo['cliente_id'] == $cliente['id']) || ($cliente_pre_selecionado_id == $cliente['id']);
+                                    echo $isSelected ? 'selected' : '';
+                                ?>>
                                 <?php echo htmlspecialchars($cliente['nome_cliente']); ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
+                                <input type="hidden" id="cliente_tipo_assessoria" name="cliente_tipo_assessoria">
+
                     <a href="<?php echo APP_URL; ?>/clientes.php?action=create&return_to=<?php echo urlencode(APP_URL . $_SERVER['REQUEST_URI']); ?>" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-md text-sm whitespace-nowrap" title="Adicionar Novo Cliente">
                         +
                     </a>
@@ -112,40 +117,45 @@ $cliente_pre_selecionado_id = $_GET['cliente_id'] ?? null;
         </div>
     </fieldset>
 
-    <div id="section-container-tradução" class="bg-blue-50 p-6 rounded-lg shadow-lg border border-blue-200" style="display: none;">
-        <h2 class="text-xl font-semibold mb-4 border-b border-blue-200 pb-2 text-blue-800">Detalhes da Tradução</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div>
-                <label for="total_documentos" class="block text-sm font-medium text-gray-700">Total Documentos</label>
-                <input type="number" name="documentos[traducao][0][quantidade]" id="total_documentos" value="1" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-                <input type="hidden" name="documentos[traducao][0][categoria]" value="Tradução">
+        <div id="section-container-tradução" class="bg-blue-50 p-6 rounded-lg shadow-lg border border-blue-200" style="display: none;">
+            <h2 class="text-xl font-semibold mb-4 border-b border-blue-200 pb-2 text-blue-800">Detalhes da Tradução</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div>
+                    <label for="traducao_modalidade" class="block text-sm font-medium text-gray-700">Modalidade</label>
+                    <select name="traducao_modalidade" id="traducao_modalidade" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                        <option value="Normal">Normal</option>
+                        <option value="Express">Express</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="tradutor_id" class="block text-sm font-medium text-gray-700">Tradutor</label>
+                    <select name="tradutor_id" id="tradutor_id" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                        <option value="">Selecione um tradutor</option>
+                        <?php foreach ($tradutores as $tradutor): ?>
+                            <option value="<?php echo $tradutor['id']; ?>"><?php echo htmlspecialchars($tradutor['nome_tradutor']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div>
+                    <label for="assinatura_tipo" class="block text-sm font-medium text-gray-700">Assinatura</label>
+                    <select name="assinatura_tipo" id="assinatura_tipo" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                        <option value="Digital">Assinatura Digital</option>
+                        <option value="Física">Assinatura Física</option>
+                    </select>
+                </div>
             </div>
-            <div>
-                <label for="traducao_modalidade" class="block text-sm font-medium text-gray-700">Modalidade</label>
-                <select name="traducao_modalidade" id="traducao_modalidade" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-                    <option value="Normal">Normal</option>
-                    <option value="Express">Express</option>
-                </select>
-            </div>
-            <div>
-                <label for="tradutor_id" class="block text-sm font-medium text-gray-700">Tradutor</label>
-                <select name="tradutor_id" id="tradutor_id" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-                    <option value="">Selecione um tradutor</option>
-                    <?php foreach ($tradutores as $tradutor): ?>
-                        <option value="<?php echo $tradutor['id']; ?>"><?php echo htmlspecialchars($tradutor['nome_tradutor']); ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div>
-                <label for="assinatura_tipo" class="block text-sm font-medium text-gray-700">Assinatura</label>
-                <select name="assinatura_tipo" id="assinatura_tipo" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-                    <option value="Digital">Assinatura Digital</option>
-                    <option value="Física">Assinatura Física</option>
-                </select>
+            
+            <div class="mt-6 pt-6 border-t border-blue-200">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-semibold text-gray-700">Documentos para Tradução</h3>
+                    <button type="button" onclick="adicionarDocumento('tradução')" class="bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-600 text-sm">
+                        <i class="fas fa-plus mr-2"></i>Adicionar Documento
+                    </button>
+                </div>
+                <div id="documentos-container-tradução" class="space-y-4">
+                    </div>
             </div>
         </div>
-    </div>
-
     <?php
     $sections = [
         'crc' => ['title' => 'Documentos CRC', 'category' => 'CRC', 'color' => 'green'],
@@ -291,135 +301,260 @@ $cliente_pre_selecionado_id = $_GET['cliente_id'] ?? null;
 </template>
 
 
+
+<template id="template-tradução-avista">
+    <div class="doc-row grid grid-cols-12 gap-4 items-center">
+        <input type="hidden" name="documentos[tradução][{index}][categoria]" value="Tradução">
+        <div class="col-span-6">
+            <input type="text" name="documentos[tradução][{index}][tipo_documento]" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2" placeholder="Nome do Documento">
+        </div>
+        <div class="col-span-5">
+            <input type="text" name="documentos[tradução][{index}][valor_unitario]" class="doc-valor mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2" placeholder="R$ 0,00">
+        </div>
+        <div class="col-span-1 text-right">
+            <button type="button" class="remove-doc-row text-red-500 hover:text-red-700 font-bold text-xl">&times;</button>
+        </div>
+    </div>
+</template>
+
+<template id="template-tradução-mensalista">
+    <div class="doc-row grid grid-cols-12 gap-4 items-center">
+        <input type="hidden" name="documentos[tradução][{index}][categoria]" value="Tradução">
+            <div class="col-span-8">
+                <select name="documentos[tradução][{index}][tipo_documento]" class="mensalista-servico-select mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2">
+                    <option value="">Selecione o serviço contratado...</option>
+                </select>
+            </div>
+            <div class="col-span-3">
+                <input type="text" 
+                    name="documentos[tradução][{index}][valor_unitario]" 
+                    class="doc-valor mensalista-valor mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2" 
+                    placeholder="R$ 0,00"
+                />
+            </div>
+            <div class="col-span-1 flex items-center justify-end">
+                <button type="button" class="remove-doc-row text-red-500 hover:text-red-700 font-bold text-xl">&times;</button>
+            </div>
+    </div>
+</template>
+
+
+
 <script>
+// Script responsável por lidar com interações do formulário de serviço rápido.
 document.addEventListener('DOMContentLoaded', function () {
-    // === Manipulação de uploads ===
-    const fileInput = document.getElementById('anexos-input-field');
-    const fileListContainer = document.getElementById('file-list-container');
+    // === ELEMENTOS DO FORMULÁRIO E VARIÁVEIS GLOBAIS ===
+    const clienteSelect = document.getElementById('cliente_id');
+    const tipoAssessoriaInput = document.getElementById('cliente_tipo_assessoria');
+    const servicosCheckboxes = document.querySelectorAll('.service-checkbox');
+    const userPerfil = "<?php echo $_SESSION['user_perfil'] ?? 'colaborador'; ?>";
+    const sectionCounters = { tradução: 0, crc: 0, apostilamento: 0, postagem: 0 };
+    let clienteCache = { tipo: 'À vista', servicos: [] };
 
-    if (fileInput && fileListContainer) {
-        fileInput.addEventListener('change', function() {
-            fileListContainer.innerHTML = '';
-            if (this.files.length > 0) {
-                const title = document.createElement('h4');
-                title.className = 'font-semibold text-gray-600';
-                title.textContent = this.files.length > 1 ? 'Arquivos Anexados:' : 'Arquivo Anexado:';
-                fileListContainer.appendChild(title);
+    // --- Campo oculto para controle de status proposto ---
+    // Criado dinamicamente para que o backend saiba se o serviço deve iniciar 'Pendente' ou 'Em andamento'.
+    const formElement = document.querySelector('form');
+    if (formElement && !document.getElementById('status_proposto')) {
+        const hiddenStatusInput = document.createElement('input');
+        hiddenStatusInput.type = 'hidden';
+        hiddenStatusInput.name = 'status_proposto';
+        hiddenStatusInput.id = 'status_proposto';
+        hiddenStatusInput.value = 'Em andamento'; // valor padrão
+        formElement.appendChild(hiddenStatusInput);
+    }
 
-                Array.from(this.files).forEach(file => {
-                    const fileItem = document.createElement('div');
-                    fileItem.className = 'flex items-center bg-white p-2 border rounded-md shadow-sm';
-                    const icon = '<i class="fas fa-file-alt text-gray-500 mr-3"></i>';
-                    const fileInfo = `<div class="flex-grow">
-                        <p class="font-medium text-gray-800">${file.name}</p>
-                        <p class="text-xs text-gray-500">${(file.size / 1024).toFixed(2)} KB</p>
-                    </div>`;
-                    fileItem.innerHTML = icon + fileInfo;
-                    fileListContainer.appendChild(fileItem);
-                });
-            }
+    // === INICIALIZAÇÃO DO SELECT2 ===
+        $(clienteSelect).select2({
+            placeholder: "Selecione um cliente...",
+            allowClear: true
         });
-    }
 
-    // === Select2 para cliente ===
-    $('#cliente_id').select2({
-        placeholder: "Selecione um cliente...",
-        allowClear: true
-    });
-
-    // === Funções de formatação ===
-    function formatCurrency(valueInCents) {
-        const numeric = String(valueInCents).replace(/\D/g, '');
-        if (numeric === '') return 'R$\u00a00,00';
-        const floatVal = parseInt(numeric, 10) / 100;
-        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(floatVal);
-    }
-
-    function parseCurrency(formattedValue) {
-        if (!formattedValue || typeof formattedValue !== 'string') return 0;
-        const clean = formattedValue.replace(/[^0-9,]/g, '');
-        return parseFloat(clean.replace(/\./g, '').replace(',', '.')) || 0;
-    }
-
-    // === Atualiza total de documentos e valores (em centavos) ===
-    function updateAllCalculations() {
-        let totalDocumentos = 0;
-        let totalGeralCents = 0;
-
-        // 1. Soma documentos e valores da seção TRADUÇÃO
-        const traducaoSection = document.getElementById('section-container-tradução');
-        if (traducaoSection && traducaoSection.style.display !== 'none') {
-            const qtdTraducao = parseInt(document.getElementById('total_documentos').value) || 0;
-            totalDocumentos += qtdTraducao;
+    // Lógica para clientes mensalistas: carrega serviços via API.
+    $(clienteSelect).on('change', function() {
+        const selectedOption = $(this).find('option:selected');
+        const tipo = selectedOption.data('tipo-assessoria') || 'À vista';
+        if (tipoAssessoriaInput) {
+            tipoAssessoriaInput.value = tipo;
         }
-
-        // 2. Soma documentos e valores da seção CRC
-        const crcContainer = document.getElementById('documentos-container-crc');
-        if (crcContainer && crcContainer.closest('[id^="section-container-"]').style.display !== 'none') {
-            crcContainer.querySelectorAll('.doc-row').forEach(row => {
-                totalDocumentos += 1;
-                const valorInput = row.querySelector('.doc-valor');
-                const valorUnit = parseCurrency(valorInput.value); // valor em reais
-                const valorCents = Math.round(valorUnit * 100);    // valor em centavos (inteiro)
-                totalGeralCents += valorCents;
-            });
-        }
-
-        // 3. Soma APENAS os valores de APOSTILAMENTO (centavos)
-        const apostilamentoSection = document.getElementById('section-container-apostilamento');
-        if (apostilamentoSection && apostilamentoSection.style.display !== 'none') {
-            apostilamentoSection.querySelectorAll('.doc-row').forEach(row => {
-                const qtd        = parseInt(row.querySelector('.doc-qtd').value) || 0;
-                const valorUnit  = parseCurrency(row.querySelector('.doc-valor').value);
-                const unitCents  = Math.round(valorUnit * 100);
-                const totalCents = qtd * unitCents;
-                // Atualiza o campo de valor total (somente leitura)
-                row.querySelector('.doc-total').value = formatCurrency(totalCents);
-                totalGeralCents += totalCents;
-            });
-        }
-
-        // 4. Soma APENAS os valores de POSTAGEM (centavos)
-        const postagemSection = document.getElementById('section-container-postagem');
-        if (postagemSection && postagemSection.style.display !== 'none') {
-            postagemSection.querySelectorAll('.doc-row').forEach(row => {
-                const qtd        = parseInt(row.querySelector('.doc-qtd').value) || 0;
-                const valorUnit  = parseCurrency(row.querySelector('.doc-valor').value);
-                const unitCents  = Math.round(valorUnit * 100);
-                const totalCents = qtd * unitCents;
-                row.querySelector('.doc-total').value = formatCurrency(totalCents);
-                totalGeralCents += totalCents;
-            });
-        }
-
-        // 5. Atualiza os displays do resumo usando formatCurrency (centavos)
-        document.getElementById('total-documentos-display').textContent = totalDocumentos;
-        document.getElementById('total-geral-display').textContent      = formatCurrency(totalGeralCents);
-        document.getElementById('valor_total_hidden').value             = formatCurrency(totalGeralCents);
-    }
-
-    // === Máscara de moeda dinâmica e cálculo em tempo real ===
-    document.body.addEventListener('input', function(e) {
-        const target = e.target;
-
-        // Aplica máscara de moeda em tempo real nas classes .doc-valor
-        if (target.matches('.doc-valor')) {
-            const raw = target.value.replace(/\D/g, '');
-            if (raw === '') {
-                target.value = '';
+        clienteCache.tipo = tipo;
+        if (tipo === 'Mensalista') {
+            const clienteId = selectedOption.val();
+            if (clienteId) {
+                fetch(`api_cliente.php?id=${clienteId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        clienteCache.servicos = (data.success) ? data.servicos : [];
+                        updateAllCalculations();
+                    });
             } else {
-                const floatVal = parseInt(raw, 10) / 100;
-                target.value = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(floatVal);
+                clienteCache.servicos = [];
+                updateAllCalculations();
             }
-        }
-
-        // Sempre que valor ou quantidade mudar, recalcula os totais
-        if (target.matches('.doc-valor, .doc-qtd') || target.id === 'total_documentos') {
+        } else {
+            clienteCache.servicos = [];
             updateAllCalculations();
         }
     });
+    $(clienteSelect).trigger('change');
 
-    // === Lógica de prazo e seções (inalterada) ===
+    // === ADICIONAR DOCUMENTOS ===
+    window.adicionarDocumento = function(section, data = null, autoAdded = false) {
+        const isMensalista = clienteCache.tipo === 'Mensalista' && section === 'tradução';
+        let templateId;
+        if (section === 'tradução') {
+            templateId = isMensalista ? 'template-tradução-mensalista' : 'template-tradução-avista';
+        } else {
+            templateId = `template-${section}`;
+        }
+        const template = document.getElementById(templateId);
+        if (!template) { console.error(`Template ${templateId} não encontrado!`); return; }
+        const container = document.getElementById(`documentos-container-${section}`);
+        const index = sectionCounters[section]++;
+        container.insertAdjacentHTML('beforeend', template.innerHTML.replace(/\{index\}/g, index));
+        const newRow = container.lastElementChild;
+        if (isMensalista) {
+            const select = newRow.querySelector('.mensalista-servico-select');
+            clienteCache.servicos.forEach(s => {
+                if (s.servico_tipo === 'Tradução') {
+                    const option = new Option(s.nome_categoria, s.nome_categoria);
+                    option.dataset.valor = s.valor_padrao;
+                    select.add(option);
+                }
+            });
+            if (autoAdded && data) {
+                const valorInput = newRow.querySelector('.mensalista-valor');
+                const removeBtn = newRow.querySelector('.remove-doc-row');
+                select.value = data.nome_categoria;
+                valorInput.value = formatCurrency(Math.round(parseFloat(data.valor_padrao) * 100));
+                valorInput.dataset.minValor = data.valor_padrao;
+                if(removeBtn) removeBtn.style.display = 'none';
+            }
+        }
+        updateAllCalculations();
+        evaluateMensalistaValues();
+    };
+
+    // === EVENTOS DINÂMICOS ===
+    document.body.addEventListener('change', function(e) {
+        if (e.target.matches('.mensalista-servico-select')) {
+            const selectedOption = e.target.options[e.target.selectedIndex];
+            const valor = selectedOption.dataset.valor || '';
+            const valorInput = e.target.closest('.doc-row').querySelector('.mensalista-valor');
+            if (valorInput) {
+                valorInput.value = valor ? formatCurrency(Math.round(parseFloat(valor) * 100)) : '';
+                valorInput.dataset.minValor = valor;
+            }
+            updateAllCalculations();
+            evaluateMensalistaValues();
+        }
+    });
+
+    document.body.addEventListener('click', e => {
+        const target = e.target.closest('.remove-doc-row');
+        if (target) {
+            target.closest('.doc-row').remove();
+            updateAllCalculations();
+            evaluateMensalistaValues();
+        }
+    });
+
+    document.body.addEventListener('input', function(e) {
+        const target = e.target;
+        if (target.matches('.mensalista-valor')) {
+            // Formatação de moeda e verificação de valor mínimo para clientes mensalistas
+            const raw = target.value.replace(/\D/g, '');
+            target.value = (raw === '') ? '' : formatCurrency(raw);
+            const minValor = parseFloat(target.dataset.minValor || '0');
+            const valorAtual = parseCurrency(target.value);
+            if (valorAtual < minValor) {
+                alert('Atenção: O valor informado está abaixo do valor registrado. O serviço ficará pendente até a aprovação da gerência.');
+            }
+        } else if (target.matches('.doc-valor')) {
+            const raw = target.value.replace(/\D/g, '');
+            target.value = (raw === '') ? '' : formatCurrency(raw);
+        }
+        if (target.matches('.doc-valor, .doc-qtd, .mensalista-valor') || target.id === 'total_documentos') {
+            updateAllCalculations();
+            evaluateMensalistaValues();
+        }
+    });
+
+    // === FUNÇÕES AUXILIARES ===
+    function updateAllCalculations() {
+        let totalDocumentos = 0;
+        let totalGeralCents = 0;
+        ['tradução', 'crc', 'apostilamento', 'postagem'].forEach(sectionKey => {
+            const sectionContainer = document.getElementById(`section-container-${sectionKey.toLowerCase()}`);
+            if (sectionContainer && sectionContainer.style.display !== 'none') {
+                const container = document.getElementById(`documentos-container-${sectionKey.toLowerCase()}`);
+                container.querySelectorAll('.doc-row').forEach(row => {
+                    const qtd = parseInt(row.querySelector('.doc-qtd')?.value || 1);
+                    totalDocumentos += qtd;
+                    const valorUnit = parseCurrency(row.querySelector('.doc-valor')?.value || '0');
+                    const totalLinhaCents = Math.round(valorUnit * 100) * qtd;
+                    totalGeralCents += totalLinhaCents;
+                    const totalInput = row.querySelector('.doc-total');
+                    if(totalInput) totalInput.value = formatCurrency(totalLinhaCents);
+                });
+            }
+        });
+        const totalDocsDisplay = document.getElementById('total-documentos-display');
+        if(totalDocsDisplay) totalDocsDisplay.textContent = totalDocumentos;
+        const totalGeralDisplay = document.getElementById('total-geral-display');
+        if(totalGeralDisplay) totalGeralDisplay.textContent = formatCurrency(totalGeralCents);
+        const hiddenTotal = document.getElementById('valor_total_hidden');
+        if(hiddenTotal) hiddenTotal.value = totalGeralCents / 100;
+    }
+
+    function toggleServiceSection(checkbox) {
+    const sectionId = 'section-container-' + checkbox.value.toLowerCase().replace(/\s+/g, '');
+
+
+    /**
+     * Avalia todos os campos de valor de serviços mensalistas e atualiza o campo de status.
+     * - Se qualquer valor estiver abaixo do valor mínimo registrado, o status será 'Pendente'.
+     * - Caso contrário, permanece 'Em andamento'.
+     */
+    function evaluateMensalistaValues() {
+        const statusInput = document.getElementById('status_proposto');
+        if (!statusInput) return;
+        let pendente = false;
+        document.querySelectorAll('.mensalista-valor').forEach(input => {
+            const min = parseFloat(input.dataset.minValor || '0');
+            const atual = parseCurrency(input.value);
+            if (atual < min) {
+                pendente = true;
+            }
+        });
+        statusInput.value = pendente ? 'Pendente' : 'Em andamento';
+    }
+
+        const section = document.getElementById(sectionId);
+        if (section) {
+            section.style.display = checkbox.checked ? 'block' : 'none';
+        }
+        updateAllCalculations();
+    }
+    
+    // Este bloco agora funcionará, pois 'servicosCheckboxes' foi definido no início
+    servicosCheckboxes.forEach(cb => {
+        toggleServiceSection(cb); // Verifica o estado inicial
+        cb.addEventListener('change', () => toggleServiceSection(cb)); // Adiciona o evento de clique
+    });
+
+    function formatCurrency(valueInCents) {
+        if (isNaN(valueInCents)) return '';
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valueInCents / 100);
+    }
+    function parseCurrency(formattedValue) {
+        if (!formattedValue || typeof formattedValue !== 'string') return 0;
+        return parseFloat(String(formattedValue).replace(/\D/g, '')) / 100 || 0;
+    }
+
+    // Gatilho inicial de cálculos e status
+    updateAllCalculations();
+    evaluateMensalistaValues();
+
     const prazoTipoSelect = document.getElementById('prazo_tipo');
     if (prazoTipoSelect) {
         prazoTipoSelect.addEventListener('change', function() {
@@ -432,46 +567,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         prazoTipoSelect.dispatchEvent(new Event('change'));
     }
-
-    // === Mostrar/ocultar seções de serviços ===
-    const servicosCheckboxes = document.querySelectorAll('.service-checkbox');
-    function toggleServiceSection(checkbox) {
-        const sectionId = 'section-container-' + checkbox.value.toLowerCase().replace(/\s+/g, '');
-        const sectionContainer = document.getElementById(sectionId);
-        if (sectionContainer) {
-            sectionContainer.style.display = checkbox.checked ? 'block' : 'none';
-        }
-        updateAllCalculations();
-    }
-    servicosCheckboxes.forEach(checkbox => {
-        toggleServiceSection(checkbox);
-        checkbox.addEventListener('change', () => toggleServiceSection(checkbox));
-    });
-
-    // === Repetidor de documentos ===
-    const sectionCounters = { crc: 0, apostilamento: 0, postagem: 0 };
-    document.querySelectorAll('.add-doc-row').forEach(button => {
-        button.addEventListener('click', function () {
-            const section   = this.dataset.section;
-            const template  = document.getElementById(`template-${section}`);
-            const container = document.getElementById(`documentos-container-${section}`);
-            const index     = sectionCounters[section];
-            const cloneHTML = template.innerHTML.replace(/{index}/g, index);
-            container.insertAdjacentHTML('beforeend', cloneHTML);
-            sectionCounters[section]++;
-            updateAllCalculations();
-        });
-    });
-
-    // === Remover documento ===
-    document.body.addEventListener('click', function(e) {
-        if (e.target.classList.contains('remove-doc-row')) {
-            e.target.closest('.doc-row').remove();
-            updateAllCalculations();
-        }
-    });
-
-    // Execução inicial
-    updateAllCalculations();
+    
+    updateAllCalculations(); // Execução inicial
 });
 </script>

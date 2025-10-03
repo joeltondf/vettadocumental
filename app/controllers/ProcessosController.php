@@ -7,7 +7,9 @@
 
 // Seus includes e a declaração da classe estão corretos.
 ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
+
 
 require_once __DIR__ . '/../models/Processo.php';
 require_once __DIR__ . '/../models/Documento.php';
@@ -35,24 +37,26 @@ class ProcessosController
     private $configModel;
     private $contaAzulService;
     private $notificacaoModel; 
+    private $emailService;
 
-    public function __construct($pdo)
-    {
-        $this->pdo = $pdo;
-        $this->processoModel = new Processo($pdo);
-        $this->clienteModel = new Cliente($pdo);
-        $this->vendedorModel = new Vendedor($pdo);
-        $this->tradutorModel = new Tradutor($pdo);
-        $this->userModel = new User($pdo);
-        $this->documentoModel = new Documento($pdo);
-        $this->configModel = new Configuracao($this->pdo);
-        $this->contaAzulService = new ContaAzulService($this->configModel);
-        $this->notificacaoModel = new Notificacao($pdo);
-        if (session_status() == PHP_SESSION_NONE) {
-            session_start();
-        }
+public function __construct($pdo)
+{
+    $this->pdo = $pdo;
+    $this->processoModel = new Processo($pdo);
+    $this->clienteModel = new Cliente($pdo);
+    $this->vendedorModel = new Vendedor($pdo);
+    $this->tradutorModel = new Tradutor($pdo);
+    $this->userModel = new User($pdo);
+    $this->documentoModel = new Documento($pdo);
+    $this->configModel = new Configuracao($this->pdo);
+    $this->contaAzulService = new ContaAzulService($this->configModel);
+    $this->notificacaoModel = new Notificacao($pdo);
+    $this->emailService = new EmailService($pdo); 
 
+    if (session_status() == PHP_SESSION_NONE) {
+        session_start();
     }
+}
 
     private function auth_check() {
         if (!isset($_SESSION['user_id'])) {
@@ -119,7 +123,7 @@ class ProcessosController
         require_once __DIR__ . '/../views/layouts/footer.php';
     }
 
-    public function create()
+    public function create($data = [], $files = [])
     {
         $pageTitle = "Cadastrar Novo Processo";
         $clientes = $this->clienteModel->getAll();
@@ -141,129 +145,119 @@ public function store()
 {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $id_existente = $_POST['id'] ?? null;
-        
-        // --- LÓGICA DE CRIAÇÃO (quando o formulário não envia um ID) ---
+
+        // =========================================
+        // CRIAÇÃO DE NOVO PROCESSO OU SERVIÇO
+        // =========================================
         if (empty($id_existente)) {
-            // ---- CRIAÇÃO DE UM NOVO PROCESSO ----
-            $novo_id = $this->processoModel->create($_POST, $_FILES);
-            
-            if ($novo_id) {
-                // Busca todos os dados do processo recém-criado
-                $dados_completos = $this->processoModel->getById($novo_id);
-                $processo = $dados_completos['processo'];
 
-                // Tenta enviar o e-mail e notificações
-                try {
-                    $destinatarios = $this->configModel->get('alert_emails');
-                    if (!empty($destinatarios)) {
-                        $assunto = "Novo Orçamento #{$processo['orcamento_numero']} - Cliente: {$processo['nome_cliente']}";
-                        
-                        // Corpo do E-mail (mantido como no seu original)
-                        $corpo = "
-                        <!DOCTYPE html>
-                        <html>
-                        <head>
-                            <meta charset='UTF-8'>
-                            <style>
-                                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f7; }
-                                .container { width: 100%; max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-                                .header { background-color: #28a745; color: #ffffff; padding: 20px; text-align: center; }
-                                .header h1 { margin: 0; font-size: 24px; }
-                                .content { padding: 30px; }
-                                .content p { color: #555555; line-height: 1.6; }
-                                .details-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                                .details-table td { padding: 12px 15px; border-bottom: 1px solid #eeeeee; }
-                                .details-table tr:nth-child(even) { background-color: #f9f9f9; }
-                                .details-table td:first-child { font-weight: bold; color: #333333; width: 180px; }
-                                .button-container { text-align: center; margin-top: 30px; text-decoration: none; }
-                                .button { display: inline-block; padding: 12px 25px; background-color: #28a745; color: #ffffff; text-decoration: none; border-radius: 5px; font-weight: bold; }
-                                .footer { background-color: #f4f4f7; padding: 20px; text-align: center; color: #888888; font-size: 12px; }
-                            </style>
-                        </head>
-                        <body>
-                            <div class='container'>
-                                <div class='header'>
-                                    <h1>Novo Serviço Rápido</h1>
-                                </div>
-                                <div class='content'>
-                                    <p>Um novo serviço foi cadastrado no sistema. Seguem os detalhes:</p>
-                                    <table class='details-table'>
-                                        <tr>
-                                            <td>Orçamento Nº:</td>
-                                            <td>" . htmlspecialchars($processo['orcamento_numero']) . "</td>
-                                        </tr>
-                                        <tr>
-                                            <td>Cliente:</td>
-                                            <td>" . htmlspecialchars($processo['nome_cliente']) . "</td>
-                                        </tr>
-                                        <tr>
-                                            <td>Serviço(s):</td>
-                                            <td>" . htmlspecialchars($processo['categorias_servico'] ?? 'Não informado') . "</td>
-                                        </tr>
-                                        <tr>
-                                            <td>Tradutor:</td>
-                                            <td>" . htmlspecialchars($processo['nome_tradutor'] ?? 'Não definido') . "</td>
-                                        </tr>
-                                        <tr>
-                                            <td>Valor Total:</td>
-                                            <td><strong>R$ " . number_format($processo['valor_total'], 2, ',', '.') . "</strong></td>
-                                        </tr>
-                                    </table>
-                                    <div class='button-container'>
-                                        <a href='https://" . $_SERVER['HTTP_HOST'] . "/processos.php?action=view&id={$novo_id}' class='button'>
-                                        Ver Detalhes no Sistema
-                                        </a>
-                                    </div>
-                                </div>
-                                <div class='footer'>
-                                    Este é um e-mail automático.
-                                </div>
-                            </div>
-                        </body>
-                        </html>
-                        ";
+            // >>> DETECÇÃO DO FLUXO DE SERVIÇO RÁPIDO
+            // O formulário de serviço rápido possui o campo oculto 'status_proposto'.
+            // Se esse campo estiver definido, trata-se de um serviço rápido e aplicamos
+            // a verificação de pendência e notificações de gerência.
+            if (isset($_POST['status_proposto'])) {
 
-                        $emailService = new EmailService($this->pdo);
-                        $emailService->sendEmail($destinatarios, $assunto, $corpo);
-                    }
-                    
-                    // Lógica de Notificação
-                    $mensagem = "Novo orçamento pendente (#{$processo['orcamento_numero']}) de {$processo['nome_cliente']}.";
-                    $link = "/processos.php?action=view&id={$novo_id}";
-                    $gerentes_ids = $this->userModel->getIdsByPerfil(['admin', 'gerencia']); 
-                    foreach ($gerentes_ids as $gerente_id) {
-                        $this->notificacaoModel->criar($gerente_id, $_SESSION['user_id'], $mensagem, $link);
-                    }
+                $dadosParaSalvar = $_POST;
+                $perfilUsuario   = $_SESSION['user_perfil'] ?? '';
+                $clienteId       = $dadosParaSalvar['cliente_id'] ?? null;
+                // Aceita tanto 'documentos' quanto 'docs' (para edições ou diferentes formatos)
+                $documentos      = $dadosParaSalvar['documentos'] ?? ($dadosParaSalvar['docs'] ?? []);
 
-                } catch (Exception $e) {
-                    error_log("FALHA DE E-MAIL/NOTIFICAÇÃO (Orçamento #{$novo_id}): " . $e->getMessage());
+                // Verifica se há pendência (somente para colaborador ou vendedor)
+                $pendente = false;
+                if ($clienteId && in_array($perfilUsuario, ['colaborador', 'vendedor'])) {
+                    $pendente = $this->verificarAlteracaoValorMensalista($clienteId, $documentos);
                 }
 
+                // Define o status final conforme o perfil
+                if (in_array($perfilUsuario, ['admin', 'gerencia'])) {
+                    $dadosParaSalvar['status_processo'] = 'Em andamento';
+                } else {
+                    $dadosParaSalvar['status_processo'] = $pendente ? 'Pendente' : 'Em andamento';
+                }
+
+                // Persiste o serviço rápido
+                $processoId = $this->processoModel->create($dadosParaSalvar, $_FILES);
+
+                // Mensagens e notificações
+                if ($processoId) {
+                    if ($dadosParaSalvar['status_processo'] === 'Pendente') {
+                        $_SESSION['message'] = "Serviço enviado para aprovação da gerência.";
+                        $this->notificarGerenciaPendencia($processoId, $clienteId, $_SESSION['user_id']);
+                    } else {
+                        $_SESSION['success_message'] = "Serviço cadastrado com sucesso!";
+                    }
+                } else {
+                    $_SESSION['error_message'] = $_SESSION['error_message'] ?? "Erro ao cadastrar o serviço.";
+                }
+
+                // Redireciona e encerra
+                header('Location: dashboard.php');
+                exit();
+
+            } // <<< FIM DO FLUXO DE SERVIÇO RÁPIDO
+
+            // ============ FLUXO DE ORÇAMENTO NORMAL ============
+            // Aqui não definimos status_processo para que o Model use o valor padrão (por exemplo 'Orçamento')
+            $novo_id = $this->processoModel->create($_POST, $_FILES);
+
+            if ($novo_id) {
                 $_SESSION['message'] = "Processo cadastrado com sucesso!";
             } else {
-                $_SESSION['error_message'] = "Erro ao criar o processo no banco de dados.";
+                if (!isset($_SESSION['error_message'])) {
+                    $_SESSION['error_message'] = "Erro ao criar o processo no banco de dados.";
+                }
             }
-
-            // REDIRECIONAMENTO PARA NOVOS PROCESSOS
-            if (isset($_SESSION['user_perfil']) && $_SESSION['user_perfil'] === 'vendedor') {
-                header('Location: dashboard_vendedor.php');
-            } else {
-                header('Location: dashboard.php');
-            }
-            exit;
-
-        } 
-        // --- LÓGICA DE ATUALIZAÇÃO (quando o formulário envia um ID) ---
-        else {
-            $this->processoModel->update($id_existente, $_POST, $_FILES);
-            $_SESSION['message'] = "Processo atualizado com sucesso!";
-
-            // REDIRECIONAMENTO CORRETO APÓS ATUALIZAR
-            header('Location: processos.php?action=view&id=' . $id_existente);
-            exit;
+            header('Location: dashboard.php');
+            exit();
         }
+
+        // =========================================
+        // ATUALIZAÇÃO DE PROCESSO EXISTENTE
+        // (Aqui a lógica continua igual, apenas para edição)
+        // =========================================
+        $dadosParaAtualizar = $_POST;
+        $perfilUsuario     = $_SESSION['user_perfil'] ?? '';
+        $processoOriginal  = $this->processoModel->getById($id_existente)['processo'];
+
+        $valorAlterado = false;
+        if (in_array($perfilUsuario, ['colaborador', 'vendedor'])) {
+            $valorAlterado = $this->verificarAlteracaoValorMensalista(
+                $dadosParaAtualizar['cliente_id'],
+                $dadosParaAtualizar['docs'] ?? []
+            );
+        }
+
+        if ($processoOriginal['status_processo'] === 'Pendente' && in_array($perfilUsuario, ['admin', 'gerencia'])) {
+            $dadosParaAtualizar['status_processo'] = 'Em andamento';
+            $this->notificacaoModel->deleteByLink("/processos.php?action=view&id=" . $id_existente);
+            $_SESSION['message'] = "Serviço aprovado e status atualizado!";
+        } elseif ($valorAlterado) {
+            $dadosParaAtualizar['status_processo'] = 'Pendente';
+            $_SESSION['message'] = "Alteração salva. O serviço aguarda aprovação da gerência.";
+            $cliente    = $this->clienteModel->getById($dadosParaAtualizar['cliente_id']);
+            $link       = "/processos.php?action=view&id=" . $id_existente;
+            $mensagem   = "O serviço para o cliente '{$cliente['nome']}' foi alterado e precisa de aprovação.";
+            $gerentes_ids = $this->userModel->getIdsByPerfil(['admin', 'gerencia']);
+            foreach ($gerentes_ids as $gerente_id) {
+                $this->notificacaoModel->criar($gerente_id, $_SESSION['user_id'], $mensagem, $link);
+            }
+        }
+
+        if ($this->processoModel->update($id_existente, $dadosParaAtualizar, $_FILES)) {
+            if (!isset($_SESSION['message'])) {
+                $_SESSION['success_message'] = "Processo atualizado com sucesso!";
+            }
+        } else {
+            if (!isset($_SESSION['error_message'])) {
+                $_SESSION['error_message'] = "Ocorreu um erro ao atualizar o processo.";
+            }
+        }
+        header('Location: processos.php?action=view&id=' . $id_existente);
+        exit();
     }
 }
+
     public function edit($id)
     {
         $this->auth_check();
@@ -362,101 +356,57 @@ public function store()
         header('Location: dashboard.php');
         exit();
     }
-    public function storeServicoRapido()
-    {
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $_POST['status_processo'] = 'Em Andamento';
-            // A função create agora é unificada e lida com ambos os formulários
-            $processoId = $this->processoModel->create($_POST, $_FILES);
 
-            if ($processoId) {
-                try {
-                    $destinatarios = $this->configModel->get('alert_emails');
-                    if (!empty($destinatarios)) {
-                        // A LÓGICA DE RELATÓRIO DETALHADO TAMBÉM É APLICADA AQUI
-                        $dados_completos = $this->processoModel->getById($processoId);
-                        $processo = $dados_completos['processo'];
+public function storeServicoRapido()
+{
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        // Obtém todos os dados enviados via POST
+        $dadosParaSalvar = $_POST;
 
-                        $assunto = "Novo Serviço Rápido #{$processoId} - Cliente: {$processo['nome_cliente']}";
-                        $corpo = "
-                        <!DOCTYPE html>
-                        <html>
-                        <head>
-                            <meta charset='UTF-8'>
-                            <style>
-                                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f7; }
-                                .container { width: 100%; max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-                                .header { background-color: #28a745; color: #ffffff; padding: 20px; text-align: center; }
-                                .header h1 { margin: 0; font-size: 24px; }
-                                .content { padding: 30px; }
-                                .content p { color: #555555; line-height: 1.6; }
-                                .details-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                                .details-table td { padding: 12px 15px; border-bottom: 1px solid #eeeeee; }
-                                .details-table tr:nth-child(even) { background-color: #f9f9f9; }
-                                .details-table td:first-child { font-weight: bold; color: #333333; width: 180px; }
-                                .button-container { text-align: center; margin-top: 30px; text-decoration: none; }
-                                .button { display: inline-block; padding: 12px 25px; background-color: #28a745; color: #ffffff; text-decoration: none; border-radius: 5px; font-weight: bold; }
-                                .footer { background-color: #f4f4f7; padding: 20px; text-align: center; color: #888888; font-size: 12px; }
-                            </style>
-                        </head>
-                        <body>
-                            <div class='container'>
-                                <div class='header'>
-                                    <h1>Novo Serviço Rápido</h1>
-                                </div>
-                                <div class='content'>
-                                    <p>Um novo serviço foi cadastrado no sistema. Seguem os detalhes:</p>
-                                    <table class='details-table'>
-                                        <tr>
-                                            <td>Orçamento Nº:</td>
-                                            <td>" . htmlspecialchars($processo['orcamento_numero']) . "</td>
-                                        </tr>
-                                        <tr>
-                                            <td>Cliente:</td>
-                                            <td>" . htmlspecialchars($processo['nome_cliente']) . "</td>
-                                        </tr>
-                                        <tr>
-                                            <td>Serviço(s):</td>
-                                            <td>" . htmlspecialchars($processo['categorias_servico'] ?? 'Não informado') . "</td>
-                                        </tr>
-                                        <tr>
-                                            <td>Tradutor:</td>
-                                            <td>" . htmlspecialchars($processo['nome_tradutor'] ?? 'Não definido') . "</td>
-                                        </tr>
-                                        <tr>
-                                            <td>Valor Total:</td>
-                                            <td><strong>R$ " . number_format($processo['valor_total'], 2, ',', '.') . "</strong></td>
-                                        </tr>
-                                    </table>
-                                    <div class='button-container'>
-                                        <a href='https://" . $_SERVER['HTTP_HOST'] . "/processos.php?action=view&id={$processoId}' class='button'>
-                                        Ver Detalhes no Sistema
-                                        </a>
-                                    </div>
-                                </div>
-                                <div class='footer'>
-                                    Este é um e-mail automático.
-                                </div>
-                            </div>
-                        </body>
-                        </html>
-                        ";
-                        
-                        $emailService = new EmailService($this->pdo);
-                        $emailService->sendEmail($destinatarios, $assunto, $corpo);
-                    }
-                } catch (Exception $e) {
-                    error_log("FALHA DE E-MAIL (Serviço Rápido #{$processoId}): " . $e->getMessage());
-                }
-                $_SESSION['success_message'] = "Serviço cadastrado com sucesso!";
-            } else {
-                $_SESSION['error_message'] = "Erro ao cadastrar o serviço.";
-            }
-            
-            header('Location: dashboard.php');
-            exit();
+        // Perfil do usuário logado
+        $perfilUsuario = $_SESSION['user_perfil'] ?? '';
+
+        // Identifica o cliente e os documentos
+        $clienteId  = $dadosParaSalvar['cliente_id'] ?? null;
+        // Aceita 'documentos' (criação) ou 'docs' (edição/atualização)
+        $documentos = $dadosParaSalvar['documentos'] ?? ($dadosParaSalvar['docs'] ?? []);
+
+        // Calcula se há pendência para colaboradores ou vendedores
+        $pendente = false;
+        if ($clienteId && in_array($perfilUsuario, ['colaborador', 'vendedor'])) {
+            $pendente = $this->verificarAlteracaoValorMensalista($clienteId, $documentos);
         }
+
+        // Define o status final conforme o perfil
+        // Gerência e admin sempre ficam como 'Em andamento'
+        if (in_array($perfilUsuario, ['gerencia', 'admin'])) {
+            $dadosParaSalvar['status_processo'] = 'Em andamento';
+        } else {
+            $dadosParaSalvar['status_processo'] = $pendente ? 'Pendente' : 'Em andamento';
+        }
+
+        // Persiste o serviço no banco de dados
+        $processoId = $this->processoModel->create($dadosParaSalvar, $_FILES);
+
+        // Notificações e mensagens
+        if ($processoId) {
+            if ($dadosParaSalvar['status_processo'] === 'Pendente') {
+                $_SESSION['message'] = "Serviço enviado para aprovação da gerência.";
+                // Dispara e-mails e alertas para gerência e admins
+                $this->notificarGerenciaPendencia($processoId, $clienteId, $_SESSION['user_id']);
+            } else {
+                $_SESSION['success_message'] = "Serviço cadastrado com sucesso!";
+            }
+        } else {
+            $_SESSION['error_message'] = $_SESSION['error_message'] ?? "Erro ao cadastrar o serviço.";
+        }
+
+        // Redireciona
+        header('Location: dashboard.php');
+        exit();
     }
+}
+
     // =======================================================================
     // AÇÕES AJAX E PARCIAIS
     // =======================================================================
@@ -524,11 +474,45 @@ public function store()
         }
         exit();
     }
+private function notificarGerenciaPendencia(int $processoId, int $clienteId, int $remetenteId): void
+{
+    // Obtém o nome do cliente para personalizar a mensagem
+    $cliente = $this->clienteModel->getById($clienteId);
+    $nomeCliente = $cliente['nome_cliente'] ?? 'Cliente';
+
+    // Monta o link para o detalhe do processo
+    $link = "/processos.php?action=view&id=" . $processoId;
+
+    // Busca todos os usuários com perfil admin ou gerencia
+    $gerentesIds = $this->userModel->getIdsByPerfil(['admin', 'gerencia']);
+
+    foreach ($gerentesIds as $gerenteId) {
+        // Cria notificação interna
+        $mensagem = "Novo serviço pendente para o cliente '{$nomeCliente}'.";
+        $this->notificacaoModel->criar($gerenteId, $remetenteId, $mensagem, $link);
+
+        // Envia e-mail
+        $gerente = $this->userModel->getById($gerenteId);
+        if ($gerente && !empty($gerente['email'])) {
+            $subject = "Serviço pendente de aprovação";
+            $body = "Olá {$gerente['nome_completo']},<br><br>"
+                  . "Foi criado um serviço para o cliente <strong>{$nomeCliente}</strong> que está pendente de aprovação.<br>"
+                  . "Clique no link a seguir para visualizar e aprovar: <a href=\"{$link}\">Ver serviço</a>.<br><br>"
+                  . "Obrigado.";
+            try {
+                $this->emailService->sendEmail($gerente['email'], $subject, $body);
+            } catch (Exception $e) {
+                // Registra erro de envio de e-mail, mas não interrompe a execução
+                error_log("Erro ao enviar e-mail para {$gerente['email']}: " . $e->getMessage());
+            }
+        }
+    }
+}
 
 public function changeStatus()
 {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $id = $_POST['id'] ?? null;
+        $id     = $_POST['id']             ?? null;
         $status = $_POST['status_processo'] ?? null;
 
         if (!$id || !$status) {
@@ -544,7 +528,7 @@ public function changeStatus()
             header('Location: dashboard.php');
             exit();
         }
-        $processo = $res['processo'];
+        $processo     = $res['processo'];
         $statusAntigo = $processo['status_processo'];
 
         // --- INÍCIO DA VERIFICAÇÃO DE PERMISSÃO ---
@@ -563,81 +547,90 @@ public function changeStatus()
                 header('Location: processos.php?action=view&id=' . $id);
                 exit();
             }
-        } 
-        // Garante que apenas admin e gerência possam fazer outras alterações
-        elseif (!in_array($_SESSION['user_perfil'], ['admin', 'gerencia'])) {
+        } elseif (!in_array($_SESSION['user_perfil'], ['admin', 'gerencia'])) {
             $_SESSION['error_message'] = "Você não tem permissão para acessar esta página.";
             header('Location: dashboard.php');
             exit();
         }
         // --- FIM DA VERIFICAÇÃO DE PERMISSÃO ---
 
-        // 2. O restante da sua lógica original continua aqui
+        // 2. Prepara os campos a atualizar
         $dataToUpdate = [
-            'status_processo'        => $status,
-            'os_numero_conta_azul'   => $_POST['os_numero_conta_azul'] ?? $processo['os_numero_conta_azul'],
-            'data_inicio_traducao'   => $_POST['data_inicio_traducao'] ?? $processo['data_inicio_traducao'],
-            'traducao_prazo_tipo'    => $_POST['traducao_prazo_tipo'] ?? $processo['traducao_prazo_tipo'],
-            'traducao_prazo_dias'    => $_POST['traducao_prazo_dias'] ?? $processo['traducao_prazo_dias'],
-            'traducao_prazo_data'    => $_POST['traducao_prazo_data'] ?? $processo['traducao_prazo_data'],
+            'status_processo'      => $status,
+            'os_numero_conta_azul' => $_POST['os_numero_conta_azul'] ?? $processo['os_numero_conta_azul'],
+            'data_inicio_traducao' => $_POST['data_inicio_traducao'] ?? $processo['data_inicio_traducao'],
+            'traducao_prazo_tipo'  => $_POST['traducao_prazo_tipo'] ?? $processo['traducao_prazo_tipo'],
+            'traducao_prazo_dias'  => $_POST['traducao_prazo_dias'] ?? $processo['traducao_prazo_dias'],
+            'traducao_prazo_data'  => $_POST['traducao_prazo_data'] ?? $processo['traducao_prazo_data'],
         ];
 
-        // Validação de campos para gerência (seu código original mantido)
-        if (in_array($_SESSION['user_perfil'], ['admin', 'gerencia']) && $statusAntigo === 'Orçamento' && in_array($status, ['Aprovado', 'Em Andamento'], true)) {
+        // 3. Validação extra para gerência/admin (por exemplo, exigir preenchimento de campos quando aprova)
+        if (in_array($_SESSION['user_perfil'], ['admin', 'gerencia']) &&
+            $statusAntigo === 'Orçamento' &&
+            in_array($status, ['Aprovado', 'Em Andamento'], true)
+        ) {
             $erros = [];
             if (empty($dataToUpdate['os_numero_conta_azul'])) $erros[] = 'Informe o número da O.S. (CA).';
             if (empty($dataToUpdate['data_inicio_traducao'])) $erros[] = 'Informe a Data de envio para o Tradutor.';
-            // ... (resto da sua validação)
             if (!empty($erros)) {
-                $_SESSION['error_message'] = implode('<br>', $erros);
+                $_SESSION['error_message'] = implode(' ', $erros);
                 header('Location: processos.php?action=view&id=' . $id);
                 exit();
             }
         }
 
-        // 3. Atualiza o processo e envia as notificações
+        // 4. Atualiza as etapas e envia notificações apropriadas
         if ($this->processoModel->updateEtapas($id, $dataToUpdate)) {
             $_SESSION['success_message'] = "Status do processo atualizado com sucesso!";
-            
-            $link = "/processos.php?action=view&id={$id}";
+
+            $link         = "/processos.php?action=view&id={$id}";
             $remetente_id = $_SESSION['user_id'];
 
-            // Notifica gerentes quando o vendedor reenvia
-            if ($status === 'Orçamento Pendente' && $statusAntigo === 'Recusado') {
-                // LIMPA NOTIFICAÇÕES ANTERIORES DESTE PROCESSO (EX: A DE RECUSA)
+            // ================== NOVA LÓGICA DE NOTIFICAÇÃO ==================
+            // Se o status for "Orçamento Pendente", notificar SEMPRE os gerentes/admins
+            // e limpar notificações antigas referentes a este processo.
+            if ($status === 'Orçamento Pendente') {
+                // Remove notificações já existentes para este link (se houver)
                 $this->notificacaoModel->deleteByLink($link);
 
-                $mensagem = "Orçamento #{$processo['orcamento_numero']} foi ajustado e reenviado para análise.";
+                // Cria nova notificação para todos os usuários com perfil admin ou gerência
+                $mensagem = "Orçamento #{$processo['orcamento_numero']} está pendente de análise.";
                 $gerentes_ids = $this->userModel->getIdsByPerfil(['admin', 'gerencia']);
                 foreach ($gerentes_ids as $gerente_id) {
                     $this->notificacaoModel->criar($gerente_id, $remetente_id, $mensagem, $link);
                 }
-            } 
-            // Notifica vendedor quando a gerência aprova/recusa
+            }
+            // Caso contrário, se a gerência aprovar ou recusar, notificar apenas o vendedor
             else {
                 $vendedor_user_id = $this->vendedorModel->getUserIdByVendedorId($processo['vendedor_id']);
                 $mensagem = null;
+
                 if ($status === 'Aprovado') {
                     $mensagem = "Seu orçamento #{$processo['orcamento_numero']} foi APROVADO!";
-                    
-                    // LIMPA ALERTAS ANTIGOS DESTE PROCESSO
+                    // Limpa alertas antigos deste processo (para evitar duplicidade)
                     $this->notificacaoModel->deleteByLink($link);
 
                 } elseif ($status === 'Recusado') {
                     $mensagem = "Seu orçamento #{$processo['orcamento_numero']} foi RECUSADO. Ajuste-o.";
                 }
+
                 if ($vendedor_user_id && $mensagem) {
                     $this->notificacaoModel->criar($vendedor_user_id, $remetente_id, $mensagem, $link);
                 }
             }
+            // ================== FIM DA NOVA LÓGICA ==================
+
         } else {
             $_SESSION['error_message'] = "Falha ao atualizar o processo.";
         }
 
+        // Redireciona para a tela de detalhes do processo
         header('Location: processos.php?action=view&id=' . $id);
         exit();
     }
 }
+
+
     // =======================================================================
     // MÉTODOS PRIVADOS DE APOIO (HELPERS) E INTEGRAÇÃO CONTA AZUL
     // =======================================================================
@@ -782,14 +775,17 @@ public function createContaAzulSale()
     /**
      * Exibe a página com a lista de orçamentos pendentes para aprovação.
      */
-    public function listarPendentes()
+    public function painelNotificacoes()
     {
-        $pageTitle = "Aprovação de Orçamentos";
-        // Usamos o model para buscar apenas os processos com status 'Orçamento Pendente'
-        $processos_pendentes = $this->processoModel->getByStatus('Orçamento Pendente');
+        $pageTitle = "Painel de Notificações";
+        
+        // A lógica de busca continua a mesma, pois inclui o status 'Pendente'
+        $status_para_buscar = ['Orçamento Pendente', 'Pendente'];
+        $processos_pendentes = $this->processoModel->getByMultipleStatus($status_para_buscar);
         
         require_once __DIR__ . '/../views/layouts/header.php';
-        require_once __DIR__ . '/../views/processos/lista_pendentes.php';
+        // O nome do arquivo da view será alterado no próximo passo
+        require_once __DIR__ . '/../views/processos/painel_notificacoes.php';
         require_once __DIR__ . '/../views/layouts/footer.php';
     }
 
@@ -911,6 +907,44 @@ public function recusarOrcamento()
         header('Location: processos.php?action=view&id=' . $id);
         exit();
     }
+
+private function verificarAlteracaoValorMensalista($cliente_id, $documentosPost)
+{
+    $cliente = $this->clienteModel->getById($cliente_id);
+
+    // A verificação só se aplica se o cliente for encontrado e for do tipo 'Mensalista'.
+    if (!$cliente || ($cliente['tipo_assessoria'] ?? '') !== 'Mensalista') {
+        return false;
+    }
+
+    if (isset($documentosPost) && is_array($documentosPost)) {
+        // O loop percorre as categorias ('tradução', 'crc', etc.)
+        foreach ($documentosPost as $categoria => $documentosDaCategoria) {
+            // O segundo loop percorre os serviços dentro de cada categoria
+            foreach ($documentosDaCategoria as $doc) {
+                if (!empty($doc['tipo_documento']) && isset($doc['valor_unitario'])) {
+                    $nomeServico = $doc['tipo_documento'];
+
+                    // Converte o valor enviado para um número float, limpando 'R$' e trocando vírgula por ponto.
+                    $valorEnviado = floatval(str_replace(',', '.', preg_replace('/[^\d,]/', '', $doc['valor_unitario'])));
+
+                    // Busca o valor padrão do serviço que o cliente tem cadastrado.
+                    $servicoPadrao = $this->clienteModel->getServicoContratadoPorNome($cliente['id'], $nomeServico);
+                    $valorPadrao = $servicoPadrao ? floatval($servicoPadrao['valor_padrao']) : null;
+
+                    // Compara os dois valores.
+                    // A regra foi ajustada: somente se o valor enviado for menor que o padrão é considerada alteração.
+                    if ($valorPadrao !== null && $valorEnviado < $valorPadrao) {
+                        return true; // Valor abaixo do contratado, necessita aprovação.
+                    }
+                }
+            }
+        }
+    }
+
+    return false; // Não encontrou nenhuma alteração.
+}
+
 
 
 }

@@ -5,17 +5,22 @@
  * Inclui envio de e-mail de boas-vindas na criação de login.
  */
 
+// --- INÍCIO DA CORREÇÃO ---
+// Todos os 'requires' devem estar no topo do arquivo para garantir que as classes estejam disponíveis.
 require_once __DIR__ . '/../models/Cliente.php';
-// Adicionamos a referência ao EmailService que será usado aqui.
 require_once __DIR__ . '/../services/EmailService.php';
+require_once __DIR__ . '/../models/CategoriaFinanceira.php';
+// --- FIM DA CORREÇÃO ---
 
 class ClientesController
 {
     private $clienteModel;
+    private $pdo; // <-- CORREÇÃO: Propriedade adicionada para guardar a conexão
 
     public function __construct($pdo)
     {
         $this->clienteModel = new Cliente($pdo);
+        $this->pdo = $pdo; // <-- CORREÇÃO: A conexão agora é armazenada no controller
     }
 
     // =======================================================================
@@ -43,61 +48,56 @@ class ClientesController
         $cliente = $_SESSION['form_data'] ?? [];
         unset($_SESSION['form_data']);
         $isEdit = false;
-
-        // Linha adicionada para capturar a URL de retorno
         $return_url = $_GET['return_to'] ?? 'clientes.php';
 
-        require __DIR__ . '/../views/layouts/header.php';
-        // A variável $return_url agora estará disponível no form.php
-        require __DIR__ . '/../views/clientes/form.php';
-        require __DIR__ . '/../views/layouts/footer.php';
+        // Agora o model pode ser criado sem erro, pois a classe foi incluída no topo e $this->pdo existe.
+        $categoriaModel = new CategoriaFinanceira($this->pdo);
+        $produtos_orcamento = $categoriaModel->getProdutosOrcamento();
+        
+        // Em modo de criação, não há serviços definidos, então inicializamos como um array vazio.
+        $servicos_mensalista = [];
+
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/clientes/form.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
     }
 
     /**
      * Processa e armazena o novo cliente. Envia e-mail se um login for criado.
      */
-public function store()
+    public function store()
     {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $data = $_POST;
-            // Se for Pessoa Física, o nome do responsável é o mesmo do cliente.
             if (isset($data['tipo_pessoa']) && $data['tipo_pessoa'] === 'Física') {
                 $data['nome_responsavel'] = $data['nome_cliente'];
             }
 
             $result = $this->clienteModel->create($data);
-
-            if (session_status() == PHP_SESSION_NONE) {
-                session_start();
-            }
-            
+            if (session_status() == PHP_SESSION_NONE) session_start();
             $return_to = $_POST['return_to'] ?? 'clientes.php';
 
             if ($result && is_numeric($result)) {
                 $newClientId = $result;
                 $_SESSION['success_message'] = "Cliente cadastrado com sucesso!";
 
+                // Salva os serviços do mensalista, se for o caso
+                if ($_POST['tipo_assessoria'] === 'Mensalista') {
+                    $this->clienteModel->salvarServicosMensalista($newClientId, $_POST['servicos_mensalistas'] ?? []);
+                }
+
                 if (!empty($_POST['criar_login']) && !empty($_POST['login_email'])) {
-                    $this->sendWelcomeEmail(
-                        $_POST['nome_cliente'],
-                        $_POST['login_email'],
-                        $_POST['login_senha']
-                    );
+                    $this->sendWelcomeEmail($_POST['nome_cliente'], $_POST['login_email'], $_POST['login_senha']);
                 }
                 
                 $separator = (parse_url($return_to, PHP_URL_QUERY) == NULL) ? '?' : '&';
-                $redirectUrl = $return_to . $separator . 'new_client_id=' . $newClientId;
-                
-                header('Location: ' . $redirectUrl);
+                header('Location: ' . $return_to . $separator . 'new_client_id=' . $newClientId);
                 exit();
-
             } else {
-                if ($result === 'error_duplicate_cpf_cnpj') {
-                    $_SESSION['error_message'] = "O CPF/CNPJ informado já está em uso por outro cliente.";
-                }
-                
+                $_SESSION['error_message'] = ($result === 'error_duplicate_cpf_cnpj') 
+                    ? "O CPF/CNPJ informado já está em uso por outro cliente." 
+                    : "Erro ao cadastrar cliente.";
                 $_SESSION['form_data'] = $_POST;
-                
                 header('Location: clientes.php?action=create&return_to=' . urlencode($return_to));
                 exit();
             }
@@ -113,41 +113,39 @@ public function store()
         $cliente = $this->clienteModel->getById($id);
         $isEdit = true;
 
-        require __DIR__ . '/../views/layouts/header.php';
-        require __DIR__ . '/../views/clientes/form.php';
-        require __DIR__ . '/../views/layouts/footer.php';
+        $categoriaModel = new CategoriaFinanceira($this->pdo);
+        $produtos_orcamento = $categoriaModel->getProdutosOrcamento();
+        $servicos_mensalista = $this->clienteModel->getServicosMensalista($id);
+
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/clientes/form.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
     }
 
     /**
      * Processa a atualização do cliente. Envia e-mail se um login for criado ou senha alterada.
      */
-public function update()
-{
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $id = $_POST['id'];
-        $data = $_POST;
-
-        // Se for Pessoa Física, o nome do responsável é o mesmo do cliente.
-        if (isset($data['tipo_pessoa']) && $data['tipo_pessoa'] === 'Física') {
-            $data['nome_responsavel'] = $data['nome_cliente'];
-        }
-
-        $result = $this->clienteModel->update($id, $data);
-
-        if (session_status() == PHP_SESSION_NONE) {
-            session_start();
-        }
-        
-        if ($result === true) {
-            $_SESSION['success_message'] = "Cliente atualizado com sucesso!";
-
-            if ((!empty($_POST['criar_login']) && !empty($_POST['login_email'])) || !empty($_POST['user_nova_senha'])) {
-                $this->sendWelcomeEmail(
-                    $_POST['nome_cliente'],
-                    $_POST['user_email'] ?? $_POST['login_email'],
-                    $_POST['user_nova_senha'] ?? $_POST['login_senha']
-                );
+    public function update()
+    {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $id = $_POST['id'];
+            $data = $_POST;
+            if (isset($data['tipo_pessoa']) && $data['tipo_pessoa'] === 'Física') {
+                $data['nome_responsavel'] = $data['nome_cliente'];
             }
+
+            $result = $this->clienteModel->update($id, $data);
+            if (session_status() == PHP_SESSION_NONE) session_start();
+            
+            if ($result === true) {
+                $_SESSION['success_message'] = "Cliente atualizado com sucesso!";
+
+                // Atualiza ou limpa os serviços do mensalista
+                if ($_POST['tipo_assessoria'] === 'Mensalista') {
+                    $this->clienteModel->salvarServicosMensalista($id, $_POST['servicos_mensalistas'] ?? []);
+                } else {
+                    $this->clienteModel->salvarServicosMensalista($id, []); // Limpa se mudou para "À vista"
+                }
 
             // ========================================================================
             // INÍCIO DA LÓGICA DE REDIRECIONAMENTO PÓS-PROSPECÇÃO
@@ -169,18 +167,17 @@ public function update()
             // ========================================================================
 
             // Redirecionamento padrão se não for o fluxo de prospecção
-            header('Location: clientes.php');
-            exit();
-
-        } else {
-            if ($result === 'error_duplicate_cpf_cnpj') {
-                $_SESSION['error_message'] = "O CPF/CNPJ informado já está em uso por outro cliente.";
+                header('Location: clientes.php');
+                exit();
+            } else {
+                $_SESSION['error_message'] = ($result === 'error_duplicate_cpf_cnpj') 
+                    ? "O CPF/CNPJ informado já está em uso por outro cliente." 
+                    : "Erro ao atualizar cliente.";
+                header('Location: clientes.php?action=edit&id=' . $id);
+                exit();
             }
-            header('Location: clientes.php?action=edit&id=' . $id);
-            exit();
         }
     }
-}
 
     /**
      * Deleta um cliente.

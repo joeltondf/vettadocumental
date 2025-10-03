@@ -16,7 +16,7 @@ class Processo
         $this->pdo = $pdo;
     }
 	
-    private function parseCurrency($value) {
+    public function parseCurrency($value) {
         if ($value === null || $value === '') {
             return null;
         }
@@ -57,7 +57,7 @@ public function create($data, $files)
 {
     $this->pdo->beginTransaction();
     try {
-        // --- Lógica para gerar número de orçamento (mantida do seu código) ---
+        // --- Lógica para gerar número de orçamento (mantida) ---
         $ano = date('y');
         $stmt = $this->pdo->prepare("SELECT orcamento_numero FROM processos WHERE orcamento_numero LIKE ? ORDER BY id DESC LIMIT 1");
         $stmt->execute([$ano . '-%']);
@@ -74,13 +74,14 @@ public function create($data, $files)
         $prazo_calculado->modify('+3 days');
         $prazo_formatado = $prazo_calculado->format('Y-m-d');
 
-        // --- Query SQL com todas as suas colunas (mantida) ---
+        // ===== INÍCIO DA CORREÇÃO =====
+        // Query SQL CORRIGIDA: A coluna 'orcamento_comprovantes' foi removida.
         $sqlProcesso = "INSERT INTO processos (
             cliente_id, colaborador_id, vendedor_id, titulo, status_processo,
             orcamento_numero, orcamento_origem, orcamento_prazo_calculado,
             data_previsao_entrega, categorias_servico, idioma,
             valor_total, orcamento_forma_pagamento, orcamento_parcelas, orcamento_valor_entrada,
-            data_pagamento_1, data_pagamento_2, orcamento_comprovantes,
+            data_pagamento_1, data_pagamento_2,
             apostilamento_quantidade, apostilamento_valor_unitario,
             postagem_quantidade, postagem_valor_unitario, observacoes,
             data_entrada, data_inicio_traducao, traducao_modalidade,
@@ -92,7 +93,7 @@ public function create($data, $files)
             :orcamento_numero, :orcamento_origem, :orcamento_prazo_calculado,
             :data_previsao_entrega, :categorias_servico, :idioma,
             :valor_total, :orcamento_forma_pagamento, :orcamento_parcelas, :orcamento_valor_entrada,
-            :data_pagamento_1, :data_pagamento_2, :orcamento_comprovantes,
+            :data_pagamento_1, :data_pagamento_2,
             :apostilamento_quantidade, :apostilamento_valor_unitario,
             :postagem_quantidade, :postagem_valor_unitario, :observacoes,
             :data_entrada, :data_inicio_traducao, :traducao_modalidade,
@@ -102,9 +103,10 @@ public function create($data, $files)
         )";
         $stmtProcesso = $this->pdo->prepare($sqlProcesso);
 
-        $comprovantePath = $this->uploadComprovante($files['comprovante'] ?? null);
+        // A chamada para a função antiga 'uploadComprovante' foi removida, pois 'salvarArquivos' já faz o trabalho.
+        // $comprovantePath = $this->uploadComprovante($files['comprovante'] ?? null);
 
-        // --- Parâmetros com todas as suas chaves (mantidos) ---
+        // Parâmetros CORRIGIDOS: A chave 'orcamento_comprovantes' foi removida.
         $params = [
             'cliente_id' => $data['id_cliente'] ?? $data['cliente_id'] ?? null,
             'colaborador_id' => $_SESSION['user_id'],
@@ -123,7 +125,6 @@ public function create($data, $files)
             'orcamento_valor_entrada' => $this->parseCurrency($data['orcamento_valor_entrada'] ?? null),
             'data_pagamento_1' => empty($data['data_pagamento_1']) ? null : $data['data_pagamento_1'],
             'data_pagamento_2' => empty($data['data_pagamento_2']) ? null : $data['data_pagamento_2'],
-            'orcamento_comprovantes' => $comprovantePath,
             'apostilamento_quantidade' => empty($data['apostilamento_quantidade']) ? null : (int)$data['apostilamento_quantidade'],
             'apostilamento_valor_unitario' => $this->parseCurrency($data['apostilamento_valor_unitario'] ?? null),
             'postagem_quantidade' => empty($data['postagem_quantidade']) ? null : (int)$data['postagem_quantidade'],
@@ -139,39 +140,50 @@ public function create($data, $files)
             'modalidade_assinatura' => $data['modalidade_assinatura'] ?? null,
             'os_numero_conta_azul' => $data['os_numero_conta_azul'] ?? null,
         ];
-        
+        // ===== FIM DA CORREÇÃO =====
+
         $stmtProcesso->execute($params);
         $processoId = $this->pdo->lastInsertId();
-        // Salva Anexos Gerais
+
+        // Esta lógica de salvar arquivos e documentos já estava correta e foi mantida.
+        // O formulário de serviço rápido envia arquivos no campo 'anexos', que serão salvos aqui.
         $this->salvarArquivos($processoId, $files['anexos'] ?? null, 'anexo');
-        // Salva Comprovantes de Pagamento
+        
+        // Se houver um campo 'comprovantes' no formulário, ele também será salvo corretamente.
         $this->salvarArquivos($processoId, $files['comprovantes'] ?? null, 'comprovante');
-        // --- LÓGICA CORRIGIDA PARA SALVAR DOCUMENTOS ---
-        // Agora lê de '$data['docs']' em vez de '$data['documentos']'
-        if (isset($data['docs']) && is_array($data['docs'])) {
+        
+        if (isset($data['documentos']) && is_array($data['documentos'])) {
             $sqlDoc = "INSERT INTO documentos (processo_id, categoria, tipo_documento, nome_documento, quantidade, valor_unitario) VALUES (?, ?, ?, ?, ?, ?)";
             $stmtDoc = $this->pdo->prepare($sqlDoc);
             
-            foreach ($data['docs'] as $doc) {
-                if (!empty($doc['tipo_documento']) && !empty($doc['valor_unitario'])) {
-                    $stmtDoc->execute([
-                        $processoId, 
-                        $doc['categoria'],
-                        $doc['tipo_documento'],
-                        $doc['nome_documento'],
-                        $doc['quantidade'] ?? 1,
-                        $this->parseCurrency($doc['valor_unitario'] ?? 0)
-                    ]);
+            // O loop agora itera sobre cada categoria dentro de 'documentos'
+            foreach ($data['documentos'] as $categoria => $docs) {
+                foreach ($docs as $doc) {
+                    if (!empty($doc['tipo_documento']) && !empty($doc['valor_unitario'])) {
+                        $stmtDoc->execute([
+                            $processoId, 
+                            $categoria, // Usa a categoria da chave do array ('tradução', 'crc', etc)
+                            $doc['tipo_documento'],
+                            $doc['nome_documento'] ?? null,
+                            $doc['quantidade'] ?? 1,
+                            $this->parseCurrency($doc['valor_unitario'] ?? 0)
+                        ]);
+                    }
                 }
             }
         }
         
         $this->pdo->commit();
         return $processoId;
-        
-    } catch (Exception $e) {
+    } catch (PDOException $e) {
         $this->pdo->rollBack();
-        error_log("Erro ao criar processo: " . $e->getMessage());
+        
+        // Mantemos o debug por enquanto para ter certeza.
+        if (!isset($_SESSION['error_message'])) {
+            $_SESSION['error_message'] = "Erro de Banco de Dados: " . $e->getMessage();
+        }
+
+        error_log('Erro ao criar processo: ' . $e->getMessage());
         return false;
     }
 }
@@ -474,7 +486,7 @@ public function getFilteredProcesses(array $filters = [], int $limit = 50, int $
     $params = [];
     // Se nenhum filtro de status for aplicado, exclui os orçamentos por padrão.
     if (empty($filters['status'])) {
-        $where_clauses[] = "p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Recusado')";
+        $where_clauses[] = "p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Recusado', 'Pendente')";
 
     }
 
@@ -579,7 +591,7 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
     
     // Garante que a contagem também exclua os orçamentos por padrão.
     if (empty($filters['status'])) {
-        $where_clauses[] = "p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Recusado')";
+        $where_clauses[] = "p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Recusado', 'Pendente')";
 
     }
 
@@ -1359,30 +1371,39 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
      * @param string $status O status a ser filtrado.
      * @return array
      */
-    public function getByStatus(string $status): array
+    public function getByStatus($status)
     {
-        // ==========================================================
-        // INÍCIO DA CORREÇÃO
-        // ==========================================================
-        // A consulta foi ajustada para buscar o nome do vendedor (u.nome_completo)
-        // da tabela 'users' (aliased como 'u'), em vez da tabela 'vendedores'.
-        $sql = "SELECT p.*, 
-                       c.nome_cliente, 
-                       u.nome_completo AS nome_vendedor 
-                FROM processos p
-                JOIN clientes c ON p.cliente_id = c.id
-                LEFT JOIN vendedores v ON p.vendedor_id = v.id
-                LEFT JOIN users u ON v.user_id = u.id
-                WHERE p.status_processo = ?
-                ORDER BY p.data_entrada DESC";
-        // ==========================================================
-        // FIM DA CORREÇÃO
-        // ==========================================================
-                
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([$status]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // A query foi melhorada para juntar com as tabelas de clientes e usuários
+        // e assim já trazer o nome do cliente e do colaborador que criou/editou.
+        $sql = "
+            SELECT 
+                p.*,
+                c.nome AS nome_cliente,
+                u.nome AS nome_usuario_criador
+            FROM 
+                processos p
+            LEFT JOIN 
+                clientes c ON p.cliente_id = c.id
+            LEFT JOIN 
+                users u ON p.user_id = u.id
+            WHERE 
+                p.status_processo = :status
+            ORDER BY 
+                p.data_criacao DESC
+        ";
+
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->bindParam(':status', $status, PDO::PARAM_STR);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            // Em um ambiente de produção, logar este erro em vez de exibi-lo.
+            error_log("Erro ao buscar processos por status: " . $e->getMessage());
+            return [];
+        }
     }
+
     public function getRelatorioServicosPorPeriodo($data_inicio, $data_fim) {
         // CORREÇÃO: A consulta agora junta 'processos' com 'documentos' e 'categorias_financeiras'
         // e filtra apenas por status que representam um serviço ativo.
@@ -1467,5 +1488,53 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
         return false;
     }
 
+/**
+     * Busca processos que correspondem a uma lista de status.
+     *
+     * @param array $statuList A lista de status para filtrar.
+     * @return array
+     */
+    public function getByMultipleStatus(array $statusList)
+        {
+            // Se a lista de status estiver vazia, não há nada a fazer.
+            if (empty($statusList)) {
+                return [];
+            }
 
+            // Cria os placeholders para a cláusula IN (?, ?, ?)
+            $placeholders = implode(',', array_fill(0, count($statusList), '?'));
+
+            $sql = "
+                SELECT 
+                    p.*,
+                    p.categorias_servico AS tipo_servico, -- ALIAS ADICIONADO AQUI
+                    p.status_processo AS status,         -- ALIAS ADICIONADO AQUI
+                    c.nome_cliente,
+                    u_criador.nome_completo AS nome_usuario_criador,
+                    u_vendedor.nome_completo AS nome_vendedor
+                FROM 
+                    processos p
+                LEFT JOIN 
+                    clientes c ON p.cliente_id = c.id
+                LEFT JOIN 
+                    users u_criador ON p.colaborador_id = u_criador.id
+                LEFT JOIN
+                    vendedores v ON p.vendedor_id = v.id
+                LEFT JOIN 
+                    users u_vendedor ON v.user_id = u_vendedor.id
+                WHERE 
+                    p.status_processo IN ({$placeholders})
+                ORDER BY 
+                    p.data_criacao DESC
+            ";
+
+            try {
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute($statusList);
+                return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            } catch (PDOException $e) {
+                error_log("Erro ao buscar processos por múltiplos status: " . $e->getMessage());
+                return [];
+            }
+        }
 }

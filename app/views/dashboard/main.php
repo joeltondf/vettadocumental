@@ -58,16 +58,6 @@ $initialProcessLimit = 50; // Altere este valor conforme necessário
         <div class="bg-white shadow-md rounded-lg h-full">
             <div class="px-4 py-4 border-b flex justify-between items-center">
                 <h4 class="text-xl font-bold text-gray-900">Últimos Orçamentos</h4>
-                <ul class="space-y-2 flex-grow-0">
-                    <?php if (in_array($_SESSION['user_perfil'], ['admin', 'gerencia'])): ?>
-                        <li>
-                            <a href="<?php echo APP_URL; ?>/aprovacoes.php" class="flex items-center p-2 text-gray-700 rounded-lg hover:bg-gray-200">
-                                <svg class="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                <span class="ml-3">Aprovações</span>
-                            </a>
-                        </li>
-                    <?php endif; ?>
-                </ul>
             </div>
             <div class="p-4">
                 <?php if(empty($orcamentosRecentes)): ?>
