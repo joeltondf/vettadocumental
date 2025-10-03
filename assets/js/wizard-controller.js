@@ -177,16 +177,13 @@
 
     function updateResponsavelVisibility(form, tipoPessoa) {
         const container = form.querySelector('[data-responsavel-container]');
-        const input = form.querySelector('#lead_nome_responsavel');
-        if (!container || !input) {
+        if (!container) {
             return;
         }
         if (tipoPessoa === 'Física') {
             container.classList.add('hidden');
-            input.removeAttribute('required');
         } else {
             container.classList.remove('hidden');
-            input.setAttribute('required', 'required');
         }
     }
 
@@ -377,60 +374,29 @@
         }
     }
 
-    function validateVisibleFields(step) {
-        const fields = Array.from(step.querySelectorAll('input, select, textarea'));
-        for (const field of fields) {
-            if (field.type === 'hidden' || field.disabled) {
-                continue;
-            }
-            if (field.offsetParent === null) {
-                continue;
-            }
-            if (!field.reportValidity()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    function validateStep(form, stepIndex, steps) {
-        const step = steps[stepIndex];
-        if (!step) {
-            return true;
-        }
+    function validateFinalSubmission(form) {
         clearFeedback(form);
-        if (!validateVisibleFields(step)) {
+        if (!validateSubscriptionServices(form)) {
             return false;
         }
-        if (stepIndex === 0) {
-            const cityInput = form.querySelector('#lead_cidade');
-            const citySource = form.querySelector('#lead_city_validation_source');
-            if (cityInput && citySource && citySource.value === 'api' && cityInput.dataset.citySelected !== '1') {
-                cityInput.focus();
-                showFeedback(form, 'Selecione uma cidade sugerida pela busca.');
-                return false;
-            }
-            if (!validateSubscriptionServices(form)) {
-                return false;
-            }
+
+        const total = parseCurrency(form.querySelector('[data-wizard-total]')?.value);
+        const entry = parseCurrency(form.querySelector('[data-entry-value]')?.value);
+        const method = form.querySelector('#forma_cobranca')?.value;
+
+        if (entry === null || entry <= 0) {
+            showFeedback(form, 'Informe o valor pago ou de entrada.', 'error');
+            return false;
         }
-        if (stepIndex === 2) {
-            const total = parseCurrency(form.querySelector('[data-wizard-total]')?.value);
-            const entry = parseCurrency(form.querySelector('[data-entry-value]')?.value);
-            const method = form.querySelector('#forma_cobranca')?.value;
-            if (entry === null || entry <= 0) {
-                showFeedback(form, 'Informe o valor pago ou de entrada.', 'error');
-                return false;
-            }
-            if (total !== null && entry > total) {
-                showFeedback(form, 'O valor de entrada não pode ser maior que o total.', 'error');
-                return false;
-            }
-            if (method === 'Parcelado' && total !== null && entry >= total) {
-                showFeedback(form, 'Para parcelamentos o valor de entrada deve ser menor que o total.', 'error');
-                return false;
-            }
+        if (total !== null && entry > total) {
+            showFeedback(form, 'O valor de entrada não pode ser maior que o total.', 'error');
+            return false;
         }
+        if (method === 'Parcelado' && total !== null && entry >= total) {
+            showFeedback(form, 'Para parcelamentos o valor de entrada deve ser menor que o total.', 'error');
+            return false;
+        }
+
         return true;
     }
 
@@ -569,14 +535,7 @@
 
             if (nextButton) {
                 nextButton.addEventListener('click', async () => {
-                    if (isProcessingStep) {
-                        return;
-                    }
-                    if (!validateStep(form, currentStep, steps)) {
-                        showFeedback(form, form.querySelector('[data-wizard-feedback]')?.textContent || 'Corrija os campos destacados.', 'error');
-                        return;
-                    }
-                    if (currentStep >= totalSteps - 1) {
+                    if (isProcessingStep || currentStep >= totalSteps - 1) {
                         return;
                     }
 
@@ -586,37 +545,31 @@
                     nextButton.disabled = false;
                     isProcessingStep = false;
 
-                    if (!resultadoEtapa.success) {
-                        showFeedback(form, resultadoEtapa.message || 'Não foi possível salvar a etapa.', resultadoEtapa.type || 'error');
-                        return;
-                    }
-
                     currentStep += 1;
-                    if (resultadoEtapa.message) {
+
+                    if (resultadoEtapa.success && resultadoEtapa.message) {
                         showFeedback(form, resultadoEtapa.message, resultadoEtapa.type || 'success');
+                    } else if (!resultadoEtapa.success) {
+                        showFeedback(form, resultadoEtapa.message || 'Não foi possível salvar a etapa.', resultadoEtapa.type || 'error');
                     } else {
                         clearFeedback(form);
                     }
+
                     updateStepState(stepperButtons, steps, prevButton, nextButton, submitButton, currentStep);
                 });
             }
 
             stepperButtons.forEach((button, index) => {
                 button.addEventListener('click', async () => {
-                    if (index === currentStep) {
+                    if (index === currentStep || isProcessingStep) {
                         return;
                     }
-                    if (isProcessingStep) {
-                        return;
-                    }
+
                     const direction = index > currentStep ? 1 : -1;
                     let targetIndex = currentStep;
                     let ultimoResultado = null;
+
                     while (targetIndex !== index) {
-                        if (direction > 0 && !validateStep(form, targetIndex, steps)) {
-                            showFeedback(form, 'Finalize o passo atual antes de avançar.', 'error');
-                            return;
-                        }
                         if (direction > 0) {
                             isProcessingStep = true;
                             if (nextButton) {
@@ -627,28 +580,28 @@
                                 nextButton.disabled = false;
                             }
                             isProcessingStep = false;
-                            if (!resultadoEtapa.success) {
-                                showFeedback(form, resultadoEtapa.message || 'Não foi possível salvar a etapa.', resultadoEtapa.type || 'error');
-                                return;
-                            }
                             ultimoResultado = resultadoEtapa;
                         }
                         targetIndex += direction;
                     }
+
                     currentStep = index;
+
                     if (ultimoResultado && ultimoResultado.message) {
                         showFeedback(form, ultimoResultado.message, ultimoResultado.type || 'success');
+                    } else if (ultimoResultado && !ultimoResultado.success) {
+                        showFeedback(form, ultimoResultado.message || 'Não foi possível salvar a etapa.', ultimoResultado.type || 'error');
                     } else {
                         clearFeedback(form);
                     }
+
                     updateStepState(stepperButtons, steps, prevButton, nextButton, submitButton, currentStep);
                 });
             });
 
             form.addEventListener('submit', (event) => {
-                if (!validateStep(form, currentStep, steps)) {
+                if (!validateFinalSubmission(form)) {
                     event.preventDefault();
-                    showFeedback(form, 'Revise os campos obrigatórios antes de concluir.', 'error');
                 }
             });
         });

@@ -58,7 +58,7 @@ $prazoAcordado = $clienteContext['prazo_acordado_dias'] ?? ($context['prazoAcord
                     <span class="block text-sm font-semibold text-gray-700">Tipo de Pessoa</span>
                     <div class="mt-2 flex space-x-4">
                         <label class="inline-flex items-center space-x-2">
-                            <input type="radio" name="lead_tipo_pessoa" value="Física" <?php echo $tipoPessoaAtual === 'Física' ? 'checked' : ''; ?> required>
+                            <input type="radio" name="lead_tipo_pessoa" value="Física" <?php echo $tipoPessoaAtual === 'Física' ? 'checked' : ''; ?>>
                             <span class="text-sm text-gray-700">Física</span>
                         </label>
                         <label class="inline-flex items-center space-x-2">
@@ -68,8 +68,8 @@ $prazoAcordado = $clienteContext['prazo_acordado_dias'] ?? ($context['prazoAcord
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700" for="lead_tipo_cliente">Condição Comercial *</label>
-                    <select id="lead_tipo_cliente" name="lead_tipo_cliente" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500" required>
+                    <label class="block text-sm font-semibold text-gray-700" for="lead_tipo_cliente">Condição Comercial</label>
+                    <select id="lead_tipo_cliente" name="lead_tipo_cliente" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500">
                         <option value="">Selecione</option>
                         <option value="À vista" <?php echo $tipoAssessoriaAtual === 'À vista' ? 'selected' : ''; ?>>À vista</option>
                         <option value="Mensalista" <?php echo $tipoAssessoriaAtual === 'Mensalista' ? 'selected' : ''; ?>>Mensalista</option>
@@ -83,34 +83,34 @@ $prazoAcordado = $clienteContext['prazo_acordado_dias'] ?? ($context['prazoAcord
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700" for="lead_nome_cliente">Nome do Cliente *</label>
-                    <input type="text" id="lead_nome_cliente" name="lead_nome_cliente" value="<?php echo htmlspecialchars($clienteContext['nome_cliente'] ?? ($processo['nome_cliente'] ?? '')); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500" required>
+                    <label class="block text-sm font-semibold text-gray-700" for="lead_nome_cliente">Nome do Cliente</label>
+                    <input type="text" id="lead_nome_cliente" name="lead_nome_cliente" value="<?php echo htmlspecialchars($clienteContext['nome_cliente'] ?? ($processo['nome_cliente'] ?? '')); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500">
                 </div>
                 <div data-responsavel-container class="<?php echo $tipoPessoaAtual === 'Física' ? 'hidden' : ''; ?>">
-                    <label class="block text-sm font-semibold text-gray-700" for="lead_nome_responsavel">Nome do Responsável *</label>
-                    <input type="text" id="lead_nome_responsavel" name="lead_nome_responsavel" value="<?php echo htmlspecialchars($nomeResponsavelAtual); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500" <?php echo $tipoPessoaAtual === 'Física' ? '' : 'required'; ?>>
+                    <label class="block text-sm font-semibold text-gray-700" for="lead_nome_responsavel">Nome do Responsável</label>
+                    <input type="text" id="lead_nome_responsavel" name="lead_nome_responsavel" value="<?php echo htmlspecialchars($nomeResponsavelAtual); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500">
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700" for="lead_cpf_cnpj">CPF ou CNPJ *</label>
-                    <input type="text" id="lead_cpf_cnpj" name="lead_cpf_cnpj" value="<?php echo htmlspecialchars($clienteContext['cpf_cnpj'] ?? ''); ?>" maxlength="18" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500" required>
+                    <label class="block text-sm font-semibold text-gray-700" for="lead_cpf_cnpj">CPF ou CNPJ</label>
+                    <input type="text" id="lead_cpf_cnpj" name="lead_cpf_cnpj" value="<?php echo htmlspecialchars($clienteContext['cpf_cnpj'] ?? ''); ?>" maxlength="18" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500">
                 </div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700" for="lead_email">E-mail *</label>
-                    <input type="email" id="lead_email" name="lead_email" value="<?php echo htmlspecialchars($clienteContext['email'] ?? ''); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500" required>
+                    <label class="block text-sm font-semibold text-gray-700" for="lead_email">E-mail</label>
+                    <input type="email" id="lead_email" name="lead_email" value="<?php echo htmlspecialchars($clienteContext['email'] ?? ''); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500">
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700" for="lead_telefone">Telefone *</label>
-                    <input type="text" id="lead_telefone" name="lead_telefone" value="<?php echo htmlspecialchars($clienteContext['telefone'] ?? ''); ?>" maxlength="15" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500" required>
+                    <label class="block text-sm font-semibold text-gray-700" for="lead_telefone">Telefone</label>
+                    <input type="text" id="lead_telefone" name="lead_telefone" value="<?php echo htmlspecialchars($clienteContext['telefone'] ?? ''); ?>" maxlength="15" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500">
                 </div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700" for="lead_cep">CEP *</label>
-                    <input type="text" id="lead_cep" name="lead_cep" value="<?php echo htmlspecialchars($clienteContext['cep'] ?? ''); ?>" maxlength="9" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500" required>
+                    <label class="block text-sm font-semibold text-gray-700" for="lead_cep">CEP</label>
+                    <input type="text" id="lead_cep" name="lead_cep" value="<?php echo htmlspecialchars($clienteContext['cep'] ?? ''); ?>" maxlength="9" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500">
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-gray-700" for="lead_numero">Número</label>
@@ -120,8 +120,8 @@ $prazoAcordado = $clienteContext['prazo_acordado_dias'] ?? ($context['prazoAcord
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700" for="lead_endereco">Endereço *</label>
-                    <input type="text" id="lead_endereco" name="lead_endereco" value="<?php echo htmlspecialchars($clienteContext['endereco'] ?? ''); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500" required>
+                    <label class="block text-sm font-semibold text-gray-700" for="lead_endereco">Endereço</label>
+                    <input type="text" id="lead_endereco" name="lead_endereco" value="<?php echo htmlspecialchars($clienteContext['endereco'] ?? ''); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500">
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-gray-700" for="lead_complemento">Complemento</label>
@@ -131,11 +131,11 @@ $prazoAcordado = $clienteContext['prazo_acordado_dias'] ?? ($context['prazoAcord
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700" for="lead_bairro">Bairro *</label>
-                    <input type="text" id="lead_bairro" name="lead_bairro" value="<?php echo htmlspecialchars($clienteContext['bairro'] ?? ''); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500" required>
+                    <label class="block text-sm font-semibold text-gray-700" for="lead_bairro">Bairro</label>
+                    <input type="text" id="lead_bairro" name="lead_bairro" value="<?php echo htmlspecialchars($clienteContext['bairro'] ?? ''); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500">
                 </div>
                 <div data-city-autocomplete class="relative">
-                    <label class="block text-sm font-semibold text-gray-700" for="lead_cidade">Cidade *</label>
+                    <label class="block text-sm font-semibold text-gray-700" for="lead_cidade">Cidade</label>
                     <input type="hidden" name="lead_city_validation_source" id="lead_city_validation_source" value="<?php echo htmlspecialchars($cidadeValidationSource); ?>">
                     <input
                         type="text"
@@ -150,14 +150,13 @@ $prazoAcordado = $clienteContext['prazo_acordado_dias'] ?? ($context['prazoAcord
                         data-wizard-validate-on-value="true"
                         aria-expanded="false"
                         aria-controls="lead_cidade-options"
-                        required
                     >
                     <div id="lead_cidade-options" role="listbox" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 hidden max-h-56 overflow-auto"></div>
                     <p id="lead_cidade-status" class="mt-1 text-xs text-gray-500 hidden" role="status" aria-live="polite"></p>
                 </div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700" for="lead_estado">Estado (UF) *</label>
-                    <input type="text" id="lead_estado" name="lead_estado" value="<?php echo htmlspecialchars(strtoupper($estadoAtual)); ?>" maxlength="2" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 bg-gray-50 uppercase" required>
+                    <label class="block text-sm font-semibold text-gray-700" for="lead_estado">Estado (UF)</label>
+                    <input type="text" id="lead_estado" name="lead_estado" value="<?php echo htmlspecialchars(strtoupper($estadoAtual)); ?>" maxlength="2" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 bg-gray-50 uppercase">
                 </div>
             </div>
 
@@ -175,8 +174,8 @@ $prazoAcordado = $clienteContext['prazo_acordado_dias'] ?? ($context['prazoAcord
                             <div class="p-4 border border-gray-200 rounded-lg space-y-4" data-service-item>
                                 <div class="flex items-start justify-between gap-4">
                                     <div class="flex-1">
-                                        <label class="block text-sm font-medium text-gray-700" for="service-product-<?php echo $index; ?>">Produto / Serviço *</label>
-                                        <select id="service-product-<?php echo $index; ?>" name="lead_subscription_services[<?php echo $index; ?>][productBudgetId]" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500 text-sm" required data-service-select>
+                                        <label class="block text-sm font-medium text-gray-700" for="service-product-<?php echo $index; ?>">Produto / Serviço</label>
+                                        <select id="service-product-<?php echo $index; ?>" name="lead_subscription_services[<?php echo $index; ?>][productBudgetId]" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500 text-sm" data-service-select>
                                             <option value="">Selecione um produto</option>
                                             <?php foreach ($produtosOrcamento as $produto): ?>
                                                 <?php
@@ -200,8 +199,8 @@ $prazoAcordado = $clienteContext['prazo_acordado_dias'] ?? ($context['prazoAcord
                                 </div>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700" for="service-value-<?php echo $index; ?>">Valor padrão *</label>
-                                        <input type="text" id="service-value-<?php echo $index; ?>" name="lead_subscription_services[<?php echo $index; ?>][standardValue]" value="<?php echo htmlspecialchars($valorServico); ?>" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500" required data-service-value>
+                                        <label class="block text-sm font-medium text-gray-700" for="service-value-<?php echo $index; ?>">Valor padrão</label>
+                                        <input type="text" id="service-value-<?php echo $index; ?>" name="lead_subscription_services[<?php echo $index; ?>][standardValue]" value="<?php echo htmlspecialchars($valorServico); ?>" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500" data-service-value>
                                         <p class="mt-1 text-xs text-gray-500" data-minimum-hint></p>
                                     </div>
                                     <div class="flex items-end">
@@ -218,10 +217,9 @@ $prazoAcordado = $clienteContext['prazo_acordado_dias'] ?? ($context['prazoAcord
                     <div class="p-4 border border-gray-200 rounded-lg space-y-4" data-service-item>
                         <div class="flex items-start justify-between gap-4">
                             <div class="flex-1">
-                                <label class="block text-sm font-medium text-gray-700" data-label-template="service-product-__index__">Produto / Serviço *</label>
+                                <label class="block text-sm font-medium text-gray-700" data-label-template="service-product-__index__">Produto / Serviço</label>
                                 <select
                                     class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500 text-sm"
-                                    required
                                     data-service-select
                                     data-name-template="lead_subscription_services[__index__][productBudgetId]"
                                     data-id-template="service-product-__index__"
@@ -248,11 +246,10 @@ $prazoAcordado = $clienteContext['prazo_acordado_dias'] ?? ($context['prazoAcord
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700" data-label-template="service-value-__index__">Valor padrão *</label>
+                                <label class="block text-sm font-medium text-gray-700" data-label-template="service-value-__index__">Valor padrão</label>
                                 <input
                                     type="text"
                                     class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
-                                    required
                                     data-service-value
                                     data-name-template="lead_subscription_services[__index__][standardValue]"
                                     data-id-template="service-value-__index__"
@@ -271,14 +268,14 @@ $prazoAcordado = $clienteContext['prazo_acordado_dias'] ?? ($context['prazoAcord
         <div class="rounded-lg border border-gray-200 p-6 space-y-6 hidden" data-step="2">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700" for="data_inicio_traducao">Data de início *</label>
-                    <input type="date" id="data_inicio_traducao" name="data_inicio_traducao" value="<?php echo htmlspecialchars($dataInicioTraducaoAtual); ?>" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500" required>
+                    <label class="block text-sm font-semibold text-gray-700" for="data_inicio_traducao">Data de início</label>
+                    <input type="date" id="data_inicio_traducao" name="data_inicio_traducao" value="<?php echo htmlspecialchars($dataInicioTraducaoAtual); ?>" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500">
                 </div>
                 <div>
-                    <span class="block text-sm font-semibold text-gray-700">Tipo de prazo *</span>
+                    <span class="block text-sm font-semibold text-gray-700">Tipo de prazo</span>
                     <div class="mt-2 flex space-x-6">
                         <label class="inline-flex items-center space-x-2">
-                            <input type="radio" name="traducao_prazo_tipo" value="dias" <?php echo $traducaoPrazoTipoAtual === 'data' ? '' : 'checked'; ?> required>
+                            <input type="radio" name="traducao_prazo_tipo" value="dias" <?php echo $traducaoPrazoTipoAtual === 'data' ? '' : 'checked'; ?>>
                             <span class="text-sm text-gray-700">Dias</span>
                         </label>
                         <label class="inline-flex items-center space-x-2">
@@ -290,12 +287,12 @@ $prazoAcordado = $clienteContext['prazo_acordado_dias'] ?? ($context['prazoAcord
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div data-deadline-days-container class="<?php echo $traducaoPrazoTipoAtual === 'data' ? 'hidden' : ''; ?>">
-                    <label class="block text-sm font-semibold text-gray-700" for="traducao_prazo_dias">Dias para entrega *</label>
-                    <input type="number" min="1" id="traducao_prazo_dias" name="traducao_prazo_dias" value="<?php echo htmlspecialchars($traducaoPrazoDiasAtual); ?>" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500" <?php echo $traducaoPrazoTipoAtual === 'data' ? '' : 'required'; ?>>
+                    <label class="block text-sm font-semibold text-gray-700" for="traducao_prazo_dias">Dias para entrega</label>
+                    <input type="number" min="1" id="traducao_prazo_dias" name="traducao_prazo_dias" value="<?php echo htmlspecialchars($traducaoPrazoDiasAtual); ?>" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500">
                 </div>
                 <div data-deadline-date-container class="<?php echo $traducaoPrazoTipoAtual === 'data' ? '' : 'hidden'; ?>">
-                    <label class="block text-sm font-semibold text-gray-700" for="traducao_prazo_data">Data de entrega *</label>
-                    <input type="date" id="traducao_prazo_data" name="traducao_prazo_data" value="<?php echo htmlspecialchars($traducaoPrazoDataAtual); ?>" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500" <?php echo $traducaoPrazoTipoAtual === 'data' ? 'required' : ''; ?>>
+                    <label class="block text-sm font-semibold text-gray-700" for="traducao_prazo_data">Data de entrega</label>
+                    <input type="date" id="traducao_prazo_data" name="traducao_prazo_data" value="<?php echo htmlspecialchars($traducaoPrazoDataAtual); ?>" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500">
                 </div>
             </div>
         </div>
@@ -303,16 +300,16 @@ $prazoAcordado = $clienteContext['prazo_acordado_dias'] ?? ($context['prazoAcord
         <div class="rounded-lg border border-gray-200 p-6 space-y-6 hidden" data-step="3">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700" for="forma_cobranca">Forma de cobrança *</label>
-                    <select id="forma_cobranca" name="forma_cobranca" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500" required data-payment-method>
+                    <label class="block text-sm font-semibold text-gray-700" for="forma_cobranca">Forma de cobrança</label>
+                    <select id="forma_cobranca" name="forma_cobranca" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500" data-payment-method>
                         <option value="À vista" <?php echo $formaCobrancaAtual === 'À vista' ? 'selected' : ''; ?>>À vista</option>
                         <option value="Parcelado" <?php echo $formaCobrancaAtual === 'Parcelado' ? 'selected' : ''; ?>>Parcelado</option>
                         <option value="Mensal" <?php echo $formaCobrancaAtual === 'Mensal' ? 'selected' : ''; ?>>Mensal</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700" for="valor_entrada">Valor pago / entrada *</label>
-                    <input type="text" id="valor_entrada" name="valor_entrada" value="<?php echo htmlspecialchars($valorEntradaAtual); ?>" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500" required data-entry-value>
+                    <label class="block text-sm font-semibold text-gray-700" for="valor_entrada">Valor pago / entrada</label>
+                    <input type="text" id="valor_entrada" name="valor_entrada" value="<?php echo htmlspecialchars($valorEntradaAtual); ?>" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500" data-entry-value>
                 </div>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

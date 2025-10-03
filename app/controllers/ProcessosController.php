@@ -1531,7 +1531,6 @@ class ProcessosController
         $tipoPessoa = $input['lead_tipo_pessoa'] ?? 'Jurídica';
         $tipoCliente = $input['lead_tipo_cliente'] ?? '';
         $nomeCliente = trim((string)($input['lead_nome_cliente'] ?? ''));
-        $cpfCnpj = DocumentValidator::sanitizeNumber((string)($input['lead_cpf_cnpj'] ?? ''));
 
         if (!in_array($tipoPessoa, ['Física', 'Jurídica'], true)) {
             $erros[] = 'Selecione um tipo de pessoa válido.';
@@ -1545,14 +1544,7 @@ class ProcessosController
             $erros[] = 'O nome do cliente deve possuir ao menos três caracteres.';
         }
 
-        if ($tipoPessoa === 'Física') {
-            if (!DocumentValidator::isValidCpf($cpfCnpj)) {
-                $erros[] = 'CPF inválido.';
-            }
-        } else {
-            if (!DocumentValidator::isValidCnpj($cpfCnpj)) {
-                $erros[] = 'CNPJ inválido.';
-            }
+        if ($tipoPessoa !== 'Física') {
             $responsavel = trim((string)($input['lead_nome_responsavel'] ?? ''));
             if ($responsavel === '') {
                 $erros[] = 'Informe o nome do responsável pela empresa.';
@@ -1562,16 +1554,6 @@ class ProcessosController
         $email = trim((string)($input['lead_email'] ?? ''));
         if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $erros[] = 'Informe um e-mail válido.';
-        }
-
-        $telefone = $this->sanitizeDigits($input['lead_telefone'] ?? '');
-        if (strlen($telefone) < 10) {
-            $erros[] = 'Informe um telefone válido com DDD.';
-        }
-
-        $cep = $this->sanitizeDigits($input['lead_cep'] ?? '');
-        if (strlen($cep) !== 8) {
-            $erros[] = 'Informe um CEP válido.';
         }
 
         $cidade = trim((string)($input['lead_cidade'] ?? ''));
