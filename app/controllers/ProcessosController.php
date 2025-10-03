@@ -779,6 +779,169 @@ class ProcessosController
         exit();
     }
 
+    public function leadConversionStep()
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Método não permitido.']);
+            exit();
+        }
+
+        header('Content-Type: application/json');
+
+        $processoId = isset($_POST['id']) ? (int)$_POST['id'] : 0;
+        $step = $_POST['lead_conversion_step'] ?? '';
+
+        if ($processoId <= 0 || $step === '') {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Dados da etapa inválidos.']);
+            exit();
+        }
+
+        $resultado = $this->processoModel->getById($processoId);
+        if (!$resultado || !isset($resultado['processo'])) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Processo não encontrado.']);
+            exit();
+        }
+
+        $processo = $resultado['processo'];
+        $statusAtual = $processo['status_processo'] ?? '';
+        if (!in_array($statusAtual, ['Orçamento', 'Orçamento Pendente'], true)) {
+            http_response_code(409);
+            echo json_encode(['success' => false, 'message' => 'O processo não está em um status elegível para conversão.']);
+            exit();
+        }
+
+        if (!$this->canUpdateStatus($processo, 'Serviço Pendente')) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Você não tem permissão para converter este processo.']);
+            exit();
+        }
+
+        $input = $_POST;
+
+        switch ($step) {
+            case 'client':
+                $this->handleLeadConversionClientStep($processoId, $processo, $input);
+                break;
+            case 'deadline':
+                $this->handleLeadConversionDeadlineStep($processoId, $processo, $input);
+                break;
+            default:
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Etapa de conversão desconhecida.']);
+                exit();
+        }
+    }
+
+    private function handleLeadConversionClientStep(int $processoId, array $processo, array $input): void
+    {
+        $clienteAtualId = (int)($processo['cliente_id'] ?? 0);
+        $clienteId = $clienteAtualId;
+
+        try {
+            $this->pdo->beginTransaction();
+            $clienteId = $this->handleLeadConversion($processoId, $clienteAtualId, $input);
+            $this->processoModel->updateFromLeadConversion($processoId, [
+                'cliente_id' => $clienteId > 0 ? $clienteId : null,
+            ]);
+            $this->pdo->commit();
+        } catch (InvalidArgumentException $exception) {
+            $this->pdo->rollBack();
+            http_response_code(422);
+            echo json_encode([
+                'success' => false,
+                'message' => $exception->getMessage(),
+                'alertType' => 'error',
+            ]);
+            exit();
+        } catch (Throwable $exception) {
+            $this->pdo->rollBack();
+            error_log('Erro ao salvar dados do cliente na conversão: ' . $exception->getMessage());
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Erro inesperado ao salvar os dados do cliente.',
+                'alertType' => 'error',
+            ]);
+            exit();
+        }
+
+        $resultadoSincronizacao = $this->attemptSyncConvertedClientWithOmie($clienteId);
+        if (!$resultadoSincronizacao['success']) {
+            http_response_code(422);
+            echo json_encode([
+                'success' => false,
+                'message' => $resultadoSincronizacao['message'] ?? 'Falha ao sincronizar o cliente com a Omie.',
+                'alertType' => 'error',
+            ]);
+            exit();
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => $resultadoSincronizacao['message'] ?? 'Cliente sincronizado com sucesso.',
+            'alertType' => 'success',
+            'clienteId' => $clienteId,
+        ]);
+        exit();
+    }
+
+    private function handleLeadConversionDeadlineStep(int $processoId, array $processo, array $input): void
+    {
+        try {
+            $this->validateWizardProcessData($processo, $input, false);
+
+            $dataInicio = $input['data_inicio_traducao'] ?? $processo['data_inicio_traducao'] ?? null;
+            $prazoTipo = $input['traducao_prazo_tipo'] ?? $processo['traducao_prazo_tipo'] ?? 'dias';
+            $prazoTipo = $prazoTipo === 'data' ? 'data' : 'dias';
+
+            $prazoDiasEntrada = $input['traducao_prazo_dias'] ?? null;
+            $prazoDias = ($prazoTipo === 'dias' && $prazoDiasEntrada !== null && $prazoDiasEntrada !== '')
+                ? (int)$prazoDiasEntrada
+                : null;
+
+            $prazoDataEntrada = $input['traducao_prazo_data'] ?? null;
+            $prazoData = $prazoTipo === 'data' ? $prazoDataEntrada : null;
+
+            $payload = [
+                'data_inicio_traducao' => $dataInicio,
+                'traducao_prazo_tipo' => $prazoTipo,
+                'traducao_prazo_dias' => $prazoDias,
+                'traducao_prazo_data' => $prazoData,
+            ];
+
+            if (!$this->processoModel->updateFromLeadConversion($processoId, $payload)) {
+                throw new RuntimeException('Falha ao salvar o prazo da tradução.');
+            }
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Prazo atualizado com sucesso.',
+                'alertType' => 'success',
+            ]);
+        } catch (InvalidArgumentException $exception) {
+            http_response_code(422);
+            echo json_encode([
+                'success' => false,
+                'message' => $exception->getMessage(),
+                'alertType' => 'error',
+            ]);
+        } catch (Throwable $exception) {
+            error_log('Erro ao salvar prazo na conversão: ' . $exception->getMessage());
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Erro inesperado ao salvar o prazo da tradução.',
+                'alertType' => 'error',
+            ]);
+        }
+
+        exit();
+    }
+
     /**
      * Painel de notificações, lista processos pendentes de aprovação.
      */
@@ -1231,16 +1394,22 @@ class ProcessosController
         return $clienteId;
     }
 
-    private function syncConvertedClientWithOmie(int $clienteId): void
+    private function attemptSyncConvertedClientWithOmie(int $clienteId): array
     {
         if ($clienteId <= 0) {
-            return;
+            return [
+                'success' => false,
+                'message' => 'Cliente inválido para sincronização com a Omie.'
+            ];
         }
 
         try {
             $cliente = $this->clienteModel->getById($clienteId);
             if (!$cliente) {
-                return;
+                return [
+                    'success' => false,
+                    'message' => 'Cliente não encontrado para sincronização com a Omie.'
+                ];
             }
 
             $cliente = $this->ensureClientIntegrationIdentifiers($cliente);
@@ -1259,12 +1428,35 @@ class ProcessosController
                     $cliente['codigo_cliente_integracao'] ?? null,
                     (int)$response['codigo_cliente_omie']
                 );
+
+                return [
+                    'success' => true,
+                    'message' => 'Cliente sincronizado com a Omie.'
+                ];
             }
+
+            return [
+                'success' => false,
+                'message' => 'A Omie não retornou o código do cliente após a sincronização.'
+            ];
         } catch (Throwable $exception) {
             error_log('Falha ao sincronizar cliente convertido com a Omie: ' . $exception->getMessage());
-            if (empty($_SESSION['warning_message'])) {
-                $_SESSION['warning_message'] = 'O cliente foi convertido, mas a sincronização com a Omie falhou. Verifique as configurações da API.';
-            }
+
+            return [
+                'success' => false,
+                'message' => 'Falha ao sincronizar o cliente com a Omie. Verifique as configurações da API.'
+            ];
+        }
+    }
+
+    private function syncConvertedClientWithOmie(int $clienteId): void
+    {
+        $resultadoSincronizacao = $this->attemptSyncConvertedClientWithOmie($clienteId);
+        if (!$resultadoSincronizacao['success']
+            && !empty($resultadoSincronizacao['message'])
+            && empty($_SESSION['warning_message'])
+        ) {
+            $_SESSION['warning_message'] = $resultadoSincronizacao['message'];
         }
     }
 

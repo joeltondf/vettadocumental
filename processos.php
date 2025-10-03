@@ -27,6 +27,7 @@ switch ($action) {
 
     case 'edit':
     case 'change_status':
+    case 'lead_conversion_step':
         // Permite que o vendedor acesse estas rotas.
         require_permission(['admin', 'gerencia', 'supervisor', 'vendedor']);
         break;
@@ -92,6 +93,9 @@ switch ($action) {
         break;
     case 'change_status':
         $controller->changeStatus();
+        break;
+    case 'lead_conversion_step':
+        $controller->leadConversionStep();
         break;
     case 'delete':
         $controller->delete($id); // Ajuste aqui para passar o $id
