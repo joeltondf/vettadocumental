@@ -70,36 +70,24 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
         </div>
     <?php else: ?>
         <form action="<?php echo APP_URL; ?>/crm/prospeccoes/salvar.php" method="POST" id="form-nova-prospeccao" class="space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="md:col-span-2">
-                    <label for="cliente_id" class="block text-sm font-medium text-gray-700">Lead Associado</label>
-                    <div class="flex items-center space-x-2 mt-1">
-                        <select name="cliente_id" id="cliente_id" class="block w-full">
-                            <option></option>
-                            <?php foreach ($clientes as $cliente): ?>
-                                <option value="<?php echo $cliente['id']; ?>" data-responsavel="<?php echo htmlspecialchars($cliente['nome_responsavel'] ?? '', ENT_QUOTES); ?>" <?php echo ($cliente['id'] == $cliente_pre_selecionado_id) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($cliente['nome_cliente']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <a href="<?php echo APP_URL; ?>/crm/clientes/novo.php?redirect_url=<?php echo urlencode(APP_URL . '/crm/prospeccoes/nova.php'); ?>"
-                        class="flex-shrink-0 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md text-sm">
-                            Novo Lead
-                        </a>
-                    </div>
-                </div>                
-                <div>
-                    <label for="lead_responsavel_display" class="block text-sm font-medium text-gray-700">Responsável do Lead</label>
-                    <input type="text" id="lead_responsavel_display" class="mt-1 block w-full border border-gray-200 rounded-md shadow-sm py-2 px-3 bg-gray-100 text-gray-600" value="" readonly>
-                    <input type="hidden" name="nome_prospecto" id="nome_prospecto" value="">
+            <div>
+                <label for="cliente_id" class="block text-sm font-medium text-gray-700">Nome do Lead</label>
+                <div class="flex items-center space-x-2 mt-1">
+                    <select name="cliente_id" id="cliente_id" class="block w-full">
+                        <option></option>
+                        <?php foreach ($clientes as $cliente): ?>
+                            <option value="<?php echo $cliente['id']; ?>" <?php echo ($cliente['id'] == $cliente_pre_selecionado_id) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($cliente['nome_cliente']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <a href="<?php echo APP_URL; ?>/crm/clientes/novo.php?redirect_url=<?php echo urlencode(APP_URL . '/crm/prospeccoes/nova.php'); ?>"
+                       class="flex-shrink-0 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md text-sm">
+                        Novo Lead
+                    </a>
                 </div>
             </div>
-            
-            <div>
-                <label for="feedback_inicial" class="block text-sm font-medium text-gray-700">Observações Iniciais</label>
-                <textarea name="feedback_inicial" id="feedback_inicial" rows="4" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"></textarea>
-            </div>
-            
+
             <div class="flex justify-end pt-4">
                 <a href="<?php echo APP_URL; ?>/crm/prospeccoes/lista.php" class="bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded hover:bg-gray-300 mr-3">Cancelar</a>
                 <button type="submit" class="bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700">Salvar Prospecção</button>
@@ -121,34 +109,6 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
 
         const form = document.getElementById('form-nova-prospeccao');
         const leadSelect = document.getElementById('cliente_id');
-        const responsavelInput = document.getElementById('lead_responsavel_display');
-        const nomeProspectoHidden = document.getElementById('nome_prospecto');
-
-        function updateResponsavelDisplay() {
-            if (!leadSelect) {
-                return;
-            }
-
-            const selectedOption = leadSelect.options[leadSelect.selectedIndex];
-            if (!selectedOption || !selectedOption.value) {
-                responsavelInput.value = '';
-                nomeProspectoHidden.value = '';
-                return;
-            }
-
-            const responsavel = selectedOption.getAttribute('data-responsavel') || '';
-            const fallback = selectedOption.textContent.trim();
-            const displayValue = responsavel.trim() !== '' ? responsavel.trim() : fallback;
-
-            responsavelInput.value = displayValue;
-            nomeProspectoHidden.value = displayValue;
-        }
-
-        if (leadSelect) {
-            leadSelect.addEventListener('change', updateResponsavelDisplay);
-            updateResponsavelDisplay();
-        }
-
         if (form) {
             form.addEventListener('submit', function(event) {
                 const clienteId = $('#cliente_id').val();
@@ -157,11 +117,6 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                     event.preventDefault();
                     alert('Erro: Por favor, selecione um lead associado.');
                     return;
-                }
-
-                if (!nomeProspectoHidden.value) {
-                    event.preventDefault();
-                    alert('Erro: Não foi possível identificar o responsável do lead selecionado.');
                 }
             });
         }

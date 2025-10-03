@@ -7,8 +7,6 @@ require_once __DIR__ . '/../../app/core/auth_check.php';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $cliente_id = filter_input(INPUT_POST, 'cliente_id', FILTER_VALIDATE_INT);
-    $feedback_inicial = trim($_POST['feedback_inicial'] ?? '');
-
     $responsavel_id = $_SESSION['user_id'];
     $userPerfil = $_SESSION['user_perfil'] ?? '';
     $data_prospeccao = date('Y-m-d H:i:s');
@@ -59,18 +57,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([
             ':cliente_id' => $cliente_id, ':nome_prospecto' => $nome_prospecto,
             ':data_prospeccao' => $data_prospeccao, ':responsavel_id' => $responsavel_id,
-            ':feedback_inicial' => $feedback_inicial, ':valor_proposto' => 0,
+            ':feedback_inicial' => '', ':valor_proposto' => 0,
             ':status' => 'Cliente ativo'
         ]);
         $prospeccao_id = $pdo->lastInsertId();
 
-        // Insere a primeira interação
-        if (!empty($feedback_inicial)) {
-            $sql_interacao = "INSERT INTO interacoes (prospeccao_id, usuario_id, observacao, tipo) VALUES (?, ?, ?, ?)";
-            $stmt_interacao = $pdo->prepare($sql_interacao);
-            $stmt_interacao->execute([$prospeccao_id, $responsavel_id, "Observação inicial: " . $feedback_inicial, 'nota']);
-        }
-        
         $pdo->commit();
         
         $_SESSION['success_message'] = "Prospecção criada com sucesso!";
