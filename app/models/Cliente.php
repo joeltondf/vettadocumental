@@ -313,55 +313,7 @@ public function searchAppClients($searchTerm)
     $stmt->execute([':term' => '%' . $searchTerm . '%']);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
-    /**
-     * NOVO MÉTODO: Busca os serviços e preços de um cliente mensalista.
-     */
-    public function getServicosMensalista($cliente_id) {
-        // A CORREÇÃO ESTÁ AQUI: Adicionamos "cf.servico_tipo" à consulta SELECT
-        $sql = "SELECT csm.*, cf.nome_categoria, cf.servico_tipo 
-                FROM cliente_servicos_mensalistas csm
-                JOIN categorias_financeiras cf ON csm.produto_orcamento_id = cf.id
-                WHERE csm.cliente_id = ?";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([$cliente_id]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
 
 
-    /**
-     * NOVO MÉTODO: Salva a lista de serviços e preços de um cliente mensalista.
-     */
-    public function salvarServicosMensalista($cliente_id, $servicos) {
-        // Primeiro, apaga a lista antiga para garantir consistência.
-        $this->pdo->prepare("DELETE FROM cliente_servicos_mensalistas WHERE cliente_id = ?")->execute([$cliente_id]);
-
-        if (empty($servicos)) {
-            return true; // Se não houver serviços, apenas termina.
-        }
-
-        $sql = "INSERT INTO cliente_servicos_mensalistas (cliente_id, produto_orcamento_id, valor_padrao) VALUES (?, ?, ?)";
-        $stmt = $this->pdo->prepare($sql);
-
-        foreach ($servicos as $servico) {
-            // Garante que apenas linhas com dados válidos sejam salvas.
-            if (!empty($servico['produto_orcamento_id']) && isset($servico['valor_padrao'])) {
-                $stmt->execute([
-                    $cliente_id,
-                    $servico['produto_orcamento_id'],
-                    $servico['valor_padrao']
-                ]);
-            }
-        }
-        return true;
-    }
-    public function getServicoContratadoPorNome($clienteId, $nomeCategoria) {
-        $sql = "SELECT csm.*, cf.nome_categoria 
-                FROM cliente_servicos_mensalistas csm
-                JOIN categorias_financeiras cf ON csm.produto_orcamento_id = cf.id
-                WHERE csm.cliente_id = :cliente_id AND cf.nome_categoria = :nome_categoria";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([':cliente_id' => $clienteId, ':nome_categoria' => $nomeCategoria]);
-        return $stmt->fetch(PDO::FETCH_ASSOC);
-    }
 
 }

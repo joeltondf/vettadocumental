@@ -220,11 +220,7 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
                                     </div>
                                 <?php endforeach; ?>
                             <?php endif; ?>
-                                <div class="border-t">
-                                    <a href="<?php echo APP_URL; ?>/notificacoes.php" class="block px-4 py-2 text-sm text-center text-blue-600 font-semibold hover:bg-gray-100">
-                                        Ver todas as notificações
-                                    </a>
-                                </div>
+
                             <?php if (in_array($user_perfil, ['gerencia', 'vendedor'])): ?>
                                 <div class="px-4 py-2 text-sm text-gray-700 font-bold border-b border-t">
                                     Prospecções para Retorno

@@ -113,41 +113,6 @@ require_once __DIR__ . '/../layouts/header.php';
             </select>
         </div>
     </div>
-
-    <div id="mensalista-servicos-container" class="mt-6 pt-6 border-t col-span-1 md:col-span-2 <?= ($cliente['tipo_assessoria'] ?? 'À vista') === 'Mensalista' ? '' : 'hidden' ?>">
-        <h3 class="text-lg font-semibold text-gray-700 mb-4">Serviços Contratados (Mensalista)</h3>
-        <div id="servicos-lista" class="space-y-4">
-            
-            <?php if (!empty($servicos_mensalista)): ?>
-                <?php foreach ($servicos_mensalista as $index => $servico): ?>
-                    <div class="grid grid-cols-12 gap-4 items-center servico-item">
-                        <div class="col-span-7">
-                            <select name="servicos_mensalistas[<?= $index ?>][produto_orcamento_id]" class="block w-full rounded-md border-gray-300 shadow-sm text-sm py-2">
-                                <option value="">Selecione um Produto/Serviço</option>
-                                <?php foreach ($produtos_orcamento as $produto): ?>
-                                    <option value="<?= $produto['id'] ?>" <?= ($produto['id'] == $servico['produto_orcamento_id']) ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($produto['nome_categoria']) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="col-span-4">
-                            <input type="number" step="0.01" name="servicos_mensalistas[<?= $index ?>][valor_padrao]" class="block w-full rounded-md border-gray-300 shadow-sm text-sm py-2" placeholder="Valor Padrão" value="<?= htmlspecialchars($servico['valor_padrao']) ?>">
-                        </div>
-                        <div class="col-span-1 text-right">
-                            <button type="button" class="text-red-500 hover:text-red-700" onclick="removerServico(this)">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
-
-        </div>
-        <button type="button" id="adicionar-servico-btn" class="mt-4 bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 text-sm">
-            <i class="fas fa-plus mr-2"></i>Adicionar Serviço
-        </button>
-    </div>
     
     <?php if (!$isEdit || ($isEdit && empty($cliente['user_id']))): ?>
         <div class="md:col-span-2 mt-4 pt-4 border-t border-gray-200">
@@ -184,56 +149,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const labelCpfCnpj = document.getElementById('label_cpf_cnpj');
     const containerNomeResponsavel = document.getElementById('container_nome_responsavel');
     const inputNomeResponsavel = document.getElementById('nome_responsavel');
-
-    const tipoAssessoriaSelect = document.getElementById('tipo_assessoria');
-    const servicosContainer = document.getElementById('mensalista-servicos-container');
-    const adicionarServicoBtn = document.getElementById('adicionar-servico-btn');
-    const servicosLista = document.getElementById('servicos-lista');
-    let servicoIndex = <?= !empty($servicos_mensalista) ? count($servicos_mensalista) : 0 ?>;
-
-
-        function toggleServicosSection() {
-            if (tipoAssessoriaSelect.value === 'Mensalista') {
-                servicosContainer.classList.remove('hidden');
-            } else {
-                servicosContainer.classList.add('hidden');
-            }
-        }
-
-        // Evento para quando o tipo de assessoria muda
-        tipoAssessoriaSelect.addEventListener('change', toggleServicosSection);
-
-        // Evento para adicionar uma nova linha de serviço
-        adicionarServicoBtn.addEventListener('click', function() {
-            const itemHtml = `
-                <div class="grid grid-cols-12 gap-4 items-center servico-item">
-                    <div class="col-span-7">
-                        <select name="servicos_mensalistas[${servicoIndex}][produto_orcamento_id]" class="block w-full rounded-md border-gray-300 shadow-sm text-sm py-2">
-                            <option value="">Selecione um Produto/Serviço</option>
-                            <?php foreach ($produtos_orcamento as $produto): ?>
-                                <option value="<?= $produto['id'] ?>"><?= htmlspecialchars($produto['nome_categoria']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="col-span-4">
-                        <input type="number" step="0.01" name="servicos_mensalistas[${servicoIndex}][valor_padrao]" class="block w-full rounded-md border-gray-300 shadow-sm text-sm py-2" placeholder="Valor Padrão">
-                    </div>
-                    <div class="col-span-1 text-right">
-                        <button type="button" class="text-red-500 hover:text-red-700" onclick="removerServico(this)">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>
-                    </div>
-                </div>`;
-            servicosLista.insertAdjacentHTML('beforeend', itemHtml);
-            servicoIndex++;
-        });
-
-        // Função global para remover uma linha
-        window.removerServico = function(button) {
-            button.closest('.servico-item').remove();
-        }
-    
-
 
     // Função para validar CPF
     function validarCpf(cpf) {

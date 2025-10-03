@@ -17,7 +17,7 @@
     <div class="w-full max-w-md">
         <div class="bg-white p-8 rounded-lg shadow-lg">
             <h2 class="text-2xl font-bold text-center text-gray-800 mb-2"><?php echo APP_NAME; ?></h2>
-            <p class="text-center text-gray-600 mb-8">Por favor, insira as suas credenciais para acessar ao sistema.</p>
+            <p class="text-center text-gray-600 mb-8">Por favor, insira as suas credenciais para aceder ao sistema.</p>
             
             <?php
             // Bloco para exibir mensagens de erro
