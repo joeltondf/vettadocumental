@@ -315,6 +315,68 @@
         showFeedback(form, '');
     }
 
+    function getStepIdentifier(stepIndex, totalSteps) {
+        if (stepIndex === 0) {
+            return 'client';
+        }
+        if (stepIndex === 1 && totalSteps >= 3) {
+            return 'deadline';
+        }
+        return null;
+    }
+
+    async function submitWizardStep(form, stepIndex, totalSteps) {
+        const endpoint = form?.dataset?.stepEndpoint || '';
+        const stepIdentifier = getStepIdentifier(stepIndex, totalSteps);
+
+        if (!endpoint || !stepIdentifier) {
+            return { success: true };
+        }
+
+        const formData = new FormData(form);
+        formData.append('lead_conversion_step', stepIdentifier);
+
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            const payload = await response.json().catch(() => null);
+            if (!payload) {
+                return {
+                    success: false,
+                    message: 'Não foi possível interpretar a resposta do servidor.',
+                    type: 'error',
+                };
+            }
+
+            if (!response.ok || !payload.success) {
+                return {
+                    success: false,
+                    message: payload.message || 'Não foi possível salvar a etapa.',
+                    type: payload.alertType || 'error',
+                };
+            }
+
+            return {
+                success: true,
+                message: payload.message || '',
+                type: payload.alertType || 'success',
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: 'Falha de comunicação com o servidor. Tente novamente.',
+                type: 'error',
+            };
+        }
+    }
+
     function validateVisibleFields(step) {
         const fields = Array.from(step.querySelectorAll('input, select, textarea'));
         for (const field of fields) {
@@ -426,6 +488,8 @@
             const cityInput = form.querySelector('#lead_cidade');
 
             let currentStep = 0;
+            let isProcessingStep = false;
+            const totalSteps = steps.length;
 
             updateStepState(stepperButtons, steps, prevButton, nextButton, submitButton, currentStep);
 
@@ -504,35 +568,79 @@
             }
 
             if (nextButton) {
-                nextButton.addEventListener('click', () => {
+                nextButton.addEventListener('click', async () => {
+                    if (isProcessingStep) {
+                        return;
+                    }
                     if (!validateStep(form, currentStep, steps)) {
                         showFeedback(form, form.querySelector('[data-wizard-feedback]')?.textContent || 'Corrija os campos destacados.', 'error');
                         return;
                     }
-                    if (currentStep < steps.length - 1) {
-                        currentStep += 1;
-                        clearFeedback(form);
-                        updateStepState(stepperButtons, steps, prevButton, nextButton, submitButton, currentStep);
+                    if (currentStep >= totalSteps - 1) {
+                        return;
                     }
+
+                    isProcessingStep = true;
+                    nextButton.disabled = true;
+                    const resultadoEtapa = await submitWizardStep(form, currentStep, totalSteps);
+                    nextButton.disabled = false;
+                    isProcessingStep = false;
+
+                    if (!resultadoEtapa.success) {
+                        showFeedback(form, resultadoEtapa.message || 'Não foi possível salvar a etapa.', resultadoEtapa.type || 'error');
+                        return;
+                    }
+
+                    currentStep += 1;
+                    if (resultadoEtapa.message) {
+                        showFeedback(form, resultadoEtapa.message, resultadoEtapa.type || 'success');
+                    } else {
+                        clearFeedback(form);
+                    }
+                    updateStepState(stepperButtons, steps, prevButton, nextButton, submitButton, currentStep);
                 });
             }
 
             stepperButtons.forEach((button, index) => {
-                button.addEventListener('click', () => {
+                button.addEventListener('click', async () => {
                     if (index === currentStep) {
+                        return;
+                    }
+                    if (isProcessingStep) {
                         return;
                     }
                     const direction = index > currentStep ? 1 : -1;
                     let targetIndex = currentStep;
+                    let ultimoResultado = null;
                     while (targetIndex !== index) {
                         if (direction > 0 && !validateStep(form, targetIndex, steps)) {
                             showFeedback(form, 'Finalize o passo atual antes de avançar.', 'error');
                             return;
                         }
+                        if (direction > 0) {
+                            isProcessingStep = true;
+                            if (nextButton) {
+                                nextButton.disabled = true;
+                            }
+                            const resultadoEtapa = await submitWizardStep(form, targetIndex, totalSteps);
+                            if (nextButton) {
+                                nextButton.disabled = false;
+                            }
+                            isProcessingStep = false;
+                            if (!resultadoEtapa.success) {
+                                showFeedback(form, resultadoEtapa.message || 'Não foi possível salvar a etapa.', resultadoEtapa.type || 'error');
+                                return;
+                            }
+                            ultimoResultado = resultadoEtapa;
+                        }
                         targetIndex += direction;
                     }
                     currentStep = index;
-                    clearFeedback(form);
+                    if (ultimoResultado && ultimoResultado.message) {
+                        showFeedback(form, ultimoResultado.message, ultimoResultado.type || 'success');
+                    } else {
+                        clearFeedback(form);
+                    }
                     updateStepState(stepperButtons, steps, prevButton, nextButton, submitButton, currentStep);
                 });
             });
