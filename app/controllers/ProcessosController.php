@@ -22,6 +22,7 @@ require_once __DIR__ . '/../models/CategoriaFinanceira.php';
 require_once __DIR__ . '/../models/LancamentoFinanceiro.php';
 require_once __DIR__ . '/../services/EmailService.php';
 require_once __DIR__ . '/../models/Notificacao.php';
+require_once __DIR__ . '/../utils/DocumentValidator.php';
 require_once __DIR__ . '/../utils/OmiePayloadBuilder.php';
 class ProcessosController
 {
@@ -1530,7 +1531,7 @@ class ProcessosController
         $tipoPessoa = $input['lead_tipo_pessoa'] ?? 'Jurídica';
         $tipoCliente = $input['lead_tipo_cliente'] ?? '';
         $nomeCliente = trim((string)($input['lead_nome_cliente'] ?? ''));
-        $cpfCnpj = $this->sanitizeDigits($input['lead_cpf_cnpj'] ?? '');
+        $cpfCnpj = DocumentValidator::sanitizeNumber((string)($input['lead_cpf_cnpj'] ?? ''));
 
         if (!in_array($tipoPessoa, ['Física', 'Jurídica'], true)) {
             $erros[] = 'Selecione um tipo de pessoa válido.';
@@ -1545,11 +1546,11 @@ class ProcessosController
         }
 
         if ($tipoPessoa === 'Física') {
-            if (!$this->isValidCpf($cpfCnpj)) {
+            if (!DocumentValidator::isValidCpf($cpfCnpj)) {
                 $erros[] = 'CPF inválido.';
             }
         } else {
-            if (!$this->isValidCnpj($cpfCnpj)) {
+            if (!DocumentValidator::isValidCnpj($cpfCnpj)) {
                 $erros[] = 'CNPJ inválido.';
             }
             $responsavel = trim((string)($input['lead_nome_responsavel'] ?? ''));
@@ -1604,54 +1605,7 @@ class ProcessosController
             return '';
         }
 
-        $digits = preg_replace('/\D+/', '', $value);
-        return $digits ?? '';
-    }
-
-    private function isValidCpf(string $cpf): bool
-    {
-        if (strlen($cpf) !== 11 || preg_match('/^(\d)\1{10}$/', $cpf)) {
-            return false;
-        }
-
-        for ($t = 9; $t < 11; $t++) {
-            $sum = 0;
-            for ($i = 0; $i < $t; $i++) {
-                $sum += (int)$cpf[$i] * (($t + 1) - $i);
-            }
-            $digit = ((10 * $sum) % 11) % 10;
-            if ((int)$cpf[$t] !== $digit) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private function isValidCnpj(string $cnpj): bool
-    {
-        if (strlen($cnpj) !== 14 || preg_match('/^(\d)\1{13}$/', $cnpj)) {
-            return false;
-        }
-
-        $multiplicadores = [
-            5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2,
-            6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2,
-        ];
-
-        for ($t = 12; $t <= 13; $t++) {
-            $soma = 0;
-            for ($i = 0; $i < $t; $i++) {
-                $soma += (int)$cnpj[$i] * $multiplicadores[$i + (13 - $t)];
-            }
-            $digito = $soma % 11;
-            $digito = $digito < 2 ? 0 : 11 - $digito;
-            if ((int)$cnpj[$t] !== $digito) {
-                return false;
-            }
-        }
-
-        return true;
+        return DocumentValidator::sanitizeNumber($value);
     }
 
     private function persistLeadData(array $clienteData, int $clienteAtualId): int
