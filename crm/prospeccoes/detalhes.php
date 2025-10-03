@@ -14,10 +14,11 @@ if (!$prospeccao_id) {
 try {
     // A consulta já está correta
     $stmt = $pdo->prepare("
-        SELECT p.*, u.nome_completo AS responsavel_nome, c.nome_cliente 
-        FROM prospeccoes p 
-        LEFT JOIN users u ON p.responsavel_id = u.id 
-        LEFT JOIN clientes c ON p.cliente_id = c.id 
+        SELECT p.*, u.nome_completo AS responsavel_nome, c.nome_cliente, c.nome_responsavel AS lead_responsavel_nome,
+               c.telefone AS cliente_telefone, c.canal_origem AS cliente_canal_origem
+        FROM prospeccoes p
+        LEFT JOIN users u ON p.responsavel_id = u.id
+        LEFT JOIN clientes c ON p.cliente_id = c.id
         WHERE p.id = :id
     ");
     $stmt->execute(['id' => $prospeccao_id]);
@@ -59,18 +60,27 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
     <div class="lg:col-span-2">
         <div class="bg-white shadow sm:rounded-lg">
             <div class="px-4 py-5 sm:p-6">
+                <?php
+                    $leadResponsavelNome = $prospect['lead_responsavel_nome'] ?? $prospect['nome_prospecto'] ?? '';
+                    $leadNome = $prospect['nome_cliente'] ?? 'Lead não vinculado';
+                    $clienteTelefone = $prospect['cliente_telefone'] ?? '';
+                    $canalOrigem = $prospect['cliente_canal_origem'] ?? '';
+                    $statusAtual = $prospect['status'] ?? '';
+                ?>
                 <div class="flex justify-between items-start mb-6">
                     <div>
-                        <h2 class="text-2xl font-bold text-gray-900"><?php echo htmlspecialchars($prospect['nome_prospecto'] ?? ''); ?></h2>
-                        <p class="text-sm text-gray-500">Lead: <span class="font-medium text-indigo-600"><?php echo htmlspecialchars($prospect['nome_cliente'] ?? 'Lead não vinculado'); ?></span></p>
-                        <p class="text-sm text-gray-500 mt-1">ID: <?php echo htmlspecialchars($prospect['id_texto'] ?? ''); ?></p>
+                        <h2 class="text-2xl font-bold text-gray-900"><?php echo htmlspecialchars($leadNome); ?></h2>
+                        <p class="text-sm text-gray-500">Responsável: <span class="font-medium text-indigo-600"><?php echo htmlspecialchars($leadResponsavelNome); ?></span></p>
+                        <?php if (!empty($statusAtual)): ?>
+                            <span class="inline-flex mt-2 items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800 uppercase tracking-wide"><?php echo htmlspecialchars($statusAtual); ?></span>
+                        <?php endif; ?>
                     </div>
-                    
+
                     <div class="flex items-center space-x-2">
                     <a href="<?php echo APP_URL; ?>/crm/prospeccoes/aprovar.php?id=<?php echo $prospect['id']; ?>" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 shadow-sm">
                         Aprovar
-                    </a>    
-                    
+                    </a>
+
                     <a href="<?php echo APP_URL; ?>/crm/agendamentos/novo_agendamento.php?prospeccao_id=<?php echo $prospect['id']; ?>" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 shadow-sm">
                             Agendar
                         </a>
@@ -90,48 +100,41 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                     </div>
                 </div>
 
+                <div class="border border-gray-200 rounded-lg p-4 mb-6 bg-gray-50">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Nome</label>
+                            <input type="text" value="<?php echo htmlspecialchars($leadNome); ?>" class="mt-1 block w-full border border-gray-200 rounded-md shadow-sm py-2 px-3 bg-white text-gray-700" disabled>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Nome do Responsável (Lead)</label>
+                            <input type="text" value="<?php echo htmlspecialchars($leadResponsavelNome); ?>" class="mt-1 block w-full border border-gray-200 rounded-md shadow-sm py-2 px-3 bg-white text-gray-700" disabled>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Telefone do Cliente</label>
+                            <input type="text" value="<?php echo htmlspecialchars($clienteTelefone); ?>" class="mt-1 block w-full border border-gray-200 rounded-md shadow-sm py-2 px-3 bg-white text-gray-700" disabled>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Origem da Chamada</label>
+                            <input type="text" value="<?php echo htmlspecialchars($canalOrigem); ?>" class="mt-1 block w-full border border-gray-200 rounded-md shadow-sm py-2 px-3 bg-white text-gray-700" disabled>
+                        </div>
+                    </div>
+                </div>
+
                 <form action="<?php echo APP_URL; ?>/crm/prospeccoes/atualizar.php" method="POST" class="space-y-6">
                     <input type="hidden" name="prospeccao_id" value="<?php echo $prospect['id']; ?>">
                     <input type="hidden" name="action" value="update_prospect">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label for="nome_prospecto" class="block text-sm font-medium text-gray-700">Nome da Oportunidade</label>
-                            <input type="text" name="nome_prospecto" id="nome_prospecto" value="<?php echo htmlspecialchars($prospect['nome_prospecto'] ?? ''); ?>" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
-                        </div>
-                        
-                        <div>
-                            <label for="responsavel_nome" class="block text-sm font-medium text-gray-700">SDR Responsável</label>
-                            <input type="text" id="responsavel_nome" value="<?php echo htmlspecialchars($prospect['responsavel_nome'] ?? 'Não atribuído'); ?>" 
-                                   class="mt-1 block w-full border-gray-200 rounded-md shadow-sm py-2 px-3 bg-gray-100 text-gray-500 cursor-not-allowed" disabled>
-                        </div>
-                        
-                        <div>
-                            <label for="status" class="block text-sm font-medium text-gray-700">Status</label>
-                            <select name="status" id="status" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
-                                <option value="Cliente ativo" <?php echo ($prospect['status'] == 'Cliente ativo') ? 'selected' : ''; ?>>Lead ativo</option>
-                                <option value="Primeiro contato" <?php echo ($prospect['status'] == 'Primeiro contato') ? 'selected' : ''; ?>>Primeiro contato</option>
-                                <option value="Segundo contato" <?php echo ($prospect['status'] == 'Segundo contato') ? 'selected' : ''; ?>>Segundo contato</option>
-                                <option value="Terceiro contato" <?php echo ($prospect['status'] == 'Terceiro contato') ? 'selected' : ''; ?>>Terceiro contato</option>
-                                <option value="Reunião agendada" <?php echo ($prospect['status'] == 'Reunião agendada') ? 'selected' : ''; ?>>Reunião agendada</option>
-                                <option value="Proposta enviada" <?php echo ($prospect['status'] == 'Proposta enviada') ? 'selected' : ''; ?>>Proposta enviada</option>
-                                <option value="Fechamento" <?php echo ($prospect['status'] == 'Fechamento') ? 'selected' : ''; ?>>Fechamento</option>
-                                <option value="Pausar" <?php echo ($prospect['status'] == 'Pausar') ? 'selected' : ''; ?>>Pausar</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="valor_proposto" class="block text-sm font-medium text-gray-700">Valor Proposto (R$)</label>
-                            <input type="text" name="valor_proposto" id="valor_proposto" data-currency-input value="<?php echo htmlspecialchars($prospect['valor_proposto'] ?? '0'); ?>" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" placeholder="R$ 0,00">
-                        </div>
-                        <div>
                             <label for="data_reuniao_agendada" class="block text-sm font-medium text-gray-700">Data da Reunião</label>
                             <input type="datetime-local" name="data_reuniao_agendada" id="data_reuniao_agendada" value="<?php echo !empty($prospect['data_reuniao_agendada']) ? date('Y-m-d\TH:i', strtotime($prospect['data_reuniao_agendada'])) : ''; ?>" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
                         </div>
-                         <div class="sm:col-span-1 flex items-center pt-4">
+                        <div class="sm:col-span-1 flex items-center pt-4">
                             <input type="checkbox" name="reuniao_compareceu" id="reuniao_compareceu" value="1" <?php echo (!empty($prospect['reuniao_compareceu'])) ? 'checked' : ''; ?> class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
                             <label for="reuniao_compareceu" class="ml-2 block text-sm font-medium text-gray-700">Compareceu?</label>
                         </div>
                     </div>
-                    
+
                     <div class="flex justify-end pt-4 border-t mt-6">
                         <a href="<?php echo APP_URL; ?>/crm/prospeccoes/lista.php" class="bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 mr-3">Voltar</a>
                         <button type="submit" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700">Salvar Alterações</button>

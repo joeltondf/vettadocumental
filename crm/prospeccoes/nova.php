@@ -5,13 +5,37 @@ require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
 
 try {
-    $stmt_clientes = $pdo->query("SELECT id, nome_cliente FROM clientes WHERE is_prospect = 1 ORDER BY nome_cliente ASC");
+    $userPerfil = $_SESSION['user_perfil'] ?? '';
+    $userId = (int)($_SESSION['user_id'] ?? 0);
+
+    $sqlClientes = "SELECT id, nome_cliente, nome_responsavel, crmOwnerId FROM clientes WHERE is_prospect = 1";
+    $paramsClientes = [];
+
+    if ($userPerfil === 'vendedor' && $userId > 0) {
+        $sqlClientes .= " AND crmOwnerId = :ownerId";
+        $paramsClientes[':ownerId'] = $userId;
+    }
+
+    $sqlClientes .= " ORDER BY nome_cliente ASC";
+
+    $stmt_clientes = $pdo->prepare($sqlClientes);
+    $stmt_clientes->execute($paramsClientes);
     $clientes = $stmt_clientes->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     die("Erro ao buscar leads: " . $e->getMessage());
 }
 
 $cliente_pre_selecionado_id = filter_input(INPUT_GET, 'cliente_id', FILTER_VALIDATE_INT);
+
+if (!empty($cliente_pre_selecionado_id)) {
+    $clienteDisponivel = array_filter($clientes, static function (array $cliente) use ($cliente_pre_selecionado_id) {
+        return (int)$cliente['id'] === (int)$cliente_pre_selecionado_id;
+    });
+
+    if (empty($clienteDisponivel)) {
+        $cliente_pre_selecionado_id = null;
+    }
+}
 
 require_once __DIR__ . '/../../app/views/layouts/header.php';
 ?>
@@ -46,51 +70,24 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
         </div>
     <?php else: ?>
         <form action="<?php echo APP_URL; ?>/crm/prospeccoes/salvar.php" method="POST" id="form-nova-prospeccao" class="space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="md:col-span-2">
-                    <label for="cliente_id" class="block text-sm font-medium text-gray-700">Lead Associado</label>
-                    <div class="flex items-center space-x-2 mt-1">
-                        <select name="cliente_id" id="cliente_id" class="block w-full">
-                            <option></option> <?php foreach ($clientes as $cliente): ?>
-                                <option value="<?php echo $cliente['id']; ?>" <?php echo ($cliente['id'] == $cliente_pre_selecionado_id) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($cliente['nome_cliente']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <a href="<?php echo APP_URL; ?>/crm/clientes/novo.php?redirect_url=<?php echo urlencode(APP_URL . '/crm/prospeccoes/nova.php'); ?>"
-                        class="flex-shrink-0 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md text-sm">
-                            Novo Lead
-                        </a>
-                    </div>
-                </div>                
-                <div>
-                    <label for="nome_prospecto" class="block text-sm font-medium text-gray-700">Nome da Oportunidade</label>
-                    <input type="text" name="nome_prospecto" id="nome_prospecto" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
-                </div>
-                <div>
-                    <label for="valor_proposto" class="block text-sm font-medium text-gray-700">Valor Proposto (R$)</label>
-                    <input type="text" name="valor_proposto" id="valor_proposto" data-currency-input class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" placeholder="R$ 0,00">
-                </div>
-                <div class="md:col-span-2">
-                    <label for="status" class="block text-sm font-medium text-gray-700">Status Inicial</label>
-                    <select name="status" id="status" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
-                        <option value="Cliente ativo">Lead ativo</option>
-                        <option value="Primeiro contato">Primeiro contato</option>
-                        <option value="Segundo contato">Segundo contato</option>
-                        <option value="Terceiro contato">Terceiro contato</option>
-                        <option value="Reunião agendada">Reunião agendada</option>
-                        <option value="Proposta enviada">Proposta enviada</option>
-                        <option value="Fechamento">Fechamento</option>
-                        <option value="Pausar">Pausar</option>
-                    </select>
-                </div>
-            </div>
-            
             <div>
-                <label for="feedback_inicial" class="block text-sm font-medium text-gray-700">Observações Iniciais</label>
-                <textarea name="feedback_inicial" id="feedback_inicial" rows="4" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"></textarea>
+                <label for="cliente_id" class="block text-sm font-medium text-gray-700">Nome do Lead</label>
+                <div class="flex items-center space-x-2 mt-1">
+                    <select name="cliente_id" id="cliente_id" class="block w-full">
+                        <option></option>
+                        <?php foreach ($clientes as $cliente): ?>
+                            <option value="<?php echo $cliente['id']; ?>" <?php echo ($cliente['id'] == $cliente_pre_selecionado_id) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($cliente['nome_cliente']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <a href="<?php echo APP_URL; ?>/crm/clientes/novo.php?redirect_url=<?php echo urlencode(APP_URL . '/crm/prospeccoes/nova.php'); ?>"
+                       class="flex-shrink-0 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md text-sm">
+                        Novo Lead
+                    </a>
+                </div>
             </div>
-            
+
             <div class="flex justify-end pt-4">
                 <a href="<?php echo APP_URL; ?>/crm/prospeccoes/lista.php" class="bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded hover:bg-gray-300 mr-3">Cancelar</a>
                 <button type="submit" class="bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700">Salvar Prospecção</button>
@@ -101,8 +98,6 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script src="<?php echo APP_URL; ?>/assets/js/currency-mask.js"></script>
-
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // --- INÍCIO DA CORREÇÃO PRINCIPAL ---
@@ -113,18 +108,16 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
         });
 
         const form = document.getElementById('form-nova-prospeccao');
-
+        const leadSelect = document.getElementById('cliente_id');
         if (form) {
             form.addEventListener('submit', function(event) {
-                // Pega o valor do Select2 no momento exato do envio
                 const clienteId = $('#cliente_id').val();
 
-                // Se o valor for nulo ou vazio, impede o envio e mostra um alerta
                 if (!clienteId || clienteId === '') {
-                    event.preventDefault(); // Impede o envio do formulário
+                    event.preventDefault();
                     alert('Erro: Por favor, selecione um lead associado.');
+                    return;
                 }
-                // Se houver um valor, o formulário será enviado normalmente.
             });
         }
         // --- FIM DA CORREÇÃO PRINCIPAL ---
