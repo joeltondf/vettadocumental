@@ -84,7 +84,7 @@ try {
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label for="cliente_id" class="block text-sm font-medium text-gray-700">Contato (Opcional)</label>
+                        <label for="cliente_id" class="block text-sm font-medium text-gray-700">Lead (Opcional)</label>
                         <select class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm" id="cliente_id" name="cliente_id">
                             <option value="">Nenhum</option>
                             <?php foreach ($clientes as $cliente): ?>
@@ -342,7 +342,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (data && data.cliente_id) {
                         clienteSelect.value = data.cliente_id;
                     } else {
-                        alert('Esta prospecção não está associada a nenhum contato.');
+                        alert('Esta prospecção não está associada a nenhum lead.');
                     }
                 })
                 .catch(error => {
@@ -407,7 +407,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         if (!clienteIdParaNovaProspeccao) {
-            alert('Não foi possível associar a nova prospecção a um contato. Tente novamente.');
+            alert('Não foi possível associar a nova prospecção a um lead. Tente novamente.');
             return;
         }
         

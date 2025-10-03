@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_POST['id'])) {
 
 $cliente_id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
 if (!$cliente_id) {
-    die("ID de contato inválido.");
+    die("ID de lead inválido.");
 }
 
 // Inicia uma transação para garantir a integridade dos dados
@@ -36,13 +36,13 @@ try {
     $pdo->commit();
 
     // 5. Redireciona de volta para a lista com mensagem de sucesso
-    $_SESSION['success_message'] = "Contato excluído com sucesso.";
+    $_SESSION['success_message'] = "Lead excluído com sucesso.";
     header('Location: ' . APP_URL . '/crm/clientes/lista.php');
     exit;
 
 } catch (PDOException $e) {
     // Se qualquer operação falhar, desfaz todas as alterações
     $pdo->rollBack();
-    die("Erro ao excluir o contato. Pode haver registros associados que impedem a exclusão. Erro: " . $e->getMessage());
+    die("Erro ao excluir o lead. Pode haver registros associados que impedem a exclusão. Erro: " . $e->getMessage());
 }
 ?>

@@ -149,7 +149,7 @@ try {
                 <?php foreach ($prospeccoes_por_status[$status] as $prospeccao): ?>
                     <div class="bg-white p-3 rounded-lg shadow-sm kanban-card" data-id="<?php echo $prospeccao['id']; ?>">
                         <p class="font-semibold text-sm text-gray-800"><?php echo htmlspecialchars($prospeccao['nome_prospecto']); ?></p>
-                        <p class="text-xs text-gray-600 mt-1"><?php echo htmlspecialchars($prospeccao['nome_cliente'] ?? 'Contato não associado'); ?></p>
+                        <p class="text-xs text-gray-600 mt-1"><?php echo htmlspecialchars($prospeccao['nome_cliente'] ?? 'Lead não associado'); ?></p>
                         <div class="flex justify-between items-center mt-3">
                             
                             <p class="text-xs text-blue-600 font-bold">R$ <?php echo number_format($prospeccao['valor_proposto'] ?? 0, 2, ',', '.'); ?></p>

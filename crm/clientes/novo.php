@@ -16,7 +16,7 @@ if (strpos($redirectUrl, APP_URL) !== 0) {
 <div class="bg-white shadow px-4 py-5 sm:rounded-lg sm:p-6">
     <div class="md:flex md:items-center md:justify-between border-b border-gray-200 pb-4">
         <h1 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-            Cadastrar Novo Contato
+            Cadastrar Novo Lead
         </h1>
     </div>
     
@@ -26,12 +26,12 @@ if (strpos($redirectUrl, APP_URL) !== 0) {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
                 <div class="md:col-span-2">
-                    <label for="nome_cliente" class="block text-sm font-medium text-gray-700">Nome do Contato / Empresa</label>
+                    <label for="nome_cliente" class="block text-sm font-medium text-gray-700">Nome do Lead / Empresa</label>
                     <input type="text" name="nome_cliente" id="nome_cliente" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
                 </div>
 
                 <div>
-                    <label for="nome_responsavel" class="block text-sm font-medium text-gray-700">Nome do Contato Principal <span class="text-gray-500 font-normal">(Opcional)</span></label>
+                    <label for="nome_responsavel" class="block text-sm font-medium text-gray-700">Nome do Lead Principal <span class="text-gray-500 font-normal">(Opcional)</span></label>
                     <input type="text" name="nome_responsavel" id="nome_responsavel" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
                 </div>
                 
@@ -63,13 +63,13 @@ if (strpos($redirectUrl, APP_URL) !== 0) {
                 </div>
 
                 <div class="md:col-span-2">
-                    <label for="categoria" class="block text-sm font-medium text-gray-700">Categoria do Contato</label>
+                    <label for="categoria" class="block text-sm font-medium text-gray-700">Categoria do Lead</label>
                     <select name="categoria" id="categoria" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
                         <option value="Entrada">Entrada</option>
                         <option value="Qualificado">Qualificado</option>
                         <option value="Com Orçamento">Com Orçamento</option>
                         <option value="Em Negociação">Em Negociação</option>
-                        <option value="Cliente Ativo">Contato Ativo</option>
+                        <option value="Cliente Ativo">Lead Ativo</option>
                         <option value="Sem Interesse">Sem Interesse</option>
                     </select>
                 </div>
@@ -77,7 +77,7 @@ if (strpos($redirectUrl, APP_URL) !== 0) {
 
             <div class="pt-5 flex justify-end border-t mt-6">
                 <a href="<?php echo APP_URL; ?>/crm/clientes/lista.php" class="bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 mr-3">Cancelar</a>
-                <button type="submit" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700">Salvar Contato</button>
+                <button type="submit" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700">Salvar Lead</button>
             </div>
         </form>
     </div>

@@ -151,7 +151,7 @@ require_once __DIR__ . '/../app/views/layouts/header.php';
         <div class="mt-4" style="height: 300px;"><canvas id="graficoResponsavel"></canvas></div>
     </div>
     <div class="bg-white overflow-hidden shadow rounded-lg p-6 lg:col-span-2">
-        <h3 class="text-lg font-medium leading-6 text-gray-900">Contatos por Canal de Origem</h3>
+        <h3 class="text-lg font-medium leading-6 text-gray-900">Leads por Canal de Origem</h3>
         <div class="mt-4" style="height: 300px;"><canvas id="graficoCanais"></canvas></div>
     </div>
 </div>
@@ -170,7 +170,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
     
     // Gráfico de Canais
     const ctxCanais = document.getElementById('graficoCanais').getContext('2d');
-    new Chart(ctxCanais, { type: 'bar', data: { labels: <?php echo json_encode($labels_canal); ?>, datasets: [{ label: 'Contatos por Canal', data: <?php echo json_encode($valores_canal); ?>, backgroundColor: 'rgba(59, 130, 246, 0.7)', }] }, options: { scales: { y: { beginAtZero: true } }, responsive: true, maintainAspectRatio: false } });
+    new Chart(ctxCanais, { type: 'bar', data: { labels: <?php echo json_encode($labels_canal); ?>, datasets: [{ label: 'Leads por Canal', data: <?php echo json_encode($valores_canal); ?>, backgroundColor: 'rgba(59, 130, 246, 0.7)', }] }, options: { scales: { y: { beginAtZero: true } }, responsive: true, maintainAspectRatio: false } });
 });
 </script>
 

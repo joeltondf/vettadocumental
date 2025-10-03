@@ -54,7 +54,7 @@ try {
         case 'get_cliente_by_id':
             $cliente_id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
             if (!$cliente_id) {
-                echo json_encode(['error' => 'ID do contato inválido.']);
+                echo json_encode(['error' => 'ID do lead inválido.']);
                 exit();
             }
             // Correção: Usar 'nome_cliente' em vez de 'nome_empresa'

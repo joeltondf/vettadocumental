@@ -141,7 +141,7 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
                                 <div class="border-t border-gray-200 my-1"></div>
                                 <a href="<?php echo APP_URL; ?>/crm/prospeccoes/kanban.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Kanban</a>
                                 <a href="<?php echo APP_URL; ?>/crm/agendamentos/calendario.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Agendamentos</a>
-                                <a href="<?php echo APP_URL; ?>/crm/clientes/lista.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Contatos</a>
+                                <a href="<?php echo APP_URL; ?>/crm/clientes/lista.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Leads</a>
                                 <a href="<?php echo APP_URL; ?>/crm/prospeccoes/lista.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Prospecções</a>
                             </div>
                         </div>

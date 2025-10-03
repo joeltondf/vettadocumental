@@ -63,7 +63,7 @@ if ($action === 'fetch_bitrix') {
         $_SESSION['bitrix_import_data'] = $all_contacts;
         $contacts_from_bitrix = $all_contacts;
     } else {
-        $feedback_message = "Nenhum contato encontrado no Bitrix24 ou erro na API.";
+        $feedback_message = "Nenhum lead encontrado no Bitrix24 ou erro na API.";
         $feedback_type = 'info';
     }
 }
@@ -73,7 +73,7 @@ if ($action === 'import_selected') {
     $selected_contacts_ids = $_POST['contact_ids'] ?? [];
 
     if (empty($selected_contacts_ids)) {
-        $feedback_message = "Nenhum contato foi selecionado para importação.";
+        $feedback_message = "Nenhum lead foi selecionado para importação.";
         $feedback_type = 'error';
         $contacts_from_bitrix = $_SESSION['bitrix_import_data'] ?? [];
     } else {
@@ -116,7 +116,7 @@ if ($action === 'import_selected') {
         }
         
         $pdo->commit();
-        $feedback_message = "Importação concluída! <strong>{$count_adicionados}</strong> novos contatos importados. <strong>{$count_ignorados}</strong> contatos ignorados (já existiam).";
+        $feedback_message = "Importação concluída! <strong>{$count_adicionados}</strong> novos leads importados. <strong>{$count_ignorados}</strong> leads ignorados (já existiam).";
         $feedback_type = 'success';
         
         unset($_SESSION['bitrix_import_data']);
@@ -131,7 +131,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
 <div class="bg-white shadow px-4 py-5 sm:rounded-lg sm:p-6">
     <div class="md:flex md:items-center md:justify-between border-b border-gray-200 pb-4 mb-6">
         <h1 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-            Importar Contatos do Bitrix24
+            Importar Leads do Bitrix24
         </h1>
     </div>
 
@@ -142,11 +142,11 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
 
     <?php if (empty($contacts_from_bitrix)): ?>
         <div class="text-center">
-            <p class="text-gray-600 mb-4">Clique no botão para buscar os contatos do Bitrix24 e visualizá-los antes de importar.</p>
+            <p class="text-gray-600 mb-4">Clique no botão para buscar os leads do Bitrix24 e visualizá-los antes de importar.</p>
             <form action="<?php echo APP_URL; ?>/crm/clientes/integracao_bitrix.php" method="POST">
                 <input type="hidden" name="action" value="fetch_bitrix">
                 <button type="submit" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 text-lg shadow-lg">
-                    Buscar Contatos do Bitrix24
+                    Buscar Leads do Bitrix24
                 </button>
             </form>
         </div>
