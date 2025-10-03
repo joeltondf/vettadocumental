@@ -70,7 +70,7 @@
                 <div id="receita-fields" class="hidden md:col-span-4 lg:col-span-4 grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5 mt-4 pt-4 border-t">
                     <div>
                         <label for="cat-valor" class="block text-sm font-medium text-gray-700 mb-1">Valor Padrão (R$)</label>
-                        <input type="number" step="0.01" name="valor_padrao" id="cat-valor" class="block w-full rounded-lg border-gray-300 shadow-sm text-sm py-2.5" placeholder="Ex: 150.00">
+                        <input type="text" name="valor_padrao" id="cat-valor" data-currency-input class="block w-full rounded-lg border-gray-300 shadow-sm text-sm py-2.5" placeholder="R$ 0,00">
                     </div>
                     <div class="flex items-end pb-2">
                         <label class="flex items-center">
@@ -132,9 +132,9 @@
                         <div class="flex justify-between items-center">
                             <span><?php echo htmlspecialchars($grupo); ?></span>
                             <div>
-                                <button onclick="renameGroup('<?php echo htmlspecialchars($grupo, ENT_QUOTES); ?>')" class="text-xs text-blue-600 hover:text-blue-900 font-normal">Renomear Grupo</button>
+                                <button type="button" onclick="renameGroup('<?php echo htmlspecialchars($grupo, ENT_QUOTES); ?>')" class="text-xs text-blue-600 hover:text-blue-900 font-normal">Renomear Grupo</button>
                                 <span class="mx-1 text-gray-400">|</span>
-                                <button onclick="deleteGroup('<?php echo htmlspecialchars($grupo, ENT_QUOTES); ?>')" class="text-xs text-red-600 hover:text-red-900 font-normal">Excluir Grupo</button>
+                                <button type="button" onclick="deleteGroup('<?php echo htmlspecialchars($grupo, ENT_QUOTES); ?>')" class="text-xs text-red-600 hover:text-red-900 font-normal">Excluir Grupo</button>
                             </div>
                         </div>
                     </td>
@@ -145,7 +145,7 @@
                         <td class="px-6 py-3 font-semibold <?php echo $cat['tipo_lancamento'] == 'RECEITA' ? 'text-green-600' : 'text-red-600'; ?>"><?php echo $cat['tipo_lancamento']; ?></td>
                         <td class="px-6 py-3"><?php echo $cat['ativo'] ? '<span class="px-2 py-1 font-semibold leading-tight text-green-700 bg-green-100 rounded-full">Ativo</span>' : '<span class="px-2 py-1 font-semibold leading-tight text-red-700 bg-red-100 rounded-full">Inativo</span>'; ?></td>
                         <td class="px-6 py-4 text-center text-sm space-x-2">
-                            <button onclick='editCategory(<?php echo json_encode($cat, JSON_HEX_APOS); ?>)' class="text-indigo-600 hover:text-indigo-900 font-medium">Editar</button>
+                            <button type="button" onclick='editCategory(<?php echo json_encode($cat, JSON_HEX_APOS); ?>)' class="text-indigo-600 hover:text-indigo-900 font-medium">Editar</button>
 
                             <?php if ($cat['ativo']): ?>
                                 <a href="categorias.php?action=deactivate&id=<?php echo $cat['id']; ?>" onclick="return confirm('Tem certeza que deseja desativar esta categoria?')" class="text-yellow-600 hover:text-yellow-900 font-medium">Desativar</a>
@@ -167,9 +167,12 @@
 </div>
 </div>
 
+<form id="group-action-form" method="POST" class="hidden" aria-hidden="true"></form>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const tipoLancamentoSelect = document.getElementById('cat-tipo');
+    const groupActionForm = document.getElementById('group-action-form');
 
     // --- FUNÇÕES PRINCIPAIS ---
 
@@ -180,7 +183,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const submitButton = form.querySelector('button[type="submit"]');
 
         if (h3Title) h3Title.textContent = 'Editar Grupo/Categoria';
-        form.action = `categorias.php?action=update&id=${category.id}`;
+        form.action = 'categorias.php?action=save';
 
         document.getElementById('cat-id').value = category.id;
         document.getElementById('cat-nome').value = category.nome_categoria;
@@ -190,9 +193,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
         toggleReceitaFields();
 
+        const valorPadraoInput = document.getElementById('cat-valor');
         if (category.tipo_lancamento === 'RECEITA') {
-            document.getElementById('cat-valor').value = category.valor_padrao;
+            if (valorPadraoInput) {
+                valorPadraoInput.value = category.valor_padrao ?? '';
+                valorPadraoInput.dispatchEvent(new Event('currency:refresh'));
+            }
             document.getElementById('cat-bloquear').checked = category.bloquear_valor_minimo == 1;
+        } else if (valorPadraoInput) {
+            valorPadraoInput.value = '';
+            valorPadraoInput.dispatchEvent(new Event('currency:refresh'));
         }
 
         submitButton.innerHTML = '<i class="fas fa-save mr-2"></i> Atualizar Grupo';
@@ -209,7 +219,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const submitButton = form.querySelector('button[type="submit"]');
 
         if (h3Title) h3Title.textContent = 'Adicionar / Editar Grupo';
-        form.action = 'categorias.php?action=store';
+        form.action = 'categorias.php?action=save';
 
         form.reset();
         document.getElementById('cat-id').value = '';
@@ -220,9 +230,62 @@ document.addEventListener('DOMContentLoaded', function() {
 
         toggleReceitaFields();
         setInitialColors();
+        const valorPadraoInput = document.getElementById('cat-valor');
+        if (valorPadraoInput) {
+            valorPadraoInput.value = '';
+            valorPadraoInput.dispatchEvent(new Event('currency:refresh'));
+        }
     }
 
     // --- FUNÇÕES AUXILIARES ---
+
+    window.renameGroup = function(groupName) {
+        const newName = prompt('Digite o novo nome para o grupo:', groupName);
+        if (newName === null) {
+            return;
+        }
+
+        const trimmedName = newName.trim();
+        if (trimmedName === '' || trimmedName === groupName) {
+            alert('Informe um nome diferente para renomear o grupo.');
+            return;
+        }
+
+        submitGroupAction('rename_group', {
+            old_name: groupName,
+            new_name: trimmedName
+        });
+    };
+
+    window.deleteGroup = function(groupName) {
+        const confirmed = confirm(`Tem certeza que deseja excluir o grupo "${groupName}" e todas as categorias associadas?`);
+        if (!confirmed) {
+            return;
+        }
+
+        submitGroupAction('delete_group', {
+            group_name: groupName
+        });
+    };
+
+    function submitGroupAction(action, fields) {
+        if (!groupActionForm) {
+            return;
+        }
+
+        groupActionForm.innerHTML = '';
+
+        Object.entries(fields).forEach(([name, value]) => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = name;
+            input.value = value;
+            groupActionForm.appendChild(input);
+        });
+
+        groupActionForm.action = `categorias.php?action=${action}`;
+        groupActionForm.submit();
+    }
 
     function updateColor(selectElement) {
         if (!selectElement) return;

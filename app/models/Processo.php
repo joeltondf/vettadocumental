@@ -16,7 +16,7 @@ class Processo
         $this->pdo = $pdo;
     }
 	
-    private function parseCurrency($value) {
+    public function parseCurrency($value) {
         if ($value === null || $value === '') {
             return null;
         }
@@ -53,8 +53,6 @@ class Processo
 
 
     
-// app/models/Processo.php
-
 public function create($data, $files)
 {
     $this->pdo->beginTransaction();
@@ -75,37 +73,41 @@ public function create($data, $files)
         $prazo_calculado = new DateTime();
         $prazo_calculado->modify('+3 days');
         $prazo_formatado = $prazo_calculado->format('Y-m-d');
+        $omieKeyPreview = $this->generateNextOmieKey();
 
-        // --- INÍCIO DA CORREÇÃO ---
-        // A coluna 'orcamento_comprovantes' foi removida da query.
+        // ===== INÍCIO DA CORREÇÃO =====
+        // Query SQL CORRIGIDA: A coluna 'orcamento_comprovantes' foi removida.
         $sqlProcesso = "INSERT INTO processos (
             cliente_id, colaborador_id, vendedor_id, titulo, status_processo,
             orcamento_numero, orcamento_origem, orcamento_prazo_calculado,
             data_previsao_entrega, categorias_servico, idioma,
             valor_total, orcamento_forma_pagamento, orcamento_parcelas, orcamento_valor_entrada,
-            data_pagamento_1, data_pagamento_2, 
+            data_pagamento_1, data_pagamento_2,
             apostilamento_quantidade, apostilamento_valor_unitario,
             postagem_quantidade, postagem_valor_unitario, observacoes,
             data_entrada, data_inicio_traducao, traducao_modalidade,
             traducao_prazo_data, traducao_prazo_dias,
             assinatura_tipo, tradutor_id, modalidade_assinatura,
-            os_numero_conta_azul
+            etapa_faturamento_codigo, codigo_categoria, codigo_conta_corrente, codigo_cenario_fiscal, os_numero_conta_azul
         ) VALUES (
             :cliente_id, :colaborador_id, :vendedor_id, :titulo, :status_processo,
             :orcamento_numero, :orcamento_origem, :orcamento_prazo_calculado,
             :data_previsao_entrega, :categorias_servico, :idioma,
             :valor_total, :orcamento_forma_pagamento, :orcamento_parcelas, :orcamento_valor_entrada,
-            :data_pagamento_1, :data_pagamento_2, 
+            :data_pagamento_1, :data_pagamento_2,
             :apostilamento_quantidade, :apostilamento_valor_unitario,
             :postagem_quantidade, :postagem_valor_unitario, :observacoes,
             :data_entrada, :data_inicio_traducao, :traducao_modalidade,
             :traducao_prazo_data, :traducao_prazo_dias,
             :assinatura_tipo, :tradutor_id, :modalidade_assinatura,
-            :os_numero_conta_azul
+            :etapa_faturamento_codigo, :codigo_categoria, :codigo_conta_corrente, :codigo_cenario_fiscal, :os_numero_conta_azul
         )";
         $stmtProcesso = $this->pdo->prepare($sqlProcesso);
 
-        // O parâmetro 'orcamento_comprovantes' foi removido do array.
+        // A chamada para a função antiga 'uploadComprovante' foi removida, pois 'salvarArquivos' já faz o trabalho.
+        // $comprovantePath = $this->uploadComprovante($files['comprovante'] ?? null);
+
+        // Parâmetros CORRIGIDOS: A chave 'orcamento_comprovantes' foi removida.
         $params = [
             'cliente_id' => $data['id_cliente'] ?? $data['cliente_id'] ?? null,
             'colaborador_id' => $_SESSION['user_id'],
@@ -137,39 +139,41 @@ public function create($data, $files)
             'assinatura_tipo' => $data['assinatura_tipo'] ?? 'Digital',
             'tradutor_id' => $data['id_tradutor'] ?? $data['tradutor_id'] ?? null,
             'modalidade_assinatura' => $data['modalidade_assinatura'] ?? null,
-            'os_numero_conta_azul' => $data['os_numero_conta_azul'] ?? null,
+            'etapa_faturamento_codigo' => $this->sanitizeNullableString($data['etapa_faturamento_codigo'] ?? null),
+            'codigo_categoria' => $this->sanitizeNullableString($data['codigo_categoria'] ?? null),
+            'codigo_conta_corrente' => $this->sanitizeNullableInt($data['codigo_conta_corrente'] ?? null),
+            'codigo_cenario_fiscal' => $this->sanitizeNullableInt($data['codigo_cenario_fiscal'] ?? null),
+            'os_numero_conta_azul' => $omieKeyPreview
         ];
-        // --- FIM DA CORREÇÃO ---
-        
+        // ===== FIM DA CORREÇÃO =====
+
         $stmtProcesso->execute($params);
-        $processoId = $this->pdo->lastInsertId();
+        $processoId = (int)$this->pdo->lastInsertId();
+        $this->updateOmieKeyForProcessId($processoId);
 
-        // Salva Anexos Gerais e Comprovantes (lógica correta)
+        // Esta lógica de salvar arquivos e documentos já estava correta e foi mantida.
+        // O formulário de serviço rápido envia arquivos no campo 'anexos', que serão salvos aqui.
         $this->salvarArquivos($processoId, $files['anexos'] ?? null, 'anexo');
+        
+        // Se houver um campo 'comprovantes' no formulário, ele também será salvo corretamente.
         $this->salvarArquivos($processoId, $files['comprovantes'] ?? null, 'comprovante');
-
-        // Salva Documentos (serviços de tradução/crc)
-        if (isset($data['docs']) && is_array($data['docs'])) {
-            $sqlDoc = "INSERT INTO documentos (processo_id, categoria, tipo_documento, nome_documento, quantidade, valor_unitario) VALUES (?, ?, ?, ?, ?, ?)";
-            $stmtDoc = $this->pdo->prepare($sqlDoc);
-            foreach ($data['docs'] as $doc) {
-                if (!empty($doc['tipo_documento']) && !empty($doc['valor_unitario'])) {
-                    $stmtDoc->execute([
-                        $processoId, $doc['categoria'], $doc['tipo_documento'], $doc['nome_documento'],
-                        $doc['quantidade'] ?? 1, $this->parseCurrency($doc['valor_unitario'] ?? 0)
-                    ]);
-                }
-            }
+        
+        $documents = $this->normalizeDocumentsForInsert($data);
+        if (!empty($documents)) {
+            $this->insertProcessDocuments($processoId, $documents);
         }
         
         $this->pdo->commit();
         return $processoId;
-        
-    } catch (Exception $e) {
+    } catch (PDOException $e) {
         $this->pdo->rollBack();
-        $errorMessage = "DEBUG: " . $e->getMessage() . " no arquivo " . $e->getFile() . " na linha " . $e->getLine();
-        $_SESSION['debug_error'] = $errorMessage;
-        error_log($errorMessage);
+        
+        // Mantemos o debug por enquanto para ter certeza.
+        if (!isset($_SESSION['error_message'])) {
+            $_SESSION['error_message'] = "Erro de Banco de Dados: " . $e->getMessage();
+        }
+
+        error_log('Erro ao criar processo: ' . $e->getMessage());
         return false;
     }
 }
@@ -189,7 +193,6 @@ public function create($data, $files)
         $sql = "SELECT 
                     p.*, 
                     c.nome_cliente, 
-                    c.conta_azul_uuid as conta_azul_cliente_id,
                     u_vendedor.nome_completo as nome_vendedor, -- Pega o nome da tabela 'users'
                     t.nome_tradutor 
                 FROM processos p
@@ -245,7 +248,11 @@ public function create($data, $files)
                                 data_pagamento_1 = :data_pagamento_1, data_pagamento_2 = :data_pagamento_2,
                                 apostilamento_quantidade = :apostilamento_quantidade, apostilamento_valor_unitario = :apostilamento_valor_unitario,
                                 postagem_quantidade = :postagem_quantidade, postagem_valor_unitario = :postagem_valor_unitario,
-                                observacoes = :observacoes
+                                observacoes = :observacoes,
+                                etapa_faturamento_codigo = :etapa_faturamento_codigo,
+                                codigo_categoria = :codigo_categoria,
+                                codigo_conta_corrente = :codigo_conta_corrente,
+                                codigo_cenario_fiscal = :codigo_cenario_fiscal
                             WHERE id = :id";
             $stmtProcesso = $this->pdo->prepare($sqlProcesso);
             
@@ -269,20 +276,19 @@ public function create($data, $files)
                 'apostilamento_valor_unitario' => $this->parseCurrency($data['apostilamento_valor_unitario'] ?? null),
                 'postagem_quantidade' => empty($data['postagem_quantidade']) ? null : (int)$data['postagem_quantidade'],
                 'postagem_valor_unitario' => $this->parseCurrency($data['postagem_valor_unitario'] ?? null),
-                'observacoes' => $data['observacoes'] ?? ''
+                'observacoes' => $data['observacoes'] ?? '',
+                'etapa_faturamento_codigo' => $this->sanitizeNullableString($data['etapa_faturamento_codigo'] ?? null),
+                'codigo_categoria' => $this->sanitizeNullableString($data['codigo_categoria'] ?? null),
+                'codigo_conta_corrente' => $this->sanitizeNullableInt($data['codigo_conta_corrente'] ?? null),
+                'codigo_cenario_fiscal' => $this->sanitizeNullableInt($data['codigo_cenario_fiscal'] ?? null)
             ];
             $stmtProcesso->execute($params);
 
             // A lógica para atualizar os documentos também permanece a mesma
             $this->pdo->prepare("DELETE FROM documentos WHERE processo_id = ?")->execute([$id]);
-            if (isset($data['docs']) && is_array($data['docs'])) {
-                $sqlDoc = "INSERT INTO documentos (processo_id, categoria, tipo_documento, nome_documento, quantidade, valor_unitario) VALUES (?, ?, ?, ?, ?, ?)";
-                $stmtDoc = $this->pdo->prepare($sqlDoc);
-                foreach ($data['docs'] as $doc) {
-                    if (!empty($doc['tipo_documento']) && !empty($doc['valor_unitario'])) {
-                        $stmtDoc->execute([$id, $doc['categoria'], $doc['tipo_documento'], $doc['nome_documento'], $doc['quantidade'] ?? 1, $this->parseCurrency($doc['valor_unitario'])]);
-                    }
-                }
+            $documents = $this->normalizeDocumentsForInsert($data);
+            if (!empty($documents)) {
+                $this->insertProcessDocuments($id, $documents);
             }
             
             // --- INÍCIO DA NOVA LÓGICA DE LANÇAMENTO FINANCEIRO ---
@@ -437,7 +443,7 @@ public function create($data, $files)
                 JOIN users u_colab ON p.colaborador_id = u_colab.id
                 LEFT JOIN vendedores v ON p.vendedor_id = v.id
                 LEFT JOIN users u_vend ON v.user_id = u_vend.id
-                WHERE p.status_processo NOT IN ('Orçamento Pendente', 'Recusado')
+                WHERE p.status_processo NOT IN ('Recusado')
                 ORDER BY p.id DESC";
         $stmt = $this->pdo->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -455,9 +461,9 @@ public function getFilteredProcesses(array $filters = [], int $limit = 50, int $
     $select_part = "SELECT
                     p.id, p.titulo, p.status_processo, p.data_criacao, p.data_previsao_entrega,
                     p.valor_total,
-                    p.categorias_servico, c.nome_cliente, t.nome_tradutor, p.os_numero_conta_azul,
+                    p.categorias_servico, c.nome_cliente, t.nome_tradutor, p.os_numero_omie, p.os_numero_conta_azul,
                     p.data_inicio_traducao, p.traducao_prazo_data, p.traducao_prazo_dias, p.traducao_modalidade, p.assinatura_tipo,
-                    p.data_envio_assinatura, p.data_devolucao_assinatura, p.data_envio_cartorio,
+                    p.data_envio_assinatura, p.data_devolucao_assinatura, p.data_envio_cartorio, 
                     v.nome_completo as nome_vendedor,
                     (SELECT COUNT(*) FROM documentos d WHERE d.processo_id = p.id) as total_documentos_contagem,
                     (SELECT COALESCE(SUM(d.quantidade), 0) FROM documentos d WHERE d.processo_id = p.id) as total_documentos_soma";
@@ -472,7 +478,7 @@ public function getFilteredProcesses(array $filters = [], int $limit = 50, int $
     $params = [];
     // Se nenhum filtro de status for aplicado, exclui os orçamentos por padrão.
     if (empty($filters['status'])) {
-        $where_clauses[] = "p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Recusado')";
+        $where_clauses[] = "p.status_processo NOT IN ('Orçamento', 'Recusado', 'Pendente')";
 
     }
 
@@ -510,6 +516,10 @@ public function getFilteredProcesses(array $filters = [], int $limit = 50, int $
     if (!empty($filters['cliente_id'])) {
         $where_clauses[] = "p.cliente_id = :cliente_id";
         $params[':cliente_id'] = $filters['cliente_id'];
+    }
+    if (!empty($filters['os_numero'])) {
+        $where_clauses[] = "p.os_numero_omie LIKE :os_numero";
+        $params[':os_numero'] = '%' . $filters['os_numero'] . '%';
     }
     if (!empty($filters['tipo_servico'])) {
         $where_clauses[] = "FIND_IN_SET(:tipo_servico, p.categorias_servico)";
@@ -577,7 +587,7 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
     
     // Garante que a contagem também exclua os orçamentos por padrão.
     if (empty($filters['status'])) {
-        $where_clauses[] = "p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Recusado')";
+        $where_clauses[] = "p.status_processo NOT IN ('Orçamento', 'Recusado', 'Pendente')";
 
     }
 
@@ -597,6 +607,10 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
     if (!empty($filters['cliente_id'])) {
         $where_clauses[] = "p.cliente_id = :cliente_id";
         $params[':cliente_id'] = $filters['cliente_id'];
+    }
+    if (!empty($filters['os_numero'])) {
+        $where_clauses[] = "p.os_numero_omie LIKE :os_numero";
+        $params[':os_numero'] = '%' . $filters['os_numero'] . '%';
     }
     if (!empty($filters['tipo_servico'])) {
         $where_clauses[] = "FIND_IN_SET(:tipo_servico, p.categorias_servico)";
@@ -653,7 +667,7 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
     public function getFinancialData(array $filters = []): array
     {
         $sql = "SELECT
-                    p.id, p.os_numero_conta_azul, p.orcamento_numero, p.titulo, p.status_processo,
+                    p.id, p.os_numero_omie, p.os_numero_conta_azul, p.orcamento_numero, p.titulo, p.status_processo,
                     p.valor_total, p.orcamento_valor_entrada, 
                     (p.valor_total - p.orcamento_valor_entrada) as orcamento_valor_restante,
                     p.data_pagamento_1, p.data_pagamento_2, p.data_finalizacao_real,
@@ -878,7 +892,7 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
             'status_processo', 'tradutor_id', 'data_inicio_traducao', 'traducao_modalidade',
             'traducao_prazo_tipo', 'traducao_prazo_dias', 'traducao_prazo_data',
             'assinatura_tipo', 'data_envio_assinatura', 'data_devolucao_assinatura',
-            'finalizacao_tipo', 'data_envio_cartorio', 'os_numero_conta_azul'
+            'finalizacao_tipo', 'data_envio_cartorio', 'os_numero_conta_azul', 'os_numero_omie'
         ];
 
         // Adiciona a data de finalização apenas se o status for 'Finalizado'
@@ -1048,23 +1062,7 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
         }
     }
     
-    /**
-     * Atualiza o número da OS da Conta Azul para um processo.
-     * @param int $processoId ID do processo.
-     * @param string $osNumero Número da OS.
-     * @return bool
-     */
-    public function updateContaAzulId(int $processoId, string $vendaId): bool
-    {
-        $sql = "UPDATE processos SET conta_azul_venda_id = :vendaId WHERE id = :id";
-        try {
-            $stmt = $this->pdo->prepare($sql);
-            return $stmt->execute(['vendaId' => $vendaId, 'id' => $processoId]);
-        } catch (PDOException $e) {
-            error_log("Erro ao atualizar ID da Conta Azul para o processo {$processoId}: " . $e->getMessage());
-            return false;
-        }
-    }
+    
         
     /**
      * Busca todos os processos de um cliente específico.
@@ -1090,7 +1088,7 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
     public function getAllClientes(): array
     {
         // Presume-se que a tabela de clientes se chama 'clientes' e as colunas são 'id' e 'nome_cliente'
-        $sql = "SELECT id, nome_cliente AS nome FROM clientes ORDER BY nome_cliente ASC";
+        $sql = "SELECT id, nome_cliente AS nome FROM clientes WHERE is_prospect = 0 ORDER BY nome_cliente ASC";
         try {
             $stmt = $this->pdo->query($sql);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -1103,6 +1101,125 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
     // =======================================================================
     // MÉTODOS PRIVADOS
     // =======================================================================
+
+    /**
+     * Normaliza os dados de documentos enviados via formulário para inserção no banco.
+     * Aceita tanto o formato antigo (agrupado por categoria) quanto o formato atual (lista plana).
+     *
+     * @param array $data Dados do formulário.
+     * @return array Lista de documentos prontos para inserção.
+     */
+    private function normalizeDocumentsForInsert(array $data): array
+    {
+        $documents = [];
+
+        if (isset($data['documentos']) && is_array($data['documentos'])) {
+            foreach ($data['documentos'] as $category => $docs) {
+                if (!is_array($docs)) {
+                    continue;
+                }
+
+                foreach ($docs as $doc) {
+                    if (!is_array($doc)) {
+                        continue;
+                    }
+
+                    $documents[] = [
+                        'categoria' => $category,
+                        'tipo_documento' => $doc['tipo_documento'] ?? null,
+                        'nome_documento' => $doc['nome_documento'] ?? null,
+                        'quantidade' => $doc['quantidade'] ?? 1,
+                        'valor_unitario' => $doc['valor_unitario'] ?? null,
+                    ];
+                }
+            }
+        }
+
+        if (isset($data['docs']) && is_array($data['docs'])) {
+            foreach ($data['docs'] as $doc) {
+                if (!is_array($doc)) {
+                    continue;
+                }
+
+                $documents[] = [
+                    'categoria' => $doc['categoria'] ?? 'N/A',
+                    'tipo_documento' => $doc['tipo_documento'] ?? null,
+                    'nome_documento' => $doc['nome_documento'] ?? null,
+                    'quantidade' => $doc['quantidade'] ?? 1,
+                    'valor_unitario' => $doc['valor_unitario'] ?? null,
+                ];
+            }
+        }
+
+        $normalized = [];
+        foreach ($documents as $doc) {
+            $type = trim((string)($doc['tipo_documento'] ?? ''));
+            if ($type === '') {
+                continue;
+            }
+
+            $rawValue = $doc['valor_unitario'] ?? null;
+            if (empty($rawValue)) {
+                continue;
+            }
+
+            $parsedValue = $this->parseCurrency($rawValue);
+            if ($parsedValue === null) {
+                continue;
+            }
+
+            $quantity = (int)($doc['quantidade'] ?? 1);
+            if ($quantity <= 0) {
+                $quantity = 1;
+            }
+
+            $name = isset($doc['nome_documento']) ? trim((string)$doc['nome_documento']) : null;
+            $name = $name === '' ? null : $name;
+
+            $category = isset($doc['categoria']) ? trim((string)$doc['categoria']) : '';
+            if ($category === '') {
+                $category = 'N/A';
+            }
+
+            $normalized[] = [
+                'categoria' => $category,
+                'tipo_documento' => $type,
+                'nome_documento' => $name,
+                'quantidade' => $quantity,
+                'valor_unitario' => $parsedValue,
+            ];
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * Insere uma lista de documentos na tabela vinculada ao processo informado.
+     *
+     * @param int $processoId ID do processo.
+     * @param array $documents Documentos normalizados.
+     * @return void
+     */
+    private function insertProcessDocuments(int $processoId, array $documents): void
+    {
+        if (empty($documents)) {
+            return;
+        }
+
+        $sql = "INSERT INTO documentos (processo_id, categoria, tipo_documento, nome_documento, quantidade, valor_unitario) VALUES (?, ?, ?, ?, ?, ?)";
+        $stmt = $this->pdo->prepare($sql);
+
+        foreach ($documents as $doc) {
+            $stmt->execute([
+                $processoId,
+                $doc['categoria'],
+                $doc['tipo_documento'],
+                $doc['nome_documento'],
+                $doc['quantidade'],
+                $doc['valor_unitario'],
+            ]);
+        }
+    }
 
     /**
      * Realiza o upload de um arquivo de comprovante.
@@ -1125,28 +1242,7 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
         return null;
     }
     
-    /**
-     * Atualiza os detalhes da venda da Conta Azul para um processo.
-     * @param int $processoId ID do processo no seu sistema.
-     * @param string $vendaId ID da venda retornado pela Conta Azul.
-     * @param int $vendaNumero Número da venda retornado pela Conta Azul.
-     * @return bool
-     */
-    public function updateContaAzulSaleDetails(int $processoId, string $vendaId, int $vendaNumero): bool
-    {
-        $sql = "UPDATE processos SET conta_azul_venda_id = :vendaId, os_numero_conta_azul = :vendaNumero WHERE id = :id";
-        try {
-            $stmt = $this->pdo->prepare($sql);
-            return $stmt->execute([
-                'vendaId' => $vendaId,
-                'vendaNumero' => $vendaNumero,
-                'id' => $processoId
-            ]);
-        } catch (PDOException $e) {
-            error_log("Erro ao atualizar detalhes da venda da Conta Azul para o processo {$processoId}: " . $e->getMessage());
-            return false;
-        }
-    }
+    
     
     /**
      * Busca os processos mais recentes associados a um vendedor específico pelo seu user_id.
@@ -1265,7 +1361,12 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
      */
     public function createFromProspeccao(array $data)
     {
-        $this->pdo->beginTransaction();
+        $manageTransaction = !$this->pdo->inTransaction();
+
+        if ($manageTransaction) {
+            $this->pdo->beginTransaction();
+        }
+
         try {
             // Gera o número do orçamento
             $ano = date('y');
@@ -1273,34 +1374,47 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
             $count = $stmt->fetchColumn() + 1;
             $orcamento_numero = $ano . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
 
+            $omieKeyPreview = $this->generateNextOmieKey();
+
             $sqlProcesso = "INSERT INTO processos (
-                cliente_id, colaborador_id, vendedor_id, titulo, valor_total, 
-                status_processo, orcamento_numero, data_entrada
+                cliente_id, colaborador_id, vendedor_id, titulo, valor_total,
+                status_processo, orcamento_numero, data_entrada, os_numero_conta_azul
             ) VALUES (
                 :cliente_id, :colaborador_id, :vendedor_id, :titulo, :valor_total,
-                'Orçamento', :orcamento_numero, :data_entrada
+                :status_processo, :orcamento_numero, :data_entrada, :os_numero_conta_azul
             )";
             $stmtProcesso = $this->pdo->prepare($sqlProcesso);
 
             $params = [
                 'cliente_id'      => $data['cliente_id'],
-                'colaborador_id'  => $data['vendedor_id'], // O vendedor/SDR que fechou se torna o colaborador inicial
+                'colaborador_id'  => $data['colaborador_id'] ?? $data['vendedor_id'], // O vendedor/SDR que fechou se torna o colaborador inicial
                 'vendedor_id'     => $data['vendedor_id'],
-                'titulo'          => $data['titulo'],
+                'titulo'          => $data['titulo'] ?? ('Orçamento #' . $orcamento_numero),
                 'valor_total'     => $data['valor_proposto'] ?? 0.00,
+                'status_processo' => $data['status_processo'] ?? 'Orçamento',
                 'orcamento_numero'=> $orcamento_numero,
-                'data_entrada'    => date('Y-m-d')
+                'data_entrada'    => date('Y-m-d'),
+                'os_numero_conta_azul' => $omieKeyPreview
             ];
-            
-            $stmtProcesso->execute($params);
-            $processoId = $this->pdo->lastInsertId();
 
-            $this->pdo->commit();
+            $stmtProcesso->execute($params);
+            $processoId = (int)$this->pdo->lastInsertId();
+            $this->updateOmieKeyForProcessId($processoId);
+
+            if ($manageTransaction) {
+                $this->pdo->commit();
+            }
+
             return $processoId;
 
         } catch (Exception $e) {
-            $this->pdo->rollBack();
+            if ($manageTransaction && $this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
             error_log("Erro ao criar processo a partir da prospecção: " . $e->getMessage());
+            if (!$manageTransaction) {
+                throw $e;
+            }
             return false;
         }
     }
@@ -1357,30 +1471,39 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
      * @param string $status O status a ser filtrado.
      * @return array
      */
-    public function getByStatus(string $status): array
+    public function getByStatus($status)
     {
-        // ==========================================================
-        // INÍCIO DA CORREÇÃO
-        // ==========================================================
-        // A consulta foi ajustada para buscar o nome do vendedor (u.nome_completo)
-        // da tabela 'users' (aliased como 'u'), em vez da tabela 'vendedores'.
-        $sql = "SELECT p.*, 
-                       c.nome_cliente, 
-                       u.nome_completo AS nome_vendedor 
-                FROM processos p
-                JOIN clientes c ON p.cliente_id = c.id
-                LEFT JOIN vendedores v ON p.vendedor_id = v.id
-                LEFT JOIN users u ON v.user_id = u.id
-                WHERE p.status_processo = ?
-                ORDER BY p.data_entrada DESC";
-        // ==========================================================
-        // FIM DA CORREÇÃO
-        // ==========================================================
-                
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([$status]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // A query foi melhorada para juntar com as tabelas de clientes e usuários
+        // e assim já trazer o nome do cliente e do colaborador que criou/editou.
+        $sql = "
+            SELECT 
+                p.*,
+                c.nome AS nome_cliente,
+                u.nome AS nome_usuario_criador
+            FROM 
+                processos p
+            LEFT JOIN 
+                clientes c ON p.cliente_id = c.id
+            LEFT JOIN 
+                users u ON p.user_id = u.id
+            WHERE 
+                p.status_processo = :status
+            ORDER BY 
+                p.data_criacao DESC
+        ";
+
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->bindParam(':status', $status, PDO::PARAM_STR);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            // Em um ambiente de produção, logar este erro em vez de exibi-lo.
+            error_log("Erro ao buscar processos por status: " . $e->getMessage());
+            return [];
+        }
     }
+
     public function getRelatorioServicosPorPeriodo($data_inicio, $data_fim) {
         // CORREÇÃO: A consulta agora junta 'processos' com 'documentos' e 'categorias_financeiras'
         // e filtra apenas por status que representam um serviço ativo.
@@ -1465,5 +1588,184 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
         return false;
     }
 
+/**
+     * Busca processos que correspondem a uma lista de status.
+     *
+     * @param array $statuList A lista de status para filtrar.
+     * @return array
+     */
+    public function getByMultipleStatus(array $statusList)
+        {
+            // Se a lista de status estiver vazia, não há nada a fazer.
+            if (empty($statusList)) {
+                return [];
+            }
 
+            // Cria os placeholders para a cláusula IN (?, ?, ?)
+            $placeholders = implode(',', array_fill(0, count($statusList), '?'));
+
+            $sql = "
+                SELECT 
+                    p.*,
+                    p.categorias_servico AS tipo_servico, -- ALIAS ADICIONADO AQUI
+                    p.status_processo AS status,         -- ALIAS ADICIONADO AQUI
+                    c.nome_cliente,
+                    u_criador.nome_completo AS nome_usuario_criador,
+                    u_vendedor.nome_completo AS nome_vendedor
+                FROM 
+                    processos p
+                LEFT JOIN 
+                    clientes c ON p.cliente_id = c.id
+                LEFT JOIN 
+                    users u_criador ON p.colaborador_id = u_criador.id
+                LEFT JOIN
+                    vendedores v ON p.vendedor_id = v.id
+                LEFT JOIN 
+                    users u_vendedor ON v.user_id = u_vendedor.id
+                WHERE 
+                    p.status_processo IN ({$placeholders})
+                ORDER BY 
+                    p.data_criacao DESC
+            ";
+
+            try {
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute($statusList);
+                return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            } catch (PDOException $e) {
+                error_log("Erro ao buscar processos por múltiplos status: " . $e->getMessage());
+                return [];
+            }
+        }
+
+    /**
+     * Persiste o código de integração do pedido da Omie vinculado ao processo local.
+     *
+     * @param int $processoId Identificador do processo local.
+     * @param string $codigo Código de integração gerado para o pedido.
+     * @return bool
+     */
+    public function salvarCodigoPedidoIntegracao(int $processoId, string $codigo): bool
+    {
+        $sql = "UPDATE processos SET codigo_pedido_integracao = ? WHERE id = ?";
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute([$codigo, $processoId]);
+    }
+
+    /**
+     * Salva o número da Ordem de Serviço retornado pela Omie.
+     * @param int $processoId O ID do processo local.
+     * @param string $osNumero O número da OS da Omie.
+     * @return bool
+     */
+    public function salvarNumeroOsOmie(int $processoId, string $osNumero): bool
+    {
+        $sql = "UPDATE processos SET os_numero_omie = ? WHERE id = ?";
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute([$osNumero, $processoId]);
+    }
+
+    /**
+     * Limpa o número da Ordem de Serviço da Omie, geralmente após um cancelamento.
+     * @param int $processoId O ID do processo local.
+     * @return bool
+     */
+    public function limparNumeroOsOmie(int $processoId): bool
+    {
+        $sql = "UPDATE processos SET os_numero_omie = NULL WHERE id = ?";
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute([$processoId]);
+    }
+
+    /**
+     * Calcula a próxima chave curta utilizada na integração com a Omie.
+     * A sequência acompanha o ID do processo e inicia em 000010.
+     */
+    public function generateNextOmieKey(): string
+    {
+        $nextProcessId = $this->fetchNextProcessId();
+
+        return $this->formatShortOmieKey(
+            $this->calculateOmieSequenceFromProcessId($nextProcessId)
+        );
+    }
+
+    /**
+     * Persiste a chave curta definitiva da Omie utilizando o ID real do processo.
+     */
+    private function updateOmieKeyForProcessId(int $processoId): string
+    {
+        $sequenceValue = $this->calculateOmieSequenceFromProcessId($processoId);
+        $key = $this->formatShortOmieKey($sequenceValue);
+
+        $stmt = $this->pdo->prepare("UPDATE processos SET os_numero_conta_azul = ? WHERE id = ?");
+        $stmt->execute([$key, $processoId]);
+
+        return $key;
+    }
+
+    /**
+     * Converte o ID do processo para a sequência desejada pela Omie.
+     */
+    private function calculateOmieSequenceFromProcessId(int $processoId): int
+    {
+        $normalizedId = max(1, $processoId);
+        return $normalizedId + 9;
+    }
+
+    private function fetchNextProcessId(): int
+    {
+        try {
+            $stmt = $this->pdo->query("SHOW TABLE STATUS LIKE 'processos'");
+            $tableStatus = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($tableStatus && isset($tableStatus['Auto_increment'])) {
+                $nextId = (int)$tableStatus['Auto_increment'];
+                if ($nextId > 0) {
+                    return $nextId;
+                }
+            }
+        } catch (PDOException $exception) {
+            error_log('Erro ao consultar próximo ID de processo (SHOW TABLE STATUS): ' . $exception->getMessage());
+        }
+
+        try {
+            $stmt = $this->pdo->query('SELECT MAX(id) FROM processos');
+            $maxId = (int)$stmt->fetchColumn();
+            $nextId = $maxId + 1;
+            return $nextId > 0 ? $nextId : 1;
+        } catch (PDOException $exception) {
+            error_log('Erro ao consultar próximo ID de processo (MAX(id)): ' . $exception->getMessage());
+        }
+
+        return 1;
+    }
+
+    private function formatShortOmieKey(int $value): string
+    {
+        return str_pad((string)$value, 6, '0', STR_PAD_LEFT);
+    }
+
+    private function sanitizeNullableString($value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $trimmed = trim((string)$value);
+        return $trimmed === '' ? null : $trimmed;
+    }
+
+    private function sanitizeNullableInt($value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_numeric($value)) {
+            return (int)$value;
+        }
+
+        $digits = preg_replace('/\D+/', '', (string)$value);
+        return $digits === '' ? null : (int)$digits;
+    }
 }

@@ -5,7 +5,7 @@ require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
 
 // 1. Segurança: Verifica se o usuário tem o perfil correto
-if (!isset($_SESSION['user_perfil']) || !in_array($_SESSION['user_perfil'], ['admin', 'gerencia'])) {
+if (!isset($_SESSION['user_perfil']) || !in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'supervisor'])) {
     die("Acesso negado. Você não tem permissão para realizar esta ação.");
 }
 
@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_POST['id'])) {
 
 $cliente_id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
 if (!$cliente_id) {
-    die("ID de cliente inválido.");
+    die("ID de contato inválido.");
 }
 
 // Inicia uma transação para garantir a integridade dos dados
@@ -36,13 +36,13 @@ try {
     $pdo->commit();
 
     // 5. Redireciona de volta para a lista com mensagem de sucesso
-    $_SESSION['success_message'] = "Cliente excluído com sucesso.";
+    $_SESSION['success_message'] = "Contato excluído com sucesso.";
     header('Location: ' . APP_URL . '/crm/clientes/lista.php');
     exit;
 
 } catch (PDOException $e) {
     // Se qualquer operação falhar, desfaz todas as alterações
     $pdo->rollBack();
-    die("Erro ao excluir o cliente. Pode haver registros associados que impedem a exclusão. Erro: " . $e->getMessage());
+    die("Erro ao excluir o contato. Pode haver registros associados que impedem a exclusão. Erro: " . $e->getMessage());
 }
 ?>

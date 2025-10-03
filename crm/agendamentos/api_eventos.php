@@ -30,7 +30,7 @@ $where_clauses = [];
 
 // --- LÓGICA DE PERMISSÃO CORRIGIDA ---
 // Usa 'user_perfil' e os nomes de perfil corretos
-if (!in_array($_SESSION['user_perfil'], ['admin', 'gerencia'])) {
+if (!in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'supervisor'])) {
     $where_clauses[] = "a.usuario_id = :user_id";
     $params[':user_id'] = $_SESSION['user_id'];
 }

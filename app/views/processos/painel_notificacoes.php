@@ -45,8 +45,6 @@
                                     $status_class = 'bg-gray-100 text-gray-800'; // Cor padrão
                                     if ($processo['status'] === 'Pendente') {
                                         $status_class = 'bg-yellow-100 text-yellow-800';
-                                    } elseif ($processo['status'] === 'Orçamento Pendente') {
-                                        $status_class = 'bg-blue-100 text-blue-800';
                                     }
                                 ?>
                                 <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?= $status_class ?>">

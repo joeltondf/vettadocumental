@@ -39,12 +39,12 @@ try {
     // Monta o corpo do e-mail
     $assunto = "Solicitação de Exclusão de Prospecção: " . $prospect['id_texto'];
     $corpo_email = "
-        <p>Olá Gerência,</p>
+        <p>Olá Gerência/Supervisão,</p>
         <p>O colaborador <strong>" . htmlspecialchars($solicitante_nome) . "</strong> solicitou a exclusão da seguinte prospecção:</p>
         <ul>
             <li><strong>ID:</strong> " . htmlspecialchars($prospect['id_texto']) . "</li>
             <li><strong>Oportunidade:</strong> " . htmlspecialchars($prospect['nome_prospecto']) . "</li>
-            <li><strong>Cliente:</strong> " . htmlspecialchars($prospect['nome_cliente']) . "</li>
+            <li><strong>Contato:</strong> " . htmlspecialchars($prospect['nome_cliente']) . "</li>
         </ul>
         <p><strong>Motivo da solicitação:</strong></p>
         <p style='padding: 10px; border: 1px solid #eee; background-color: #f9f9f9;'>" . nl2br(htmlspecialchars($motivo)) . "</p>

@@ -22,24 +22,24 @@ switch ($action) {
     case 'create':
     case 'store':
         // Permite que todos os perfis autorizados criem processos.
-        require_permission(['admin', 'gerencia', 'vendedor']);
+        require_permission(['admin', 'gerencia', 'supervisor', 'vendedor']);
         break;
 
     case 'edit':
     case 'change_status':
         // Permite que o vendedor acesse estas rotas.
-        require_permission(['admin', 'gerencia', 'vendedor']);
+        require_permission(['admin', 'gerencia', 'supervisor', 'vendedor']);
         break;
 
     case 'update':
-        // Permite atualização por vendedor, além de admin e gerência.
-        require_permission(['admin', 'gerencia', 'vendedor']);
+        // Permite atualização por vendedor, além de admin, gerência ou supervisão.
+        require_permission(['admin', 'gerencia', 'supervisor', 'vendedor']);
         break;
     case 'aprovar_orcamento':
     case 'recusar_orcamento':
     case 'delete':
         // Exclusão continua restrita.
-        require_permission(['admin', 'gerencia']);
+        require_permission(['admin', 'gerencia', 'supervisor']);
         break;
     
     // Para as demais ações (view, index, etc.), não aplicamos uma regra geral aqui,
@@ -64,6 +64,9 @@ switch ($action) {
     case 'view':
         $controller->view($id);
         break;
+    case 'exibir_orcamento':
+        $controller->exibirOrcamento($id);
+        break;
     case 'aprovar_orcamento':
         $controller->aprovarOrcamento();
         break;
@@ -79,14 +82,13 @@ switch ($action) {
     case 'show':
         $controller->show();
         break;
-    case 'create_ca_sale':
-        $controller->createContaAzulSale();
-        break;
-    case 'create_ca_quote':
-        $controller->createContaAzulQuote();
-        break;
+    
     case 'test_create_sale':
         $controller->testCreateSale();
+        break;
+    case 'gerar_os_omie_manual':
+        require_permission(['admin', 'gerencia', 'supervisor']);
+        $controller->gerarOsOmieManual($id);
         break;
     case 'change_status':
         $controller->changeStatus();
@@ -99,7 +101,7 @@ switch ($action) {
         $controller->index();
         break;
     case 'detalhe':
-        $controller->detalhe($id); 
+        $controller->detalhe($id);
         break;
     case 'excluir_anexo': // Nova rota
         $controller->excluir_anexo($id, $anexo_id);

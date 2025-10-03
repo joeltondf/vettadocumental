@@ -54,6 +54,10 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                         </tr>
                     <?php else: ?>
                         <?php foreach ($clientes as $cliente): ?>
+                            <?php
+                                $totalProspeccoes = (int) ($cliente['totalProspeccoes'] ?? 0);
+                                $hasProspection = $totalProspeccoes > 0;
+                            ?>
                             <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-4 border-b border-gray-200 bg-white text-sm">
                                     <p class="text-gray-900 whitespace-no-wrap font-medium"><?php echo htmlspecialchars($cliente['nome_cliente']); ?></p>
@@ -63,13 +67,22 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                                     <p class="text-gray-600 whitespace-no-wrap mt-1"><?php echo htmlspecialchars($cliente['telefone']); ?></p>
                                 </td>
                                 <td class="px-6 py-4 border-b border-gray-200 bg-white text-sm text-center">
-                                    <span class="inline-block px-3 py-1 text-sm font-semibold text-yellow-800 bg-yellow-200 rounded-full">Prospecção</span>
+                                    <?php
+                                        $statusClass = $hasProspection
+                                            ? 'inline-block px-3 py-1 text-sm font-semibold text-green-800 bg-green-200 rounded-full'
+                                            : 'inline-block px-3 py-1 text-sm font-semibold text-red-800 bg-red-200 rounded-full';
+                                        $statusLabel = $hasProspection ? 'Prospecção' : 'Sem prospecção';
+                                    ?>
+                                    <span class="<?php echo $statusClass; ?>"><?php echo $statusLabel; ?></span>
                                 </td>
                                 <td class="px-6 py-4 border-b border-gray-200 bg-white text-sm text-center">
                                     <div class="flex justify-center items-center space-x-3">
+                                        <?php if (!$hasProspection): ?>
+                                            <a href="<?php echo APP_URL; ?>/crm/prospeccoes/nova.php?cliente_id=<?php echo $cliente['id']; ?>" class="text-green-600 hover:text-green-800 font-semibold">Criar prospecção</a>
+                                        <?php endif; ?>
                                         <a href="<?php echo APP_URL; ?>/crm/clientes/editar_cliente.php?id=<?php echo $cliente['id']; ?>" class="text-blue-600 hover:text-blue-800 font-semibold">Editar</a>
-                                        
-                                        <form action="<?php echo APP_URL; ?>/crm/clientes/excluir_cliente.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este cliente?');">
+
+                                        <form action="<?php echo APP_URL; ?>/crm/clientes/excluir_cliente.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este contato?');">
                                             <input type="hidden" name="id" value="<?php echo $cliente['id']; ?>">
                                             <button type="submit" class="text-red-600 hover:text-red-800 font-semibold">Excluir</button>
                                         </form>

@@ -8,9 +8,11 @@ require_once __DIR__ . '/../models/Cliente.php';
 require_once __DIR__ . '/../models/User.php';
 require_once __DIR__ . '/../models/Vendedor.php';
 require_once __DIR__ . '/../models/Tradutor.php';
-require_once __DIR__ . '/../services/ContaAzulService.php';
+require_once __DIR__ . '/../models/OmieProduto.php';
+
 require_once __DIR__ . '/../services/DigicApiService.php';
 require_once __DIR__ . '/../services/EmailService.php';
+require_once __DIR__ . '/../services/OmieSyncService.php';
 require_once __DIR__ . '/../models/SmtpConfigModel.php';
 
 class AdminController
@@ -21,6 +23,8 @@ class AdminController
     private $userModel;
     private $vendedorModel;
     private $tradutorModel;
+    private $omieSyncService;
+    private $omieProdutoModel;
 
     public function __construct($pdo)
     {
@@ -30,6 +34,8 @@ class AdminController
         $this->userModel = new User($pdo);
         $this->vendedorModel = new Vendedor($pdo);
         $this->tradutorModel = new Tradutor($pdo);
+        $this->omieSyncService = null;
+        $this->omieProdutoModel = new OmieProduto($pdo);
     }
 
     // Métodos de Administração Geral...
@@ -43,10 +49,7 @@ class AdminController
     public function settings()
     {
         $settings = $this->configModel->getAll();
-        $contaAzulService = new ContaAzulService($this->configModel);
-        $contaAzulAuthUrl = $contaAzulService->getAuthorizationUrl();
-        $isContaAzulConnected = !empty($this->configModel->getSetting('conta_azul_access_token'));
-        
+        $pageTitle = "Configurações";
         require_once __DIR__ . '/../views/layouts/header.php';
         require_once __DIR__ . '/../views/admin/settings.php';
         require_once __DIR__ . '/../views/layouts/footer.php';
@@ -60,7 +63,208 @@ class AdminController
             }
             $_SESSION['success_message'] = "Configurações salvas com sucesso!";
         }
-        header('Location: admin.php?action=settings');
+        // Redireciona de volta para a página que fez a requisição
+        $redirect_url = $_SERVER['HTTP_REFERER'] ?? 'admin.php?action=settings';
+        header('Location: ' . $redirect_url);
+        exit();
+    }
+
+    /**
+     * Exibe a página de configurações específicas da API Omie.
+     */
+    public function omieSettings()
+    {
+        $pageTitle = "Configurações da Integração Omie";
+        $settings = $this->configModel->getAll();
+
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/admin/omie_settings.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+
+    private function getOmieSyncService(): OmieSyncService
+    {
+        if ($this->omieSyncService === null) {
+            $this->omieSyncService = new OmieSyncService($this->pdo, $this->configModel);
+        }
+
+        return $this->omieSyncService;
+    }
+
+    private function getOmieSupportDefinitions(): array
+    {
+        return [
+            'produtos' => [
+                'title' => 'Produtos e Serviços',
+                'model' => $this->omieProdutoModel,
+                'columns' => [
+                    ['key' => 'descricao', 'label' => 'Descrição'],
+                    ['key' => 'codigo_produto', 'label' => 'Código Omie'],
+                    ['key' => 'codigo_integracao', 'label' => 'Código de Integração'],
+                    ['key' => 'cfop', 'label' => 'CFOP'],
+                    ['key' => 'ncm', 'label' => 'NCM'],
+                    ['key' => 'unidade', 'label' => 'Unidade'],
+                    ['key' => 'valor_unitario', 'label' => 'Valor Unitário'],
+                    ['key' => 'ativo', 'label' => 'Ativo'],
+                ],
+                'fields' => [
+                    ['name' => 'descricao', 'label' => 'Descrição', 'type' => 'text', 'required' => true],
+                    ['name' => 'codigo_produto', 'label' => 'Código Omie', 'type' => 'text'],
+                    ['name' => 'codigo_integracao', 'label' => 'Código de Integração', 'type' => 'text'],
+                    ['name' => 'cfop', 'label' => 'CFOP', 'type' => 'text'],
+                    ['name' => 'ncm', 'label' => 'NCM', 'type' => 'text'],
+                    ['name' => 'unidade', 'label' => 'Unidade', 'type' => 'text'],
+                    ['name' => 'valor_unitario', 'label' => 'Valor Unitário', 'type' => 'number', 'step' => '0.01'],
+                    ['name' => 'ativo', 'label' => 'Ativo', 'type' => 'checkbox'],
+                ],
+                'syncMethod' => 'syncProdutos',
+            ],
+        ];
+    }
+
+    private function getOmieSupportDefinition(string $type): array
+    {
+        $definitions = $this->getOmieSupportDefinitions();
+        if (!isset($definitions[$type])) {
+            throw new InvalidArgumentException('Tipo de tabela Omie inválido.');
+        }
+
+        return $definitions[$type];
+    }
+
+    public function syncOmieSupportData(): void
+    {
+        try {
+            $type = $_POST['type'] ?? $_GET['type'] ?? null;
+
+            if ($type) {
+                $definition = $this->getOmieSupportDefinition($type);
+                $syncMethod = $definition['syncMethod'];
+                $result = $this->getOmieSyncService()->{$syncMethod}();
+                $count = $result['total'] ?? 0;
+                $_SESSION['success_message'] = sprintf(
+                    '%s sincronizada com sucesso. %d registro(s) atualizado(s).',
+                    $definition['title'],
+                    $count
+                );
+                header('Location: admin.php?action=omie_support&type=' . urlencode($type));
+                exit();
+            }
+
+            $result = $this->getOmieSyncService()->syncSupportTables();
+            $count = $result['produtos']['total'] ?? 0;
+            $_SESSION['success_message'] = sprintf(
+                'Sincronização de produtos concluída. %d registro(s) atualizado(s).',
+                $count
+            );
+        } catch (Exception $exception) {
+            $_SESSION['error_message'] = 'Falha ao sincronizar com a Omie: ' . $exception->getMessage();
+        }
+
+        header('Location: admin.php?action=omie_settings');
+        exit();
+    }
+
+    public function listOmieSupport(string $type): void
+    {
+        try {
+            $definition = $this->getOmieSupportDefinition($type);
+        } catch (InvalidArgumentException $exception) {
+            $_SESSION['error_message'] = $exception->getMessage();
+            header('Location: admin.php?action=omie_settings');
+            exit();
+        }
+
+        $pageTitle = $definition['title'];
+        $records = $definition['model']->getAll();
+        $supportType = $type;
+
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/admin/omie_support_list.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+
+    public function editOmieSupport(string $type, int $id): void
+    {
+        try {
+            $definition = $this->getOmieSupportDefinition($type);
+        } catch (InvalidArgumentException $exception) {
+            $_SESSION['error_message'] = $exception->getMessage();
+            header('Location: admin.php?action=omie_support&type=' . urlencode($type));
+            exit();
+        }
+
+        $record = $definition['model']->findById($id);
+        if (!$record) {
+            $_SESSION['error_message'] = 'Registro não encontrado.';
+            header('Location: admin.php?action=omie_support&type=' . urlencode($type));
+            exit();
+        }
+
+        $pageTitle = 'Editar ' . $definition['title'];
+        $supportType = $type;
+
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/admin/omie_support_form.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+
+    public function updateOmieSupport(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: admin.php?action=omie_settings');
+            exit();
+        }
+
+        $type = $_POST['type'] ?? '';
+        $id = isset($_POST['id']) ? (int)$_POST['id'] : 0;
+
+        try {
+            $definition = $this->getOmieSupportDefinition($type);
+        } catch (InvalidArgumentException $exception) {
+            $_SESSION['error_message'] = $exception->getMessage();
+            header('Location: admin.php?action=omie_settings');
+            exit();
+        }
+
+        if ($id <= 0) {
+            $_SESSION['error_message'] = 'Identificador inválido.';
+            header('Location: admin.php?action=omie_support&type=' . urlencode($type));
+            exit();
+        }
+
+        $data = [];
+        foreach ($definition['fields'] as $field) {
+            $name = $field['name'];
+
+            if (!empty($field['readonly'])) {
+                continue;
+            }
+
+            if (($field['type'] ?? 'text') === 'checkbox') {
+                $data[$name] = isset($_POST[$name]) ? 1 : 0;
+                continue;
+            }
+
+            if (!array_key_exists($name, $_POST)) {
+                continue;
+            }
+
+            $data[$name] = $_POST[$name];
+        }
+
+        try {
+            $updated = $definition['model']->updateById($id, $data);
+            if ($updated) {
+                $_SESSION['success_message'] = 'Registro atualizado com sucesso.';
+            } else {
+                $_SESSION['warning_message'] = 'Nenhuma alteração foi aplicada ao registro.';
+            }
+        } catch (Exception $exception) {
+            $_SESSION['error_message'] = 'Falha ao atualizar o registro: ' . $exception->getMessage();
+        }
+
+        header('Location: admin.php?action=omie_support&type=' . urlencode($type));
         exit();
     }
     

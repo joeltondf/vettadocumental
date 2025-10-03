@@ -151,7 +151,7 @@ class Prospeccao
             // Busca apenas usuários que podem ser responsáveis por prospecções.
             $sql = "SELECT id, nome_completo 
                     FROM users 
-                    WHERE perfil IN ('admin', 'gerencia', 'vendedor') 
+                    WHERE perfil IN ('admin', 'gerencia', 'supervisor', 'vendedor')
                     ORDER BY nome_completo ASC";
             
             try {

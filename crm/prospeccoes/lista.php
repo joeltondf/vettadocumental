@@ -44,18 +44,18 @@ if ($user_perfil === 'vendedor') {
     $where_clauses[] = "p.responsavel_id = :user_id";
     $params[':user_id'] = $user_id;
 } else {
-    // Admin e Gerência podem filtrar por responsável
+    // Admin, Gerência ou Supervisão podem filtrar por responsável
     if (!empty($search_responsavel)) {
         $where_clauses[] = "p.responsavel_id = :responsavel_id";
         $params[':responsavel_id'] = $search_responsavel;
     }
 }
 
-// Busca a lista de vendedores para o filtro (apenas para Admin/Gerência)
+// Busca a lista de vendedores para o filtro (apenas para Admin/Gerência/Supervisão)
 $responsaveis = [];
 if ($user_perfil !== 'vendedor') {
     try {
-        $stmt_users = $pdo->query("SELECT id, nome_completo FROM users WHERE perfil IN ('vendedor', 'admin', 'gerencia') ORDER BY nome_completo");
+        $stmt_users = $pdo->query("SELECT id, nome_completo FROM users WHERE perfil IN ('vendedor', 'admin', 'gerencia', 'supervisor') ORDER BY nome_completo");
         $responsaveis = $stmt_users->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
         // Não interrompe a execução, apenas não exibe o filtro de responsáveis
@@ -113,7 +113,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
             <!-- Campo de busca -->
             <div>
                 <label for="search" class="block text-sm font-medium text-gray-600 mb-2">Buscar</label>
-                <input type="text" name="search" id="search" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="<?php echo htmlspecialchars($search_term); ?>" placeholder="Nome do prospecto ou cliente...">
+                <input type="text" name="search" id="search" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="<?php echo htmlspecialchars($search_term); ?>" placeholder="Nome do prospecto ou contato...">
             </div>
 
             <!-- Campo de status -->
@@ -172,7 +172,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
             <thead class="bg-gray-50">
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prospecto</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contato</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Responsável</th>

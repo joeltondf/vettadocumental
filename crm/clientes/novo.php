@@ -5,7 +5,12 @@ require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php'; // Garante que o usuário está logado
 require_once __DIR__ . '/../../app/views/layouts/header.php';
 
-// Nenhuma outra verificação ou redirecionamento aqui.
+$defaultRedirectUrl = APP_URL . '/crm/prospeccoes/nova.php';
+$redirectUrl = filter_input(INPUT_GET, 'redirect_url', FILTER_SANITIZE_URL) ?: '';
+
+if (strpos($redirectUrl, APP_URL) !== 0) {
+    $redirectUrl = $defaultRedirectUrl;
+}
 ?>
 
 <div class="bg-white shadow px-4 py-5 sm:rounded-lg sm:p-6">
@@ -16,14 +21,12 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
     </div>
     
     <div class="mt-6">
-            <form action="<?php echo APP_URL; ?>/crm/clientes/salvar.php" method="POST" class="space-y-6">
-                <?php if (isset($_GET['redirect_url'])): ?>
-                    <input type="hidden" name="redirect_url" value="<?php echo htmlspecialchars($_GET['redirect_url']); ?>">
-                <?php endif; ?><form action="<?php echo APP_URL; ?>/crm/clientes/salvar.php" method="POST" class="space-y-6">
+        <form action="<?php echo APP_URL; ?>/crm/clientes/salvar.php" method="POST" class="space-y-6">
+            <input type="hidden" name="redirect_url" value="<?php echo htmlspecialchars($redirectUrl); ?>">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
                 <div class="md:col-span-2">
-                    <label for="nome_cliente" class="block text-sm font-medium text-gray-700">Nome do Cliente / Empresa</label>
+                    <label for="nome_cliente" class="block text-sm font-medium text-gray-700">Nome do Contato / Empresa</label>
                     <input type="text" name="nome_cliente" id="nome_cliente" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
                 </div>
 
@@ -60,13 +63,13 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                 </div>
 
                 <div class="md:col-span-2">
-                    <label for="categoria" class="block text-sm font-medium text-gray-700">Categoria do Cliente</label>
+                    <label for="categoria" class="block text-sm font-medium text-gray-700">Categoria do Contato</label>
                     <select name="categoria" id="categoria" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
                         <option value="Entrada">Entrada</option>
                         <option value="Qualificado">Qualificado</option>
                         <option value="Com Orçamento">Com Orçamento</option>
                         <option value="Em Negociação">Em Negociação</option>
-                        <option value="Cliente Ativo">Cliente Ativo</option>
+                        <option value="Cliente Ativo">Contato Ativo</option>
                         <option value="Sem Interesse">Sem Interesse</option>
                     </select>
                 </div>
@@ -74,7 +77,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
 
             <div class="pt-5 flex justify-end border-t mt-6">
                 <a href="<?php echo APP_URL; ?>/crm/clientes/lista.php" class="bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 mr-3">Cancelar</a>
-                <button type="submit" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700">Salvar Cliente</button>
+                <button type="submit" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700">Salvar Contato</button>
             </div>
         </form>
     </div>

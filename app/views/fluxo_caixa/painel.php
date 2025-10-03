@@ -105,10 +105,17 @@
 
             <!-- resto do formulário continua inalterado -->
             <div>
-                <label for="valor_display" class="block text-sm font-semibold text-gray-700 mb-2">Valor</label>
+                <label for="valor" class="block text-sm font-semibold text-gray-700 mb-2">Valor</label>
                 <div class="relative rounded-md shadow-sm">
-                    <input type="text" id="valor_display" required class="block w-full rounded-md border-gray-300 pr-4 pl-12 focus:ring-blue-500 focus:border-blue-500 text-sm py-3 border border-gray-300" placeholder="R$ 0,00">
-                    <input type="hidden" name="valor" id="valor">
+                    <input
+                        type="text"
+                        name="valor"
+                        id="valor"
+                        data-currency-input
+                        required
+                        class="block w-full rounded-md border-gray-300 pr-4 pl-12 focus:ring-blue-500 focus:border-blue-500 text-sm py-3 border border-gray-300"
+                        placeholder="R$ 0,00"
+                    >
                     <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
                         <i class="fas fa-dollar-sign"></i>
                     </div>
@@ -250,6 +257,19 @@
 
 <script>
     // A função de edição agora está no escopo global, acessível pelo onclick.
+    function setCurrencyValue(input, value) {
+        if (!input) {
+            return;
+        }
+
+        if (window.CurrencyMask && typeof window.CurrencyMask.setValue === 'function') {
+            window.CurrencyMask.setValue(input, value ?? '');
+            return;
+        }
+
+        input.value = value ?? '';
+    }
+
     function editLancamento(lancamento) {
         const form = document.getElementById('lancamento-form');
         const title = document.getElementById('form-title');
@@ -267,10 +287,8 @@
         document.getElementById('data_lancamento').value = lancamento.data_lancamento;
 
         // Formata e preenche o valor
-        const valorDisplay = document.getElementById('valor_display');
-        const valorHidden = document.getElementById('valor');
-        valorHidden.value = parseFloat(lancamento.valor).toFixed(2);
-        valorDisplay.value = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lancamento.valor);
+        const valorInput = document.getElementById('valor');
+        setCurrencyValue(valorInput, lancamento.valor);
         
         // Altera o botão de salvar
         submitButton.innerHTML = '<i class="fas fa-save mr-2"></i> Atualizar Lançamento';

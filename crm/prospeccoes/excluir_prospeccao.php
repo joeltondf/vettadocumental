@@ -5,7 +5,7 @@ require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
 
 // 1. Segurança: Verifica se o usuário tem o perfil correto
-if (!isset($_SESSION['user_perfil']) || !in_array($_SESSION['user_perfil'], ['admin', 'gerencia'])) {
+if (!isset($_SESSION['user_perfil']) || !in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'supervisor'])) {
     die("Acesso negado. Você não tem permissão para realizar esta ação.");
 }
 

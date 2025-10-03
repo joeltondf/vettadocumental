@@ -27,7 +27,7 @@
 
             <div>
                 <label for="valor_total" class="block text-sm font-semibold text-gray-700">Valor Total (R$) *</label>
-                <input type="number" step="0.01" name="valor_total" id="valor_total" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" value="<?php echo htmlspecialchars($venda['valor_total']); ?>" required>
+                <input type="text" name="valor_total" id="valor_total" data-currency-input class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" value="<?php echo htmlspecialchars($venda['valor_total']); ?>" placeholder="R$ 0,00" required>
             </div>
             
             <div>

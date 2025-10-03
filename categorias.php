@@ -15,8 +15,17 @@ switch ($action) {
     case 'store':
         $controller->store();
         break;
+    case 'save':
+        $controller->save();
+        break;
     case 'update':
         $controller->update($id);
+        break;
+    case 'rename_group':
+        $controller->renameGroup();
+        break;
+    case 'delete_group':
+        $controller->deleteGroup();
         break;
     case 'deactivate': // Ação para desativar
         $controller->deactivate($id);

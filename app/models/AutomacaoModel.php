@@ -123,10 +123,10 @@ class AutomacaoModel
         }
         $placeholders = implode(',', array_fill(0, count($statusGatilho), '?'));
         
-        $sql = "SELECT DISTINCT cl.id, cl.nome_cliente, cl.nome_responsavel, cl.email, cl.telefone 
+        $sql = "SELECT DISTINCT cl.id, cl.nome_cliente, cl.nome_responsavel, cl.email, cl.telefone
                 FROM clientes cl
                 JOIN prospeccoes p ON cl.id = p.cliente_id
-                WHERE p.status IN ($placeholders)";
+                WHERE p.status IN ($placeholders) AND cl.is_prospect = 1";
                 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($statusGatilho);

@@ -2,7 +2,6 @@
 // /app/views/processos/detalhe.php
 
 $pageTitle = "Detalhes do Processo";
-$isContaAzulConnected = !empty((new Configuracao($GLOBALS['pdo']))->getSetting('conta_azul_access_token'));
 
 function has_service($processo, $service_name) {
     if (empty($processo['categorias_servico'])) return false;
@@ -52,6 +51,14 @@ $isAprovadoOuSuperior = !in_array($status, ['Orçamento', 'Cancelado']);
         <span id="display-status-badge" class="px-3 py-1.5 inline-flex text-sm leading-5 font-semibold rounded-full <?php echo $status_classes; ?>">
             <?php echo htmlspecialchars($status); ?>
         </span>
+        <a
+            href="processos.php?action=exibir_orcamento&id=<?php echo $processo['id']; ?>"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm"
+        >
+            Exibir Orçamento
+        </a>
         <a href="processos.php?action=edit&id=<?php echo $processo['id']; ?>&return_to=<?php echo urlencode('processos.php?action=view&id=' . $processo['id']); ?>" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm">
             Editar Processo
         </a>
@@ -160,7 +167,7 @@ $isAprovadoOuSuperior = !in_array($status, ['Orçamento', 'Cancelado']);
             <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 text-sm">
                 <div>
                     <p class="font-medium text-gray-500">Tradutor</p>
-                    <p class="text-gray-800" id="display-nome_tradutor"><?php echo htmlspecialchars($processo['nome_tradutor'] ?? 'FATTO'); ?></p>
+                    <p class="text-gray-800" id="display-nome_tradutor"><?php echo htmlspecialchars($processo['nome_tradutor'] ?? 'VETTA'); ?></p>
                 </div>
                 <div>
                     <p class="font-medium text-gray-500">Qtd. Documentos</p>
@@ -249,135 +256,65 @@ $isAprovadoOuSuperior = !in_array($status, ['Orçamento', 'Cancelado']);
     </div>
 
     <div class="lg:w-1/3 space-y-6">
-        <?php
-// Bloco de Ações para Admin e Gerência
-// Verifica se o usuário é admin/gerente E se o orçamento está pendente de aprovação
-$isManager = in_array($_SESSION['user_perfil'], ['admin', 'gerencia']);
-if ($isManager && $processo['status_processo'] === 'Orçamento Pendente'):
-?>
-<div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-lg shadow-md mb-6">
-    <div class="flex items-center justify-between">
-        <div>
-            <h3 class="font-bold text-lg">Ações de Aprovação</h3>
-            <p class="text-sm">Este orçamento foi enviado por um vendedor e aguarda sua análise.</p>
-        </div>
-        <div class="flex items-center space-x-3">
-            <a href="processos.php?action=aprovar_orcamento&id=<?php echo $processo['id']; ?>" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200 ease-in-out" onclick="return confirm('Tem certeza que deseja APROVAR este orçamento?');">
-                 Aprovar
-            </a>
-            <button type="button" id="recusarBtn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200 ease-in-out">
-                 Recusar
-            </button>
-        </div>
-    </div>
-</div>
-
-<div id="recusaModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-    <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
-        <div class="mt-3 text-center">
-            <h3 class="text-lg leading-6 font-medium text-gray-900">Motivo da Recusa</h3>
-            <div class="mt-2 px-7 py-3">
-                <form action="processos.php?action=recusar_orcamento" method="POST">
-                    <input type="hidden" name="id" value="<?php echo $processo['id']; ?>">
-                    <textarea name="motivo_recusa" class="w-full h-24 p-2 border border-gray-300 rounded-md" placeholder="Descreva o motivo da recusa para que o vendedor possa ajustar o orçamento." required></textarea>
-                    <div class="items-center px-4 py-3">
-                        <button type="button" id="closeModalBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md mr-2 hover:bg-gray-300">Cancelar</button>
-                        <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Confirmar Recusa</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const recusarBtn = document.getElementById('recusarBtn');
-    const recusaModal = document.getElementById('recusaModal');
-    const closeModalBtn = document.getElementById('closeModalBtn');
-
-    if (recusarBtn) {
-        recusarBtn.addEventListener('click', () => {
-            recusaModal.classList.remove('hidden');
-        });
-    }
-    if (closeModalBtn) {
-        closeModalBtn.addEventListener('click', () => {
-            recusaModal.classList.add('hidden');
-        });
-    }
-    window.addEventListener('click', (event) => {
-        if (event.target === recusaModal) {
-            recusaModal.classList.add('hidden');
-        }
-    });
-});
-</script>
-<?php endif; ?>
-
        <?php if ($isAprovadoOuSuperior): ?>
         <div class="bg-white shadow-lg rounded-lg p-6 border-l-4 border-green-500">
-            <div class="flex justify-between items-center border-b pb-3 mb-4">
+            <div class="border-b pb-3 mb-4">
                 <h2 class="text-xl font-semibold text-gray-700">Dados de Faturamento</h2>
-                <button data-modal-target="modal-etapa-faturamento" class="modal-trigger text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-1 px-3 rounded-lg">Editar</button>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
                 <div>
-                    <p class="font-medium text-gray-500">Ordem de Serviço (CA)</p>
-                    <p class="text-gray-800 text-lg" id="display-os_numero_conta_azul"><?php echo htmlspecialchars($processo['os_numero_conta_azul'] ?? 'Não definida'); ?></p>
+                    <p class="font-medium text-gray-500">Ordem de Serviço (Omie)</p>
+                    <p class="text-gray-800 text-lg" id="display-os_numero_omie">
+                        <?php 
+                            $osOmie = $processo['os_numero_omie'] ?? null;
+                            // Exibe apenas os últimos 5 dígitos para facilitar a leitura
+                            $osOmieFormatado = $osOmie ? substr((string)$osOmie, -5) : 'Aguardando Geração...';
+                            echo htmlspecialchars($osOmieFormatado);
+                        ?>
+                    </p>
                 </div>
             </div>
+            <?php
+            // Botão para gerar OS Manualmente
+            if (
+                in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'supervisor']) &&
+                empty($processo['os_numero_omie']) &&
+                $isAprovadoOuSuperior
+            ):
+            ?>
+                <div class="mt-4 pt-4 border-t border-gray-200">
+                    <a href="processos.php?action=gerar_os_omie_manual&id=<?php echo $processo['id']; ?>"
+                       class="w-full text-center block bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 text-sm"
+                       onclick="return confirm('Tem certeza que deseja tentar gerar a Ordem de Serviço na Omie agora?');">
+                        <i class="fas fa-sync-alt mr-2"></i> Gerar OS na Omie Manualmente
+                    </a>
+                    <p class="text-xs text-gray-500 mt-2 text-center">Use esta opção se a geração automática falhou ao aprovar o processo.</p>
+                </div>
+            <?php endif; ?>
         </div>
         <?php endif; ?>
         <?php if ($processo['status_processo'] == 'Recusado' && $_SESSION['user_perfil'] === 'vendedor'): ?>
             <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6 rounded-lg shadow-md" role="alert">
-                <p class="font-bold text-lg">Orçamento Recusado pela Gerência</p>
-                
+                <p class="font-bold text-lg">Orçamento marcado como Recusado</p>
+
                 <?php if (!empty($processo['motivo_recusa'])): ?>
                     <p class="mt-2"><strong>Motivo:</strong> <?php echo nl2br(htmlspecialchars($processo['motivo_recusa'])); ?></p>
                 <?php endif; ?>
 
-                <p class="mt-3">Por favor, <a href="processos.php?action=edit&id=<?php echo $processo['id']; ?>" class="font-bold underline hover:text-yellow-800">edite o orçamento</a> para ajustar os valores ou itens e depois o reenvie para análise.</p>
-                
+                <p class="mt-3">Revise o orçamento e <a href="processos.php?action=edit&id=<?php echo $processo['id']; ?>" class="font-bold underline hover:text-yellow-800">faça os ajustes necessários</a>. Em seguida, você pode reenviar diretamente ao cliente.</p>
+
                 <form action="processos.php?action=change_status" method="POST" class="mt-4">
                     <input type="hidden" name="id" value="<?php echo $processo['id']; ?>">
-                    <input type="hidden" name="status_processo" value="Orçamento Pendente">
+                    <input type="hidden" name="status_processo" value="Orçamento">
                     <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">
-                        Reenviar para Análise
+                        Reenviar ao Cliente
                     </button>
                 </form>
             </div>
         <?php endif; ?>
-        <?php if (isset($_SESSION['user_perfil']) && in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'financeiro'])): ?>
-        <div class="bg-white shadow-lg rounded-lg p-6">
-            <h2 class="text-xl font-semibold text-gray-700 border-b pb-3 mb-4">Ações da Conta Azul</h2>
         
-            <?php if ($isContaAzulConnected): ?>
-                <?php if (!empty($processo['conta_azul_venda_id'])): ?>
-                    <p class="text-sm text-green-700 text-center">
-                        Esta venda já foi lançada na Conta Azul.
-                        <br>
-                        <p class="font-bold text-sm text-green-700 text-center">
-                            Número <?php echo htmlspecialchars($processo['os_numero_conta_azul'] ?? 'N/A'); ?>
-                        </p>
-                    </p>
-                <?php else: ?>
-                    <a href="processos.php?action=create_ca_sale&id=<?php echo $processo['id']; ?>" 
-                       class="w-full text-center block bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm"
-                       onclick="return confirm('Tem certeza que deseja criar esta Venda na Conta Azul?');">
-                        <i class="fas fa-dollar-sign mr-2"></i> Criar Venda na Conta Azul
-                    </a>
-                    <p class="text-xs text-gray-500 mt-2 text-center">Esta ação irá gerar uma venda faturada na sua conta.</p>
-                <?php endif; ?>
-            <?php else: ?>
-                <p class="text-sm text-center text-gray-500">
-                    Conecte a Conta Azul no painel de <a href="admin.php?action=settings" class="text-blue-600 hover:underline">Configurações</a> para habilitar esta ação.
-                </p>
-            <?php endif; ?>
-        </div>
-        <?php endif; ?>
 
-        <?php if (isset($_SESSION['user_perfil']) && in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'financeiro'])): ?>
+        <?php if (isset($_SESSION['user_perfil']) && in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'supervisor', 'financeiro'])): ?>
             <div class="bg-white shadow-lg rounded-lg p-6">
                 <h2 class="text-xl font-semibold text-gray-700 border-b pb-3 mb-4">Resumo Financeiro</h2>
                 <div class="space-y-4">
@@ -434,13 +371,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 <?php endif; ?>
             </div>
         <?php endif; ?>
-        <?php if (isset($_SESSION['user_perfil']) && in_array($_SESSION['user_perfil'], ['admin', 'gerencia'])): ?>
+        <?php if (isset($_SESSION['user_perfil']) && in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'supervisor'])): ?>
             <div class="bg-white shadow-lg rounded-lg p-6">
                 <h2 class="text-xl font-semibold text-gray-700 border-b pb-3 mb-4">Painel de Ações</h2>
 
                 <form id="status-change-form" action="processos.php?action=change_status" method="POST" class="space-y-4">
                     <input type="hidden" name="id" value="<?php echo $processo['id']; ?>">
-                    <input type="hidden" name="os_numero_conta_azul" id="hidden_os_numero_conta_azul">
 
                     <input type="hidden" name="data_inicio_traducao" id="hidden_data_inicio_traducao">
                     <input type="hidden" name="traducao_prazo_tipo" id="hidden_traducao_prazo_tipo">
@@ -526,165 +462,81 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 </div>
 
-<div id="modal-etapa-faturamento" class="modal-overlay hidden">
-    <div class="modal-content">
-        <form class="modal-form" data-action="processos.php?action=update_etapas">
-            <input type="hidden" name="id" value="<?php echo $processo['id']; ?>">
-            <h3 class="text-lg font-bold mb-4">Editar Dados de Faturamento</h3>
-            <div class="space-y-4">
-                <div>
-                    <label for="modal_os_numero_conta_azul" class="block text-sm font-medium text-gray-700">Ordem de Serviço (CA)</label>
-                    <input type="text" name="os_numero_conta_azul" id="modal_os_numero_conta_azul" class="mt-1 block w-full border-gray-300 rounded-md" value="<?php echo htmlspecialchars($processo['os_numero_conta_azul'] ?? ''); ?>" placeholder="Insira o número da O.S.">
-                </div>
-            </div>
-            <div class="modal-actions">
-                <button type="button" class="modal-close-btn">Cancelar</button>
-                <button type="submit" class="modal-save-btn">Atualizar</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<div id="modal-ca-required" class="modal-overlay hidden">
-        <div class="modal-content rounded-lg shadow-sm border border-gray-200 bg-white p-5 sm:p-6">
+<!-- MODAL PARA REQUERIMENTOS DA MUDANÇA DE STATUS (ORÇAMENTO -> APROVADO) -->
+<div id="modal-status-requirements" class="modal-overlay hidden">
+    <div class="modal-content rounded-lg shadow-sm border border-gray-200 bg-white p-5 sm:p-6">
         <!-- Cabeçalho -->
         <div class="mb-4 sm:mb-5">
             <h3 class="text-xl sm:text-2xl font-semibold tracking-tight text-gray-800">
-            Aprovação de Orçamento
+                Aprovação de Orçamento
             </h3>
             <p class="text-sm text-gray-600 mt-1">
-            Para aprovar este orçamento ou colocá-lo em andamento, informe os dados abaixo.
+                Para aprovar este orçamento, por favor, defina o prazo do serviço.
             </p>
         </div>
 
-        <!-- Form body -->
+        <!-- Corpo do formulário do modal -->
         <div class="space-y-5">
-            <!-- CA (OS da Conta Azul) -->
-            <div>
-            <label for="modal_required_os_numero" class="block text-sm font-medium text-gray-700 mb-1">
-                Ordem de Serviço (CA) <span class="text-red-500">*</span>
-            </label>
-            <div class="flex rounded-md shadow-sm overflow-hidden border border-gray-300 focus-within:ring-1 focus-within:ring-gray-400">
-                <span class="inline-flex items-center px-3 text-sm text-gray-500 bg-gray-50 border-r border-gray-300">
-                CA
-                </span>
-                <input
-                type="text"
-                id="modal_required_os_numero"
-                class="w-full px-3 py-2 outline-none"
-                placeholder="Ex.: 12345"
-                required
-                >
-            </div>
-            <p class="mt-1 text-xs text-gray-500">
-                Informe o número da O.S. registrada no Conta Azul.
-            </p>
-            </div>
-
             <!-- Data de envio para o Tradutor -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
-                <label for="modal_data_inicio_traducao" class="block text-sm font-medium text-gray-700 mb-1">
-                Data de Envio para o Tradutor <span class="text-red-500">*</span>
+                <label for="modal_req_data_inicio_traducao" class="block text-sm font-medium text-gray-700 mb-1">
+                    Data de Envio para o Tradutor <span class="text-red-500">*</span>
                 </label>
-                <input
-                type="date"
-                id="modal_data_inicio_traducao"
-                class="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-1 focus:ring-gray-400"
-                value="<?php echo date('Y-m-d'); ?>"
-                >
+                <input type="date" id="modal_req_data_inicio_traducao" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-1 focus:ring-gray-400" value="<?php echo date('Y-m-d'); ?>">
                 <p class="mt-1 text-xs text-gray-500">
-                Preenche automaticamente com a data de hoje — ajuste se necessário.
+                    Preenche automaticamente com a data de hoje — ajuste se necessário.
                 </p>
-            </div>
             </div>
 
             <!-- Prazo do Serviço -->
             <div class="border-t border-gray-100 pt-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-                Prazo do Serviço <span class="text-red-500">*</span>
-            </label>
-
-            <!-- Tipo do prazo -->
-            <div class="flex items-center gap-6">
-                <label class="inline-flex items-center gap-2">
-                <input
-                    type="radio"
-                    name="modal_prazo_tipo"
-                    value="dias"
-                    id="modal_prazo_tipo_dias"
-                    class="prazo-tipo-radio"
-                    <?php echo (($processo['traducao_prazo_tipo'] ?? 'dias') === 'dias') ? 'checked' : ''; ?>
-                >
-                <span class="text-sm text-gray-800">Em dias</span>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Prazo do Serviço <span class="text-red-500">*</span>
                 </label>
 
-                <label class="inline-flex items-center gap-2">
-                <input
-                    type="radio"
-                    name="modal_prazo_tipo"
-                    value="data"
-                    id="modal_prazo_tipo_data"
-                    class="prazo-tipo-radio"
-                    <?php echo (($processo['traducao_prazo_tipo'] ?? '') === 'data') ? 'checked' : ''; ?>
-                >
-                <span class="text-sm text-gray-800">Data específica</span>
-                </label>
-            </div>
-
-            <!-- Conteúdo dinâmico do prazo -->
-            <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <!-- Prazo em dias -->
-                <div id="modal_prazo_dias_container">
-                <label for="modal_traducao_prazo_dias" class="block text-sm font-medium text-gray-700 mb-1">
-                    Dias para Entrega <span class="text-red-500">*</span>
-                </label>
-                <input
-                    type="number"
-                    min="1"
-                    id="modal_traducao_prazo_dias"
-                    class="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-1 focus:ring-gray-400"
-                    placeholder="Ex.: 5"
-                    value="<?php echo htmlspecialchars($processo['traducao_prazo_dias'] ?? ''); ?>"
-                >
-                <p class="mt-1 text-xs text-gray-500">Informe um número inteiro de dias.</p>
+                <!-- Tipo do prazo -->
+                <div class="flex items-center gap-6">
+                    <label class="inline-flex items-center gap-2">
+                        <input type="radio" name="modal_req_prazo_tipo" value="dias" class="prazo-req-tipo-radio" checked>
+                        <span class="text-sm text-gray-800">Em dias</span>
+                    </label>
+                    <label class="inline-flex items-center gap-2">
+                        <input type="radio" name="modal_req_prazo_tipo" value="data" class="prazo-req-tipo-radio">
+                        <span class="text-sm text-gray-800">Data específica</span>
+                    </label>
                 </div>
 
-                <!-- Prazo por data específica -->
-                <div id="modal_prazo_data_container" class="hidden">
-                <label for="modal_traducao_prazo_data" class="block text-sm font-medium text-gray-700 mb-1">
-                    Data da Entrega <span class="text-red-500">*</span>
-                </label>
-                <input
-                    type="date"
-                    id="modal_traducao_prazo_data"
-                    class="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-1 focus:ring-gray-400"
-                    value="<?php echo htmlspecialchars($processo['traducao_prazo_data'] ?? ''); ?>"
-                >
-                <p class="mt-1 text-xs text-gray-500">Selecione a data final para a entrega.</p>
+                <!-- Conteúdo dinâmico do prazo -->
+                <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <!-- Prazo em dias -->
+                    <div id="modal_req_prazo_dias_container">
+                        <label for="modal_req_traducao_prazo_dias" class="block text-sm font-medium text-gray-700 mb-1">
+                            Dias para Entrega <span class="text-red-500">*</span>
+                        </label>
+                        <input type="number" min="1" id="modal_req_traducao_prazo_dias" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-1 focus:ring-gray-400" placeholder="Ex.: 5" required>
+                    </div>
+
+                    <!-- Prazo por data específica -->
+                    <div id="modal_req_prazo_data_container" class="hidden">
+                        <label for="modal_req_traducao_prazo_data" class="block text-sm font-medium text-gray-700 mb-1">
+                            Data da Entrega <span class="text-red-500">*</span>
+                        </label>
+                        <input type="date" id="modal_req_traducao_prazo_data" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-1 focus:ring-gray-400">
+                    </div>
                 </div>
-            </div>
             </div>
         </div>
 
         <!-- Ações -->
         <div class="mt-6 sm:mt-7 flex items-center justify-end gap-2 sm:gap-3">
-            <button
-            type="button"
-            id="cancel-status-change"
-            class="modal-close-btn inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-            Cancelar
+            <button type="button" id="cancel-status-change" class="modal-close-btn inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                Cancelar
             </button>
-            <button
-            type="button"
-            id="confirm-status-change"
-            class="modal-save-btn inline-flex items-center justify-center rounded-md bg-gray-800 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-400"
-            >
-            Salvar e Mudar Status
+            <button type="button" id="confirm-status-change" class="modal-save-btn inline-flex items-center justify-center rounded-md bg-gray-800 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-400">
+                Salvar e Mudar Status
             </button>
         </div>
-        </div>
+    </div>
 </div>
 
 
@@ -714,7 +566,7 @@ document.addEventListener('DOMContentLoaded', function() {
             id="modal_tradutor_id"
             class="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-1 focus:ring-gray-400"
             >
-            <option value="" <?php echo (empty($processo['tradutor_id'])) ? 'selected' : ''; ?>>FATTO (Padrão)</option>
+            <option value="" <?php echo (empty($processo['tradutor_id'])) ? 'selected' : ''; ?>>VETTA (Padrão)</option>
             <?php if (!empty($tradutores)): ?>
                 <?php foreach($tradutores as $tradutor): ?>
                 <option value="<?php echo $tradutor['id']; ?>"
@@ -1057,22 +909,12 @@ document.addEventListener('DOMContentLoaded', function() {
   // Lógica 1: Validação de Mudança de Status para "Aprovado" / "Em Andamento"
   //-----------------------------------------------------
   const statusSelect = $id('status_processo');
-  const statusForm = $id('status-change-form');
-  const caRequiredModal = $id('modal-ca-required');
+  const statusForm = $id('status-change-form'); // O formulário principal
+  const requirementsModal = $id('modal-status-requirements'); // O novo modal
   const confirmStatusChangeBtn = $id('confirm-status-change');
   const cancelStatusChangeBtn = $id('cancel-status-change');
 
-  const inputCA   = $id('modal_required_os_numero');
-  const inputEnvio = $id('modal_data_inicio_traducao');
-  const radioDias = $id('modal_prazo_tipo_dias');
-  const radioData = $id('modal_prazo_tipo_data');
-  const grpDias   = $id('modal_prazo_dias_container');
-  const grpData   = $id('modal_prazo_data_container');
-  const inputDias = $id('modal_traducao_prazo_dias');
-  const inputData = $id('modal_traducao_prazo_data');
-
   // hiddens do form principal (usados só na mudança de status)
-  const hCA   = $id('hidden_os_numero_conta_azul');
   const hEnvio = $id('hidden_data_inicio_traducao');
   const hTipo  = $id('hidden_traducao_prazo_tipo');
   const hDias  = $id('hidden_traducao_prazo_dias');
@@ -1083,54 +925,36 @@ document.addEventListener('DOMContentLoaded', function() {
     ? <?php echo json_encode($status ?? null); ?>
     : null;
 
-  function togglePrazo() {
-    if (!radioDias || !radioData || !grpDias || !grpData || !inputDias || !inputData) return;
-    if (radioDias.checked) {
-      grpDias.classList.remove('hidden');
-      grpData.classList.add('hidden');
-      inputData.value = '';
-    } else {
-      grpDias.classList.add('hidden');
-      grpData.classList.remove('hidden');
-      inputDias.value = '';
-    }
-  }
-  if (radioDias && radioData) {
-    [radioDias, radioData].forEach(r => r.addEventListener('change', togglePrazo));
-    togglePrazo();
-  }
-
-  if (statusForm && statusSelect) {
+  // Lógica para o novo modal de requisitos de status
+  if (statusForm && statusSelect && requirementsModal) {
     statusForm.addEventListener('submit', function(e) {
       const newStatus = statusSelect.value;
-      const requires = (originalStatus === 'Orçamento' && (newStatus === 'Aprovado' || newStatus === 'Em Andamento'));
-      if (requires && caRequiredModal) {
-        e.preventDefault();
-        // garante que a data do tradutor já abra com hoje, se estiver vazia
-        setTodayIfEmpty(inputEnvio);
-        caRequiredModal.classList.remove('hidden');
+      const requiresModal = (originalStatus === 'Orçamento' && (newStatus === 'Aprovado' || newStatus === 'Em Andamento'));
+
+      if (requiresModal) {
+        e.preventDefault(); // Impede o envio direto do formulário
+        requirementsModal.classList.remove('hidden'); // Mostra o modal
       }
     });
   }
 
-  if (cancelStatusChangeBtn && statusSelect && caRequiredModal) {
+  if (cancelStatusChangeBtn && statusSelect && requirementsModal) {
     cancelStatusChangeBtn.addEventListener('click', () => {
-      statusSelect.value = originalStatus; // volta o select
-      caRequiredModal.classList.add('hidden');
+      statusSelect.value = originalStatus; // Restaura o valor original do select
+      requirementsModal.classList.add('hidden'); // Esconde o modal
     });
   }
 
   if (confirmStatusChangeBtn) {
     confirmStatusChangeBtn.addEventListener('click', () => {
-      const ca    = (inputCA?.value || '').trim();
-      const envio = inputEnvio?.value || '';
-      const tipo  = (radioDias && radioDias.checked) ? 'dias' : 'data';
-      const dias  = inputDias?.value || '';
-      const data  = inputData?.value || '';
+      // Pega os valores do NOVO modal
+      const envio = $id('modal_req_data_inicio_traducao').value;
+      const tipo  = document.querySelector('input[name="modal_req_prazo_tipo"]:checked').value;
+      const dias  = $id('modal_req_traducao_prazo_dias').value;
+      const data  = $id('modal_req_traducao_prazo_data').value;
 
-      // validações
+      // Validações
       const erros = [];
-      if (!ca)    erros.push('Informe o número da Ordem de Serviço (CA).');
       if (!envio) erros.push('Informe a Data de Envio para o Tradutor.');
       if (tipo === 'dias') {
         if (!dias || parseInt(dias, 10) <= 0) erros.push('Informe os dias de prazo (maior que zero).');
@@ -1143,8 +967,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
 
-      // Preenche os hiddens do form principal e envia
-      if (hCA)   hCA.value = ca;
+      // Preenche os campos ocultos do formulário principal e o submete
       if (hEnvio) hEnvio.value = envio;
       if (hTipo)  hTipo.value = tipo;
       if (hDias)  hDias.value = (tipo === 'dias') ? dias : '';
@@ -1153,6 +976,33 @@ document.addEventListener('DOMContentLoaded', function() {
       statusForm?.submit();
     });
   }
+
+  // Lógica para alternar os campos de prazo DENTRO do novo modal
+  const reqPrazoRadios = document.querySelectorAll('.prazo-req-tipo-radio');
+  const reqPrazoDiasContainer = $id('modal_req_prazo_dias_container');
+  const reqPrazoDataContainer = $id('modal_req_prazo_data_container');
+  const reqPrazoDiasInput = $id('modal_req_traducao_prazo_dias');
+  const reqPrazoDataInput = $id('modal_req_traducao_prazo_data');
+
+  function toggleReqPrazoInputs() {
+      if (!reqPrazoDiasContainer) return; // safety check
+      const selected = document.querySelector('.prazo-req-tipo-radio:checked')?.value;
+      if (selected === 'dias') {
+          reqPrazoDiasContainer.classList.remove('hidden');
+          reqPrazoDataContainer.classList.add('hidden');
+          reqPrazoDiasInput.required = true;
+          reqPrazoDataInput.required = false;
+          reqPrazoDataInput.value = '';
+      } else {
+          reqPrazoDiasContainer.classList.add('hidden');
+          reqPrazoDataContainer.classList.remove('hidden');
+          reqPrazoDiasInput.required = false;
+          reqPrazoDataInput.required = true;
+          reqPrazoDiasInput.value = '';
+      }
+  }
+  reqPrazoRadios.forEach(radio => radio.addEventListener('change', toggleReqPrazoInputs));
+  toggleReqPrazoInputs(); // Chama na inicialização
 
   //-----------------------------------------------------
   // Lógica 2: Modais de Edição de Etapas (AJAX)
@@ -1170,11 +1020,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
   const modalTriggers = document.querySelectorAll('.modal-trigger');
   const modalCloseButtons = document.querySelectorAll('.modal-close-btn');
-  const overlays = document.querySelectorAll('.modal-overlay:not(#modal-ca-required)'); // Exclui o modal de status
+  const overlays = document.querySelectorAll('.modal-overlay');
 
   modalTriggers.forEach(button => {
     button.addEventListener('click', () => {
-      const targetModal = $id(button.dataset.modalTarget);
+      const targetModal = $id(button.dataset.modalTarget);      
       if (targetModal) {
         // auto-preenche datas (se existirem) com hoje, quando abrir
         const autoDateInputs = targetModal.querySelectorAll('input[type="date"][data-autofill-today], #modal_data_inicio_traducao, #modal_data_envio_assinatura, #modal_data_devolucao_assinatura, #modal_data_envio_cartorio');
@@ -1185,18 +1035,26 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   function closeModal(modal) {
-    if (modal) modal.classList.add('hidden');
+    // Não fecha o modal de requisitos de status, pois ele tem sua própria lógica de cancelamento
+    if (modal && modal.id !== 'modal-status-requirements') {
+        modal.classList.add('hidden');
+    }
   }
 
   modalCloseButtons.forEach(button => {
-    // Ignora o botão de cancelar do modal de status, pois ele tem lógica própria
+    // O botão de cancelar do modal de status já tem sua própria lógica, então não precisa de um listener aqui
     if (button.id !== 'cancel-status-change') {
-      button.addEventListener('click', () => closeModal(button.closest('.modal-overlay')));
+        button.addEventListener('click', () => closeModal(button.closest('.modal-overlay')));
     }
   });
 
   overlays.forEach(overlay => overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) closeModal(overlay);
+    if (e.target === overlay) {
+        // Não fecha o modal de requisitos de status ao clicar fora
+        if (overlay.id !== 'modal-status-requirements') {
+            closeModal(overlay);
+        }
+    }
   }));
 
   document.querySelectorAll('.modal-form').forEach(form => {

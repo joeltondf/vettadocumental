@@ -5,9 +5,13 @@
  * Inclui operações de Criar, Ler, Atualizar e Deletar (CRUD).
  */
 
+require_once __DIR__ . '/../utils/DatabaseSchemaInspector.php';
+
 class Cliente
 {
     private $pdo;
+    private ?bool $integrationCodeColumnAvailable = null;
+    private ?bool $conversionDateColumnAvailable = null;
 
     /**
      * Construtor da classe Cliente.
@@ -24,20 +28,15 @@ class Cliente
     // =======================================================================
 
     /**
-     * Cria um novo cliente na base de dados.
-     * Realiza a verificação para evitar CPF/CNPJ duplicado.
+     * Atualiza os dados de um cliente existente.
+     * Realiza a verificação para evitar CPF/CNPJ duplicado durante a edição.
      *
-     * @param array $data Dados do cliente a serem inseridos.
-     * @return int|string Retorna o ID do novo cliente em caso de sucesso,
-     * ou uma string de erro 'error_duplicate_cpf_cnpj' se o CPF/CNPJ já existir.
+     * @param int $id Identificador do cliente a ser atualizado.
+     * @param array $data Dados do cliente enviados pelo formulário.
+     * @return bool|string Retorna true em caso de sucesso, false em falhas gerais ou
+     *                     'error_duplicate_cpf_cnpj' quando CPF/CNPJ já estiver em uso.
      */
-
-        public function getAppClients()
-    {
-        $stmt = $this->pdo->query("SELECT * FROM clientes WHERE is_prospect = 0 ORDER BY nome_cliente");
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-public function update($id, $data)
+    public function update($id, $data)
     {
         $this->pdo->beginTransaction();
     
@@ -88,14 +87,16 @@ public function update($id, $data)
             
             $sql = "UPDATE clientes SET 
                         nome_cliente = ?, nome_responsavel = ?, cpf_cnpj = ?, 
-                        email = ?, telefone = ?, endereco = ?, cep = ?, 
+                        email = ?, telefone = ?, endereco = ?, numero = ?, bairro = ?, cidade = ?, estado = ?, cep = ?, 
                         tipo_pessoa = ?, tipo_assessoria = ?, user_id = ? 
                     WHERE id = ?";
             
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute([
                 $data['nome_cliente'], $data['nome_responsavel'] ?? null, $cpf_cnpj,
-                $data['email'] ?? null, $data['telefone'] ?? null, $data['endereco'] ?? null,
+                $data['email'] ?? null, $data['telefone'] ?? null, 
+                $data['endereco'] ?? null, $data['numero'] ?? null, $data['bairro'] ?? null, 
+                $data['cidade'] ?? null, $data['estado'] ?? null,
                 $data['cep'] ?? null, $data['tipo_pessoa'] ?? 'Jurídica', // Salva o tipo de pessoa
                 $data['tipo_assessoria'] ?? null, $userId, $id
             ]);
@@ -125,8 +126,8 @@ public function update($id, $data)
     public function getById($id)
     {
         // Usamos LEFT JOIN para que clientes sem usuário também sejam retornados.
-        $sql = "SELECT 
-                    c.*, 
+        $sql = "SELECT
+                    c.*,
                     u.nome_completo as user_nome_completo, 
                     u.email as user_email
                 FROM clientes AS c
@@ -138,28 +139,98 @@ public function update($id, $data)
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
+    /**
+     * Marca um prospect como cliente, atualizando o campo is_prospect e, quando disponível,
+     * a data de conversão.
+     */
+    public function promoteProspectToClient(int $clienteId): bool
+    {
+        if ($clienteId <= 0) {
+            return false;
+        }
+
+        $cliente = $this->getById($clienteId);
+        if (!$cliente) {
+            return false;
+        }
+
+        $needsConversion = (int)($cliente['is_prospect'] ?? 1) === 1;
+        $shouldStampConversionDate = $this->hasConversionDateColumn();
+
+        if (!$needsConversion && !$shouldStampConversionDate) {
+            return true;
+        }
+
+        $columnsToUpdate = [];
+        $params = [':id' => $clienteId];
+
+        if ($needsConversion) {
+            $columnsToUpdate['is_prospect'] = 0;
+        }
+
+        if ($shouldStampConversionDate) {
+            $columnsToUpdate['data_conversao'] = date('Y-m-d H:i:s');
+        }
+
+        if (empty($columnsToUpdate)) {
+            return true;
+        }
+
+        $setParts = [];
+        foreach ($columnsToUpdate as $column => $value) {
+            $setParts[] = "$column = :$column";
+            $params[":$column"] = $value;
+        }
+
+        $sql = 'UPDATE clientes SET ' . implode(', ', $setParts) . ' WHERE id = :id';
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+
+        if ($needsConversion) {
+            return $stmt->rowCount() > 0;
+        }
+
+        return true;
+    }
+
 
     /**
-     * Busca todos os clientes cadastrados, ordenados por nome.
+     * Busca clientes cadastrados, ordenados por nome.
      *
-     * @return array Retorna um array de arrays associativos com todos os clientes.
+     * @param bool $includeProspects Define se prospects também devem ser retornados.
+     * @return array Lista de clientes conforme o filtro informado.
      */
-    public function getAll()
+    public function getAll(bool $includeProspects = false)
     {
-        $stmt = $this->pdo->query("SELECT * FROM clientes ORDER BY nome_cliente");
+        $sql = 'SELECT * FROM clientes';
+        if (!$includeProspects) {
+            $sql .= ' WHERE is_prospect = 0';
+        }
+        $sql .= ' ORDER BY nome_cliente';
+
+        $stmt = $this->pdo->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     /**
-     * Atualiza os dados de um cliente existente.
-     * Realiza a verificação para garantir que o novo CPF/CNPJ não pertença a outro cliente.
-     *
-     * @param int $id O ID do cliente a ser atualizado.
-     * @param array $data Os novos dados do cliente.
-     * @return bool|string Retorna 'true' em caso de sucesso, 'false' em caso de falha na execução,
-     * ou a string 'error_duplicate_cpf_cnpj' se o CPF/CNPJ já pertencer a outro registo.
+     * Busca apenas os prospects cadastrados.
      */
+    public function getProspects(): array
+    {
+        $sql = 'SELECT * FROM clientes WHERE is_prospect = 1 ORDER BY nome_cliente';
+        $stmt = $this->pdo->query($sql);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 
+    /**
+     * Busca apenas os clientes finais utilizados no sistema principal.
+     *
+     * @return array Lista de clientes com is_prospect = 0.
+     */
+    public function getAppClients(): array
+    {
+        return $this->getAll();
+    }
 
     /**
      * Deleta um cliente da base de dados.
@@ -189,23 +260,7 @@ public function update($id, $data)
     return $stmt->fetch(PDO::FETCH_ASSOC);
     }
     
-    /**
-     * Vincula um cliente local a um ID da Conta Azul.
-     * @param int $localClientId
-     * @param string $contaAzulUuid
-     * @return bool
-     */
-    public function linkContaAzulUuid(int $localClientId, string $contaAzulUuid): bool
-    {
-        $sql = "UPDATE clientes SET conta_azul_uuid = :ca_uuid WHERE id = :id";
-        try {
-            $stmt = $this->pdo->prepare($sql);
-            return $stmt->execute(['ca_uuid' => $contaAzulUuid, 'id' => $localClientId]);
-        } catch (PDOException $e) {
-            error_log("Erro ao vincular cliente {$localClientId} com Conta Azul UUID: " . $e->getMessage());
-            return false;
-        }
-    }
+    
     /**
      * Cria um novo cliente na base de dados.
      * Realiza a verificação para evitar CPF/CNPJ duplicado e cria um login de usuário se solicitado.
@@ -245,9 +300,9 @@ public function update($id, $data)
 
             // --- CORREÇÃO AQUI ---
             $sql = "INSERT INTO clientes 
-                        (nome_cliente, nome_responsavel, cpf_cnpj, email, telefone, endereco, cep, tipo_pessoa, tipo_assessoria, user_id, conta_azul_uuid, is_prospect) 
+                        (nome_cliente, nome_responsavel, cpf_cnpj, email, telefone, endereco, numero, bairro, cidade, estado, cep, tipo_pessoa, tipo_assessoria, user_id, is_prospect) 
                     VALUES 
-                        (:nome_cliente, :nome_responsavel, :cpf_cnpj, :email, :telefone, :endereco, :cep, :tipo_pessoa, :tipo_assessoria, :user_id, :conta_azul_uuid, :is_prospect)";
+                        (:nome_cliente, :nome_responsavel, :cpf_cnpj, :email, :telefone, :endereco, :numero, :bairro, :cidade, :estado, :cep, :tipo_pessoa, :tipo_assessoria, :user_id, :is_prospect)";
             
             $stmt = $this->pdo->prepare($sql);
             
@@ -258,11 +313,14 @@ public function update($id, $data)
                 ':email' => $data['email'] ?? null,
                 ':telefone' => $data['telefone'] ?? null,
                 ':endereco' => $data['endereco'] ?? null,
+                ':numero' => $data['numero'] ?? null,
+                ':bairro' => $data['bairro'] ?? null,
+                ':cidade' => $data['cidade'] ?? null,
+                ':estado' => $data['estado'] ?? null,
                 ':cep' => $data['cep'] ?? null,
                 ':tipo_pessoa' => $data['tipo_pessoa'] ?? 'Jurídica',
                 ':tipo_assessoria' => $data['tipo_assessoria'] ?? null,
                 ':user_id' => $userId,
-                ':conta_azul_uuid' => null, // Assumindo que conta_azul_uuid não vem do form de criação inicial
                 ':is_prospect' => 0 // Define como cliente normal, e não prospecção
             ]);
 
@@ -281,9 +339,64 @@ public function update($id, $data)
             $_SESSION['error_message'] = "Ocorreu um erro ao criar o cliente: " . $e->getMessage();
             return false;
         }
-    }   
+    }
+
+    /**
+     * Vincula o ID do cliente retornado pela API da Omie ao registro local.
+     *
+     * @param int $clientId O ID do cliente no banco de dados local.
+     * @param int $omieId O código do cliente retornado pela Omie.
+     * @return bool Retorna true em caso de sucesso.
+     */
+    public function linkOmieId($clientId, $omieId)
+    {
+        return $this->updateIntegrationIdentifiers((int)$clientId, null, (int)$omieId);
+    }
+
+    public function updateIntegrationIdentifiers(int $clientId, ?string $integrationCode, ?int $omieId = null): bool
+    {
+        $fields = [];
+        $params = [];
+
+        if ($integrationCode !== null && $this->supportsIntegrationCodeColumn()) {
+            $fields[] = 'codigo_cliente_integracao = :integration_code';
+            $params[':integration_code'] = $integrationCode;
+        }
+
+        if ($omieId !== null) {
+            $fields[] = 'omie_id = :omie_id';
+            $params[':omie_id'] = $omieId;
+        }
+
+        if (empty($fields)) {
+            return true;
+        }
+
+        $params[':id'] = $clientId;
+        $sql = 'UPDATE clientes SET ' . implode(', ', $fields) . ' WHERE id = :id';
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute($params);
+    }
     public function getPdo() {
         return $this->pdo;
+    }
+
+    public function supportsIntegrationCodeColumn(): bool
+    {
+        if ($this->integrationCodeColumnAvailable === null) {
+            $this->integrationCodeColumnAvailable = DatabaseSchemaInspector::hasColumn($this->pdo, 'clientes', 'codigo_cliente_integracao');
+        }
+
+        return $this->integrationCodeColumnAvailable;
+    }
+
+    private function hasConversionDateColumn(): bool
+    {
+        if ($this->conversionDateColumnAvailable === null) {
+            $this->conversionDateColumnAvailable = DatabaseSchemaInspector::hasColumn($this->pdo, 'clientes', 'data_conversao');
+        }
+
+        return $this->conversionDateColumnAvailable;
     }
 
         /**
@@ -291,8 +404,18 @@ public function update($id, $data)
      */
     public function getCrmProspects()
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM clientes WHERE is_prospect = 1 ORDER BY nome_cliente ASC");
+        $sql = "SELECT c.*, (
+                    SELECT COUNT(*)
+                    FROM prospeccoes p
+                    WHERE p.cliente_id = c.id
+                ) AS totalProspeccoes
+                FROM clientes c
+                WHERE c.is_prospect = 1
+                ORDER BY c.nome_cliente ASC";
+
+        $stmt = $this->pdo->prepare($sql);
         $stmt->execute();
+
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -313,7 +436,55 @@ public function searchAppClients($searchTerm)
     $stmt->execute([':term' => '%' . $searchTerm . '%']);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
+    /**
+     * NOVO MÉTODO: Busca os serviços e preços de um cliente mensalista.
+     */
+    public function getServicosMensalista($cliente_id) {
+        // A CORREÇÃO ESTÁ AQUI: Adicionamos "cf.servico_tipo" à consulta SELECT
+        $sql = "SELECT csm.*, cf.nome_categoria, cf.servico_tipo 
+                FROM cliente_servicos_mensalistas csm
+                JOIN categorias_financeiras cf ON csm.produto_orcamento_id = cf.id
+                WHERE csm.cliente_id = ?";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$cliente_id]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 
 
+    /**
+     * NOVO MÉTODO: Salva a lista de serviços e preços de um cliente mensalista.
+     */
+    public function salvarServicosMensalista($cliente_id, $servicos) {
+        // Primeiro, apaga a lista antiga para garantir consistência.
+        $this->pdo->prepare("DELETE FROM cliente_servicos_mensalistas WHERE cliente_id = ?")->execute([$cliente_id]);
+
+        if (empty($servicos)) {
+            return true; // Se não houver serviços, apenas termina.
+        }
+
+        $sql = "INSERT INTO cliente_servicos_mensalistas (cliente_id, produto_orcamento_id, valor_padrao) VALUES (?, ?, ?)";
+        $stmt = $this->pdo->prepare($sql);
+
+        foreach ($servicos as $servico) {
+            // Garante que apenas linhas com dados válidos sejam salvas.
+            if (!empty($servico['produto_orcamento_id']) && isset($servico['valor_padrao'])) {
+                $stmt->execute([
+                    $cliente_id,
+                    $servico['produto_orcamento_id'],
+                    $servico['valor_padrao']
+                ]);
+            }
+        }
+        return true;
+    }
+    public function getServicoContratadoPorNome($clienteId, $nomeCategoria) {
+        $sql = "SELECT csm.*, cf.nome_categoria 
+                FROM cliente_servicos_mensalistas csm
+                JOIN categorias_financeiras cf ON csm.produto_orcamento_id = cf.id
+                WHERE csm.cliente_id = :cliente_id AND cf.nome_categoria = :nome_categoria";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([':cliente_id' => $clienteId, ':nome_categoria' => $nomeCategoria]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
 
 }

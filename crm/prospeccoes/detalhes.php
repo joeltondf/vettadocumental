@@ -49,7 +49,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
 <?php if (isset($_GET['request_sent'])): ?>
 <div class="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg relative" role="alert">
   <strong class="font-bold">Sucesso!</strong>
-  <span class="block sm:inline">Sua solicitação de exclusão foi enviada para a gerência.</span>
+  <span class="block sm:inline">Sua solicitação de exclusão foi enviada para a gerência/supervisão.</span>
 </div>
 <?php endif; ?>
 
@@ -62,7 +62,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                 <div class="flex justify-between items-start mb-6">
                     <div>
                         <h2 class="text-2xl font-bold text-gray-900"><?php echo htmlspecialchars($prospect['nome_prospecto'] ?? ''); ?></h2>
-                        <p class="text-sm text-gray-500">Cliente: <span class="font-medium text-indigo-600"><?php echo htmlspecialchars($prospect['nome_cliente'] ?? 'Cliente não vinculado'); ?></span></p>
+                        <p class="text-sm text-gray-500">Contato: <span class="font-medium text-indigo-600"><?php echo htmlspecialchars($prospect['nome_cliente'] ?? 'Cliente não vinculado'); ?></span></p>
                         <p class="text-sm text-gray-500 mt-1">ID: <?php echo htmlspecialchars($prospect['id_texto'] ?? ''); ?></p>
                     </div>
                     
@@ -74,7 +74,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                     <a href="<?php echo APP_URL; ?>/crm/agendamentos/novo_agendamento.php?prospeccao_id=<?php echo $prospect['id']; ?>" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 shadow-sm">
                             Agendar
                         </a>
-                        <?php if (in_array($user_perfil, ['admin', 'gerencia'])): ?>
+                        <?php if (in_array($user_perfil, ['admin', 'gerencia', 'supervisor'])): ?>
                             <form action="<?php echo APP_URL; ?>/crm/prospeccoes/excluir_prospeccao.php" method="POST" class="inline">
                                 <input type="hidden" name="id" value="<?php echo $prospect['id']; ?>">
                                 <button type="submit" class="bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 shadow-sm"
@@ -108,7 +108,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                         <div>
                             <label for="status" class="block text-sm font-medium text-gray-700">Status</label>
                             <select name="status" id="status" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
-                                <option value="Cliente ativo" <?php echo ($prospect['status'] == 'Cliente ativo') ? 'selected' : ''; ?>>Cliente ativo</option>
+                                <option value="Cliente ativo" <?php echo ($prospect['status'] == 'Cliente ativo') ? 'selected' : ''; ?>>Contato ativo</option>
                                 <option value="Primeiro contato" <?php echo ($prospect['status'] == 'Primeiro contato') ? 'selected' : ''; ?>>Primeiro contato</option>
                                 <option value="Segundo contato" <?php echo ($prospect['status'] == 'Segundo contato') ? 'selected' : ''; ?>>Segundo contato</option>
                                 <option value="Terceiro contato" <?php echo ($prospect['status'] == 'Terceiro contato') ? 'selected' : ''; ?>>Terceiro contato</option>
@@ -120,7 +120,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                         </div>
                         <div>
                             <label for="valor_proposto" class="block text-sm font-medium text-gray-700">Valor Proposto (R$)</label>
-                            <input type="number" step="0.01" name="valor_proposto" id="valor_proposto" value="<?php echo htmlspecialchars($prospect['valor_proposto'] ?? '0'); ?>" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                            <input type="text" name="valor_proposto" id="valor_proposto" data-currency-input value="<?php echo htmlspecialchars($prospect['valor_proposto'] ?? '0'); ?>" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" placeholder="R$ 0,00">
                         </div>
                         <div>
                             <label for="data_reuniao_agendada" class="block text-sm font-medium text-gray-700">Data da Reunião</label>
@@ -259,7 +259,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                         <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
                             <h3 class="text-lg leading-6 font-medium text-gray-900">Solicitar Exclusão da Prospecção</h3>
                             <div class="mt-2">
-                                <p class="text-sm text-gray-500">Informe o motivo. Sua solicitação será enviada por e-mail para a gerência.</p>
+                                <p class="text-sm text-gray-500">Informe o motivo. Sua solicitação será enviada por e-mail para a gerência/supervisão.</p>
                                 <textarea name="motivo" rows="4" required class="mt-2 block w-full border border-gray-300 rounded-md shadow-sm" placeholder="Digite o motivo da exclusão..."></textarea>
                             </div>
                         </div>

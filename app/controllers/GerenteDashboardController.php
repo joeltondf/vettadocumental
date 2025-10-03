@@ -125,7 +125,7 @@ class GerenteDashboardController
 
 
         // Nome da página para a view
-        $pageTitle = 'Painel de Gerência';
+        $pageTitle = 'Painel de Gestão';
 
         // Carrega as views padrão (header/footer) e a nova view de conteúdo
         require_once __DIR__ . '/../views/layouts/header.php';

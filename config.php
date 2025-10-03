@@ -44,5 +44,5 @@ define('EMAIL_USERNAME', 'app@cliente.pro');
 define('EMAIL_PASSWORD', '@Amora051307');
 define('EMAIL_PORT', 465); // Ou a porta que seu servidor usa (ex: 465)
 define('EMAIL_FROM_ADDRESS', 'app@cliente.pro');
-define('EMAIL_FROM_NAME', 'Novalis');
+define('EMAIL_FROM_NAME', 'Vetta Documental');
 ?>

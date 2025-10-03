@@ -5,7 +5,7 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/app/core/auth_check.php';
 require_once __DIR__ . '/app/controllers/TradutoresController.php';
 require_once __DIR__ . '/app/core/access_control.php';
-require_permission(['admin', 'colaborador', 'gerencia']);
+require_permission(['admin', 'colaborador', 'gerencia', 'supervisor']);
 
 $controller = new TradutoresController($pdo);
 

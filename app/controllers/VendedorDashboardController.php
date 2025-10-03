@@ -25,8 +25,8 @@ class VendedorDashboardController
 
         // 2. Pega os dados do vendedor logado
         $userPerfil = $_SESSION['user_perfil'] ?? '';
-        if (($userPerfil === 'admin' || $userPerfil === 'gerencia') && isset($_GET['vendedor_id'])) {
-            // Admin/Gerência podem visualizar o painel de outro vendedor passando ?vendedor_id=ID
+        if (in_array($userPerfil, ['admin', 'gerencia', 'supervisor']) && isset($_GET['vendedor_id'])) {
+            // Perfis de gestão podem visualizar o painel de outro vendedor passando ?vendedor_id=ID
             $vendedorId = (int) $_GET['vendedor_id'];
             $vendedor   = $vendedorModel->getById($vendedorId);
             if (!$vendedor) { die("Erro: Vendedor não encontrado."); }
@@ -44,21 +44,17 @@ class VendedorDashboardController
 
 
         // 3. Busca de dados de Processos (Vendas)
-        $todosOsProcessosDoVendedor = $processoModel->getFilteredProcesses(['vendedor_id' => $vendedorId], 9999, 0);
+        $filters = $this->buildFiltersFromRequest($_GET ?? []);
+        $filters['vendedor_id'] = $vendedorId;
+
+        $todosOsProcessosDoVendedor = $processoModel->getFilteredProcesses($filters, 9999, 0);
         $totalVendasMes = $processoModel->getVendasTotalMesByVendedor($vendedorId);
 
         // 4. Calcula os Cards de Processos
-        
-        // CORREÇÃO: Busca o total de orçamentos para ajustar diretamente do banco
-        $sql_orcamentos = "SELECT COUNT(id) FROM processos WHERE vendedor_id = :vendedor_id AND status_processo IN ('Orçamento Pendente', 'Recusado')";
-        $stmt_orcamentos = $this->pdo->prepare($sql_orcamentos);
-        $stmt_orcamentos->execute([':vendedor_id' => $vendedorId]);
-        $count_orcamentos_para_ajustar = (int) $stmt_orcamentos->fetchColumn();
 
         $stats = [
-            'processos_ativos' => 0, 
-            'orcamentos_para_ajustar' => $count_orcamentos_para_ajustar, // Usa o valor da consulta direta
-            'finalizados_mes' => 0, 
+            'processos_ativos' => 0,
+            'finalizados_mes' => 0,
             'processos_atrasados' => 0
         ];
         $valorTotalFinalizado = 0; 
@@ -69,8 +65,6 @@ class VendedorDashboardController
             if (in_array($processo['status_processo'], ['Aprovado', 'Em Andamento'])) {
                 $stats['processos_ativos']++;
             }
-            
-            // A contagem de 'orcamentos_para_ajustar' foi movida para a consulta SQL acima.
             
             if ($processo['status_processo'] === 'Finalizado') {
                 $valorTotalFinalizado += (float)$processo['valor_total'];
@@ -104,12 +98,66 @@ class VendedorDashboardController
         // 8. Preparação para a View
         $clientesParaFiltro = $clienteModel->getAll();
         $pageTitle = 'Meu Painel';
-        $hasFilters = !empty(array_filter($_GET));
+        $filtrosAtuais = $this->cleanFilterValues($_GET ?? []);
+        $hasFilters = !empty($filtrosAtuais);
         $totalProcessesCount = count($todosOsProcessosDoVendedor);
-        
+
+        $filters = $filtrosAtuais;
+        $currentVendedorId = $vendedorId;
+
         // Carrega a view
         require_once __DIR__ . '/../views/layouts/header.php';
         require_once __DIR__ . '/../views/vendedor_dashboard/main.php';
         require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+
+    private function buildFiltersFromRequest(array $request): array
+    {
+        $allowedKeys = ['titulo', 'cliente_id', 'os_numero', 'tipo_servico', 'status', 'data_inicio', 'data_fim', 'filtro_card'];
+        $filters = [];
+
+        foreach ($allowedKeys as $key) {
+            if (!isset($request[$key])) {
+                continue;
+            }
+
+            $value = is_string($request[$key]) ? trim($request[$key]) : $request[$key];
+            if ($value === '' || $value === null) {
+                continue;
+            }
+
+            if ($key === 'cliente_id') {
+                $intValue = (int) $value;
+                if ($intValue > 0) {
+                    $filters[$key] = $intValue;
+                }
+                continue;
+            }
+
+            $filters[$key] = $value;
+        }
+
+        return $filters;
+    }
+
+    private function cleanFilterValues(array $request): array
+    {
+        $allowedKeys = ['titulo', 'cliente_id', 'os_numero', 'tipo_servico', 'status', 'data_inicio', 'data_fim', 'filtro_card'];
+        $result = [];
+
+        foreach ($allowedKeys as $key) {
+            if (!isset($request[$key]) || is_array($request[$key])) {
+                continue;
+            }
+
+            $trimmed = trim((string) $request[$key]);
+            if ($trimmed === '') {
+                continue;
+            }
+
+            $result[$key] = $trimmed;
+        }
+
+        return $result;
     }
 }

@@ -75,10 +75,10 @@ if (session_status() == PHP_SESSION_NONE) {
                                     <p class="text-gray-900 whitespace-no-wrap font-semibold"><?php echo htmlspecialchars($processo['orcamento_numero'] ?? 'N/A'); ?></p>
                                 </td>
                                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-xs">
-                                    <p class="text-gray-900 whitespace-no-wrap"><?php echo htmlspecialchars($processo['titulo'] ?? ''); ?></p>
+                                    <p class="text-gray-900 whitespace-no-wrap"><?php echo htmlspecialchars(mb_strtoupper($processo['titulo'] ?? '')); ?></p>
                                 </td>
                                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-xs">
-                                    <p class="text-gray-900 whitespace-no-wrap"><?php echo htmlspecialchars($processo['nome_cliente'] ?? ''); ?></p>
+                                    <p class="text-gray-900 whitespace-no-wrap"><?php echo htmlspecialchars(mb_strtoupper($processo['nome_cliente'] ?? '')); ?></p>
                                 </td>
                                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-xs whitespace-nowrap">
                                     <span class="relative inline-block px-3 py-1 font-semibold leading-tight rounded-full <?php echo $statusClasses; ?>">

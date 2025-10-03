@@ -44,30 +44,102 @@ class CategoriasController {
         ]);
     }
 
+    private function redirectWithMessage(bool $success, string $successMessage, string $errorMessage): void {
+        if ($success) {
+            $_SESSION['success_message'] = $successMessage;
+        } else {
+            $_SESSION['error_message'] = $errorMessage;
+        }
+
+        header('Location: categorias.php');
+        exit();
+    }
+
     public function store() {
         $this->auth_check();
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            if ($this->categoriaModel->create($_POST)) {
-                 $_SESSION['success_message'] = 'Categoria criada com sucesso!';
-            } else {
-                $_SESSION['error_message'] = 'Erro ao criar a categoria.';
-            }
-            header('Location: categorias.php');
-            exit();
+            $success = $this->categoriaModel->create($_POST);
+            $this->redirectWithMessage($success, 'Categoria criada com sucesso!', 'Erro ao criar a categoria.');
         }
     }
 
     public function update($id) {
         $this->auth_check();
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            if ($this->categoriaModel->update($id, $_POST)) {
-                $_SESSION['success_message'] = 'Categoria atualizada com sucesso!';
-            } else {
-                 $_SESSION['error_message'] = 'Erro ao atualizar a categoria.';
-            }
+            $success = $this->categoriaModel->update($id, $_POST);
+            $this->redirectWithMessage($success, 'Categoria atualizada com sucesso!', 'Erro ao atualizar a categoria.');
+        }
+    }
+
+    public function save() {
+        $this->auth_check();
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             header('Location: categorias.php');
             exit();
         }
+
+        $id = isset($_POST['id']) ? trim((string)$_POST['id']) : '';
+
+        if ($id === '' || !ctype_digit($id)) {
+            $this->store();
+            return;
+        }
+
+        $this->update((int)$id);
+    }
+
+    public function renameGroup() {
+        $this->auth_check();
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+
+            header('Location: categorias.php');
+            exit();
+        }
+
+        $oldName = $this->sanitizeGroupName($_POST['old_name'] ?? '');
+        $newName = $this->sanitizeGroupName($_POST['new_name'] ?? '');
+
+        if ($oldName === '' || $newName === '') {
+            $_SESSION['error_message'] = 'Informe o nome atual e o novo nome do grupo.';
+            header('Location: categorias.php');
+            exit();
+        }
+
+        if ($oldName === $newName) {
+            $_SESSION['error_message'] = 'O novo nome deve ser diferente do atual.';
+            header('Location: categorias.php');
+            exit();
+        }
+
+        $success = $this->categoriaModel->renameGrupo($oldName, $newName);
+        $this->redirectWithMessage($success, 'Grupo renomeado com sucesso!', 'Erro ao renomear o grupo.');
+    }
+
+    public function deleteGroup() {
+        $this->auth_check();
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: categorias.php');
+            exit();
+        }
+
+        $groupName = $this->sanitizeGroupName($_POST['group_name'] ?? '');
+
+        if ($groupName === '') {
+            $_SESSION['error_message'] = 'Informe o grupo que deseja excluir.';
+            header('Location: categorias.php');
+            exit();
+        }
+
+        $success = $this->categoriaModel->deleteGrupo($groupName);
+        $this->redirectWithMessage($success, 'Grupo excluído com sucesso!', 'Erro ao excluir o grupo. Verifique se ele não está em uso.');
+    }
+
+    private function sanitizeGroupName(string $value): string {
+        return trim(strip_tags($value));
+
     }
     
     // Método para desativar (muda ativo para 0)

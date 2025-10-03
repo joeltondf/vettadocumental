@@ -56,7 +56,7 @@ $disableFields = $isVendedor && $fromProspeccao;
 
         <div>
             <label for="valor_total" class="block text-sm font-semibold text-gray-700">Valor Total (R$) *</label>
-            <input type="number" step="0.01" name="valor_total" id="valor_total" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="Ex: 150.50" required>
+            <input type="text" name="valor_total" id="valor_total" data-currency-input class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="R$ 0,00" required>
         </div>
 
         <div>

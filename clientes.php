@@ -19,12 +19,12 @@ switch ($action) {
     case 'edit':
     case 'update':
         // Apenas 'edit' e 'update' são permitidos para vendedores no fluxo da prospecção.
-        require_permission(['admin', 'gerencia', 'vendedor']);
+        require_permission(['admin', 'gerencia', 'supervisor', 'vendedor']);
         break;
 
     default:
         // Todas as outras ações (listar, criar, deletar) continuam restritas.
-        require_permission(['admin', 'gerencia', 'colaborador']);
+        require_permission(['admin', 'gerencia', 'supervisor', 'colaborador']);
         break;
 }
 // ===================================================================
@@ -49,13 +49,7 @@ switch ($action) {
     case 'get_json':
         $controller->getClienteJson();
         break;
-    case 'sync_ca':
-        if (!isset($_GET['id'])) {
-            header('Location: clientes.php');
-            exit();
-        }
-        $controller->syncContaAzul($_GET['id']);
-        break;
+    
     case 'index':
     default:
         $controller->index();

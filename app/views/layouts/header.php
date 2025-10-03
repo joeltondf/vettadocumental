@@ -17,9 +17,9 @@ $system_logo = $configModel->get('system_logo');
 
 // --- LÓGICA DE PERMISSÕES ---
 $user_perfil = $_SESSION['user_perfil'] ?? 'guest';
-$crm_access = in_array($user_perfil, ['admin', 'gerencia', 'vendedor']);
+$crm_access = in_array($user_perfil, ['admin', 'gerencia', 'supervisor', 'vendedor']);
 $finance_access = in_array($user_perfil, ['admin', 'gerencia', 'financeiro']);
-$admin_access = in_array($user_perfil, ['admin', 'gerencia']);
+$admin_access = in_array($user_perfil, ['admin', 'gerencia', 'supervisor']);
 $is_vendedor = ($user_perfil === 'vendedor');
 
 // --- LÓGICA PARA MENU ATIVO ---
@@ -52,8 +52,8 @@ if (isset($_SESSION['user_id'])) {
     $lista_notificacoes_dropdown = $stmt_list->fetchAll(PDO::FETCH_ASSOC);
 
     // 2. Conta e busca retornos de prospecção (LÓGICA AJUSTADA)
-    // Apenas para perfis 'gerencia' e 'vendedor'
-    if (in_array($user_perfil, ['gerencia', 'vendedor'])) {
+    // Apenas para perfis de gestão e vendedores
+    if (in_array($user_perfil, ['gerencia', 'supervisor', 'vendedor'])) {
         $dias_para_alerta_menu = (int)$configModel->get('dias_alerta_retorno', 30);
         $status_excluidos = ['Convertido', 'Fechamento', 'Pausar', 'Descartado'];
         
@@ -161,13 +161,13 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
                         </div>
                         <?php endif; ?>
                         <?php if ($admin_access): ?>
-                            <a href="<?php echo APP_URL; ?>/gerente_dashboard.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($currentPage == 'gerente_dashboard.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Painel Gerência</a>
+                            <a href="<?php echo APP_URL; ?>/gerente_dashboard.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($currentPage == 'gerente_dashboard.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Painel Gestão</a>
 
                             <a href="<?php echo APP_URL; ?>/admin.php" class="px-3 py-2 rounded-md text-sm font-bold <?php echo ($currentPage == 'admin.php') ? 'bg-theme-color text-white' : 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800'; ?>">Administração</a>
                         <?php endif; ?>
                     </div>
                 </div>
-                <?php if (in_array($user_perfil, ['admin', 'gerencia', 'vendedor'])): ?>
+                <?php if (in_array($user_perfil, ['admin', 'gerencia', 'supervisor', 'vendedor'])): ?>
 
                 <div class="hidden md:flex items-center space-x-4">
                     <div class="relative">
@@ -220,8 +220,12 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
                                     </div>
                                 <?php endforeach; ?>
                             <?php endif; ?>
-
-                            <?php if (in_array($user_perfil, ['gerencia', 'vendedor'])): ?>
+                                <div class="border-t">
+                                    <a href="<?php echo APP_URL; ?>/notificacoes.php" class="block px-4 py-2 text-sm text-center text-blue-600 font-semibold hover:bg-gray-100">
+                                        Ver todas as notificações
+                                    </a>
+                                </div>
+                            <?php if (in_array($user_perfil, ['gerencia', 'supervisor', 'vendedor'])): ?>
                                 <div class="px-4 py-2 text-sm text-gray-700 font-bold border-b border-t">
                                     Prospecções para Retorno
                                 </div>
@@ -289,6 +293,19 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
                 </div>
                 <?php unset($_SESSION['error_message']); ?>
             <?php endif; ?>
+  <?php if (isset($_SESSION['warning_message'])): ?>
+      <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4" role="alert">
+          <p><?php echo htmlspecialchars($_SESSION['warning_message']); ?></p>
+      </div>
+      <?php unset($_SESSION['warning_message']); ?>
+  <?php endif; ?>
+
+  <?php if (isset($_SESSION['info_message'])): ?>
+      <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 mb-4" role="alert">
+          <p><?php echo htmlspecialchars($_SESSION['info_message']); ?></p>
+      </div>
+      <?php unset($_SESSION['info_message']); ?>
+  <?php endif; ?>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {

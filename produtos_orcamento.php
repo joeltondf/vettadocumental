@@ -7,7 +7,17 @@ require_once __DIR__ . '/app/controllers/ProdutosOrcamentoController.php';
 $controller = new ProdutosOrcamentoController($pdo);
 
 $action = $_GET['action'] ?? 'index';
-$id = $_GET['id'] ?? null;
+if (!is_string($action)) {
+    $action = 'index';
+}
+
+$id = null;
+if (isset($_GET['id'])) {
+    $filteredId = filter_var($_GET['id'], FILTER_VALIDATE_INT);
+    if ($filteredId !== false && $filteredId > 0) {
+        $id = $filteredId;
+    }
+}
 
 switch ($action) {
     case 'store':

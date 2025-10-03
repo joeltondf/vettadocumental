@@ -37,7 +37,7 @@ try {
         case 'search_clientes':
             $term = $_GET['term'] ?? '';
             // Correção: Usar 'nome_cliente' em vez de 'nome_empresa'
-            $stmt = $pdo->prepare("SELECT id, nome_cliente AS text FROM clientes WHERE nome_cliente LIKE ? ORDER BY nome_cliente LIMIT 10");
+            $stmt = $pdo->prepare("SELECT id, nome_cliente AS text FROM clientes WHERE nome_cliente LIKE ? AND is_prospect = 1 ORDER BY nome_cliente LIMIT 10");
             $stmt->execute(["%$term%"]);
             $clientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
             echo json_encode(['results' => $clientes]);
@@ -54,7 +54,7 @@ try {
         case 'get_cliente_by_id':
             $cliente_id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
             if (!$cliente_id) {
-                echo json_encode(['error' => 'ID do cliente inválido.']);
+                echo json_encode(['error' => 'ID do contato inválido.']);
                 exit();
             }
             // Correção: Usar 'nome_cliente' em vez de 'nome_empresa'

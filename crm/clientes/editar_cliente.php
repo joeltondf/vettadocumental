@@ -18,23 +18,23 @@ try {
     $cliente = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$cliente) {
-        $_SESSION['error_message'] = "Cliente não encontrado.";
+        $_SESSION['error_message'] = "Contato não encontrado.";
         header('Location: ' . APP_URL . '/crm/clientes/lista.php');
         exit;
     }
 
 } catch (PDOException $e) {
-    die("Erro ao buscar dados do cliente: " . $e->getMessage());
+    die("Erro ao buscar dados do contato: " . $e->getMessage());
 }
 
-$pageTitle = "Editar Cliente";
+$pageTitle = "Editar Contato";
 require_once __DIR__ . '/../../app/views/layouts/header.php';
 ?>
 
 <div class="bg-white shadow px-4 py-5 sm:rounded-lg sm:p-6">
     <div class="md:flex md:items-center md:justify-between border-b border-gray-200 pb-4">
         <h1 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-            Editar Cliente: <span class="text-blue-600"><?php echo htmlspecialchars($cliente['nome_cliente']); ?></span>
+            Editar Contato: <span class="text-blue-600"><?php echo htmlspecialchars($cliente['nome_cliente']); ?></span>
         </h1>
     </div>
 
@@ -50,7 +50,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-                <label for="nome_cliente" class="block text-sm font-medium text-gray-700">Nome do Cliente / Empresa</label>
+                <label for="nome_cliente" class="block text-sm font-medium text-gray-700">Nome do Contato / Empresa</label>
                 <input type="text" name="nome_cliente" id="nome_cliente" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" value="<?php echo htmlspecialchars($cliente['nome_cliente']); ?>">
             </div>
             <div>
@@ -87,7 +87,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                     <option value="Qualificado" <?php echo ($cliente['categoria'] == 'Qualificado') ? 'selected' : ''; ?>>Qualificado</option>
                     <option value="Com Orçamento" <?php echo ($cliente['categoria'] == 'Com Orçamento') ? 'selected' : ''; ?>>Com Orçamento</option>
                     <option value="Em Negociação" <?php echo ($cliente['categoria'] == 'Em Negociação') ? 'selected' : ''; ?>>Em Negociação</option>
-                    <option value="Cliente Ativo" <?php echo ($cliente['categoria'] == 'Cliente Ativo') ? 'selected' : ''; ?>>Cliente Ativo</option>
+                    <option value="Cliente Ativo" <?php echo ($cliente['categoria'] == 'Cliente Ativo') ? 'selected' : ''; ?>>Contato Ativo</option>
                     <option value="Sem Interesse" <?php echo ($cliente['categoria'] == 'Sem Interesse') ? 'selected' : ''; ?>>Sem Interesse</option>
                 </select>
             </div>
@@ -96,7 +96,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
         <div class="pt-5 flex justify-between items-center border-t border-gray-200 mt-6">
             <div>
                 <button type="button" onclick="confirmarExclusao()" class="bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition duration-300">
-                    Excluir Cliente
+                    Excluir Contato
                 </button>
             </div>
 
@@ -114,7 +114,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
 
 <script>
     function confirmarExclusao() {
-        if (confirm('ATENÇÃO:\n\nTem certeza que deseja excluir este cliente?\n\nTodas as prospecções ligadas a ele ficarão sem cliente associado.')) {
+        if (confirm('ATENÇÃO:\n\nTem certeza que deseja excluir este contato?\n\nTodas as prospecções ligadas a ele ficarão sem contatos associado.')) {
             document.getElementById('formExcluirCliente').submit();
         }
     }

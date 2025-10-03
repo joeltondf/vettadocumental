@@ -11,13 +11,13 @@ $initialProcessLimit = 50; // Altere este valor conforme necessário
 
 ?>
 
-<div class="flex items-center justify-between mb-6">
+<div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
     <div>
         <h1 class="text-2xl font-bold text-gray-800">Bem-vindo(a), <?php echo htmlspecialchars($_SESSION['user_nome'] ?? ''); ?>!</h1>
         <p class="mt-1 text-gray-600">Este é o seu painel de controle. Veja as últimas atualizações abaixo.</p>
     </div>
     <?php if ($_SESSION['user_perfil'] !== 'vendedor'): ?>
-    <div class="flex space-x-2">
+    <div class="flex flex-wrap gap-2 mt-4 md:mt-0">
         <a href="servico-rapido.php?action=create" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm transition duration-200">
             Novo Serviço
         </a>
@@ -58,16 +58,6 @@ $initialProcessLimit = 50; // Altere este valor conforme necessário
         <div class="bg-white shadow-md rounded-lg h-full">
             <div class="px-4 py-4 border-b flex justify-between items-center">
                 <h4 class="text-xl font-bold text-gray-900">Últimos Orçamentos</h4>
-                <ul class="space-y-2 flex-grow-0">
-                    <?php if (in_array($_SESSION['user_perfil'], ['admin', 'gerencia'])): ?>
-                        <li>
-                            <a href="<?php echo APP_URL; ?>/aprovacoes.php" class="flex items-center p-2 text-gray-700 rounded-lg hover:bg-gray-200">
-                                <svg class="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                <span class="ml-3">Aprovações</span>
-                            </a>
-                        </li>
-                    <?php endif; ?>
-                </ul>
             </div>
             <div class="p-4">
                 <?php if(empty($orcamentosRecentes)): ?>
@@ -78,8 +68,8 @@ $initialProcessLimit = 50; // Altere este valor conforme necessário
                         <?php foreach($orcamentosRecentes as $orc): ?>
                             <li class="py-1 flex justify-between items-center pr-2">
                                 <div>
-                                    <a href="processos.php?action=view&id=<?php echo $orc['id']; ?>" class="text-xs font-semibold text-blue-600 hover:underline"><?php echo htmlspecialchars($orc['orcamento_numero'] ?? ''); ?> - <?php echo htmlspecialchars($orc['titulo'] ?? ''); ?></a>
-                                    <p class="text-xs text-gray-600"><?php echo htmlspecialchars($orc['nome_cliente'] ?? ''); ?></p>
+                                    <a href="processos.php?action=view&id=<?php echo $orc['id']; ?>" class="text-xs font-semibold text-blue-600 hover:underline"><?php echo htmlspecialchars($orc['orcamento_numero'] ?? ''); ?> - <?php echo htmlspecialchars(mb_strtoupper($orc['titulo'] ?? '')); ?></a>
+                                    <p class="text-xs text-gray-600"><?php echo htmlspecialchars(mb_strtoupper($orc['nome_cliente'] ?? '')); ?></p>
                                 </div>
                                 <span class="text-xs text-gray-500"><?php echo date('d/m/Y', strtotime($orc['data_criacao'])); ?></span>
                             </li>
@@ -109,7 +99,7 @@ $initialProcessLimit = 50; // Altere este valor conforme necessário
                     </select>
                 </div>
                 <div class="flex flex-col">
-                    <label for="os_numero" class="text-sm font-semibold text-gray-700 mb-1">Nº da O.S.</label>
+                    <label for="os_numero" class="text-sm font-semibold text-gray-700 mb-1">Chave OS Omie</label>
                     <input type="text" id="os_numero" name="os_numero" placeholder="Ex: 12345" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200" value="<?php echo htmlspecialchars($filters['os_numero'] ?? ''); ?>">
                 </div>
                 <div class="flex flex-col">
@@ -189,7 +179,7 @@ $initialProcessLimit = 50; // Altere este valor conforme necessário
                         <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Família</th>
                         <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assessoria</th>
                         <th scope="col" class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Doc.</th>
-                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">O.S</th>
+                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OS Omie</th>
                         <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Serviços</th>
                         <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entrada</th>
                         <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Envio</th>
@@ -220,17 +210,24 @@ $initialProcessLimit = 50; // Altere este valor conforme necessário
                         ?>
                         <tr class="<?php echo $rowClass; ?>">
                             <td class="px-3 py-2 whitespace-nowrap text-xs font-medium">
-                                <a href="processos.php?action=view&id=<?php echo $processo['id']; ?>" class="text-blue-600 hover:text-blue-800 hover:underline truncate" title="<?php echo htmlspecialchars($processo['titulo'] ?? 'N/A'); ?>">
-                                    <?php echo htmlspecialchars(mb_strimwidth($processo['titulo'] ?? 'N/A', 0, 25, "...")); ?>
+                                <a href="processos.php?action=view&id=<?php echo $processo['id']; ?>" class="text-blue-600 hover:text-blue-800 hover:underline truncate" title="<?php echo htmlspecialchars(mb_strtoupper($processo['titulo'] ?? 'N/A')); ?>">
+                                    <?php echo htmlspecialchars(mb_strtoupper(mb_strimwidth($processo['titulo'] ?? 'N/A', 0, 25, "..."))); ?>
                                 </a>
                             </td>
-                            <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500 truncate" title="<?php echo htmlspecialchars($processo['nome_cliente'] ?? 'N/A'); ?>">
-                                <?php echo htmlspecialchars(mb_strimwidth($processo['nome_cliente'] ?? 'N/A', 0, 20, "...")); ?>
+                            <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500 truncate" title="<?php echo htmlspecialchars(mb_strtoupper($processo['nome_cliente'] ?? 'N/A')); ?>">
+                                <?php echo htmlspecialchars(mb_strtoupper(mb_strimwidth($processo['nome_cliente'] ?? 'N/A', 0, 20, "..."))); ?>
                             </td>
                             <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500 text-center">
                                 <?php echo $processo['total_documentos_soma']; ?>
                             </td>
-                            <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500"><?php echo htmlspecialchars($processo['os_numero_conta_azul'] ?? ''); ?></td>
+                            <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
+                                <?php 
+                                    $osOmie = $processo['os_numero_omie'] ?? null;
+                                    // Exibe apenas os últimos 5 dígitos para facilitar a leitura
+                                    $osOmieFormatado = $osOmie ? substr((string)$osOmie, -5) : 'Aguardando Omie';
+                                    echo htmlspecialchars($osOmieFormatado);
+                                ?>
+                            </td>
                             <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
                                 <?php
                                 $servicos = explode(',', $processo['categorias_servico'] ?? '');
@@ -646,7 +643,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <td class="px-3 py-2 whitespace-nowrap text-xs font-medium"><a href="processos.php?action=view&id=${processo.id}" class="text-blue-600 hover:text-blue-800 hover:underline truncate" title="${processo.titulo ?? 'N/A'}">${(processo.titulo || 'N/A').substring(0, 25)}${(processo.titulo && processo.titulo.length > 25) ? '...' : ''}</a></td>
                                 <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500 truncate" title="${processo.nome_cliente ?? 'N/A'}">${(processo.nome_cliente || 'N/A').substring(0, 20)}${(processo.nome_cliente && processo.nome_cliente.length > 20) ? '...' : ''}</td>
                                 <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500 text-center">${processo.total_documentos_soma}</td>
-                                <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500">${processo.os_numero_conta_azul ?? ''}</td>
+                                <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500">${processo.os_numero_omie || 'Aguardando Omie'}</td>
                                 <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500">${servicosHtml}</td>
                                 <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500">${processo.data_criacao ? new Date(processo.data_criacao).toLocaleDateString('pt-BR') : 'N/A'}</td>
                                 <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500">${processo.data_inicio_traducao ? new Date(processo.data_inicio_traducao).toLocaleDateString('pt-BR') : 'N/A'}</td>

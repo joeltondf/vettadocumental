@@ -141,23 +141,6 @@ class Documento
         }
     }
     
-        /**
-     * Vincula um documento/item local a um ID de produto/serviço da Conta Azul.
-     * @param int $documentoId
-     * @param string $contaAzulId
-     * @return bool
-     */
-    public function linkContaAzulId(int $documentoId, string $contaAzulId): bool
-    {
-        // Confirme se o nome da coluna é 'conta_azul_servico_id' na sua tabela 'documentos_processo'
-        $sql = "UPDATE documentos_processo SET conta_azul_servico_id = :ca_id WHERE id = :id";
-        try {
-            $stmt = $this->pdo->prepare($sql);
-            return $stmt->execute(['ca_id' => $contaAzulId, 'id' => $documentoId]);
-        } catch (PDOException $e) {
-            error_log("Erro ao vincular documento {$documentoId} com Conta Azul ID: " . $e->getMessage());
-            return false;
-        }
-    }
+        
 
 }

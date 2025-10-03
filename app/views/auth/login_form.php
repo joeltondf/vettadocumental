@@ -1,5 +1,23 @@
 <?php
 // /app/views/auth/login_form.php
+
+require_once __DIR__ . '/../../models/Configuracao.php';
+
+global $pdo;
+
+$system_logo = null;
+
+if (isset($pdo) && $pdo instanceof PDO) {
+    $configModel = new Configuracao($pdo);
+    $retrieved_logo = $configModel->get('system_logo');
+
+    if (!empty($retrieved_logo)) {
+        $logo_path = __DIR__ . '/../../../' . $retrieved_logo;
+        if (file_exists($logo_path)) {
+            $system_logo = $retrieved_logo;
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="pt-br">
@@ -7,7 +25,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - <?php echo APP_NAME; ?></title>
-    
+
     <!-- Adiciona o Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
 
@@ -16,9 +34,15 @@
 
     <div class="w-full max-w-md">
         <div class="bg-white p-8 rounded-lg shadow-lg">
-            <h2 class="text-2xl font-bold text-center text-gray-800 mb-2"><?php echo APP_NAME; ?></h2>
-            <p class="text-center text-gray-600 mb-8">Por favor, insira as suas credenciais para aceder ao sistema.</p>
-            
+            <div class="mb-4 text-center">
+                <?php if (!empty($system_logo)): ?>
+                    <img src="<?php echo htmlspecialchars(APP_URL . '/' . $system_logo); ?>" alt="<?php echo htmlspecialchars(APP_NAME); ?> logo" class="mx-auto h-12 w-auto">
+                <?php else: ?>
+                    <h1 class="text-2xl font-bold text-gray-800 mb-2"><?php echo APP_NAME; ?></h1>
+                <?php endif; ?>
+            </div>
+            <p class="text-center text-gray-600 mb-8">Por favor, insira as suas credenciais para acessar ao sistema.</p>
+
             <?php
             // Bloco para exibir mensagens de erro
             if (isset($_SESSION['error_message'])) {

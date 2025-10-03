@@ -7,7 +7,7 @@ require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
 
 // 2. Verificação de permissão CORRIGIDA
-if (!isset($_SESSION['user_perfil']) || !in_array($_SESSION['user_perfil'], ['admin', 'gerencia'])) {
+if (!isset($_SESSION['user_perfil']) || !in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'supervisor'])) {
     header("Location: " . APP_URL . "/crm/clientes/lista.php?error=access_denied");
     exit();
 }
@@ -105,8 +105,8 @@ if ($action === 'import_selected') {
                 }
                 
                 // 3. Consulta INSERT CORRIGIDA
-                $sql = "INSERT INTO clientes (nome_cliente, nome_responsavel, email, telefone, canal_origem, categoria) VALUES (?, ?, ?, ?, ?, ?)";
-                $pdo->prepare($sql)->execute([$nome_cliente, $nome_responsavel, $email, $telefone, 'Bitrix24', 'Entrada']);
+                $sql = "INSERT INTO clientes (nome_cliente, nome_responsavel, email, telefone, canal_origem, categoria, is_prospect) VALUES (?, ?, ?, ?, ?, ?, ?)";
+                $pdo->prepare($sql)->execute([$nome_cliente, $nome_responsavel, $email, $telefone, 'Bitrix24', 'Entrada', 1]);
                 $count_adicionados++;
 
             } catch (PDOException $e) {

@@ -2,29 +2,40 @@
 /**
  * @file /app/controllers/ClientesController.php
  * @description Controller para gerir as requisições da entidade 'Cliente'.
- * Inclui envio de e-mail de boas-vindas na criação de login.
  */
 
 require_once __DIR__ . '/../models/Cliente.php';
-// Adicionamos a referência ao EmailService que será usado aqui.
 require_once __DIR__ . '/../services/EmailService.php';
+require_once __DIR__ . '/../models/CategoriaFinanceira.php';
+require_once __DIR__ . '/../services/OmieService.php';
+require_once __DIR__ . '/../models/Configuracao.php';
+require_once __DIR__ . '/../utils/PhoneUtils.php';
+require_once __DIR__ . '/../utils/OmiePayloadBuilder.php';
+require_once __DIR__ . '/../utils/DocumentValidator.php';
 
 class ClientesController
 {
+    private const SESSION_KEY_CLIENT_FORM = 'cliente_form_data';
+
     private $clienteModel;
+    private $pdo;
+    private $omieService;
 
     public function __construct($pdo)
     {
+        $this->pdo = $pdo;
         $this->clienteModel = new Cliente($pdo);
+
+        // Instancia o OmieService para uso automático
+        $configModel = new Configuracao($pdo);
+        $this->omieService = new OmieService($configModel, $pdo);
+
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
     }
 
-    // =======================================================================
-    // AÇÕES CRUD PARA CLIENTES (ATUALIZADAS)
-    // =======================================================================
-
-    /**
-     * Exibe a página com a lista de todos os clientes.
-     */
+    // ... (index, create, edit, delete, sendWelcomeEmail - permanecem inalterados) ...
     public function index()
     {
         $pageTitle = "Gestão de Clientes";
@@ -34,157 +45,49 @@ class ClientesController
         require __DIR__ . '/../views/layouts/footer.php';
     }
 
-    /**
-     * Exibe o formulário de criação de um novo cliente.
-     */
     public function create()
     {
         $pageTitle = "Novo Cliente";
-        $cliente = $_SESSION['form_data'] ?? [];
-        unset($_SESSION['form_data']);
+        $formData = $this->consumeClientFormInput();
+        $cliente = !empty($formData) ? $formData : [];
         $isEdit = false;
-
-        // Linha adicionada para capturar a URL de retorno
         $return_url = $_GET['return_to'] ?? 'clientes.php';
 
-        require __DIR__ . '/../views/layouts/header.php';
-        // A variável $return_url agora estará disponível no form.php
-        require __DIR__ . '/../views/clientes/form.php';
-        require __DIR__ . '/../views/layouts/footer.php';
+        $categoriaModel = new CategoriaFinanceira($this->pdo);
+        $produtos_orcamento = $categoriaModel->getProdutosOrcamento(false);
+
+        $servicos_mensalista = isset($formData['servicos_mensalistas']) && is_array($formData['servicos_mensalistas'])
+            ? $formData['servicos_mensalistas']
+            : [];
+
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/clientes/form.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
     }
 
-    /**
-     * Processa e armazena o novo cliente. Envia e-mail se um login for criado.
-     */
-public function store()
-    {
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $data = $_POST;
-            // Se for Pessoa Física, o nome do responsável é o mesmo do cliente.
-            if (isset($data['tipo_pessoa']) && $data['tipo_pessoa'] === 'Física') {
-                $data['nome_responsavel'] = $data['nome_cliente'];
-            }
-
-            $result = $this->clienteModel->create($data);
-
-            if (session_status() == PHP_SESSION_NONE) {
-                session_start();
-            }
-            
-            $return_to = $_POST['return_to'] ?? 'clientes.php';
-
-            if ($result && is_numeric($result)) {
-                $newClientId = $result;
-                $_SESSION['success_message'] = "Cliente cadastrado com sucesso!";
-
-                if (!empty($_POST['criar_login']) && !empty($_POST['login_email'])) {
-                    $this->sendWelcomeEmail(
-                        $_POST['nome_cliente'],
-                        $_POST['login_email'],
-                        $_POST['login_senha']
-                    );
-                }
-                
-                $separator = (parse_url($return_to, PHP_URL_QUERY) == NULL) ? '?' : '&';
-                $redirectUrl = $return_to . $separator . 'new_client_id=' . $newClientId;
-                
-                header('Location: ' . $redirectUrl);
-                exit();
-
-            } else {
-                if ($result === 'error_duplicate_cpf_cnpj') {
-                    $_SESSION['error_message'] = "O CPF/CNPJ informado já está em uso por outro cliente.";
-                }
-                
-                $_SESSION['form_data'] = $_POST;
-                
-                header('Location: clientes.php?action=create&return_to=' . urlencode($return_to));
-                exit();
-            }
-        }
-    }
-
-    /**
-     * Exibe o formulário de edição para um cliente existente.
-     */
     public function edit($id)
     {
         $pageTitle = "Editar Cliente";
         $cliente = $this->clienteModel->getById($id);
         $isEdit = true;
 
-        require __DIR__ . '/../views/layouts/header.php';
-        require __DIR__ . '/../views/clientes/form.php';
-        require __DIR__ . '/../views/layouts/footer.php';
+        $formData = $this->consumeClientFormInput();
+        if (!empty($formData)) {
+            $cliente = array_merge($cliente ?? [], $formData);
+        }
+
+        $categoriaModel = new CategoriaFinanceira($this->pdo);
+        $produtos_orcamento = $categoriaModel->getProdutosOrcamento(false);
+        $servicos_mensalista = $this->clienteModel->getServicosMensalista($id);
+        if (isset($formData['servicos_mensalistas']) && is_array($formData['servicos_mensalistas'])) {
+            $servicos_mensalista = $formData['servicos_mensalistas'];
+        }
+
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/clientes/form.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
     }
 
-    /**
-     * Processa a atualização do cliente. Envia e-mail se um login for criado ou senha alterada.
-     */
-public function update()
-{
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $id = $_POST['id'];
-        $data = $_POST;
-
-        // Se for Pessoa Física, o nome do responsável é o mesmo do cliente.
-        if (isset($data['tipo_pessoa']) && $data['tipo_pessoa'] === 'Física') {
-            $data['nome_responsavel'] = $data['nome_cliente'];
-        }
-
-        $result = $this->clienteModel->update($id, $data);
-
-        if (session_status() == PHP_SESSION_NONE) {
-            session_start();
-        }
-        
-        if ($result === true) {
-            $_SESSION['success_message'] = "Cliente atualizado com sucesso!";
-
-            if ((!empty($_POST['criar_login']) && !empty($_POST['login_email'])) || !empty($_POST['user_nova_senha'])) {
-                $this->sendWelcomeEmail(
-                    $_POST['nome_cliente'],
-                    $_POST['user_email'] ?? $_POST['login_email'],
-                    $_POST['user_nova_senha'] ?? $_POST['login_senha']
-                );
-            }
-
-            // ========================================================================
-            // INÍCIO DA LÓGICA DE REDIRECIONAMENTO PÓS-PROSPECÇÃO
-            // ========================================================================
-            // Verifica se os campos ocultos do fluxo de prospecção foram enviados.
-            if (isset($_POST['continue_prospeccao_id'], $_POST['continue_nome_servico'], $_POST['continue_valor_inicial'])) {
-                // Se viemos do fluxo de aprovação, montamos a URL e redirecionamos
-                // para o formulário de criação de orçamento (processo), já preenchendo os campos.
-                $queryParams = http_build_query([
-                    'cliente_id' => $id,
-                    'titulo' => $_POST['continue_nome_servico'],
-                    'valor_total' => $_POST['continue_valor_inicial']
-                ]);
-                header('Location: ' . APP_URL . '/processos.php?action=create&' . $queryParams);
-                exit();
-            }
-            // ========================================================================
-            // FIM DA LÓGICA DE REDIRECIONAMENTO
-            // ========================================================================
-
-            // Redirecionamento padrão se não for o fluxo de prospecção
-            header('Location: clientes.php');
-            exit();
-
-        } else {
-            if ($result === 'error_duplicate_cpf_cnpj') {
-                $_SESSION['error_message'] = "O CPF/CNPJ informado já está em uso por outro cliente.";
-            }
-            header('Location: clientes.php?action=edit&id=' . $id);
-            exit();
-        }
-    }
-}
-
-    /**
-     * Deleta um cliente.
-     */
     public function delete($id)
     {
         if (session_status() == PHP_SESSION_NONE) {
@@ -201,27 +104,12 @@ public function update()
         exit();
     }
 
-
-    // =======================================================================
-    // MÉTODO PRIVADO PARA ENVIO DE E-MAIL
-    // =======================================================================
-
-    /**
-     * Monta e envia um e-mail de boas-vindas para o cliente.
-     * @param string $clientName Nome do cliente.
-     * @param string $recipientEmail E-mail do cliente (que será o login).
-     * @param string $password A senha em texto plano (enviada apenas na criação).
-     */
     private function sendWelcomeEmail($clientName, $recipientEmail, $password)
     {
         try {
             $emailService = new EmailService($this->clienteModel->getPdo());
-
             $assunto = "Seu acesso ao Portal do Cliente foi criado!";
-            
-            // Define a URL de login do seu site
-            $loginUrl = "https://teste.cliente.pro/login.php"; // <-- CONFIRME SE ESTA É A URL CORRETA
-
+            $loginUrl = "https://teste.cliente.pro/login.php";
             $corpo = "
                 <div style='font-family: Arial, sans-serif; line-height: 1.6;'>
                     <h2>Olá, " . htmlspecialchars($clientName) . "!</h2>
@@ -235,168 +123,410 @@ public function update()
                     <p>Atenciosamente,<br>Equipe FATTO</p>
                 </div>
             ";
-            
             $emailService->sendEmail($recipientEmail, $assunto, $corpo);
-
         } catch (Exception $e) {
-            // Se o envio falhar, loga o erro mas não interrompe o fluxo do usuário
             error_log('Falha ao enviar e-mail de boas-vindas para ' . $recipientEmail . ': ' . $e->getMessage());
         }
     }
-    
-        /**
-     * Sincroniza um cliente local com a Conta Azul.
-     * Tenta encontrar pelo nome, se não achar, cria um novo.
-     * @param int $id ID do cliente no banco de dados local.
+
+    /**
+     * Processa e armazena o novo cliente, e depois sincroniza com a Omie.
      */
-/**
-     * Busca um cliente na Conta Azul pelo nome e vincula o UUID retornado.
-     * Não tenta mais criar o cliente.
-     * @param int $id ID do cliente no banco de dados local.
-     */
-    public function syncContaAzul($id)
+    public function store()
     {
-        if (session_status() == PHP_SESSION_NONE) {
-            session_start();
-        }
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $data = $_POST;
+            $returnTo = $data['return_to'] ?? 'clientes.php';
 
-        try {
-            // Inclui os serviços e models necessários
-            require_once __DIR__ . '/../models/Configuracao.php';
-            require_once __DIR__ . '/../services/ContaAzulService.php';
-            
-            $configModel = new Configuracao($this->clienteModel->getPdo());
-            $contaAzulService = new ContaAzulService($configModel);
-
-            // Pega os dados do cliente do nosso banco
-            $cliente = $this->clienteModel->getById($id);
-            if (!$cliente) {
-                throw new Exception("Cliente local com ID {$id} não encontrado.");
+            if (isset($data['tipo_pessoa']) && $data['tipo_pessoa'] === 'Física') {
+                $data['nome_responsavel'] = $data['nome_cliente'];
             }
 
-            // Se já está vinculado, informa o usuário e não faz nada.
-            if (!empty($cliente['conta_azul_uuid'])) {
-                $_SESSION['success_message'] = "Este cliente já está vinculado.";
+            $validationErrors = $this->validateClientData($data);
+            if (!empty($validationErrors)) {
+                $_SESSION['error_message'] = implode('<br>', $validationErrors);
+                $this->rememberClientFormInput($_POST);
+                header('Location: clientes.php?action=create&return_to=' . urlencode($returnTo));
+                exit();
+            }
+
+            $data = $this->normalizeClientFields($data);
+
+            try {
+                $data = $this->normalizePhoneData($data);
+            } catch (InvalidArgumentException $exception) {
+                $_SESSION['error_message'] = $exception->getMessage();
+                $this->rememberClientFormInput($_POST);
+                header('Location: clientes.php?action=create&return_to=' . urlencode($returnTo));
+                exit();
+            }
+
+            $result = $this->clienteModel->create($data);
+
+            if ($result && is_numeric($result)) {
+                $newClientId = (int) $result;
+                $_SESSION['success_message'] = "Cliente cadastrado com sucesso!";
+
+                $this->syncNewClientWithOmie($newClientId);
+
+                if (($data['tipo_assessoria'] ?? '') === 'Mensalista') {
+                    $this->clienteModel->salvarServicosMensalista($newClientId, $data['servicos_mensalistas'] ?? []);
+                }
+
+                if (!empty($data['criar_login']) && !empty($data['login_email'])) {
+                    $this->sendWelcomeEmail($data['nome_cliente'], $data['login_email'], $data['login_senha']);
+                }
+
+                $separator = parse_url($returnTo, PHP_URL_QUERY) === null ? '?' : '&';
+                $this->clearClientFormInput();
+                header('Location: ' . $returnTo . $separator . 'new_client_id=' . $newClientId);
+                exit();
+            }
+
+            $_SESSION['error_message'] = ($result === 'error_duplicate_cpf_cnpj')
+                ? "O CPF/CNPJ informado já está em uso por outro cliente."
+                : "Erro ao cadastrar cliente.";
+            $this->rememberClientFormInput($_POST);
+            header('Location: clientes.php?action=create&return_to=' . urlencode($returnTo));
+            exit();
+        }
+    }
+
+    /**
+     * Processa a atualização do cliente, e depois sincroniza com a Omie.
+     */
+    public function update()
+    {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $id = $_POST['id'];
+            $data = $_POST;
+            if (isset($data['tipo_pessoa']) && $data['tipo_pessoa'] === 'Física') {
+                $data['nome_responsavel'] = $data['nome_cliente'];
+            }
+
+            $validationErrors = $this->validateClientData($data);
+            if (!empty($validationErrors)) {
+                $_SESSION['error_message'] = implode('<br>', $validationErrors);
+                $this->rememberClientFormInput($_POST);
                 header('Location: clientes.php?action=edit&id=' . $id);
                 exit();
             }
 
-            // Passo 1: Busca o cliente na Conta Azul pelo nome
-            $clienteCa = $contaAzulService->findCustomerByName($cliente['nome_cliente']);
+            $data = $this->normalizeClientFields($data);
 
-            // Passo 2: Verifica o resultado da busca
-            if ($clienteCa && isset($clienteCa['uuid'])) {
-                // ENCONTROU! Vincula o UUID ao cliente local.
-                $contaAzulUuid = $clienteCa['uuid'];
-                $this->clienteModel->linkContaAzulUuid($id, $contaAzulUuid);
-                $_SESSION['success_message'] = "Cliente encontrado e vinculado com sucesso! UUID: " . $contaAzulUuid;
-            } else {
-                // NÃO ENCONTROU! Informa o usuário que ele precisa criar na plataforma.
-                throw new Exception("Nenhum cliente com o nome '{$cliente['nome_cliente']}' foi encontrado na sua conta da Conta Azul. Por favor, crie o cliente na plataforma da Conta Azul primeiro.");
+            try {
+                $data = $this->normalizePhoneData($data);
+            } catch (InvalidArgumentException $exception) {
+                $_SESSION['error_message'] = $exception->getMessage();
+                $this->rememberClientFormInput($_POST);
+                header('Location: clientes.php?action=edit&id=' . $id);
+                exit();
             }
 
-        } catch (Exception $e) {
-            $_SESSION['error_message'] = "Erro na busca: " . $e->getMessage();
+            $result = $this->clienteModel->update($id, $data);
+
+            if ($result === true) {
+                $_SESSION['success_message'] = "Cliente atualizado com sucesso!";
+
+                $sincronizarOmie = isset($_POST['sincronizar_omie']) ? (bool)$_POST['sincronizar_omie'] : false;
+                $this->syncUpdatedClientWithOmie((int)$id, $sincronizarOmie);
+
+                if ($_POST['tipo_assessoria'] === 'Mensalista') {
+                    $this->clienteModel->salvarServicosMensalista($id, $_POST['servicos_mensalistas'] ?? []);
+                } else {
+                    $this->clienteModel->salvarServicosMensalista($id, []);
+                }
+
+                if (isset($_POST['continue_prospeccao_id'])) {
+                    $queryParams = http_build_query([
+                        'cliente_id' => $id,
+                        'titulo' => $_POST['continue_nome_servico'],
+                        'valor_total' => $_POST['continue_valor_inicial']
+                    ]);
+                    $this->clearClientFormInput();
+                    header('Location: ' . APP_URL . '/processos.php?action=create&' . $queryParams);
+                    exit();
+                }
+
+                $this->clearClientFormInput();
+                header('Location: clientes.php');
+                exit();
+            } else {
+                $_SESSION['error_message'] = ($result === 'error_duplicate_cpf_cnpj')
+                    ? "O CPF/CNPJ informado já está em uso por outro cliente."
+                    : "Erro ao atualizar cliente.";
+                $this->rememberClientFormInput($_POST);
+                header('Location: clientes.php?action=edit&id=' . $id);
+                exit();
+            }
+        }
+    }
+
+    private function validateClientData(array $data): array
+    {
+        $errors = [];
+        $tipoPessoa = $data['tipo_pessoa'] ?? 'Jurídica';
+        $documento = DocumentValidator::sanitizeNumber((string) ($data['cpf_cnpj'] ?? ''));
+
+        if ($tipoPessoa === 'Física') {
+            if ($documento === '') {
+                $errors[] = 'Informe o CPF.';
+            } elseif (!DocumentValidator::isValidCpf($documento)) {
+                $errors[] = 'Informe um CPF válido.';
+            }
+        } else {
+            if ($documento === '') {
+                $errors[] = 'Informe o CNPJ.';
+            } elseif (!DocumentValidator::isValidCnpj($documento)) {
+                $errors[] = 'Informe um CNPJ válido.';
+            }
         }
 
-        // Redireciona de volta para a página de edição
-        header('Location: clientes.php?action=edit&id=' . $id);
-        exit();
+        $email = trim((string) ($data['email'] ?? ''));
+        if ($email === '') {
+            $errors[] = 'Informe o e-mail.';
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $errors[] = 'Informe um e-mail válido.';
+        }
+
+        $cep = DocumentValidator::sanitizeNumber((string) ($data['cep'] ?? ''));
+        if ($cep === '') {
+            $errors[] = 'Informe o CEP.';
+        } elseif (strlen($cep) !== 8) {
+            $errors[] = 'Informe um CEP válido.';
+        }
+
+        $cidade = trim((string) ($data['cidade'] ?? ''));
+        $estado = strtoupper(trim((string) ($data['estado'] ?? '')));
+        $cityValidationSource = strtolower(trim((string) ($data['city_validation_source'] ?? '')));
+        $allowCityValidationFallback = $cityValidationSource !== 'api';
+
+        if ($cidade === '') {
+            $errors[] = 'Selecione uma cidade.';
+        }
+
+        if ($estado === '') {
+            $errors[] = 'Informe a UF (estado).';
+        } elseif (!preg_match('/^[A-Z]{2}$/', $estado)) {
+            $errors[] = 'Informe uma UF válida.';
+        }
+
+        if ($cidade !== '' && preg_match('/^[A-Z]{2}$/', $estado)) {
+            if (!$this->isValidCityFromApi($cidade, $estado, $allowCityValidationFallback)) {
+                $errors[] = 'Selecione uma cidade válida da lista.';
+            }
+        }
+
+        return $errors;
     }
-    
-    public function createContaAzulSale()
+
+    private function isValidCityFromApi(string $cidade, string $estado, bool $allowFallback = false): bool
     {
-        $processoId = $_GET['id'] ?? null;
-        if (!$processoId) {
-            $_SESSION['error_message'] = "ID do processo não fornecido.";
-            header('Location: processos.php');
-            exit();
+        try {
+            $cidades = $this->omieService->pesquisarCidades($cidade, $estado);
+        } catch (Throwable $exception) {
+            error_log('Erro ao validar cidade na Omie: ' . $exception->getMessage());
+            if ($allowFallback) {
+                $this->registerCityValidationWarning('Não foi possível validar a cidade com a Omie. Os dados informados foram mantidos.');
+                return true;
+            }
+
+            return false;
+        }
+
+        $cidadeNormalizada = $this->normalizeCityName($cidade);
+
+        foreach ($cidades as $cidadeOmie) {
+            $nomeOmieNormalizado = $this->normalizeCityName($cidadeOmie->nome);
+
+            if ($nomeOmieNormalizado === $cidadeNormalizada
+
+                && mb_strtoupper($cidadeOmie->uf) === mb_strtoupper($estado)) {
+                return true;
+            }
+        }
+
+        if ($allowFallback) {
+            $this->registerCityValidationWarning('Não foi possível validar a cidade com a Omie. Os dados informados foram mantidos.');
+            return true;
+        }
+
+        return false;
+    }
+
+    private function registerCityValidationWarning(string $message): void
+    {
+        if (!isset($_SESSION['warning_message']) || trim((string) $_SESSION['warning_message']) === '') {
+            $_SESSION['warning_message'] = $message;
+            return;
+        }
+
+        if (strpos((string) $_SESSION['warning_message'], $message) === false) {
+            $_SESSION['warning_message'] .= '<br>' . $message;
+        }
+    }
+
+    private function normalizeCityName(string $value): string
+    {
+        $normalized = mb_strtoupper(trim($value));
+
+        if ($normalized === '') {
+            return '';
+        }
+
+        $transliterated = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $normalized);
+        if ($transliterated !== false && $transliterated !== null) {
+            $normalized = $transliterated;
+        }
+
+        $collapsedWhitespace = preg_replace('/\s+/', ' ', $normalized);
+
+        return is_string($collapsedWhitespace) ? trim($collapsedWhitespace) : trim($normalized);
+    }
+
+    private function rememberClientFormInput(array $data): void
+    {
+        $_SESSION[self::SESSION_KEY_CLIENT_FORM] = $data;
+    }
+
+    private function consumeClientFormInput(): array
+    {
+        $sessionData = $_SESSION[self::SESSION_KEY_CLIENT_FORM] ?? ($_SESSION['form_data'] ?? []);
+
+        unset($_SESSION[self::SESSION_KEY_CLIENT_FORM], $_SESSION['form_data']);
+
+        return is_array($sessionData) ? $sessionData : [];
+    }
+
+    private function clearClientFormInput(): void
+    {
+        unset($_SESSION[self::SESSION_KEY_CLIENT_FORM], $_SESSION['form_data']);
+    }
+
+
+    private function normalizeClientFields(array $data): array
+    {
+        $data['email'] = trim((string) ($data['email'] ?? ''));
+        $data['cidade'] = trim((string) ($data['cidade'] ?? ''));
+        $data['estado'] = strtoupper(trim((string) ($data['estado'] ?? '')));
+        $data['cep'] = trim((string) ($data['cep'] ?? ''));
+        $data['cpf_cnpj'] = trim((string) ($data['cpf_cnpj'] ?? ''));
+
+        return $data;
+    }
+
+    private function syncNewClientWithOmie(int $clientId): void
+    {
+        try {
+            $cliente = $this->clienteModel->getById($clientId);
+            if (!$cliente) {
+                throw new Exception("Cliente local com ID {$clientId} não encontrado para sincronização.");
+            }
+
+            $cliente = $this->ensureIntegrationIdentifiers($cliente);
+            $payload = OmiePayloadBuilder::buildIncluirClientePayload($cliente);
+            $response = $this->omieService->incluirCliente($payload);
+
+            if (!empty($response['codigo_cliente_omie'])) {
+                $this->clienteModel->updateIntegrationIdentifiers(
+                    $clientId,
+                    $cliente['codigo_cliente_integracao'],
+                    (int)$response['codigo_cliente_omie']
+                );
+                $_SESSION['info_message'] = $_SESSION['info_message'] ?? 'Cliente sincronizado com a Omie com sucesso.';
+            }
+        } catch (Exception $exception) {
+            error_log("Falha ao sincronizar cliente ID {$clientId} com a Omie: " . $exception->getMessage());
+            $_SESSION['warning_message'] = "O cliente foi salvo localmente, mas falhou ao sincronizar com a Omie. Verifique as configurações da API.";
+        }
+    }
+
+    private function syncUpdatedClientWithOmie(int $clientId, bool $shouldSync): void
+    {
+        if (!$shouldSync) {
+            return;
         }
 
         try {
-            // --- Bloco 1: Coleta de Dados Locais ---
-            $data = $this->processoModel->getById($processoId);
-            if (!$data) throw new Exception("Processo local não encontrado.");
-            
-            $processo = $data['processo'];
-            $cliente = $this->clienteModel->getById($processo['cliente_id']);
-            $documentos = $data['documentos'];
-
-            // --- Bloco 2: Validação dos Pré-requisitos ---
-            // Pega o UUID do cliente que JÁ DEVE ESTAR VINCULADO
-            $clienteIdContaAzul = $cliente['conta_azul_uuid'] ?? null;
-            if (empty($clienteIdContaAzul)) {
-                throw new Exception("Operação cancelada. O cliente '{$cliente['nome_cliente']}' não possui um UUID da Conta Azul vinculado. Por favor, vá na tela de edição do cliente e clique no botão 'Buscar e Vincular UUID' primeiro.");
+            $cliente = $this->clienteModel->getById($clientId);
+            if (!$cliente) {
+                throw new Exception("Cliente local com ID {$clientId} não encontrado para sincronização.");
             }
 
-            if (empty($documentos)) {
-                throw new Exception("Não há itens (documentos) neste processo para criar a venda.");
+            if (empty($cliente['omie_id'])) {
+                $this->syncNewClientWithOmie($clientId);
+                return;
             }
 
-            // --- Bloco 3: CRIAÇÃO de um novo serviço para cada item ---
-            $itensPayload = [];
-            $calculatedTotal = 0.0;
-
-            foreach ($documentos as $doc) {
-                // Prepara os dados para criar um novo serviço na Conta Azul
-                $newProductPayload = [
-                    "nome"        => $doc['tipo_documento'] . ' - Proc. ' . $processo['id'], // Nome único para o serviço
-                    "valor_venda" => (float)($doc['valor_unitario'] ?? 0),
-                    "tipo"        => "SERVICO" // Cria como SERVIÇO para não ter controle de estoque
-                ];
-                
-                // Chama a API para criar o serviço
-                $createdProduct = $this->contaAzulService->createProduct($newProductPayload);
-
-                if (isset($createdProduct['id'])) {
-                    $contaAzulServicoId = $createdProduct['id'];
-                    
-                    // IMPORTANTE: Usando quantidade 1 para criar uma venda válida.
-                    $quantidade = 1;
-                    $valorUnitario = (float)($doc['valor_unitario'] ?? 0);
-
-                    // Adiciona o item recém-criado ao payload da venda
-                    $itensPayload[] = ["id" => $contaAzulServicoId, "quantidade" => $quantidade, "valor" => $valorUnitario];
-                    $calculatedTotal += $quantidade * $valorUnitario;
-
-                } else {
-                    throw new Exception("Falha ao criar o serviço '{$doc['tipo_documento']}' na Conta Azul. Resposta da API: " . json_encode($createdProduct));
-                }
-            }
-            
-            // --- Bloco 4: Montagem e Envio da Venda Final ---
-            $salePayload = [
-                "id_cliente" => $clienteIdContaAzul,
-                "numero"     => (int)$processo['id'], // Usando o ID do processo como número único e obrigatório
-                "situacao"   => "APROVADO",
-                "data_venda" => date('Y-m-d'),
-                "itens"      => $itensPayload,
-                "condicao_pagamento" => [
-                    "opcao_condicao_pagamento" => "À vista",
-                    "tipo_pagamento"         => "DINHEIRO",
-                    "parcelas"               => [ ["data_vencimento" => date('Y-m-d'), "valor" => $calculatedTotal] ]
-                ]
-            ];
-
-            $response = $this->contaAzulService->createSale($salePayload);
-
-            if (isset($response['id']) && isset($response['numero'])) {
-                $this->processoModel->updateContaAzulSaleDetails($processoId, $response['id'], $response['numero']);
-                $_SESSION['success_message'] = "Venda criada com sucesso na Conta Azul! Número: " . $response['numero'];
-            } else {
-                $errorMessage = $response['message'] ?? json_encode($response);
-                throw new Exception("A API da Conta Azul retornou um erro ao criar a venda: " . $errorMessage);
+            $cliente = $this->ensureIntegrationIdentifiers($cliente);
+            $payload = OmiePayloadBuilder::buildAlterarClientePayload($cliente);
+            $response = $this->omieService->alterarCliente($payload);
+            if (!empty($response['codigo_cliente_omie'])) {
+                $this->clienteModel->updateIntegrationIdentifiers(
+                    $clientId,
+                    $cliente['codigo_cliente_integracao'],
+                    (int)$response['codigo_cliente_omie']
+                );
             }
 
-        } catch (Exception $e) {
-            $_SESSION['error_message'] = "Erro: " . $e->getMessage();
+            $_SESSION['info_message'] = $_SESSION['info_message'] ?? 'Cadastro do cliente atualizado na Omie.';
+        } catch (Exception $exception) {
+            error_log("Falha ao atualizar cliente ID {$clientId} na Omie: " . $exception->getMessage());
+            $_SESSION['warning_message'] = "Não foi possível sincronizar o cliente com a Omie: " . $exception->getMessage();
+        }
+    }
+
+    private function ensureIntegrationIdentifiers(array $cliente): array
+    {
+        $integrationCode = $cliente['codigo_cliente_integracao'] ?? '';
+        if ($integrationCode === '' || $integrationCode === null) {
+            $integrationCode = $this->generateClientIntegrationCode((int)$cliente['id']);
+            if ($this->clienteModel->supportsIntegrationCodeColumn()) {
+                $this->clienteModel->updateIntegrationIdentifiers(
+                    (int)$cliente['id'],
+                    $integrationCode,
+                    isset($cliente['omie_id']) ? (int)$cliente['omie_id'] : null
+                );
+            }
+            $cliente['codigo_cliente_integracao'] = $integrationCode;
         }
 
-        header('Location: processos.php?action=view&id=' . $processoId);
-        exit();
+        return $cliente;
     }
-    
-  
 
+    private function normalizePhoneData(array $data): array
+    {
+        if (!array_key_exists('telefone', $data)) {
+            return $data;
+        }
 
+        $telefone = trim((string) $data['telefone']);
+        if ($telefone === '') {
+            $data['telefone'] = '';
+            return $data;
+        }
+
+        $parts = extractPhoneParts($telefone);
+        $ddd = $parts['ddd'];
+        $phone = $parts['phone'];
+
+        $data['telefone'] = ($ddd ?? '') . ($phone ?? '');
+        if ($ddd !== null) {
+            $data['telefone_ddd'] = $ddd;
+        }
+        if ($phone !== null) {
+            $data['telefone_numero'] = $phone;
+        }
+
+        return $data;
+    }
+
+    private function generateClientIntegrationCode(int $clientId): string
+    {
+        return 'CLI-' . str_pad((string)$clientId, 6, '0', STR_PAD_LEFT);
+    }
+
+    // O método syncOmie manual pode ser mantido ou removido, já que agora é automático.
+    public function syncOmie($id) { /* ... */ }
+    public function createOmieSale() { /* ... */ }
 }

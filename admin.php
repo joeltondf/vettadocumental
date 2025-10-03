@@ -4,7 +4,7 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/app/core/auth_check.php';
 
-if (!isset($_SESSION['user_perfil']) || !in_array($_SESSION['user_perfil'], ['admin', 'gerencia'])) {
+if (!isset($_SESSION['user_perfil']) || !in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'supervisor'])) {
     $_SESSION['error_message'] = "Você não tem permissão para acessar esta área.";
     header('Location: dashboard.php');
     exit();
@@ -34,7 +34,28 @@ switch ($action) {
         $adminController->settings();
         break;
     case 'save_settings':
+    case 'saveSettings':
         $adminController->saveSettings();
+        break;
+
+    // Rota para a nova página de configurações da Omie
+    case 'omie_settings':
+        $adminController->omieSettings();
+        break;
+    case 'sync_omie_support':
+        $adminController->syncOmieSupportData();
+        break;
+    case 'omie_support':
+        $type = $_GET['type'] ?? 'etapas';
+        $adminController->listOmieSupport($type);
+        break;
+    case 'omie_support_edit':
+        $type = $_GET['type'] ?? 'etapas';
+        $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT) ?: 0;
+        $adminController->editOmieSupport($type, $id);
+        break;
+    case 'omie_support_update':
+        $adminController->updateOmieSupport();
         break;
     case 'tradutores':
         $adminController->listTradutores();

@@ -6,7 +6,7 @@ require_once __DIR__ . '/../../app/core/auth_check.php';
 require_once __DIR__ . '/../../app/views/layouts/header.php';
 
 $responsavel_filtrado = null;
-if (in_array($_SESSION['user_perfil'], ['admin', 'gerencia']) && isset($_GET['responsavel_id']) && !empty($_GET['responsavel_id'])) {
+if (in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'supervisor']) && isset($_GET['responsavel_id']) && !empty($_GET['responsavel_id'])) {
     $responsavel_filtrado = filter_input(INPUT_GET, 'responsavel_id', FILTER_VALIDATE_INT);
 }
 
@@ -15,10 +15,11 @@ try {
     $todos_usuarios = $stmt_users->fetchAll(PDO::FETCH_ASSOC);
 
     $usuarios_filtro = array_filter($todos_usuarios, function($user) {
-        return in_array($user['perfil'], ['vendedor', 'gerencia', 'admin']);
+        return in_array($user['perfil'], ['vendedor', 'gerencia', 'supervisor', 'admin']);
     });
 
-    $clientes = $pdo->query("SELECT id, nome_cliente AS nome FROM clientes ORDER BY nome_cliente")->fetchAll(PDO::FETCH_ASSOC);
+    $clientes = $pdo->query("SELECT id, nome_cliente AS nome FROM clientes WHERE is_prospect = 1 ORDER BY nome_cliente")
+        ->fetchAll(PDO::FETCH_ASSOC);
     $prospeccoes = $pdo->query("SELECT id, nome_prospecto FROM prospeccoes ORDER BY nome_prospecto")->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
@@ -48,7 +49,7 @@ try {
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-3xl font-bold">Agenda de Reuniões</h1>
 
-        <?php if (in_array($_SESSION['user_perfil'], ['admin', 'gerencia'])): ?>
+        <?php if (in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'supervisor'])): ?>
             <form method="GET" action="<?php echo APP_URL; ?>/crm/agendamentos/calendario.php" class="flex items-center ml-auto">
                 <label for="responsavel_id" class="mr-2 text-gray-700">Ver agenda de:</label>
                 <select name="responsavel_id" id="responsavel_id" onchange="this.form.submit()" class="form-select border border-gray-300 rounded-md py-1 px-2 text-sm">
@@ -83,7 +84,7 @@ try {
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label for="cliente_id" class="block text-sm font-medium text-gray-700">Cliente (Opcional)</label>
+                        <label for="cliente_id" class="block text-sm font-medium text-gray-700">Contato (Opcional)</label>
                         <select class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm" id="cliente_id" name="cliente_id">
                             <option value="">Nenhum</option>
                             <?php foreach ($clientes as $cliente): ?>
@@ -341,7 +342,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (data && data.cliente_id) {
                         clienteSelect.value = data.cliente_id;
                     } else {
-                        alert('Esta prospecção não está associada a nenhum cliente.');
+                        alert('Esta prospecção não está associada a nenhum contato.');
                     }
                 })
                 .catch(error => {
@@ -406,7 +407,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         if (!clienteIdParaNovaProspeccao) {
-            alert('Não foi possível associar a nova prospecção a um cliente. Tente novamente.');
+            alert('Não foi possível associar a nova prospecção a um contato. Tente novamente.');
             return;
         }
         

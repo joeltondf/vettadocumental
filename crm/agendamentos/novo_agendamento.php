@@ -26,7 +26,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
 <div class="bg-white shadow sm:rounded-lg p-6">
     <h1 class="text-2xl font-bold text-gray-800 mb-2">Novo Agendamento</h1>
     <!-- Correção 3: Exibir 'nome_cliente' -->
-    <p class="text-sm text-gray-600 mb-6">Para a oportunidade: <span class="font-semibold"><?php echo htmlspecialchars($dados_prospeccao['nome_prospecto']); ?></span> com o cliente <span class="font-semibold"><?php echo htmlspecialchars($dados_prospeccao['nome_cliente']); ?></span>.</p>
+    <p class="text-sm text-gray-600 mb-6">Para a oportunidade: <span class="font-semibold"><?php echo htmlspecialchars($dados_prospeccao['nome_prospecto']); ?></span> com o contato <span class="font-semibold"><?php echo htmlspecialchars($dados_prospeccao['nome_cliente']); ?></span>.</p>
 
 <form action="<?php echo APP_URL; ?>/crm/agendamentos/salvar_agendamento.php" method="POST" class="space-y-6">
         <input type="hidden" name="prospeccao_id" value="<?php echo $prospeccao_id; ?>">

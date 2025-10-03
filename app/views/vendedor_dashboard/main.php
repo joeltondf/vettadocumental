@@ -3,43 +3,38 @@
 $activeFilters = array_filter($filters ?? []);
 $hasFilters = !empty($activeFilters);
 $initialProcessLimit = 50;
+$baseAppUrl = rtrim(APP_URL, '/');
+$dashboardVendedorUrl = $baseAppUrl . '/dashboard_vendedor.php';
 ?>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<div class="flex items-center justify-between mb-6">
+<div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
+    <div>
         <h1 class="text-2xl font-bold text-gray-800">Meu Painel de Vendas</h1>
         <p class="mt-1 text-gray-600">Bem-vindo(a), <?php echo htmlspecialchars($_SESSION['user_nome'] ?? ''); ?>! Acompanhe sua performance e atividades.</p>
+    </div>
+    <div class="flex flex-wrap gap-3">
+        <a href="<?php echo $baseAppUrl; ?>/processos.php?action=create&amp;return_to=<?php echo urlencode($dashboardVendedorUrl); ?>" class="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors">
+            <i class="fas fa-file-signature mr-2"></i> Criar Orçamento
+        </a>
+        <a href="<?php echo $dashboardVendedorUrl; ?>?status=Orçamento" class="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors">
+            <i class="fas fa-list-ul mr-2"></i> Meus Orçamentos
+        </a>
+        <a href="<?php echo $baseAppUrl; ?>/crm/prospeccoes/lista.php" class="inline-flex items-center bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors">
+            <i class="fas fa-bullseye mr-2"></i> Ver Prospecções
+        </a>
+    </div>
 </div>
 
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <div class="md:col-span-1 bg-white p-6 rounded-lg shadow-md flex flex-col justify-center items-center text-center">
-        <h2 class="text-lg font-bold text-gray-800 mb-2">Iniciar Nova Venda</h2>
-        <p class="text-gray-600 mb-4">Aprove uma prospecção para convertê-la em um orçamento e iniciar o processo.</p>
-        <a href="<?php echo APP_URL; ?>/crm/prospeccoes/lista.php" class="bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 shadow-lg w-full">
-            Ver Prospecções
-        </a>
-    </div>
-
-    <div class="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
-        <a href="?status_filtro=Recusado" class="bg-yellow-100 p-4 rounded-lg shadow-md flex items-center hover:bg-yellow-200 transition-colors">
-            <div class="bg-yellow-500 rounded-full p-3 mr-4">
-                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                </div>
-            <div>
-                <p class="text-gray-600 text-sm">Orçamentos para Ajustar</p>
-                <p class="text-2xl font-bold text-gray-800"><?php echo htmlspecialchars($stats['orcamentos_para_ajustar'] ?? 0); ?></p>
-            </div>
-        </a>
-
-        <a href="?status_filtro=ativo" class="bg-blue-100 p-4 rounded-lg shadow-md flex items-center hover:bg-blue-200 transition-colors">
-            <div class="bg-blue-500 rounded-full p-3 mr-4">
-                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-            </div>
-            <div>
-                <p class="text-gray-600 text-sm">Processos Ativos</p>
-                <p class="text-2xl font-bold text-gray-800"><?php echo htmlspecialchars($stats['processos_ativos'] ?? 0); ?></p>
-            </div>
-        </a>
-    </div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+    <a href="?filtro_card=ativos" class="bg-blue-100 p-4 rounded-lg shadow-md flex items-center hover:bg-blue-200 transition-colors">
+        <div class="bg-blue-500 rounded-full p-3 mr-4">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+        </div>
+        <div>
+            <p class="text-gray-600 text-sm">Processos Ativos</p>
+            <p class="text-2xl font-bold text-gray-800"><?php echo htmlspecialchars($stats['processos_ativos'] ?? 0); ?></p>
+        </div>
+    </a>
 </div>
 
 <h2 class="text-lg font-semibold text-gray-700 mb-3">Resumo de Performance</h2>
@@ -109,7 +104,7 @@ $initialProcessLimit = 50;
                 </select>
             </div>
             <div>
-                <label for="os_numero" class="text-sm font-semibold text-gray-700 mb-1 block">Nº da O.S.</label>
+                <label for="os_numero" class="text-sm font-semibold text-gray-700 mb-1 block">Chave OS Omie</label>
                 <input type="text" id="os_numero" name="os_numero" placeholder="Ex: 12345" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg" value="<?php echo htmlspecialchars($filters['os_numero'] ?? ''); ?>">
             </div>
             <div>
@@ -157,7 +152,7 @@ $initialProcessLimit = 50;
                     <th class="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase">Família</th>
                     <th class="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase">Assessoria</th>
                     <th class="px-3 py-2 text-center text-sm font-medium text-gray-500 uppercase">Doc.</th>
-                    <th class="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase">O.S</th>
+                    <th class="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase">OS Omie</th>
                     <th class="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase">Serviços</th>
                     <th class="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase">Entrada</th>
                     <th class="px-3 py-2 text-right text-sm font-medium text-gray-500 uppercase">Valor Total</th>
@@ -183,7 +178,7 @@ $initialProcessLimit = 50;
                             </td>
                             <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($processo['nome_cliente']); ?></td>
                             <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500 text-center"><?php echo $processo['total_documentos_soma']; ?></td>
-                            <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($processo['os_numero_conta_azul'] ?? ''); ?></td>
+                            <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars(empty($processo['os_numero_omie']) ? 'Aguardando Omie' : $processo['os_numero_omie']); ?></td>
                             <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
                                 <?php
                                 $servicos = explode(',', $processo['categorias_servico'] ?? '');
@@ -269,7 +264,7 @@ $initialProcessLimit = 50;
                                         </td>
                                         <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">${escapeHTML(processo.nome_cliente)}</td>
                                         <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500 text-center">${processo.total_documentos_soma}</td>
-                                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">${escapeHTML(processo.os_numero_conta_azul || '')}</td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">${escapeHTML(processo.os_numero_omie || 'Aguardando Omie')}</td>
                                         <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">${formatServices(processo.categorias_servico)}</td>
                                         <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">${formatDate(processo.data_criacao)}</td>
                                         <td class="px-3 py-2 whitespace-nowrap text-sm text-right font-mono">R$ ${formatCurrency(processo.valor_total)}</td>

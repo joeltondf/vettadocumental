@@ -55,7 +55,7 @@ try {
 
     echo "\n--- Processando 'assessoria' como Clientes... ---\n";
     $assessoriaToClienteMap = []; $clientesInseridos = 0;
-    foreach ($allPosts as $post) { if ($post['post_type'] === 'assessoria') { $meta = getPostMeta($pdoAntigo, $post['ID']); $nomeCliente = $post['post_title']; $stmtCheck = $pdoNovo->prepare("SELECT id FROM clientes WHERE nome_cliente = ?"); $stmtCheck->execute([$nomeCliente]); $clienteId = $stmtCheck->fetchColumn(); if (!$clienteId) { $stmtInsert = $pdoNovo->prepare("INSERT INTO clientes (nome_cliente, nome_responsavel, email, telefone, data_cadastro) VALUES (?, ?, ?, ?, ?)"); $stmtInsert->execute([$nomeCliente, $meta['responsavel'] ?? null, $meta['e-mail'] ?? null, $meta['telefone'] ?? null, $post['post_date']]); $clienteId = $pdoNovo->lastInsertId(); $clientesInseridos++; } $assessoriaToClienteMap[$post['ID']] = $clienteId; } }
+    foreach ($allPosts as $post) { if ($post['post_type'] === 'assessoria') { $meta = getPostMeta($pdoAntigo, $post['ID']); $nomeCliente = $post['post_title']; $stmtCheck = $pdoNovo->prepare("SELECT id FROM clientes WHERE nome_cliente = ?"); $stmtCheck->execute([$nomeCliente]); $clienteId = $stmtCheck->fetchColumn(); if (!$clienteId) { $stmtInsert = $pdoNovo->prepare("INSERT INTO clientes (nome_cliente, nome_responsavel, email, telefone, data_cadastro, is_prospect) VALUES (?, ?, ?, ?, ?, ?)"); $stmtInsert->execute([$nomeCliente, $meta['responsavel'] ?? null, $meta['e-mail'] ?? null, $meta['telefone'] ?? null, $post['post_date'], 0]); $clienteId = $pdoNovo->lastInsertId(); $clientesInseridos++; } $assessoriaToClienteMap[$post['ID']] = $clienteId; } }
     echo "{$clientesInseridos} novos clientes criados.\n";
 
     echo "\n--- Processando 'servico-familia' como Processos... ---\n";

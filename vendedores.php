@@ -8,7 +8,7 @@ require_once 'config.php';
 require_once 'app/core/auth_check.php';
 require_once 'app/controllers/VendedoresController.php';
 require_once __DIR__ . '/app/core/access_control.php';
-require_permission(['admin', 'gerencia']);
+require_permission(['admin', 'gerencia', 'supervisor']);
 
 // Cria uma instância do controlador, passando a conexão com o banco de dados
 $controller = new VendedoresController($pdo);

@@ -54,6 +54,14 @@ class CategoriaFinanceira
         $stmt = $this->pdo->prepare($sql);
         return $stmt->execute([$id]);
     }
+
+    public function deleteProdutoOrcamento($id) {
+        $sql = "DELETE FROM categorias_financeiras WHERE id = ? AND eh_produto_orcamento = 1";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$id]);
+
+        return $stmt->rowCount() > 0;
+    }
     public function reactivate($id) {
         $sql = "UPDATE categorias_financeiras SET ativo = 1 WHERE id = ?";
         $stmt = $this->pdo->prepare($sql);
@@ -128,9 +136,43 @@ class CategoriaFinanceira
         return $stmt->fetch();
     }
 
-        // NOVO MÉTODO: Busca apenas os produtos de orçamento.
-    public function getProdutosOrcamento() {
-        $stmt = $this->pdo->prepare("SELECT * FROM categorias_financeiras WHERE eh_produto_orcamento = 1 ORDER BY nome_categoria");
+    // NOVO MÉTODO: Busca apenas os produtos de orçamento.
+    public function getProdutosOrcamento(bool $includeInactive = false) {
+        $selectFields = ['cf.*'];
+
+        $selectFields[] = $this->tableHasColumn('omie_produtos', 'codigo')
+            ? 'op.codigo AS omie_codigo'
+            : 'COALESCE(op.codigo_produto, op.codigo_integracao) AS omie_codigo';
+
+        $selectFields = array_merge($selectFields, [
+            'op.codigo_produto AS omie_codigo_produto',
+            'op.codigo_integracao AS omie_codigo_integracao',
+            'op.ncm AS omie_ncm',
+            'op.unidade AS omie_unidade',
+            'op.cfop AS omie_cfop',
+            'op.codigo_servico_municipal AS omie_codigo_servico_municipal',
+            'op.valor_unitario AS omie_valor_unitario'
+        ]);
+
+        $selectColumns = implode(",\n                ", $selectFields);
+
+        $whereClauses = ['cf.eh_produto_orcamento = 1'];
+        if (!$includeInactive) {
+            $whereClauses[] = 'cf.ativo = 1';
+        }
+
+        $where = implode(' AND ', $whereClauses);
+
+        $sql = <<<SQL
+            SELECT
+                {$selectColumns}
+            FROM categorias_financeiras cf
+            LEFT JOIN omie_produtos op ON op.local_produto_id = cf.id
+            WHERE {$where}
+            ORDER BY cf.nome_categoria
+        SQL;
+
+        $stmt = $this->pdo->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll();
     }
@@ -139,16 +181,19 @@ class CategoriaFinanceira
     public function createProdutoOrcamento($data) {
         $sql = "INSERT INTO categorias_financeiras (nome_categoria, tipo_lancamento, grupo_principal, valor_padrao, servico_tipo, bloquear_valor_minimo, eh_produto_orcamento, ativo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt = $this->pdo->prepare($sql);
-        return $stmt->execute([
+
+        $success = $stmt->execute([
             $data['nome_categoria'],
-            'RECEITA', // Fixo
-            $data['grupo_principal'] ?? 'Produtos e Serviços', // Fixo ou padrão
+            'RECEITA',
+            $data['grupo_principal'] ?? 'Produtos e Serviços',
             $data['valor_padrao'] ?? null,
             $data['servico_tipo'] ?? 'Nenhum',
             isset($data['bloquear_valor_minimo']) ? 1 : 0,
-            1, // Fixo
-            $data['ativo'] ?? 1 // Padrão ativo
+            1,
+            $data['ativo'] ?? 1
         ]);
+
+        return $success ? (int)$this->pdo->lastInsertId() : false;
     }
 
     // NOVO MÉTODO: Atualiza um produto de orçamento.
@@ -180,5 +225,14 @@ class CategoriaFinanceira
         $sql = "UPDATE categorias_financeiras SET ativo = ? WHERE id = ?";
         $stmt = $this->pdo->prepare($sql);
         return $stmt->execute([(int)$status, $id]);
+    }
+
+    private function tableHasColumn(string $table, string $column): bool
+    {
+        $safeTable = str_replace('`', '``', $table);
+        $stmt = $this->pdo->prepare("SHOW COLUMNS FROM `{$safeTable}` LIKE :column");
+        $stmt->execute(['column' => $column]);
+
+        return (bool)$stmt->fetch(PDO::FETCH_ASSOC);
     }
 }

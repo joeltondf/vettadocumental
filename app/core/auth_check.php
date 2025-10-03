@@ -18,7 +18,7 @@ if (session_status() === PHP_SESSION_NONE) {
 $currentPage = basename($_SERVER['PHP_SELF']);
 
 // Lista de páginas que são públicas (NÃO precisam de login).
-$publicPages = ['login.php', 'conta_azul_callback.php'];
+$publicPages = ['login.php'];
 
 // Se a página atual NÃO ESTÁ na lista de páginas públicas E o usuário NÃO está logado...
 if (!in_array($currentPage, $publicPages) && !isset($_SESSION['user_id'])) {

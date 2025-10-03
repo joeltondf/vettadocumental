@@ -24,10 +24,16 @@ if ($isVendedor && isset($_SESSION['user_id'])) {
 
 // 3. Define qual cliente e vendedor devem ser pré-selecionados
 $isEditMode = isset($processo) && $processo !== null;
-$cliente_id_selecionado = $_GET['cliente_id'] ?? ($isEditMode ? $processo['cliente_id'] : null);
+$formData = $formData ?? [];
+if ($isEditMode) {
+    $processo = array_merge($processo ?? [], $formData);
+} else {
+    $processo = $formData;
+}
+$cliente_id_selecionado = $_GET['cliente_id'] ?? ($processo['cliente_id'] ?? null);
 
 // Se for conversão, o vendedor é o logado. Se for edição, é o que está salvo no processo.
-$vendedor_id_selecionado = $fromProspeccao ? $loggedInVendedorId : ($isEditMode ? $processo['vendedor_id'] : null);
+$vendedor_id_selecionado = $fromProspeccao ? $loggedInVendedorId : ($processo['vendedor_id'] ?? null);
 
 // 4. Define se os campos devem ser desabilitados
 $disableFields = false;
@@ -38,7 +44,10 @@ $disableFields = false;
 $return_url = $_GET['return_to'] ?? 'processos.php';
 $tipos_traducao = $tipos_traducao ?? [];
 $tipos_crc = $tipos_crc ?? [];
-
+$financeiroServicos = [
+    'Tradução' => $tipos_traducao,
+    'CRC' => $tipos_crc,
+];
 ?>
 
 <div class="flex items-center justify-between mb-6">
@@ -60,8 +69,8 @@ $tipos_crc = $tipos_crc ?? [];
     if (!$isEditMode) {
         // Se NÃO for modo de edição (ou seja, é um novo orçamento)
         if ($_SESSION['user_perfil'] === 'vendedor') {
-            // Cenário 1: Vendedor cria -> Status = "Orçamento Pendente"
-            echo '<input type="hidden" name="status_processo" value="Orçamento Pendente">';
+            // Cenário 1: Vendedor cria -> Status = "Orçamento"
+            echo '<input type="hidden" name="status_processo" value="Orçamento">';
         } else {
             echo '<input type="hidden" name="status_processo" value="Orçamento">';
         }
@@ -92,7 +101,7 @@ $tipos_crc = $tipos_crc ?? [];
                     <select name="cliente_id" id="cliente_id" class="block w-full p-2 border border-gray-300 rounded-md shadow-sm" required <?php if ($disableFields) echo 'disabled'; ?>>
                         <option value="">Selecione...</option>
                         <?php if (!empty($clientes)): foreach ($clientes as $cliente): ?>
-                            <option value="<?php echo $cliente['id']; ?>" <?php echo ($cliente_id_selecionado == $cliente['id']) ? 'selected' : ''; ?>>
+                            <option value="<?php echo $cliente['id']; ?>" data-tipo-assessoria="<?php echo $cliente['tipo_assessoria'] ?? ''; ?>" <?php echo ($cliente_id_selecionado == $cliente['id']) ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($cliente['nome_cliente']); ?>
                             </option>
                         <?php endforeach; endif; ?>
@@ -118,7 +127,7 @@ $tipos_crc = $tipos_crc ?? [];
                     <?php
                     $origens = ['Bitrix', 'Facebook', 'Instagram', 'Google', 'Indicação Cartório', 'Indicação Cliente'];
                     foreach ($origens as $origem) {
-                        $selected = ($isEditMode && ($processo['orcamento_origem'] ?? '') == $origem) ? 'selected' : '';
+                        $selected = (($processo['orcamento_origem'] ?? '') == $origem) ? 'selected' : '';
                         echo "<option value='{$origem}' {$selected}>{$origem}</option>";
                     }
                     ?>
@@ -172,7 +181,14 @@ $tipos_crc = $tipos_crc ?? [];
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-4">
                     <?php
                     $categorias = ['Tradução', 'CRC', 'Apostilamento', 'Postagem'];
-                    $categorias_selecionadas = $isEditMode ? explode(',', $processo['categorias_servico'] ?? '') : [];
+                    $categoriasRaw = $processo['categorias_servico'] ?? [];
+                    if (is_string($categoriasRaw)) {
+                        $categorias_selecionadas = array_filter(array_map('trim', explode(',', $categoriasRaw)));
+                    } elseif (is_array($categoriasRaw)) {
+                        $categorias_selecionadas = $categoriasRaw;
+                    } else {
+                        $categorias_selecionadas = [];
+                    }
                     $slug_map = ['Tradução' => 'traducao', 'CRC' => 'crc', 'Apostilamento' => 'apostilamento', 'Postagem' => 'postagem'];
 
                     // Mapeamento de cores para cada serviço
@@ -220,18 +236,18 @@ $tipos_crc = $tipos_crc ?? [];
                 <div>
                     <label for="idioma" class="block text-sm font-medium text-gray-700">Idioma *</label>
                     <select name="idioma" id="idioma" class="mt-1 block w-full p-2 border border-blue-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                        <option value="Italiano" <?php echo ($isEditMode && ($processo['idioma'] ?? '') == 'Italiano') ? 'selected' : ''; ?>>Italiano</option>
-                        <option value="Espanhol" <?php echo ($isEditMode && ($processo['idioma'] ?? '') == 'Espanhol') ? 'selected' : ''; ?>>Espanhol</option>
-                        <option value="Inglês" <?php echo ($isEditMode && ($processo['idioma'] ?? '') == 'Inglês') ? 'selected' : ''; ?>>Inglês</option>
-                        <option value="Francês" <?php echo ($isEditMode && ($processo['idioma'] ?? '') == 'Francês') ? 'selected' : ''; ?>>Francês</option>
-                        <option value="Alemão" <?php echo ($isEditMode && ($processo['idioma'] ?? '') == 'Alemão') ? 'selected' : ''; ?>>Alemão</option>
+                        <option value="Italiano" <?php echo (($processo['idioma'] ?? '') == 'Italiano') ? 'selected' : ''; ?>>Italiano</option>
+                        <option value="Espanhol" <?php echo (($processo['idioma'] ?? '') == 'Espanhol') ? 'selected' : ''; ?>>Espanhol</option>
+                        <option value="Inglês" <?php echo (($processo['idioma'] ?? '') == 'Inglês') ? 'selected' : ''; ?>>Inglês</option>
+                        <option value="Francês" <?php echo (($processo['idioma'] ?? '') == 'Francês') ? 'selected' : ''; ?>>Francês</option>
+                        <option value="Alemão" <?php echo (($processo['idioma'] ?? '') == 'Alemão') ? 'selected' : ''; ?>>Alemão</option>
                     </select>
                 </div>
                 <div>
                     <label for="modalidade_assinatura" class="block text-sm font-medium text-gray-700">Modalidade da Assinatura *</label>
                     <select name="modalidade_assinatura" id="modalidade_assinatura" class="mt-1 block w-full p-2 border border-blue-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                        <option value="Assinatura Digital" <?php echo ($isEditMode && ($processo['modalidade_assinatura'] ?? '') == 'Assinatura Digital') ? 'selected' : ''; ?>>Assinatura Digital</option>
-                        <option value="Assinatura Física" <?php echo ($isEditMode && ($processo['modalidade_assinatura'] ?? '') == 'Assinatura Física') ? 'selected' : ''; ?>>Assinatura Física</option>
+                        <option value="Assinatura Digital" <?php echo (($processo['modalidade_assinatura'] ?? '') == 'Assinatura Digital') ? 'selected' : ''; ?>>Assinatura Digital</option>
+                        <option value="Assinatura Física" <?php echo (($processo['modalidade_assinatura'] ?? '') == 'Assinatura Física') ? 'selected' : ''; ?>>Assinatura Física</option>
                     </select>
                 </div>
             </div>
@@ -302,16 +318,16 @@ $tipos_crc = $tipos_crc ?? [];
             <div>
                 <label for="orcamento_forma_pagamento" class="block text-sm font-medium text-gray-700">Forma de Pagamento *</label>
                 <select name="orcamento_forma_pagamento" id="orcamento_forma_pagamento" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
-                    <option value="À vista" <?php echo ($isEditMode && ($processo['orcamento_forma_pagamento'] ?? 'À vista') == 'À vista') ? 'selected' : ''; ?>>À vista</option>
-                    <option value="Faturado" <?php echo ($isEditMode && ($processo['orcamento_forma_pagamento'] ?? '') == 'Faturado') ? 'selected' : ''; ?>>Faturado</option>
+                    <option value="À vista" <?php echo (($processo['orcamento_forma_pagamento'] ?? 'À vista') == 'À vista') ? 'selected' : ''; ?>>À vista</option>
+                    <option value="Faturado" <?php echo (($processo['orcamento_forma_pagamento'] ?? '') == 'Faturado') ? 'selected' : ''; ?>>Faturado</option>
                 </select>
             </div>
             <div id="pagamento_a_vista_container" class="contents">
                 <div>
                     <label for="orcamento_parcelas" class="block text-sm font-medium text-gray-700">Parcelas *</label>
                     <select name="orcamento_parcelas" id="orcamento_parcelas" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                        <option value="1" <?php echo ($isEditMode && ($processo['orcamento_parcelas'] ?? '1') == '1') ? 'selected' : ''; ?>>1x</option>
-                        <option value="2" <?php echo ($isEditMode && ($processo['orcamento_parcelas'] ?? '') == '2') ? 'selected' : ''; ?>>2x</option>
+                        <option value="1" <?php echo (($processo['orcamento_parcelas'] ?? '1') == '1') ? 'selected' : ''; ?>>1x</option>
+                        <option value="2" <?php echo (($processo['orcamento_parcelas'] ?? '') == '2') ? 'selected' : ''; ?>>2x</option>
                     </select>
                 </div>
                 <div>
@@ -377,11 +393,11 @@ $tipos_crc = $tipos_crc ?? [];
         
         <div class="md:col-span-5">
             <label class="block text-xs font-medium text-gray-500 sr-only">Tipo de Documento *</label>
-            <select name="docs[__INDEX__][tipo_documento]" class="mt-1 block w-full p-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+            <select name="docs[__INDEX__][tipo_documento]" class="mt-1 block w-full p-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 servico-select" data-servico-tipo="Tradução">
                 <option value="">Selecione o tipo...</option>
                 <?php foreach($tipos_traducao as $tipo): ?>
-                    <option value="<?php echo htmlspecialchars($tipo['nome_categoria']); ?>" 
-                            data-valor-padrao="<?php echo $tipo['valor_padrao']; ?>" 
+                    <option value="<?php echo htmlspecialchars($tipo['nome_categoria']); ?>"
+                            data-valor-padrao="<?php echo $tipo['valor_padrao']; ?>"
                             data-bloqueado="<?php echo $tipo['bloquear_valor_minimo']; ?>">
                         <?php echo htmlspecialchars($tipo['nome_categoria']); ?>
                     </option>
@@ -390,13 +406,13 @@ $tipos_crc = $tipos_crc ?? [];
         </div>
 
         <div class="md:col-span-4">
-            <label class="block text-xs font-medium text-gray-500 sr-only">Nome no Documento *</label>
-            <input type="text" name="docs[__INDEX__][nome_documento]" class="mt-1 block w-full p-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="Nome no documento">
+            <label class="block text-xs font-medium text-gray-500 sr-only">Titular do Documento *</label>
+            <input type="text" name="docs[__INDEX__][nome_documento]" class="mt-1 block w-full p-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="Titular do documento">
         </div>
         
         <div class="md:col-span-1">
             <label class="block text-xs font-medium text-gray-500 sr-only">Valor *</label>
-            <input type="text" name="docs[__INDEX__][valor_unitario]" class="mt-1 block w-full p-2 text-sm doc-price calculation-trigger border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="Valor">
+            <input type="text" name="docs[__INDEX__][valor_unitario]" class="mt-1 block w-full p-2 text-sm doc-price valor-servico calculation-trigger border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="Valor">
         </div>
 
         <div class="md:col-span-1 flex items-center justify-center">
@@ -414,11 +430,11 @@ $tipos_crc = $tipos_crc ?? [];
         <div class="flex items-center justify-center md:col-span-1 doc-number text-gray-500 font-bold text-lg"></div>
         <div class="md:col-span-6">
             <label class="block text-xs font-medium text-gray-500 sr-only">Tipo de Documento *</label>
-            <select name="docs[__INDEX__][tipo_documento]" class="mt-1 block w-full p-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+            <select name="docs[__INDEX__][tipo_documento]" class="mt-1 block w-full p-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 servico-select" data-servico-tipo="CRC">
                 <option value="">Selecione o tipo...</option>
                 <?php foreach($tipos_crc as $tipo): ?>
-                    <option value="<?php echo htmlspecialchars($tipo['nome_categoria']); ?>" 
-                            data-valor-padrao="<?php echo $tipo['valor_padrao']; ?>" 
+                    <option value="<?php echo htmlspecialchars($tipo['nome_categoria']); ?>"
+                            data-valor-padrao="<?php echo $tipo['valor_padrao']; ?>"
                             data-bloqueado="<?php echo $tipo['bloquear_valor_minimo']; ?>">
                         <?php echo htmlspecialchars($tipo['nome_categoria']); ?>
                     </option>
@@ -426,13 +442,13 @@ $tipos_crc = $tipos_crc ?? [];
             </select>
         </div>
         <div class="md:col-span-3">
-            <label class="block text-xs font-medium text-gray-500 sr-only">Nome no Documento *</label>
-            <input type="text" name="docs[__INDEX__][nome_documento]" class="mt-1 block w-full p-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="Nome no documento">
+            <label class="block text-xs font-medium text-gray-500 sr-only">Titular do Documento *</label>
+            <input type="text" name="docs[__INDEX__][nome_documento]" class="mt-1 block w-full p-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="Titular do documento">
         </div>
         <div class="md:col-span-1">
             <label class="block text-xs font-medium text-gray-500 sr-only">Valor *</label>
             <input type="number" name="docs[__INDEX__][quantidade]" value="1" min="1" class="hidden">
-            <input type="text" name="docs[__INDEX__][valor_unitario]" class="mt-1 block w-full p-2 text-sm doc-price calculation-trigger border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="Valor">
+            <input type="text" name="docs[__INDEX__][valor_unitario]" class="mt-1 block w-full p-2 text-sm doc-price valor-servico calculation-trigger border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="Valor">
         </div>
         <div class="md:col-span-1 flex items-center justify-center">
             <button type="button" class="remove-doc-btn bg-red-500 text-white rounded-full h-7 w-7 flex items-center justify-center font-bold text-sm hover:bg-red-600 transition duration-200 ease-in-out" aria-label="Remover documento">X</button>
@@ -446,6 +462,17 @@ document.addEventListener('DOMContentLoaded', function() {
         placeholder: "Selecione ou digite para buscar...",
         allowClear: true
     });
+
+    const clienteSelect = document.getElementById('cliente_id');
+    const userProfile = "<?php echo $_SESSION['user_perfil'] ?? ''; ?>";
+    const isGestor = ['admin', 'gerencia', 'supervisor'].includes(userProfile);
+    const clienteState = { tipo: 'À vista', servicos: [] };
+    const budgetMinAlertMessage = 'Atenção: O valor informado está abaixo do mínimo cadastrado. A supervisão irá validar e o orçamento ficará pendente até a aprovação.';
+    const financeServices = <?php echo json_encode($financeiroServicos, JSON_UNESCAPED_UNICODE); ?>;
+    const statusHiddenInput = document.querySelector('input[name="status_processo"]');
+    if (statusHiddenInput) {
+        statusHiddenInput.dataset.originalStatus = statusHiddenInput.value || 'Orçamento';
+    }
 
     // Funções de formatação
     function formatCurrency(value) {
@@ -461,11 +488,207 @@ document.addEventListener('DOMContentLoaded', function() {
         return parseFloat(clean.replace(/\./g, '').replace(',', '.')) || 0;
     }
 
+    function triggerMinValueAlert(input, message) {
+        if (!input) {
+            return;
+        }
+
+        if (isGestor) {
+            delete input.dataset.alertBelowMinShown;
+            return;
+        }
+
+        const minValor = parseFloat(input.dataset.minValor || '0');
+        const valorAtual = parseCurrency(input.value);
+
+        if (Number.isNaN(minValor) || Number.isNaN(valorAtual)) {
+            delete input.dataset.alertBelowMinShown;
+            return;
+        }
+
+        if (minValor > 0 && valorAtual < minValor) {
+            if (input.dataset.alertBelowMinShown !== 'true') {
+                alert(message);
+                input.dataset.alertBelowMinShown = 'true';
+            }
+        } else {
+            delete input.dataset.alertBelowMinShown;
+        }
+    }
+
     function formatInteger(value) {
         if (!value) return '0';
         return String(value).replace(/\D/g, '');
     }
 
+    function getAvailableServices(servicoTipo) {
+        if (!servicoTipo) {
+            return [];
+        }
+
+        if (clienteState.tipo === 'Mensalista') {
+            const personalizados = clienteState.servicos
+                .filter(servico => servico.servico_tipo === servicoTipo)
+                .map(servico => ({
+                    nome_categoria: servico.nome_categoria,
+                    valor_padrao: servico.valor_padrao,
+                    bloquear_valor_minimo: 1
+                }));
+
+            if (personalizados.length > 0) {
+                return personalizados;
+            }
+        }
+
+        return financeServices[servicoTipo] || [];
+    }
+
+    function populateServiceSelect(selectElement, preserveValue = false) {
+        if (!selectElement) {
+            return;
+        }
+
+        const servicoTipo = selectElement.dataset.servicoTipo || '';
+        const currentValue = preserveValue ? selectElement.value : '';
+        const availableServices = getAvailableServices(servicoTipo);
+
+        selectElement.innerHTML = '';
+
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = 'Selecione o tipo...';
+        selectElement.appendChild(placeholder);
+
+        availableServices.forEach(item => {
+            if (!item || !item.nome_categoria) {
+                return;
+            }
+
+            const option = document.createElement('option');
+            option.value = item.nome_categoria;
+            option.textContent = item.nome_categoria;
+
+            if (item.valor_padrao !== undefined && item.valor_padrao !== null && item.valor_padrao !== '') {
+                option.dataset.valorPadrao = item.valor_padrao;
+            }
+            if (item.bloquear_valor_minimo !== undefined) {
+                option.dataset.bloqueado = item.bloquear_valor_minimo ? '1' : '0';
+            } else {
+                option.dataset.bloqueado = clienteState.tipo === 'Mensalista' ? '1' : '0';
+            }
+
+            selectElement.appendChild(option);
+        });
+
+        if (currentValue) {
+            const match = Array.from(selectElement.options).find(opt => opt.value === currentValue);
+            if (match) {
+                match.selected = true;
+            } else {
+                const customOption = document.createElement('option');
+                customOption.value = currentValue;
+                customOption.textContent = currentValue;
+                customOption.selected = true;
+                customOption.dataset.custom = '1';
+                selectElement.appendChild(customOption);
+            }
+        }
+    }
+
+    function applyServiceSelection(selectElement) {
+        if (!selectElement) {
+            return;
+        }
+
+        const selectedOption = selectElement.options[selectElement.selectedIndex];
+        const valorInput = selectElement.closest('.doc-item')?.querySelector('.valor-servico');
+        if (!valorInput) {
+            return;
+        }
+
+        const rawValor = selectedOption?.dataset?.valorPadrao;
+        const parsedValor = rawValor !== undefined ? parseFloat(rawValor) : null;
+
+        if (parsedValor !== null && !Number.isNaN(parsedValor)) {
+            valorInput.value = formatCurrency(parsedValor * 100);
+        }
+
+        const bloqueado = selectedOption?.dataset?.bloqueado === '1';
+        if (bloqueado && parsedValor !== null && !Number.isNaN(parsedValor)) {
+            valorInput.dataset.minValor = parsedValor;
+        } else if (clienteState.tipo === 'Mensalista' && parsedValor !== null && !Number.isNaN(parsedValor)) {
+            valorInput.dataset.minValor = parsedValor;
+        } else {
+            valorInput.dataset.minValor = '0';
+        }
+    }
+
+    function refreshAllDocumentSelects() {
+        document.querySelectorAll('.servico-select').forEach(select => {
+            populateServiceSelect(select, true);
+            applyServiceSelection(select);
+        });
+    }
+
+    async function handleClienteChange(triggerRefresh = true) {
+        if (!clienteSelect) {
+            return;
+        }
+
+        const selectedOption = clienteSelect.options[clienteSelect.selectedIndex];
+        const tipo = selectedOption ? (selectedOption.dataset.tipoAssessoria || 'À vista') : 'À vista';
+        clienteState.tipo = tipo;
+
+        if (tipo === 'Mensalista' && selectedOption && selectedOption.value) {
+            clienteState.servicos = [];
+            try {
+                const response = await fetch(`api_cliente.php?id=${selectedOption.value}`);
+                const data = await response.json();
+                clienteState.servicos = (data.success && Array.isArray(data.servicos)) ? data.servicos : [];
+            } catch (error) {
+                clienteState.servicos = [];
+            }
+        } else {
+            clienteState.servicos = [];
+        }
+
+        if (triggerRefresh) {
+            refreshAllDocumentSelects();
+            updateAllCalculations();
+            evaluateBudgetMinValues();
+        }
+    }
+
+    function evaluateBudgetMinValues() {
+        const statusInput = statusHiddenInput;
+        if (!statusInput) {
+            return;
+        }
+
+        if (isGestor) {
+            statusInput.value = statusInput.dataset.originalStatus || statusInput.value;
+            return;
+        }
+
+        const originalStatus = statusInput.dataset.originalStatus || statusInput.value || 'Orçamento';
+        let pendente = false;
+
+        document.querySelectorAll('.valor-servico').forEach(input => {
+            const min = parseFloat(input.dataset.minValor || '0');
+            const atual = parseCurrency(input.value);
+            if (min > 0 && atual < min) {
+                pendente = true;
+            }
+        });
+
+        statusInput.value = originalStatus;
+    }
+
+    if (clienteSelect) {
+        $('#cliente_id').on('change', () => {
+            handleClienteChange(true);
+        });
+    }
     // Aplica a máscara de moeda a todos os campos relevantes em tempo real,
     // inclusive os que forem criados dinamicamente (.doc-price).
     document.body.addEventListener('input', function(e) {
@@ -478,6 +701,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             const floatVal = parseInt(raw, 10) / 100;
             target.value = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(floatVal);
+            if (target.classList && target.classList.contains('valor-servico')) {
+                triggerMinValueAlert(target, budgetMinAlertMessage);
+                evaluateBudgetMinValues();
+            }
         }
     });
 
@@ -541,23 +768,28 @@ document.addEventListener('DOMContentLoaded', function() {
             if (target.matches('#apostilamento_quantidade, #postagem_quantidade')) {
                 target.value = formatInteger(target.value);
             }
+            if (target.classList && target.classList.contains('valor-servico')) {
+                triggerMinValueAlert(target, budgetMinAlertMessage);
+            }
             if (target.matches('.calculation-trigger')) {
                 updateAllCalculations();
+                evaluateBudgetMinValues();
             }
         }, true);
     }
 
 
     // O restante do código permanece o mesmo
-    function toggleServiceSections() {
-        document.querySelectorAll('.service-checkbox').forEach(checkbox => {
-            const targetSection = document.getElementById(checkbox.dataset.target);
-            if (targetSection) {
-                targetSection.classList.toggle('hidden', !checkbox.checked);
-            }
-        });
-        updateAllCalculations();
-    }
+    function toggleServiceSections() {
+        document.querySelectorAll('.service-checkbox').forEach(checkbox => {
+            const targetSection = document.getElementById(checkbox.dataset.target);
+            if (targetSection) {
+                targetSection.classList.toggle('hidden', !checkbox.checked);
+            }
+        });
+        updateAllCalculations();
+        evaluateBudgetMinValues();
+    }
 
     let docIndex = 0;
     const categoryMap = {'Tradução': 'traducao', 'CRC': 'crc'};
@@ -591,11 +823,18 @@ document.addEventListener('DOMContentLoaded', function() {
             clearErrorHighlights();
         }
 
-        const cloneHTML = template.innerHTML.replace(/__INDEX__/g, docIndex);
-        container.insertAdjacentHTML('beforeend', cloneHTML);
-        docIndex++;
-        updateNumbering();
-        updateAllCalculations();
+        const cloneHTML = template.innerHTML.replace(/__INDEX__/g, docIndex);
+        container.insertAdjacentHTML('beforeend', cloneHTML);
+        const newRow = container.lastElementChild;
+        const select = newRow ? newRow.querySelector('.servico-select') : null;
+        if (select) {
+            populateServiceSelect(select);
+            applyServiceSelection(select);
+        }
+        docIndex++;
+        updateNumbering();
+        updateAllCalculations();
+        evaluateBudgetMinValues();
     }
 
     function updateNumbering() {
@@ -629,33 +868,42 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('label_parcela1').textContent = (parcelas === '2') ? 'Valor 1ª Parcela *' : 'Valor Total *';
     }
 
-    form.addEventListener('change', function(e) {
-        if (e.target.matches('select[name*="[tipo_documento]"]')) {
-            const selectedOption = e.target.options[e.target.selectedIndex];
-            const row = e.target.closest('.doc-item');
-            const valorInput = row.querySelector('input[name*="[valor_unitario]"]');
-            const valorPadrao = selectedOption.dataset.valorPadrao;
-            const isBloqueado = selectedOption.dataset.bloqueado === '1';
+    form.addEventListener('change', function(e) {
+        if (e.target.matches('.servico-select')) {
+            applyServiceSelection(e.target);
+            updateAllCalculations();
+            evaluateBudgetMinValues();
+            return;
+        }
 
-            if (valorInput && valorPadrao) {
-                valorInput.value = formatCurrency(parseFloat(valorPadrao) * 100);
-                valorInput.dataset.minValor = isBloqueado ? valorPadrao : '0';
-                valorInput.dispatchEvent(new Event('blur', { bubbles: true })); // Dispara 'blur' em vez de 'input'
-            }
-        }
-    });
+        if (e.target.matches('select[name*="[tipo_documento]"]')) {
+            const selectedOption = e.target.options[e.target.selectedIndex];
+            const row = e.target.closest('.doc-item');
+            const valorInput = row.querySelector('input[name*="[valor_unitario]"]');
+            const valorPadrao = selectedOption.dataset.valorPadrao;
+            const isBloqueado = selectedOption.dataset.bloqueado === '1';
+
+            if (valorInput && valorPadrao) {
+                valorInput.value = formatCurrency(parseFloat(valorPadrao) * 100);
+                valorInput.dataset.minValor = isBloqueado ? valorPadrao : '0';
+                valorInput.dispatchEvent(new Event('blur', { bubbles: true }));
+            }
+            evaluateBudgetMinValues();
+        }
+    });
 
     // Removido o event listener 'blur' duplicado e a validação de min-valor foi movida para o 'blur' unificado
     // Note que a validação de min-valor agora será executada dentro do novo event listener de 'blur'
     
     form.addEventListener('click', function(e) {
         if (e.target.classList.contains('add-doc-btn')) addDocumentRow(e.target.dataset.type);
-        if (e.target.classList.contains('remove-doc-btn')) {
-            e.target.closest('.doc-item').remove();
-            updateNumbering();
-            updateAllCalculations();
-        }
-    });
+        if (e.target.classList.contains('remove-doc-btn')) {
+            e.target.closest('.doc-item').remove();
+            updateNumbering();
+            updateAllCalculations();
+            evaluateBudgetMinValues();
+        }
+    });
 
     document.querySelectorAll('.service-checkbox').forEach(cb => cb.addEventListener('change', toggleServiceSections));
     document.querySelectorAll('input[name="traducao_prazo_tipo"]').forEach(radio => radio.addEventListener('change', togglePrazoInputs));
@@ -668,17 +916,28 @@ document.addEventListener('DOMContentLoaded', function() {
         docIndex = 0;
         const existingDocs = <?php echo json_encode($documentos ?? []); ?>;
         
-        existingDocs.forEach(doc => {
-            const type = categoryMap[doc.categoria] || doc.categoria.toLowerCase();
-            if (document.getElementById(`doc-${type}-template`)) {
-                addDocumentRow(type);
-                const newRow = document.querySelector(`[data-container-type="${type}"]`).lastElementChild;
-                const docIndexForLoad = docIndex - 1;
-                newRow.querySelector(`select[name="docs[${docIndexForLoad}][tipo_documento]"]`).value = doc.tipo_documento;
-                newRow.querySelector(`input[name="docs[${docIndexForLoad}][nome_documento]"]`).value = doc.nome_documento;
-                newRow.querySelector(`input[name="docs[${docIndexForLoad}][valor_unitario]"]`).value = formatCurrency(parseFloat(doc.valor_unitario) * 100);
-            }
-        });
+        existingDocs.forEach(doc => {
+            const type = categoryMap[doc.categoria] || doc.categoria.toLowerCase();
+            if (document.getElementById(`doc-${type}-template`)) {
+                addDocumentRow(type);
+                const newRow = document.querySelector(`[data-container-type="${type}"]`).lastElementChild;
+                const docIndexForLoad = docIndex - 1;
+                const selectElement = newRow.querySelector(`select[name="docs[${docIndexForLoad}][tipo_documento]"]`);
+                if (selectElement) {
+                    selectElement.value = doc.tipo_documento;
+                    if (selectElement.value !== doc.tipo_documento && doc.tipo_documento) {
+                        const customOption = new Option(doc.tipo_documento, doc.tipo_documento, true, true);
+                        selectElement.add(customOption);
+                    }
+                    applyServiceSelection(selectElement);
+                }
+                newRow.querySelector(`input[name="docs[${docIndexForLoad}][nome_documento]"]`).value = doc.nome_documento;
+                const valorInput = newRow.querySelector(`input[name="docs[${docIndexForLoad}][valor_unitario]"]`);
+                if (valorInput) {
+                    valorInput.value = formatCurrency(parseFloat(doc.valor_unitario) * 100);
+                }
+            }
+        });
         
         document.querySelectorAll('.calculation-trigger').forEach(field => {
             if (field.value) {
@@ -690,12 +949,15 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        toggleServiceSections();
-        togglePrazoInputs();
-        if (document.getElementById('orcamento_forma_pagamento')) togglePaymentFields();
-        updateAllCalculations();
-    }
+        toggleServiceSections();
+        togglePrazoInputs();
+        if (document.getElementById('orcamento_forma_pagamento')) togglePaymentFields();
+        updateAllCalculations();
+        evaluateBudgetMinValues();
+    }
     
-    loadExistingData();
+    handleClienteChange(false).then(() => {
+        loadExistingData();
+    });
 });
 </script>

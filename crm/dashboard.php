@@ -60,7 +60,7 @@ try {
         SELECT u.nome_completo, COUNT(p.id) as total 
         FROM users u 
         LEFT JOIN prospeccoes p ON u.id = p.responsavel_id AND ($where_sql) 
-        WHERE u.perfil IN ('vendedor', 'gerencia') -- Correção: Tabela 'users' e coluna 'perfil'
+        WHERE u.perfil IN ('vendedor', 'gerencia', 'supervisor') -- Correção: Tabela 'users' e coluna 'perfil'
         GROUP BY u.id, u.nome_completo 
         ORDER BY total DESC
     ");
@@ -70,12 +70,12 @@ try {
     $valores_sdr = array_column($dados_grafico_sdr, 'total');
     
     // Lista de Responsáveis para o filtro - CORRIGIDO
-    $stmt_users = $pdo->prepare("SELECT id, nome_completo FROM users WHERE perfil IN ('vendedor', 'gerencia') ORDER BY nome_completo"); // Correção: Tabela 'users' e coluna 'perfil'
+    $stmt_users = $pdo->prepare("SELECT id, nome_completo FROM users WHERE perfil IN ('vendedor', 'gerencia', 'supervisor') ORDER BY nome_completo"); // Correção: Tabela 'users' e coluna 'perfil'
     $stmt_users->execute();
     $responsaveis_filtro = $stmt_users->fetchAll(PDO::FETCH_ASSOC);
 
     // Gráfico de Canal de Origem - CORRIGIDO
-    $stmt_grafico_canal = $pdo->prepare("SELECT canal_origem, COUNT(*) as total FROM clientes WHERE canal_origem IS NOT NULL AND canal_origem != '' GROUP BY canal_origem ORDER BY total DESC");
+    $stmt_grafico_canal = $pdo->prepare("SELECT canal_origem, COUNT(*) as total FROM clientes WHERE canal_origem IS NOT NULL AND canal_origem != '' AND is_prospect = 1 GROUP BY canal_origem ORDER BY total DESC");
     $stmt_grafico_canal->execute();
     $dados_grafico_canal = $stmt_grafico_canal->fetchAll(PDO::FETCH_ASSOC);
     $labels_canal = array_column($dados_grafico_canal, 'canal_origem');
@@ -151,7 +151,7 @@ require_once __DIR__ . '/../app/views/layouts/header.php';
         <div class="mt-4" style="height: 300px;"><canvas id="graficoResponsavel"></canvas></div>
     </div>
     <div class="bg-white overflow-hidden shadow rounded-lg p-6 lg:col-span-2">
-        <h3 class="text-lg font-medium leading-6 text-gray-900">Clientes por Canal de Origem</h3>
+        <h3 class="text-lg font-medium leading-6 text-gray-900">Contatos por Canal de Origem</h3>
         <div class="mt-4" style="height: 300px;"><canvas id="graficoCanais"></canvas></div>
     </div>
 </div>
@@ -170,7 +170,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
     
     // Gráfico de Canais
     const ctxCanais = document.getElementById('graficoCanais').getContext('2d');
-    new Chart(ctxCanais, { type: 'bar', data: { labels: <?php echo json_encode($labels_canal); ?>, datasets: [{ label: 'Clientes por Canal', data: <?php echo json_encode($valores_canal); ?>, backgroundColor: 'rgba(59, 130, 246, 0.7)', }] }, options: { scales: { y: { beginAtZero: true } }, responsive: true, maintainAspectRatio: false } });
+    new Chart(ctxCanais, { type: 'bar', data: { labels: <?php echo json_encode($labels_canal); ?>, datasets: [{ label: 'Contatos por Canal', data: <?php echo json_encode($valores_canal); ?>, backgroundColor: 'rgba(59, 130, 246, 0.7)', }] }, options: { scales: { y: { beginAtZero: true } }, responsive: true, maintainAspectRatio: false } });
 });
 </script>
 

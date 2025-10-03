@@ -3,22 +3,40 @@
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
+$cliente = $cliente ?? [];
+$formData = isset($formData) && is_array($formData) ? $formData : [];
 $isEdit = isset($cliente['id']);
+
 // A variável $return_url agora é definida corretamente pelo ClientesController.php
 
-// Recupera dados do formulário em caso de erro na criação
-$formData = $_SESSION['form_data'] ?? [];
+// Define um valor padrão para $return_url para evitar erros caso não seja definida pelo controller.
+$return_url = $return_url ?? 'clientes.php';
+
+$formValues = array_merge($cliente, $formData);
 
 // Preenche as variáveis para os campos do formulário
-$nome_cliente = $isEdit ? ($cliente['nome_cliente'] ?? '') : ($formData['nome_cliente'] ?? '');
-$nome_responsavel = $isEdit ? ($cliente['nome_responsavel'] ?? '') : ($formData['nome_responsavel'] ?? '');
-$cpf_cnpj = $isEdit ? ($cliente['cpf_cnpj'] ?? '') : ($formData['cpf_cnpj'] ?? '');
-$email = $isEdit ? ($cliente['email'] ?? '') : ($formData['email'] ?? '');
-$telefone = $isEdit ? ($cliente['telefone'] ?? '') : ($formData['telefone'] ?? '');
-$endereco = $isEdit ? ($cliente['endereco'] ?? '') : ($formData['endereco'] ?? '');
-$cep = $isEdit ? ($cliente['cep'] ?? '') : ($formData['cep'] ?? '');
-$tipo_assessoria = $isEdit ? ($cliente['tipo_assessoria'] ?? '') : ($formData['tipo_assessoria'] ?? '');
-$tipo_pessoa = $isEdit ? ($cliente['tipo_pessoa'] ?? 'Jurídica') : ($formData['tipo_pessoa'] ?? 'Jurídica');
+$nome_cliente = $formValues['nome_cliente'] ?? '';
+$nome_responsavel = $formValues['nome_responsavel'] ?? '';
+$cpf_cnpj = $formValues['cpf_cnpj'] ?? '';
+$email = $formValues['email'] ?? '';
+$telefone = $formValues['telefone'] ?? '';
+$numero = $formValues['numero'] ?? '';
+$bairro = $formValues['bairro'] ?? '';
+$cidade = $formValues['cidade'] ?? '';
+$estado = $formValues['estado'] ?? '';
+$endereco = $formValues['endereco'] ?? '';
+$cep = $formValues['cep'] ?? '';
+$tipo_assessoria = $formValues['tipo_assessoria'] ?? '';
+$tipo_pessoa = $formValues['tipo_pessoa'] ?? 'Jurídica';
+$criar_login = !empty($formValues['criar_login']);
+$login_email = $formValues['login_email'] ?? '';
+$login_senha = $formValues['login_senha'] ?? '';
+$sincronizar_omie_checked = !isset($formData['sincronizar_omie']) || (bool)$formData['sincronizar_omie'];
+$city_validation_source = ($cidade !== '' && $estado !== '') ? 'database' : 'manual';
+
+$servicos_mensalista = isset($servicos_mensalista) && is_array($servicos_mensalista)
+    ? $servicos_mensalista
+    : [];
 
 require_once __DIR__ . '/../layouts/header.php';
 ?>
@@ -80,13 +98,13 @@ require_once __DIR__ . '/../layouts/header.php';
         </div>
 
         <div>
-            <label for="cpf_cnpj" id="label_cpf_cnpj" class="block text-sm font-semibold text-gray-700">CPF/CNPJ</label>
-            <input type="text" id="cpf_cnpj" name="cpf_cnpj" autocomplete="nope" value="<?php echo htmlspecialchars($cpf_cnpj); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+            <label for="cpf_cnpj" id="label_cpf_cnpj" class="block text-sm font-semibold text-gray-700">CPF/CNPJ *</label>
+            <input type="text" id="cpf_cnpj" name="cpf_cnpj" autocomplete="nope" value="<?php echo htmlspecialchars($cpf_cnpj); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
         </div>
 
         <div>
-            <label for="email" class="block text-sm font-semibold text-gray-700">E-mail</label>
-            <input type="email" id="email" name="email" autocomplete="nope" value="<?php echo htmlspecialchars($email); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+            <label for="email" class="block text-sm font-semibold text-gray-700">E-mail *</label>
+            <input type="email" id="email" name="email" autocomplete="nope" value="<?php echo htmlspecialchars($email); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
         </div>
 
         <div>
@@ -100,8 +118,45 @@ require_once __DIR__ . '/../layouts/header.php';
         </div>
 
         <div>
-            <label for="cep" class="block text-sm font-semibold text-gray-700">CEP</label>
-            <input type="text" id="cep" name="cep" autocomplete="nope" value="<?php echo htmlspecialchars($cep); ?>" readonly onfocus="this.removeAttribute('readonly');" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" maxlength="9">
+            <label for="numero" class="block text-sm font-semibold text-gray-700">Número</label>
+            <input type="text" id="numero" name="numero" autocomplete="nope" value="<?php echo htmlspecialchars($numero); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+        </div>
+
+        <div>
+            <label for="bairro" class="block text-sm font-semibold text-gray-700">Bairro</label>
+            <input type="text" id="bairro" name="bairro" autocomplete="nope" value="<?php echo htmlspecialchars($bairro); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+        </div>
+
+        <div>
+            <label for="cep" class="block text-sm font-semibold text-gray-700">CEP *</label>
+            <input type="text" id="cep" name="cep" autocomplete="nope" value="<?php echo htmlspecialchars($cep); ?>" readonly onfocus="this.removeAttribute('readonly');" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" maxlength="9" required>
+        </div>
+
+        <div>
+            <label for="cidade" class="block text-sm font-semibold text-gray-700">Cidade *</label>
+            <div id="cidade-combobox" data-city-autocomplete class="relative" role="combobox" aria-haspopup="listbox" aria-expanded="false">
+                <input type="hidden" name="city_validation_source" id="city_validation_source" value="<?php echo htmlspecialchars($city_validation_source); ?>">
+                <input
+                    type="text"
+                    id="cidade"
+                    name="cidade"
+                    autocomplete="off"
+                    aria-controls="cidade-options"
+                    aria-autocomplete="list"
+                    aria-haspopup="listbox"
+                    value="<?php echo htmlspecialchars($cidade); ?>"
+                    class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                    data-initial-city-selected="<?php echo $cidade !== '' ? '1' : '0'; ?>"
+                    required
+                >
+                <div id="cidade-options" role="listbox" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 hidden max-h-60 overflow-auto"></div>
+            </div>
+            <p id="cidade-status" class="mt-1 text-sm text-gray-500 hidden" role="status" aria-live="polite"></p>
+        </div>
+
+        <div>
+            <label for="estado" class="block text-sm font-semibold text-gray-700">Estado (UF) *</label>
+            <input type="text" id="estado" name="estado" autocomplete="off" value="<?php echo htmlspecialchars($estado); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-gray-50" maxlength="2" required>
         </div>
 
         <div>
@@ -113,27 +168,89 @@ require_once __DIR__ . '/../layouts/header.php';
             </select>
         </div>
     </div>
+
+    <div id="mensalista-servicos-container" class="mt-6 pt-6 border-t col-span-1 md:col-span-2 <?= ($tipo_assessoria === 'Mensalista') ? '' : 'hidden' ?>">
+        <h3 class="text-lg font-semibold text-gray-700 mb-4">Serviços Contratados (Mensalista)</h3>
+        <div id="servicos-lista" class="space-y-4">
+
+            <?php if (!empty($servicos_mensalista)): ?>
+                <?php foreach ($servicos_mensalista as $index => $servico): ?>
+                    <div class="grid grid-cols-12 gap-4 items-start servico-item">
+                        <div class="col-span-12 md:col-span-6 lg:col-span-5">
+                            <select name="servicos_mensalistas[<?= $index ?>][produto_orcamento_id]" class="mensalista-produto-select block w-full rounded-md border-gray-300 shadow-sm text-sm py-2">
+                                <option value="">Selecione um Produto/Serviço</option>
+                                <?php foreach ($produtos_orcamento as $produto): ?>
+                                    <?php
+                                        $valorPadraoProduto = isset($produto['valor_padrao']) ? number_format((float)$produto['valor_padrao'], 2, '.', '') : '';
+                                        $bloquearMinimo = !empty($produto['bloquear_valor_minimo']);
+                                        $servicoTipoProduto = $produto['servico_tipo'] ?? 'Nenhum';
+                                    ?>
+                                    <option
+                                        value="<?= $produto['id'] ?>"
+                                        data-servico-tipo="<?= htmlspecialchars($servicoTipoProduto) ?>"
+                                        data-valor-padrao="<?= htmlspecialchars($valorPadraoProduto) ?>"
+                                        data-bloquear-minimo="<?= $bloquearMinimo ? '1' : '0' ?>"
+                                        <?= ($produto['id'] == $servico['produto_orcamento_id']) ? 'selected' : '' ?>
+                                    >
+                                        <?= htmlspecialchars($produto['nome_categoria']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-span-6 md:col-span-3 lg:col-span-3">
+                            <input type="text" name="servicos_mensalistas[<?= $index ?>][valor_padrao]" data-currency-input class="servico-valor-input block w-full rounded-md border-gray-300 shadow-sm text-sm py-2" placeholder="R$ 0,00" value="<?= number_format((float)($servico['valor_padrao'] ?? 0), 2, '.', '') ?>">
+                            <p class="valor-min-info text-xs text-gray-500 mt-1 hidden">Valor mínimo: <span class="servico-min-text font-semibold"></span></p>
+                        </div>
+                        <div class="col-span-6 md:col-span-2 lg:col-span-3 flex items-center md:justify-center">
+                            <span class="servico-tipo-badge inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-700">—</span>
+                        </div>
+                        <div class="col-span-12 md:col-span-1 flex justify-end md:items-center">
+                            <button type="button" class="text-red-500 hover:text-red-700" onclick="removerServico(this)">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+
+        </div>
+        <button type="button" id="adicionar-servico-btn" class="mt-4 bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 text-sm">
+            <i class="fas fa-plus mr-2"></i>Adicionar Serviço
+        </button>
+    </div>
     
     <?php if (!$isEdit || ($isEdit && empty($cliente['user_id']))): ?>
         <div class="md:col-span-2 mt-4 pt-4 border-t border-gray-200">
             <label class="inline-flex items-center cursor-pointer">
-                <input type="checkbox" id="criar_login_checkbox" name="criar_login" value="1" class="h-5 w-5 rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                <input type="checkbox" id="criar_login_checkbox" name="criar_login" value="1" class="h-5 w-5 rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50" <?= $criar_login ? 'checked' : '' ?>>
                 <span class="ml-3 text-sm font-semibold text-gray-700">Criar acesso de login para este cliente?</span>
             </label>
         </div>
     <?php endif; ?>
-    
-    <div id="login-fields-container" class="hidden md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+
+    <div id="login-fields-container" class="<?= $criar_login ? '' : 'hidden' ?> md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
         <div>
             <label for="login_email" class="block text-sm font-medium text-gray-700">Email de Acesso *</label>
-            <input type="email" id="login_email" name="login_email" autocomplete="new-email" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="Email que será usado para o login">
+            <input type="email" id="login_email" name="login_email" autocomplete="new-email" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="Email que será usado para o login" value="<?= htmlspecialchars($login_email); ?>">
         </div>
         <div>
             <label for="login_senha" class="block text-sm font-medium text-gray-700">Senha de Acesso *</label>
-            <input type="password" id="login_senha" name="login_senha" autocomplete="new-password" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="Defina uma senha segura">
+            <input type="password" id="login_senha" name="login_senha" autocomplete="new-password" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="Defina uma senha segura" value="<?= htmlspecialchars($login_senha); ?>">
         </div>
     </div>
-    
+
+    <?php if ($isEdit): ?>
+        <div class="md:col-span-2 mt-6 pt-6 border-t border-gray-200">
+            <label class="inline-flex items-center cursor-pointer">
+                <input type="checkbox" name="sincronizar_omie" value="1" class="h-5 w-5 rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50" <?= $sincronizar_omie_checked ? 'checked' : '' ?>>
+                <span class="ml-3 text-sm font-semibold text-gray-700">Atualizar cadastro na Omie após salvar</span>
+            </label>
+            <?php if (!empty($cliente['omie_id'])): ?>
+                <p class="text-xs text-gray-500 mt-2">Código Omie atual: <?php echo htmlspecialchars($cliente['omie_id']); ?></p>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
+
     <div class="flex items-center justify-end mt-6 pt-5 border-t border-gray-200">
         <a href="<?php echo htmlspecialchars($return_url); ?>" class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mr-3">Cancelar</a>
         <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
@@ -142,13 +259,255 @@ require_once __DIR__ . '/../layouts/header.php';
     </div>
 </form>
 
+<script src="assets/js/city-autocomplete.js"></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const cidadeInput = document.getElementById('cidade');
+    const estadoInput = document.getElementById('estado');
+    const cidadeList = document.getElementById('cidade-options');
+    const cidadeStatus = document.getElementById('cidade-status');
+    const cidadeWrapper = document.getElementById('cidade-combobox');
+    const cityValidationSourceInput = document.getElementById('city_validation_source');
+    const initialCitySelection = cidadeInput ? (cidadeInput.dataset.initialCitySelected || '0') : '0';
+
+    if (cidadeInput) {
+        cidadeInput.dataset.citySelected = initialCitySelection;
+    }
+
+    const markCitySelectionAsApi = () => {
+        if (cidadeInput) {
+            cidadeInput.dataset.citySelected = '1';
+        }
+        if (cityValidationSourceInput) {
+            cityValidationSourceInput.value = 'api';
+        }
+    };
+
+    const markCitySelectionAsManual = () => {
+        if (cidadeInput) {
+            cidadeInput.dataset.citySelected = '0';
+        }
+        if (cityValidationSourceInput && cityValidationSourceInput.value !== 'manual') {
+            cityValidationSourceInput.value = 'manual';
+        }
+    };
+
+    if (window.CityAutocomplete && cidadeInput && estadoInput && cidadeList && cidadeStatus) {
+        window.CityAutocomplete.init({
+            input: cidadeInput,
+            ufInput: estadoInput,
+            list: cidadeList,
+            statusElement: cidadeStatus,
+            wrapper: cidadeWrapper,
+            onSelect: () => {
+                markCitySelectionAsApi();
+            },
+            onClear: () => {
+                markCitySelectionAsManual();
+                if (estadoInput) {
+                    estadoInput.value = '';
+                }
+            }
+        });
+    }
+
+    const sanitizeUfInput = () => {
+        if (!estadoInput) {
+            return;
+        }
+
+        const sanitized = (estadoInput.value || '')
+            .replace(/[^a-zA-Z]/g, '')
+            .toUpperCase()
+            .slice(0, 2);
+
+        estadoInput.value = sanitized;
+    };
+
+    if (estadoInput) {
+        sanitizeUfInput();
+        estadoInput.addEventListener('input', () => {
+            sanitizeUfInput();
+            markCitySelectionAsManual();
+        });
+        estadoInput.addEventListener('blur', sanitizeUfInput);
+    }
+
+    if (cidadeInput) {
+        cidadeInput.addEventListener('input', () => {
+            markCitySelectionAsManual();
+        });
+    }
+
+    function setCurrencyValue(input, value) {
+        if (!input) {
+            return;
+        }
+
+        if (window.CurrencyMask && typeof window.CurrencyMask.setValue === 'function') {
+            window.CurrencyMask.setValue(input, value ?? '');
+            return;
+        }
+
+        input.value = value ?? '';
+    }
+
     const radiosTipoPessoa = document.querySelectorAll('input[name="tipo_pessoa"]');
     const labelNomeCliente = document.getElementById('label_nome_cliente');
     const labelCpfCnpj = document.getElementById('label_cpf_cnpj');
     const containerNomeResponsavel = document.getElementById('container_nome_responsavel');
     const inputNomeResponsavel = document.getElementById('nome_responsavel');
+
+    const tipoAssessoriaSelect = document.getElementById('tipo_assessoria');
+    const servicosContainer = document.getElementById('mensalista-servicos-container');
+    const adicionarServicoBtn = document.getElementById('adicionar-servico-btn');
+    const servicosLista = document.getElementById('servicos-lista');
+    let servicoIndex = <?= !empty($servicos_mensalista) ? count($servicos_mensalista) : 0 ?>;
+
+
+        function toggleServicosSection() {
+            if (tipoAssessoriaSelect.value === 'Mensalista') {
+                servicosContainer.classList.remove('hidden');
+            } else {
+                servicosContainer.classList.add('hidden');
+            }
+        }
+
+        // Evento para quando o tipo de assessoria muda
+        tipoAssessoriaSelect.addEventListener('change', toggleServicosSection);
+
+        // Evento para adicionar uma nova linha de serviço
+        adicionarServicoBtn.addEventListener('click', function() {
+            if (!servicosLista) {
+                return;
+            }
+            const itemHtml = `
+                <div class="grid grid-cols-12 gap-4 items-start servico-item">
+                    <div class="col-span-12 md:col-span-6 lg:col-span-5">
+                        <select name="servicos_mensalistas[${servicoIndex}][produto_orcamento_id]" class="mensalista-produto-select block w-full rounded-md border-gray-300 shadow-sm text-sm py-2">
+                            <option value="">Selecione um Produto/Serviço</option>
+                            <?php foreach ($produtos_orcamento as $produto): ?>
+                                <option value="<?= $produto['id'] ?>"
+                                    data-servico-tipo="<?= htmlspecialchars($produto['servico_tipo'] ?? 'Nenhum') ?>"
+                                    data-valor-padrao="<?= htmlspecialchars(isset($produto['valor_padrao']) ? number_format((float)$produto['valor_padrao'], 2, '.', '') : '') ?>"
+                                    data-bloquear-minimo="<?= !empty($produto['bloquear_valor_minimo']) ? '1' : '0' ?>">
+                                    <?= htmlspecialchars($produto['nome_categoria']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-span-6 md:col-span-3 lg:col-span-3">
+                        <input type="text" name="servicos_mensalistas[${servicoIndex}][valor_padrao]" data-currency-input class="servico-valor-input block w-full rounded-md border-gray-300 shadow-sm text-sm py-2" placeholder="R$ 0,00">
+                        <p class="valor-min-info text-xs text-gray-500 mt-1 hidden">Valor mínimo: <span class="servico-min-text font-semibold"></span></p>
+                    </div>
+                    <div class="col-span-6 md:col-span-2 lg:col-span-3 flex items-center md:justify-center">
+                        <span class="servico-tipo-badge inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-700">Sem vínculo</span>
+                    </div>
+                    <div class="col-span-12 md:col-span-1 flex justify-end md:items-center">
+                        <button type="button" class="text-red-500 hover:text-red-700" onclick="removerServico(this)">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                </div>`;
+            servicosLista.insertAdjacentHTML('beforeend', itemHtml);
+            const novaLinha = servicosLista.lastElementChild;
+            if (novaLinha) {
+                updateServicoMensalistaRow(novaLinha);
+            }
+            servicoIndex++;
+        });
+
+        // Função global para remover uma linha
+        window.removerServico = function(button) {
+            button.closest('.servico-item').remove();
+        }
+
+        const servicoTipoStyleMap = {
+            'Tradução': 'bg-blue-100 text-blue-700',
+            'CRC': 'bg-green-100 text-green-700',
+            'Apostilamento': 'bg-yellow-100 text-yellow-700',
+            'Postagem': 'bg-purple-100 text-purple-700',
+            'Nenhum': 'bg-gray-200 text-gray-700'
+        };
+
+        function formatCurrencyBRL(value) {
+            if (value === null || value === undefined || value === '') {
+                return 'R$ 0,00';
+            }
+            const numeric = Number.parseFloat(value);
+            if (Number.isNaN(numeric)) {
+                return 'R$ 0,00';
+            }
+            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(numeric);
+        }
+
+        function updateServicoMensalistaRow(row, options = {}) {
+            if (!row) {
+                return;
+            }
+
+            const select = row.querySelector('.mensalista-produto-select');
+            const valorInput = row.querySelector('.servico-valor-input');
+            const badge = row.querySelector('.servico-tipo-badge');
+            const minInfo = row.querySelector('.valor-min-info');
+            const minText = row.querySelector('.servico-min-text');
+
+            const selectedOption = select ? select.options[select.selectedIndex] : null;
+            const tipoServico = selectedOption ? (selectedOption.dataset.servicoTipo || 'Nenhum') : 'Nenhum';
+            const valorPadrao = selectedOption && selectedOption.dataset.valorPadrao !== undefined
+                ? Number.parseFloat(selectedOption.dataset.valorPadrao)
+                : null;
+            const bloquearMinimo = selectedOption ? selectedOption.dataset.bloquearMinimo === '1' : false;
+
+            if (valorInput) {
+                const devePreservar = options.preserveValor && options.valorAtual !== undefined;
+                let valorParaAplicar = valorInput.value;
+
+                if (devePreservar) {
+                    valorParaAplicar = options.valorAtual ?? '';
+                } else if (valorPadrao !== null && !Number.isNaN(valorPadrao)) {
+                    valorParaAplicar = valorPadrao;
+                }
+
+                setCurrencyValue(valorInput, valorParaAplicar);
+            }
+
+            if (badge) {
+                const badgeBase = 'servico-tipo-badge inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ';
+                const classeCor = servicoTipoStyleMap[tipoServico] || servicoTipoStyleMap.Nenhum;
+                badge.className = badgeBase + classeCor;
+                badge.textContent = (tipoServico && tipoServico !== 'Nenhum') ? tipoServico : 'Sem vínculo';
+            }
+
+            if (minInfo && minText) {
+                if (bloquearMinimo && valorPadrao !== null && !Number.isNaN(valorPadrao)) {
+                    minText.textContent = formatCurrencyBRL(valorPadrao);
+                    minInfo.classList.remove('hidden');
+                } else {
+                    minInfo.classList.add('hidden');
+                }
+            }
+        }
+
+        function initializeServicosMensalistaRows() {
+            servicosLista.querySelectorAll('.servico-item').forEach(row => {
+                const valorAtual = row.querySelector('.servico-valor-input')?.value;
+                updateServicoMensalistaRow(row, { preserveValor: true, valorAtual });
+            });
+        }
+
+        if (servicosLista) {
+            servicosLista.addEventListener('change', event => {
+                if (event.target && event.target.classList.contains('mensalista-produto-select')) {
+                    updateServicoMensalistaRow(event.target.closest('.servico-item'));
+                }
+            });
+
+            initializeServicosMensalistaRows();
+        }
+    
+
 
     // Função para validar CPF
     function validarCpf(cpf) {
@@ -223,26 +582,95 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.querySelector('form');
     if (form) {
         form.addEventListener('submit', function(e) {
-            const tipoSelecionado = document.querySelector('input[name="tipo_pessoa"]:checked').value;
-            const valorCpfCnpj = cpfCnpjInput.value;
-            
-            if (valorCpfCnpj) {
-                let valido = false;
-                if (tipoSelecionado === 'Física') {
-                    valido = validarCpf(valorCpfCnpj);
-                    if (!valido) {
-                        e.preventDefault();
-                        alert('CPF inválido! Por favor, verifique o número digitado.');
-                        cpfCnpjInput.focus();
-                    }
-                } else {
-                    valido = validarCnpj(valorCpfCnpj);
-                    if (!valido) {
-                        e.preventDefault();
-                        alert('CNPJ inválido! Por favor, verifique o número digitado.');
-                        cpfCnpjInput.focus();
-                    }
+            const tipoSelecionado = document.querySelector('input[name="tipo_pessoa"]:checked')?.value || 'Jurídica';
+            const valorCpfCnpj = cpfCnpjInput ? cpfCnpjInput.value.trim() : '';
+
+            if (!valorCpfCnpj) {
+                e.preventDefault();
+                alert('Informe o CPF ou CNPJ.');
+                cpfCnpjInput?.focus();
+                return;
+            }
+
+            if (tipoSelecionado === 'Física') {
+                if (!validarCpf(valorCpfCnpj)) {
+                    e.preventDefault();
+                    alert('CPF inválido! Por favor, verifique o número digitado.');
+                    cpfCnpjInput.focus();
+                    return;
                 }
+            } else {
+                if (!validarCnpj(valorCpfCnpj)) {
+                    e.preventDefault();
+                    alert('CNPJ inválido! Por favor, verifique o número digitado.');
+                    cpfCnpjInput.focus();
+                    return;
+                }
+            }
+
+            const emailInput = document.getElementById('email');
+            const emailValor = emailInput ? emailInput.value.trim() : '';
+            if (!emailValor) {
+                e.preventDefault();
+                alert('Informe o e-mail.');
+                emailInput?.focus();
+                return;
+            }
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(emailValor)) {
+                e.preventDefault();
+                alert('Informe um e-mail válido.');
+                emailInput.focus();
+                return;
+            }
+
+            const cepInput = document.getElementById('cep');
+            const cepValor = cepInput ? cepInput.value.trim() : '';
+            const cepDigitos = cepValor.replace(/\D/g, '');
+            if (!cepDigitos) {
+                e.preventDefault();
+                alert('Informe o CEP.');
+                cepInput?.focus();
+                return;
+            }
+            if (cepDigitos.length !== 8) {
+                e.preventDefault();
+                alert('Informe um CEP válido.');
+                cepInput.focus();
+                return;
+            }
+
+            if (!cidadeInput || !cidadeInput.value.trim()) {
+                e.preventDefault();
+                alert('Selecione uma cidade.');
+                cidadeInput?.focus();
+                return;
+            }
+
+            sanitizeUfInput();
+            const ufValor = estadoInput ? estadoInput.value.trim() : '';
+            const cityValidationSource = cityValidationSourceInput ? cityValidationSourceInput.value : 'api';
+            const shouldEnforceAutocomplete = cityValidationSource === 'api';
+
+            if (shouldEnforceAutocomplete && cidadeInput.dataset.citySelected !== '1') {
+                e.preventDefault();
+                alert('Selecione uma cidade da lista disponibilizada.');
+                cidadeInput.focus();
+                return;
+            }
+
+            if (!estadoInput || !estadoInput.value.trim()) {
+                e.preventDefault();
+                alert('O estado (UF) é obrigatório.');
+                estadoInput?.focus();
+                return;
+            }
+
+            if (ufValor.length !== 2) {
+                e.preventDefault();
+                alert('Informe uma UF válida.');
+                estadoInput.focus();
+                return;
             }
         });
     }
@@ -401,6 +829,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Adiciona evento de input para Telefone
     const telefoneInput = document.getElementById('telefone');
     if (telefoneInput) {
+        if (telefoneInput.value) {
+            telefoneInput.value = aplicarMascaraTelefone(telefoneInput.value);
+        }
         telefoneInput.addEventListener('input', function(e) {
             e.target.value = aplicarMascaraTelefone(e.target.value);
         });
@@ -433,7 +864,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (tipoSelecionado === 'Física') {
             labelNomeCliente.textContent = 'Nome Completo *';
-            labelCpfCnpj.textContent = 'CPF';
+            labelCpfCnpj.textContent = 'CPF *';
             containerNomeResponsavel.style.display = 'none';
             inputNomeResponsavel.removeAttribute('required');
             cpfCnpjInput.setAttribute('placeholder', '000.000.000-00');
@@ -447,7 +878,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } else { // Jurídica
             labelNomeCliente.textContent = 'Nome da Empresa *';
-            labelCpfCnpj.textContent = 'CNPJ';
+            labelCpfCnpj.textContent = 'CNPJ *';
             containerNomeResponsavel.style.display = 'block';
             inputNomeResponsavel.setAttribute('required', 'required');
             cpfCnpjInput.setAttribute('placeholder', '00.000.000/0000-00');
@@ -483,10 +914,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const checkbox = document.getElementById('criar_login_checkbox');
     const container = document.getElementById('login-fields-container');
     if (checkbox) {
+        const emailInput = document.getElementById('login_email');
+        const senhaInput = document.getElementById('login_senha');
+        const loginInitiallyChecked = <?= $criar_login ? 'true' : 'false' ?>;
+
+        if (loginInitiallyChecked) {
+            container.classList.remove('hidden');
+            if (emailInput && senhaInput) {
+                emailInput.required = true;
+                senhaInput.required = true;
+            }
+        }
+
         checkbox.addEventListener('change', function() {
-            const emailInput = document.getElementById('login_email');
-            const senhaInput = document.getElementById('login_senha');
-            
+            if (!emailInput || !senhaInput) {
+                return;
+            }
+
             if (this.checked) {
                 container.classList.remove('hidden');
                 emailInput.required = true;

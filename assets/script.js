@@ -8,12 +8,331 @@
  * Aguarda o carregamento completo do DOM para inicializar os módulos.
  */
 document.addEventListener('DOMContentLoaded', () => {
+    FormSubmissionGuard.init();
+    // Inicializa o formatador de campos monetários globais.
+    CurrencyMask.init();
+
     // Inicializa a lógica para o formulário de Processos, se existir na página.
     ProcessForm.init();
 
     // Inicializa a lógica para a edição em linha da tabela do Financeiro, se existir.
     InlineEditor.init();
 });
+
+/**
+ * @module FormSubmissionGuard
+ * @description Impede envios duplicados de formulários enquanto um envio estiver em andamento.
+ */
+const FormSubmissionGuard = (() => {
+    const FORM_FLAG = 'formSubmissionGuardActive';
+    const CONTROL_FLAG = 'formSubmissionGuardDisabled';
+    const defer = typeof queueMicrotask === 'function'
+        ? queueMicrotask
+        : callback => {
+            if (typeof Promise === 'function') {
+                Promise.resolve().then(callback);
+                return;
+            }
+
+            setTimeout(callback, 0);
+        };
+
+    function init() {
+        document.addEventListener('submit', handleSubmit, true);
+    }
+
+    function handleSubmit(event) {
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement)) {
+            return;
+        }
+
+        if (form.dataset[FORM_FLAG] === 'true') {
+            event.preventDefault();
+            return;
+        }
+
+        lockForm(form);
+
+        defer(() => {
+            if (event.defaultPrevented) {
+                unlockForm(form);
+            }
+        });
+    }
+
+    function lockForm(form) {
+        form.dataset[FORM_FLAG] = 'true';
+        toggleSubmitControls(form, true);
+    }
+
+    function unlockForm(form) {
+        delete form.dataset[FORM_FLAG];
+        toggleSubmitControls(form, false);
+    }
+
+    function toggleSubmitControls(form, shouldDisable) {
+        const controls = form.querySelectorAll('button, input[type="submit"]');
+
+        controls.forEach(control => {
+            if (!isSubmitControl(control)) {
+                return;
+            }
+
+            if (shouldDisable) {
+                if (control.disabled) {
+                    return;
+                }
+
+                control.disabled = true;
+                control.dataset[CONTROL_FLAG] = 'true';
+                return;
+            }
+
+            if (control.dataset[CONTROL_FLAG] === 'true') {
+                control.disabled = false;
+                delete control.dataset[CONTROL_FLAG];
+            }
+        });
+    }
+
+    function isSubmitControl(control) {
+        if (control instanceof HTMLInputElement) {
+            return control.type === 'submit';
+        }
+
+        if (control instanceof HTMLButtonElement) {
+            return control.type === 'submit' || control.type === '';
+        }
+
+        return false;
+    }
+
+    return { init };
+})();
+
+/**
+ * @module CurrencyMask
+ * @description Aplica formatação monetária nos campos com o atributo data-currency-input.
+ */
+const CurrencyMask = (() => {
+    const SELECTOR = '[data-currency-input]';
+    const INIT_FLAG = 'currencyInitialized';
+    const formatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+    let observerInitialized = false;
+
+    function init() {
+        applyToElements(document.querySelectorAll(SELECTOR));
+        observeMutations();
+        document.addEventListener('submit', handleFormSubmit, true);
+    }
+
+    function applyToElements(elements) {
+        elements.forEach(configureInput);
+    }
+
+    function configureInput(input) {
+        if (!(input instanceof HTMLInputElement)) {
+            return;
+        }
+
+        if (input.dataset[INIT_FLAG] === 'true') {
+            return;
+        }
+
+        if (input.type !== 'text') {
+            try {
+                input.type = 'text';
+            } catch (error) {
+                input.setAttribute('type', 'text');
+            }
+        }
+
+        if (!input.hasAttribute('inputmode')) {
+            input.setAttribute('inputmode', 'decimal');
+        }
+
+        if (!input.autocomplete || input.autocomplete === 'on') {
+            input.autocomplete = 'off';
+        }
+
+        input.spellcheck = false;
+        input.dataset[INIT_FLAG] = 'true';
+
+        input.addEventListener('input', handleInput);
+        input.addEventListener('focus', handleFocus);
+        input.addEventListener('blur', handleBlur);
+        input.addEventListener('currency:refresh', () => formatDisplay(input));
+
+        formatDisplay(input);
+    }
+
+    function observeMutations() {
+        if (observerInitialized || !('MutationObserver' in window)) {
+            return;
+        }
+
+        const observer = new MutationObserver(mutations => {
+            mutations.forEach(mutation => {
+                mutation.addedNodes.forEach(node => {
+                    if (!(node instanceof Element)) {
+                        return;
+                    }
+
+                    if (node.matches(SELECTOR)) {
+                        configureInput(node);
+                    }
+
+                    const nestedInputs = node.querySelectorAll?.(SELECTOR) ?? [];
+                    if (nestedInputs.length > 0) {
+                        applyToElements(nestedInputs);
+                    }
+                });
+            });
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+        observerInitialized = true;
+    }
+
+    function handleInput(event) {
+        const input = event.currentTarget;
+        if (!isCurrencyInput(input)) {
+            return;
+        }
+
+        const cents = extractCents(input.value);
+        if (cents === null) {
+            input.value = '';
+            return;
+        }
+
+        input.value = formatCents(cents);
+    }
+
+    function handleFocus(event) {
+        const input = event.currentTarget;
+        if (!isCurrencyInput(input)) {
+            return;
+        }
+
+        requestAnimationFrame(() => input.select());
+    }
+
+    function handleBlur(event) {
+        const input = event.currentTarget;
+        if (!isCurrencyInput(input)) {
+            return;
+        }
+
+        formatDisplay(input);
+    }
+
+    function handleFormSubmit(event) {
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement)) {
+            return;
+        }
+
+        const inputs = Array.from(form.querySelectorAll(SELECTOR));
+        if (inputs.length === 0) {
+            return;
+        }
+
+        const originalValues = inputs.map(input => input.value);
+
+        inputs.forEach(input => {
+            const cents = extractCents(input.value);
+            input.value = cents === null ? '' : normalizeCents(cents);
+        });
+
+        if (event.defaultPrevented) {
+            inputs.forEach((input, index) => {
+                input.value = originalValues[index];
+            });
+            return;
+        }
+
+        setTimeout(() => {
+            inputs.forEach((input, index) => {
+                if (!document.body.contains(input)) {
+                    return;
+                }
+
+                input.value = originalValues[index];
+                formatDisplay(input);
+            });
+        }, 0);
+    }
+
+    function formatDisplay(input) {
+        const cents = extractCents(input.value);
+        if (cents === null) {
+            input.value = '';
+            return;
+        }
+
+        input.value = formatCents(cents);
+    }
+
+    function extractCents(value) {
+        if (value === null || value === undefined) {
+            return null;
+        }
+
+        if (typeof value === 'number' && !Number.isNaN(value)) {
+            return Math.round(value * 100);
+        }
+
+        const stringValue = String(value);
+        const digits = stringValue.replace(/\D/g, '');
+
+        if (digits === '') {
+            return null;
+        }
+
+        const isNegative = /-/.test(stringValue);
+        const cents = parseInt(digits, 10);
+        return Number.isNaN(cents) ? null : (isNegative ? -cents : cents);
+    }
+
+    function formatCents(cents) {
+        return formatter.format(cents / 100);
+    }
+
+    function normalizeCents(cents) {
+        return (cents / 100).toFixed(2);
+    }
+
+    function isCurrencyInput(input) {
+        return input instanceof HTMLInputElement && input.dataset[INIT_FLAG] === 'true';
+    }
+
+    return {
+        init,
+        applyTo: configureInput,
+        formatElement: formatDisplay,
+        setValue(input, value) {
+            if (!(input instanceof HTMLInputElement)) {
+                return;
+            }
+
+            const cents = extractCents(value);
+            if (cents === null) {
+                input.value = '';
+                return;
+            }
+
+            input.value = formatCents(cents);
+        },
+        parseToFloat(value) {
+            const cents = extractCents(value);
+            return cents === null ? null : cents / 100;
+        }
+    };
+})();
+
+window.CurrencyMask = CurrencyMask;
 
 /**
  * @module ProcessForm

@@ -8,11 +8,11 @@
 // $clientes = [['id' => 101, 'nome' => 'Empresa A'], ['id' => 102, 'nome' => 'Cliente B Final']];
 // $aggregatedTotals = ['2025-07' => ['valor_total' => 30000, 'valor_entrada' => 20000, 'valor_restante' => 10000], '2025-06' => ['valor_total' => 20000, 'valor_entrada' => 15000, 'valor_restante' => 5000]];
 // $processos = [
-//     ['id' => 1, 'os_numero_conta_azul' => 'OS-123', 'titulo' => 'Tradução Contrato Social', 'nome_cliente' => 'Empresa A', 'nome_vendedor' => 'João Silva', 'forma_pagamento_id' => 1, 'categorias_servico' => 'Tradução,Apostilamento', 'total_documentos' => 5, 'data_criacao' => '2025-07-15', 'valor_total' => 1500.50, 'orcamento_valor_entrada' => 1000, 'orcamento_valor_restante' => 500.50, 'orcamento_parcelas' => 2, 'data_pagamento_1' => '2025-07-16', 'data_pagamento_2' => '2025-08-16'],
-//     ['id' => 2, 'os_numero_conta_azul' => 'OS-124', 'titulo' => 'Apostilamento de Certidão', 'nome_cliente' => 'Cliente B Final', 'nome_vendedor' => 'Maria Oliveira', 'forma_pagamento_id' => 2, 'categorias_servico' => 'Apostilamento', 'total_documentos' => 2, 'data_criacao' => '2025-07-20', 'valor_total' => 800.00, 'orcamento_valor_entrada' => 800.00, 'orcamento_valor_restante' => 0.00, 'orcamento_parcelas' => 1, 'data_pagamento_1' => '2025-07-21', 'data_pagamento_2' => null],
+//     ['id' => 1, 'os_numero_omie' => '12345', 'titulo' => 'Tradução Contrato Social', 'nome_cliente' => 'Empresa A', 'nome_vendedor' => 'João Silva', 'forma_pagamento_id' => 1, 'categorias_servico' => 'Tradução,Apostilamento', 'total_documentos' => 5, 'data_criacao' => '2025-07-15', 'valor_total' => 1500.50, 'orcamento_valor_entrada' => 1000, 'orcamento_valor_restante' => 500.50, 'orcamento_parcelas' => 2, 'data_pagamento_1' => '2025-07-16', 'data_pagamento_2' => '2025-08-16'],
+//     ['id' => 2, 'os_numero_omie' => '12346', 'titulo' => 'Apostilamento de Certidão', 'nome_cliente' => 'Cliente B Final', 'nome_vendedor' => 'Maria Oliveira', 'forma_pagamento_id' => 2, 'categorias_servico' => 'Apostilamento', 'total_documentos' => 2, 'data_criacao' => '2025-07-20', 'valor_total' => 800.00, 'orcamento_valor_entrada' => 800.00, 'orcamento_valor_restante' => 0.00, 'orcamento_parcelas' => 1, 'data_pagamento_1' => '2025-07-21', 'data_pagamento_2' => null],
 // ];
 
-require_once __DIR__ . '/../layouts/header.php';
+require_once __DIR__ . '/../layouts/header.php'; 
 ?>
 
 <div class="ontainer mx-auto px-4 py-8" id="report-content">
@@ -181,9 +181,9 @@ require_once __DIR__ . '/../layouts/header.php';
                     <?php foreach ($processos as $processo): ?>
                         <tr data-process-id="<?php echo htmlspecialchars($processo['id']); ?>">
                             <td class="px-1 py-1 border-b border-gray-200 bg-white text-xs">
-                                <a href="https://app.contaazul.com/servicos/ordem-servico/<?php echo htmlspecialchars($processo['os_numero_conta_azul'] ?? ''); ?>" target="_blank" class="text-blue-600 hover:text-blue-900 whitespace-no-wrap">
-                                    <?php echo htmlspecialchars($processo['os_numero_conta_azul'] ?? ''); ?>
-                                </a>
+                                <span class="text-blue-600 hover:text-blue-900 whitespace-no-wrap">
+                                    <?php echo htmlspecialchars(empty($processo['os_numero_omie']) ? 'Aguardando Omie' : $processo['os_numero_omie']); ?>
+                                </span>
                             </td>
                             <td class="px-1 py-1 border-b border-gray-200 bg-white text-xs text-truncate">
                                 <p class="text-gray-900" title="<?php echo htmlspecialchars($processo['titulo'] ?? ''); ?>"><?php echo htmlspecialchars($processo['titulo'] ?? ''); ?></p>
