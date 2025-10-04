@@ -38,10 +38,13 @@ function normalize_status_info(?string $status): array {
     $aliasMap = [
         'orcamento' => 'orçamento',
         'orcamento pendente' => 'orçamento pendente',
-        'serviço pendente' => 'pendente',
-        'servico pendente' => 'pendente',
-        'serviço em andamento' => 'em andamento',
-        'servico em andamento' => 'em andamento',
+        'serviço pendente' => 'serviço pendente',
+        'servico pendente' => 'serviço pendente',
+        'pendente' => 'serviço pendente',
+        'aprovado' => 'serviço pendente',
+        'serviço em andamento' => 'serviço em andamento',
+        'servico em andamento' => 'serviço em andamento',
+        'em andamento' => 'serviço em andamento',
         'finalizado' => 'concluído',
         'finalizada' => 'concluído',
         'concluido' => 'concluído',
@@ -57,11 +60,10 @@ function normalize_status_info(?string $status): array {
     $labels = [
         'orçamento' => 'Orçamento',
         'orçamento pendente' => 'Orçamento Pendente',
-        'aprovado' => 'Aprovado',
-        'em andamento' => 'Em andamento',
+        'serviço pendente' => 'Serviço Pendente',
+        'serviço em andamento' => 'Serviço em Andamento',
         'concluído' => 'Concluído',
         'cancelado' => 'Cancelado',
-        'pendente' => 'Pendente',
     ];
 
     $label = $labels[$normalized] ?? ($status === '' ? 'N/A' : $status);
@@ -79,13 +81,10 @@ switch ($statusNormalized) {
     case 'orçamento pendente':
         $status_classes = 'bg-yellow-100 text-yellow-800';
         break;
-    case 'aprovado':
-        $status_classes = 'bg-blue-100 text-blue-800';
-        break;
-    case 'pendente':
+    case 'serviço pendente':
         $status_classes = 'bg-orange-100 text-orange-800';
         break;
-    case 'em andamento':
+    case 'serviço em andamento':
         $status_classes = 'bg-cyan-100 text-cyan-800';
         break;
     case 'concluído':
@@ -97,7 +96,7 @@ switch ($statusNormalized) {
 }
 $statusLabel = $statusLabel ?: 'N/A';
 $leadConversionContext = $leadConversionContext ?? ['shouldRender' => false];
-$isAprovadoOuSuperior = in_array($statusNormalized, ['aprovado', 'em andamento', 'concluído'], true);
+$isAprovadoOuSuperior = in_array($statusNormalized, ['serviço pendente', 'serviço em andamento', 'concluído'], true);
 $isManager = in_array($_SESSION['user_perfil'] ?? '', ['admin', 'gerencia', 'supervisor'], true);
 $isBudgetPending = $statusNormalized === 'orçamento pendente';
 $isServicePending = $statusNormalized === 'pendente';
@@ -340,10 +339,10 @@ $isServicePending = $statusNormalized === 'pendente';
                         </a>
                         <form action="processos.php?action=recusar_orcamento" method="POST" class="flex flex-wrap items-center justify-end gap-2">
                             <input type="hidden" name="id" value="<?= $processo['id']; ?>">
-                            <label for="motivo_recusa_detalhe" class="sr-only">Motivo da recusa</label>
-                            <input id="motivo_recusa_detalhe" type="text" name="motivo_recusa" class="w-full sm:w-60 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent" placeholder="Motivo da recusa" required>
+                            <label for="motivo_recusa_detalhe" class="sr-only">Motivo do cancelamento</label>
+                            <input id="motivo_recusa_detalhe" type="text" name="motivo_recusa" class="w-full sm:w-60 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent" placeholder="Motivo do cancelamento" required>
                             <button type="submit" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-red-600 text-white shadow hover:bg-red-700">
-                                Recusar orçamento
+                                Cancelar orçamento
                             </button>
                         </form>
                     </div>
@@ -352,7 +351,7 @@ $isServicePending = $statusNormalized === 'pendente';
                 <div class="flex flex-wrap justify-end gap-2">
                     <form action="processos.php?action=change_status" method="POST" class="inline-flex">
                         <input type="hidden" name="id" value="<?= $processo['id']; ?>">
-                        <input type="hidden" name="status_processo" value="Em andamento">
+                        <input type="hidden" name="status_processo" value="Serviço em Andamento">
                         <button type="submit" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-green-600 text-white shadow hover:bg-green-700">
                             Aprovar serviço
                         </button>
@@ -424,12 +423,12 @@ $isServicePending = $statusNormalized === 'pendente';
             <?php endif; ?>
         </div>
         <?php endif; ?>
-        <?php if ($processo['status_processo'] == 'Recusado' && $_SESSION['user_perfil'] === 'vendedor'): ?>
+        <?php if (in_array($processo['status_processo'], ['Cancelado', 'Recusado'], true) && $_SESSION['user_perfil'] === 'vendedor'): ?>
             <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6 rounded-lg shadow-md" role="alert">
-                <p class="font-bold text-lg">Orçamento marcado como Recusado</p>
+                <p class="font-bold text-lg">Orçamento cancelado</p>
 
                 <?php if (!empty($processo['motivo_recusa'])): ?>
-                    <p class="mt-2"><strong>Motivo:</strong> <?php echo nl2br(htmlspecialchars($processo['motivo_recusa'])); ?></p>
+                    <p class="mt-2"><strong>Motivo do cancelamento:</strong> <?php echo nl2br(htmlspecialchars($processo['motivo_recusa'])); ?></p>
                 <?php endif; ?>
 
                 <p class="mt-3">Revise o orçamento e <a href="processos.php?action=edit&id=<?php echo $processo['id']; ?>" class="font-bold underline hover:text-yellow-800">faça os ajustes necessários</a>. Em seguida, você pode reenviar diretamente ao cliente.</p>
@@ -461,7 +460,7 @@ $isServicePending = $statusNormalized === 'pendente';
                     <div>
                         <label for="status_processo" class="block text-sm font-medium text-gray-700">Mudar Status para:</label>
                         <select id="status_processo" name="status_processo" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                            <?php $statusOptions = ['Orçamento', 'Aprovado', 'Em andamento', 'Concluído', 'Cancelado', 'Pendente', 'Orçamento Pendente']; ?>
+                            <?php $statusOptions = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Concluído', 'Cancelado']; ?>
                             <?php foreach ($statusOptions as $stat): ?>
                                 <?php $optionInfo = normalize_status_info($stat); ?>
                                 <option value="<?php echo $optionInfo['label']; ?>" <?php echo ($statusNormalized === $optionInfo['normalized']) ? 'selected' : ''; ?>>
@@ -1000,7 +999,7 @@ document.addEventListener('DOMContentLoaded', function() {
   };
 
   //-----------------------------------------------------
-  // Lógica 1: Validação de Mudança de Status para "Aprovado" / "Em andamento"
+  // Lógica 1: Validação de Mudança de Status para "Serviço Pendente" / "Serviço em Andamento"
   //-----------------------------------------------------
   const statusSelect = $id('status_processo');
   const statusForm = $id('status-change-form'); // O formulário principal
@@ -1023,7 +1022,7 @@ document.addEventListener('DOMContentLoaded', function() {
   if (statusForm && statusSelect && requirementsModal) {
     statusForm.addEventListener('submit', function(e) {
       const newStatus = statusSelect.value;
-      const requiresModal = (originalStatus === 'Orçamento' && (newStatus === 'Aprovado' || newStatus === 'Em andamento'));
+      const requiresModal = (originalStatus === 'Orçamento' && (newStatus === 'Serviço Pendente' || newStatus === 'Serviço em Andamento'));
 
       if (requiresModal) {
         e.preventDefault(); // Impede o envio direto do formulário

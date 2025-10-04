@@ -20,7 +20,7 @@ $labelsFinalizados  = $labelsFinalizados ?? [];
     </p>
   </div>
   <div class="p-4 bg-white shadow rounded">
-    <h3 class="text-sm font-semibold text-gray-500">Orçamentos Aprovados</h3>
+    <h3 class="text-sm font-semibold text-gray-500">Serviços Pendentes</h3>
     <p class="text-xl font-bold text-blue-600">
       <?= array_sum($valoresAprovados) ?>
     </p>
@@ -49,7 +49,7 @@ $labelsFinalizados  = $labelsFinalizados ?? [];
     <canvas id="previstoChart" class="w-full h-full"></canvas>
   </div>
   <div class="bg-white p-4 shadow rounded h-64">
-    <h3 class="text-lg font-semibold mb-2">Orçamentos Aprovados por Vendedor</h3>
+    <h3 class="text-lg font-semibold mb-2">Serviços Pendentes por Vendedor</h3>
     <canvas id="aprovadosChart" class="w-full h-full"></canvas>
   </div>
   <div class="bg-white p-4 shadow rounded h-64">
@@ -140,13 +140,13 @@ document.addEventListener('DOMContentLoaded', function () {
     options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
   });
 
-  // Orçamentos Aprovados
+  // Serviços Pendentes
   new Chart(document.getElementById('aprovadosChart').getContext('2d'), {
     type: 'bar',
     data: {
       labels: <?= json_encode($labelsAprovados) ?>,
       datasets: [{
-        label: 'Orçamentos Aprovados',
+        label: 'Serviços Pendentes',
         data: <?= json_encode($valoresAprovados) ?>,
         backgroundColor: 'rgba(16, 185, 129, 0.7)'
       }]

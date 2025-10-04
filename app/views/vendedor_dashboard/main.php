@@ -18,16 +18,21 @@ if (!function_exists('seller_normalize_status_info')) {
         $aliases = [
             'orcamento' => 'orçamento',
             'orcamento pendente' => 'orçamento pendente',
-            'serviço pendente' => 'pendente',
-            'servico pendente' => 'pendente',
-            'serviço em andamento' => 'em andamento',
-            'servico em andamento' => 'em andamento',
+            'serviço pendente' => 'serviço pendente',
+            'servico pendente' => 'serviço pendente',
+            'pendente' => 'serviço pendente',
+            'aprovado' => 'serviço pendente',
+            'serviço em andamento' => 'serviço em andamento',
+            'servico em andamento' => 'serviço em andamento',
+            'em andamento' => 'serviço em andamento',
             'finalizado' => 'concluído',
             'finalizada' => 'concluído',
             'concluido' => 'concluído',
             'concluida' => 'concluído',
             'arquivado' => 'cancelado',
             'arquivada' => 'cancelado',
+            'recusado' => 'cancelado',
+            'recusada' => 'cancelado',
         ];
 
         if (isset($aliases[$normalized])) {
@@ -37,11 +42,10 @@ if (!function_exists('seller_normalize_status_info')) {
         $labels = [
             'orçamento' => 'Orçamento',
             'orçamento pendente' => 'Orçamento Pendente',
-            'aprovado' => 'Aprovado',
-            'em andamento' => 'Em andamento',
+            'serviço pendente' => 'Serviço Pendente',
+            'serviço em andamento' => 'Serviço em Andamento',
             'concluído' => 'Concluído',
             'cancelado' => 'Cancelado',
-            'pendente' => 'Pendente',
         ];
 
         $label = $labels[$normalized] ?? ($status === '' ? 'N/A' : $status);
@@ -145,7 +149,7 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
                 <label for="status" class="text-sm font-semibold text-gray-700 mb-1 block">Status</label>
                 <select id="status" name="status" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg">
                     <option value="">Todos os Status</option>
-                    <?php $statusOptions = ['Orçamento', 'Aprovado', 'Em andamento', 'Concluído', 'Cancelado', 'Pendente', 'Orçamento Pendente']; foreach ($statusOptions as $option): ?>
+                    <?php $statusOptions = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Concluído', 'Cancelado']; foreach ($statusOptions as $option): ?>
                         <?php $optionInfo = seller_normalize_status_info($option); ?>
                         <option value="<?php echo $optionInfo['label']; ?>" <?php echo ($selectedStatusNormalized === $optionInfo['normalized']) ? 'selected' : ''; ?>><?php echo $optionInfo['label']; ?></option>
                     <?php endforeach; ?>
@@ -200,11 +204,11 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
                                 case 'orçamento pendente':
                                     $rowClass = 'bg-yellow-50 hover:bg-yellow-100';
                                     break;
-                                case 'em andamento':
+                                case 'serviço em andamento':
                                     $rowClass = 'bg-indigo-50 hover:bg-indigo-100';
                                     break;
-                                case 'pendente':
-                                    $rowClass = 'bg-rose-50 hover:bg-rose-100';
+                                case 'serviço pendente':
+                                    $rowClass = 'bg-orange-50 hover:bg-orange-100';
                                     break;
                                 case 'concluído':
                                     $rowClass = 'bg-green-50 hover:bg-green-100';
@@ -381,16 +385,21 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
             const aliases = {
                 'orcamento': 'orçamento',
                 'orcamento pendente': 'orçamento pendente',
-                'serviço pendente': 'pendente',
-                'servico pendente': 'pendente',
-                'serviço em andamento': 'em andamento',
-                'servico em andamento': 'em andamento',
+                'serviço pendente': 'serviço pendente',
+                'servico pendente': 'serviço pendente',
+                'pendente': 'serviço pendente',
+                'aprovado': 'serviço pendente',
+                'serviço em andamento': 'serviço em andamento',
+                'servico em andamento': 'serviço em andamento',
+                'em andamento': 'serviço em andamento',
                 'finalizado': 'concluído',
                 'finalizada': 'concluído',
                 'concluido': 'concluído',
                 'concluida': 'concluído',
                 'arquivado': 'cancelado',
-                'arquivada': 'cancelado'
+                'arquivada': 'cancelado',
+                'recusado': 'cancelado',
+                'recusada': 'cancelado'
             };
             return aliases[normalized] ?? normalized;
         };
@@ -402,10 +411,10 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
                     return 'bg-blue-50 hover:bg-blue-100';
                 case 'orçamento pendente':
                     return 'bg-yellow-50 hover:bg-yellow-100';
-                case 'em andamento':
+                case 'serviço em andamento':
                     return 'bg-indigo-50 hover:bg-indigo-100';
-                case 'pendente':
-                    return 'bg-rose-50 hover:bg-rose-100';
+                case 'serviço pendente':
+                    return 'bg-orange-50 hover:bg-orange-100';
                 case 'concluído':
                     return 'bg-green-50 hover:bg-green-100';
                 case 'cancelado':

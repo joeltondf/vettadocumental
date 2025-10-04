@@ -53,7 +53,7 @@ CREATE INDEX `idx_processos_data_inicio_traducao` ON `processos` (`data_inicio_t
 ```sql
 ALTER TABLE `processos`
   MODIFY COLUMN `status_processo`
-    ENUM('Orçamento','Aprovado','Em andamento','Concluído','Cancelado','Pendente','Orçamento Pendente')
+    ENUM('Orçamento Pendente','Orçamento','Serviço Pendente','Serviço em Andamento','Concluído','Cancelado')
     DEFAULT 'Orçamento';
 ```
 
@@ -67,16 +67,16 @@ UPDATE `processos`
  WHERE `status_processo` IN ('Finalizado','Finalizada','Concluido','Concluida');
 
 UPDATE `processos`
-   SET `status_processo` = 'Em andamento'
- WHERE `status_processo` IN ('Em Andamento','Serviço em Andamento','Serviço em andamento');
+   SET `status_processo` = 'Serviço em Andamento'
+ WHERE `status_processo` IN ('Em andamento','Em Andamento','Serviço em Andamento','Serviço em andamento');
 
 UPDATE `processos`
-   SET `status_processo` = 'Pendente'
- WHERE `status_processo` IN ('Serviço pendente','Serviço Pendente');
+   SET `status_processo` = 'Serviço Pendente'
+ WHERE `status_processo` IN ('Pendente','Serviço pendente','Serviço Pendente','Aprovado');
 
 UPDATE `processos`
    SET `status_processo` = 'Cancelado'
- WHERE `status_processo` IN ('Arquivado','Arquivada');
+ WHERE `status_processo` IN ('Arquivado','Arquivada','Recusado','Recusada');
 ```
 
 ## Exemplos de uso

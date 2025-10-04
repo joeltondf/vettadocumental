@@ -13,16 +13,21 @@ if (!function_exists('process_list_normalize_status')) {
         $aliases = [
             'orcamento' => 'orçamento',
             'orcamento pendente' => 'orçamento pendente',
-            'serviço pendente' => 'pendente',
-            'servico pendente' => 'pendente',
-            'serviço em andamento' => 'em andamento',
-            'servico em andamento' => 'em andamento',
+            'serviço pendente' => 'serviço pendente',
+            'servico pendente' => 'serviço pendente',
+            'pendente' => 'serviço pendente',
+            'aprovado' => 'serviço pendente',
+            'serviço em andamento' => 'serviço em andamento',
+            'servico em andamento' => 'serviço em andamento',
+            'em andamento' => 'serviço em andamento',
             'finalizado' => 'concluído',
             'finalizada' => 'concluído',
             'concluido' => 'concluído',
             'concluida' => 'concluído',
             'arquivado' => 'cancelado',
             'arquivada' => 'cancelado',
+            'recusado' => 'cancelado',
+            'recusada' => 'cancelado',
         ];
 
         if (isset($aliases[$normalized])) {
@@ -32,11 +37,10 @@ if (!function_exists('process_list_normalize_status')) {
         $labels = [
             'orçamento' => 'Orçamento',
             'orçamento pendente' => 'Orçamento Pendente',
-            'aprovado' => 'Aprovado',
-            'em andamento' => 'Em andamento',
+            'serviço pendente' => 'Serviço Pendente',
+            'serviço em andamento' => 'Serviço em Andamento',
             'concluído' => 'Concluído',
             'cancelado' => 'Cancelado',
-            'pendente' => 'Pendente',
         ];
 
         $label = $labels[$normalized] ?? ($status === '' ? 'N/A' : $status);
@@ -97,14 +101,11 @@ if (session_status() == PHP_SESSION_NONE) {
                                 case 'orçamento pendente':
                                     $statusClasses = 'bg-yellow-300 text-yellow-900';
                                     break;
-                                case 'aprovado':
-                                    $statusClasses = 'bg-blue-200 text-blue-900';
-                                    break;
-                                case 'em andamento':
-                                    $statusClasses = 'bg-cyan-200 text-cyan-900';
-                                    break;
-                                case 'pendente':
+                                case 'serviço pendente':
                                     $statusClasses = 'bg-orange-200 text-orange-900';
+                                    break;
+                                case 'serviço em andamento':
+                                    $statusClasses = 'bg-cyan-200 text-cyan-900';
                                     break;
                                 case 'concluído':
                                     $statusClasses = 'bg-green-200 text-green-900';

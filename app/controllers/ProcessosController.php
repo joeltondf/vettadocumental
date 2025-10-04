@@ -241,9 +241,9 @@ class ProcessosController
 
                 // Define status final conforme perfil do usuário
                 if (in_array($perfilUsuario, ['admin', 'gerencia', 'supervisor'])) {
-                    $dadosParaSalvar['status_processo'] = 'Em andamento';
+                $dadosParaSalvar['status_processo'] = 'Serviço em Andamento';
                 } else {
-                    $dadosParaSalvar['status_processo'] = $pendente ? 'Pendente' : 'Em andamento';
+                    $dadosParaSalvar['status_processo'] = $pendente ? 'Serviço Pendente' : 'Serviço em Andamento';
                 }
 
                 // Cria o serviço rápido
@@ -253,7 +253,7 @@ class ProcessosController
                 $redirectUrl = 'dashboard.php';
 
                 if ($processoId) {
-                    if ($dadosParaSalvar['status_processo'] === 'Pendente') {
+                    if ($dadosParaSalvar['status_processo'] === 'Serviço Pendente') {
                         $_SESSION['message'] = "Serviço enviado para aprovação da gerência/supervisão.";
                         $this->notificarGerenciaPendencia($processoId, $clienteId, $_SESSION['user_id'], 'serviço');
                     } else {
@@ -267,7 +267,7 @@ class ProcessosController
                     }
 
                     $this->convertProspectIfNeeded((int)($dadosParaSalvar['cliente_id'] ?? 0), $dadosParaSalvar['status_processo'] ?? null);
-                    if (in_array($dadosParaSalvar['status_processo'], ['Em andamento', 'Aprovado'], true)) {
+                    if (in_array($dadosParaSalvar['status_processo'], ['Serviço em Andamento', 'Serviço Pendente'], true)) {
                         $this->gerarOsOmie($processoId);
                     }
                     $this->clearFormInput(self::SESSION_KEY_SERVICO_FORM);
@@ -342,8 +342,8 @@ class ProcessosController
             );
         }
 
-        if ($processoOriginal['status_processo'] === 'Pendente' && in_array($perfilUsuario, ['admin', 'gerencia', 'supervisor'])) {
-            $dadosParaAtualizar['status_processo'] = 'Em andamento';
+        if ($processoOriginal['status_processo'] === 'Serviço Pendente' && in_array($perfilUsuario, ['admin', 'gerencia', 'supervisor'])) {
+            $dadosParaAtualizar['status_processo'] = 'Serviço em Andamento';
             $this->notificacaoModel->deleteByLink("/processos.php?action=view&id=" . $id_existente);
             $_SESSION['message'] = "Serviço aprovado e status atualizado!";
         } elseif ($valorAlterado) {
@@ -352,7 +352,7 @@ class ProcessosController
                 $_SESSION['message'] = 'Orçamento atualizado e enviado para o cliente.';
                 $_SESSION['success_message'] = 'Orçamento atualizado e enviado para o cliente.';
             } else {
-                $dadosParaAtualizar['status_processo'] = 'Pendente';
+                $dadosParaAtualizar['status_processo'] = 'Serviço Pendente';
                 $_SESSION['message'] = "Alteração salva. O serviço aguarda aprovação da gerência/supervisão.";
                 $_SESSION['success_message'] = $_SESSION['message'];
                 $cliente = $this->clienteModel->getById($dadosParaAtualizar['cliente_id']);
@@ -538,15 +538,15 @@ class ProcessosController
 
         // Define o status final
         if (in_array($perfilUsuario, ['admin', 'gerencia', 'supervisor'])) {
-            $dadosParaSalvar['status_processo'] = 'Em andamento';
+            $dadosParaSalvar['status_processo'] = 'Serviço em Andamento';
         } else {
-            $dadosParaSalvar['status_processo'] = $pendente ? 'Pendente' : 'Em andamento';
+            $dadosParaSalvar['status_processo'] = $pendente ? 'Serviço Pendente' : 'Serviço em Andamento';
         }
 
         $dadosParaSalvar = $this->applyPaymentDefaults($dadosParaSalvar);
         $processoId = $this->processoModel->create($dadosParaSalvar, $_FILES);
         if ($processoId) {
-            if ($dadosParaSalvar['status_processo'] === 'Pendente') {
+            if ($dadosParaSalvar['status_processo'] === 'Serviço Pendente') {
                 $_SESSION['message'] = "Serviço enviado para aprovação da gerência/supervisão.";
                 $this->notificarGerenciaPendencia($processoId, $clienteId, $_SESSION['user_id'], 'serviço');
             } else {
@@ -904,11 +904,11 @@ class ProcessosController
             $formData = array_merge($formData, $_POST);
 
             try {
-                $resultadoAlteracao = $this->applyStatusChange($processId, $process, 'Pendente', $_POST, false);
+                $resultadoAlteracao = $this->applyStatusChange($processId, $process, 'Serviço Pendente', $_POST, false);
                 $this->finalizeStatusChange(
                     $processId,
                     $process,
-                    'Pendente',
+                    'Serviço Pendente',
                     $resultadoAlteracao['statusAnterior'],
                     $resultadoAlteracao['clienteId'],
                     true
@@ -983,7 +983,7 @@ class ProcessosController
     ): void {
         $link = "/processos.php?action=view&id={$processId}";
         $senderId = $_SESSION['user_id'] ?? null;
-        $pendingStatuses = ['pendente', 'orçamento pendente'];
+        $pendingStatuses = ['serviço pendente', 'orçamento pendente'];
         $previousStatusNormalized = $this->normalizeStatusName($previousStatus);
         $newStatusNormalized = $this->normalizeStatusName($newStatus);
         $leftPending = in_array($previousStatusNormalized, $pendingStatuses, true)
@@ -999,22 +999,28 @@ class ProcessosController
             $this->notificacaoModel->deleteByLink($link);
         }
 
-        if ($newStatusNormalized === 'pendente') {
-            $_SESSION['success_message'] = 'Serviço convertido e aguardando aprovação da gerência.';
+        if ($newStatusNormalized === 'serviço pendente') {
+            $successMessage = $previousStatusNormalized === 'orçamento'
+                ? 'Orçamento aprovado com sucesso!'
+                : 'Serviço convertido e aguardando aprovação da gerência.';
+
+            $_SESSION['success_message'] = $successMessage;
             if ($customerId > 0 && $senderId) {
                 $this->notificarGerenciaPendencia($processId, $customerId, $senderId, 'serviço');
             }
         } else {
             $successMessage = 'Status do processo atualizado com sucesso!';
-            if ($newStatusNormalized === 'em andamento'
+            if ($newStatusNormalized === 'serviço em andamento'
                 && in_array($previousStatusNormalized, $pendingStatuses, true)) {
-                $successMessage = 'Serviço aprovado e status atualizado para Em andamento.';
+                $successMessage = 'Serviço aprovado e status atualizado para Serviço em Andamento.';
             } elseif ($newStatusNormalized === 'orçamento') {
                 $successMessage = 'Orçamento enviado para o cliente.';
-            } elseif ($newStatusNormalized === 'aprovado' && $previousStatusNormalized === 'orçamento') {
-                $successMessage = 'Orçamento aprovado com sucesso!';
-            } elseif ($newStatusNormalized === 'orçamento pendente' && $previousStatusNormalized === 'pendente') {
+            } elseif ($newStatusNormalized === 'orçamento pendente' && $previousStatusNormalized === 'serviço pendente') {
                 $successMessage = 'Solicitação pendente recusada. Orçamento retornou para ajustes.';
+            } elseif ($newStatusNormalized === 'concluído') {
+                $successMessage = 'Processo concluído.';
+            } elseif ($newStatusNormalized === 'cancelado') {
+                $successMessage = 'Processo cancelado.';
             }
             $_SESSION['success_message'] = $successMessage;
         }
@@ -1046,21 +1052,19 @@ class ProcessosController
                     $this->notificacaoModel->criar($sellerUserId, $senderId, $message, $link);
                 }
                 break;
-            case 'aprovado':
-                if ($sellerUserId) {
-                    $message = "Seu orçamento #{$process['orcamento_numero']} foi APROVADO!";
+            case 'serviço pendente':
+                if ($sellerUserId && $senderId !== $sellerUserId) {
+                    $message = "Seu orçamento #{$process['orcamento_numero']} foi aprovado e aguarda execução.";
                     $this->notificacaoModel->criar($sellerUserId, $senderId, $message, $link);
                 }
                 break;
-            case 'recusado':
+            case 'cancelado':
                 if ($sellerUserId) {
-                    $message = "Seu orçamento #{$process['orcamento_numero']} foi RECUSADO. Ajuste-o.";
+                    $message = "Seu orçamento #{$process['orcamento_numero']} foi cancelado.";
                     $this->notificacaoModel->criar($sellerUserId, $senderId, $message, $link);
                 }
                 break;
-            case 'pendente':
-                break;
-            case 'em andamento':
+            case 'serviço em andamento':
                 if ($sellerUserId && $senderId !== $sellerUserId) {
                     $message = "Seu serviço #{$process['orcamento_numero']} foi aprovado e está em andamento.";
                     $this->notificacaoModel->criar($sellerUserId, $senderId, $message, $link);
@@ -1113,7 +1117,7 @@ class ProcessosController
     public function painelNotificacoes()
     {
         $pageTitle = "Painel de Notificações";
-        $status_para_buscar = ['Orçamento Pendente', 'Pendente'];
+        $status_para_buscar = ['Orçamento Pendente', 'Serviço Pendente'];
         $processos_pendentes = $this->processoModel->getByMultipleStatus(array_unique(array_merge($status_para_buscar, ['Serviço pendente', 'Serviço Pendente'])));
         $this->render('painel_notificacoes', [
             'processos_pendentes' => $processos_pendentes,
@@ -1154,7 +1158,7 @@ class ProcessosController
     }
 
     /**
-     * Recusa um orçamento.
+     * Cancela um orçamento.
      */
     public function recusarOrcamento()
     {
@@ -1169,19 +1173,19 @@ class ProcessosController
             header('Location: ' . ($_SERVER['HTTP_REFERER'] ?? 'dashboard.php'));
             exit();
         }
-        $data = ['status_processo' => 'Recusado', 'motivo_recusa' => $motivo];
+        $data = ['status_processo' => 'Cancelado', 'motivo_recusa' => $motivo];
         if ($this->processoModel->updateStatus($id, $data)) {
             $processo = $this->processoModel->getById($id)['processo'];
             if ($processo && !empty($processo['vendedor_id'])) {
                 $vendedor_user_id = $this->vendedorModel->getUserIdByVendedorId($processo['vendedor_id']);
                 if ($vendedor_user_id) {
-                    $mensagem = "Orçamento #{$processo['orcamento_numero']} recusado. Por favor, revise-o.";
+                    $mensagem = "Orçamento #{$processo['orcamento_numero']} cancelado. Por favor, revise-o.";
                     $link = "/processos.php?action=view&id={$id}";
                     $this->notificacaoModel->deleteByLink($link);
                     $this->notificacaoModel->criar($vendedor_user_id, $_SESSION['user_id'], $mensagem, $link);
                 }
             }
-            $_SESSION['success_message'] = "Orçamento recusado e vendedor notificado.";
+            $_SESSION['success_message'] = "Orçamento cancelado e vendedor notificado.";
         } else {
             $_SESSION['error_message'] = "Erro ao recusar o orçamento.";
         }
@@ -1555,7 +1559,7 @@ class ProcessosController
             'traducaoPrazoTipo' => $processo['traducao_prazo_tipo'] ?? 'dias',
             'traducaoPrazoDias' => $processo['traducao_prazo_dias'] ?? '',
             'traducaoPrazoData' => $processo['traducao_prazo_data'] ?? '',
-            'statusDestino' => 'Pendente',
+            'statusDestino' => 'Serviço Pendente',
         ];
     }
 
@@ -1568,7 +1572,7 @@ class ProcessosController
             if (!$vendedorUserId || $vendedorUserId != ($_SESSION['user_id'] ?? null)) {
                 return false;
             }
-            $allowed = ['Orçamento', 'Orçamento Pendente', 'Pendente'];
+            $allowed = ['Orçamento', 'Orçamento Pendente', 'Serviço Pendente'];
             return in_array($novoStatus, $allowed, true);
         }
 
@@ -1581,7 +1585,7 @@ class ProcessosController
             return true;
         }
 
-        if (in_array($normalizedStatus, ['em andamento', 'orçamento pendente'], true)) {
+        if (in_array($normalizedStatus, ['serviço em andamento', 'orçamento pendente', 'concluído', 'cancelado'], true)) {
             return true;
         }
 
@@ -2373,17 +2377,21 @@ class ProcessosController
         $aliases = [
             'orcamento' => 'orçamento',
             'orcamento pendente' => 'orçamento pendente',
-            'serviço pendente' => 'pendente',
-            'servico pendente' => 'pendente',
-            'serviço em andamento' => 'em andamento',
-            'servico em andamento' => 'em andamento',
-            'em andamento' => 'em andamento',
+            'serviço pendente' => 'serviço pendente',
+            'servico pendente' => 'serviço pendente',
+            'pendente' => 'serviço pendente',
+            'aprovado' => 'serviço pendente',
+            'serviço em andamento' => 'serviço em andamento',
+            'servico em andamento' => 'serviço em andamento',
+            'em andamento' => 'serviço em andamento',
             'finalizado' => 'concluído',
             'finalizada' => 'concluído',
             'concluido' => 'concluído',
             'concluida' => 'concluído',
             'arquivado' => 'cancelado',
             'arquivada' => 'cancelado',
+            'recusado' => 'cancelado',
+            'recusada' => 'cancelado',
         ];
 
         return $aliases[$normalized] ?? $normalized;
@@ -2427,11 +2435,9 @@ class ProcessosController
             case 'orçamento':
             case 'orçamento pendente':
                 return 'bg-yellow-100 text-yellow-800';
-            case 'aprovado':
-                return 'bg-blue-100 text-blue-800';
-            case 'pendente':
+            case 'serviço pendente':
                 return 'bg-orange-100 text-orange-800';
-            case 'em andamento':
+            case 'serviço em andamento':
                 return 'bg-cyan-100 text-cyan-800';
             case 'concluído':
                 return 'bg-green-100 text-green-800';
@@ -2480,7 +2486,7 @@ class ProcessosController
 
         $normalizedStatus = $this->normalizeStatusName($status);
 
-        return in_array($normalizedStatus, ['em andamento', 'aprovado'], true);
+        return in_array($normalizedStatus, ['serviço em andamento', 'serviço pendente'], true);
     }
 
     private function shouldConvertProspectToClient(?string $status): bool
@@ -2490,7 +2496,7 @@ class ProcessosController
         }
 
         $normalized = $this->normalizeStatusName($status);
-        $serviceStatuses = ['aprovado', 'em andamento', 'pendente', 'concluído'];
+        $serviceStatuses = ['serviço pendente', 'serviço em andamento', 'concluído'];
 
         return in_array($normalized, $serviceStatuses, true);
     }

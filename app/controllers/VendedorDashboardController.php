@@ -64,7 +64,7 @@ class VendedorDashboardController
         foreach ($todosOsProcessosDoVendedor as $processo) {
             $statusInfo = $this->normalizeStatusData($processo['status_processo'] ?? '');
             $statusNormalized = $statusInfo['normalized'];
-            if (in_array($statusNormalized, ['aprovado', 'em andamento'], true)) {
+            if (in_array($statusNormalized, ['serviço pendente', 'serviço em andamento'], true)) {
                 $stats['processos_ativos']++;
             }
 
@@ -158,16 +158,21 @@ class VendedorDashboardController
         $aliases = [
             'orcamento' => 'orçamento',
             'orcamento pendente' => 'orçamento pendente',
-            'serviço pendente' => 'pendente',
-            'servico pendente' => 'pendente',
-            'serviço em andamento' => 'em andamento',
-            'servico em andamento' => 'em andamento',
+            'serviço pendente' => 'serviço pendente',
+            'servico pendente' => 'serviço pendente',
+            'pendente' => 'serviço pendente',
+            'aprovado' => 'serviço pendente',
+            'serviço em andamento' => 'serviço em andamento',
+            'servico em andamento' => 'serviço em andamento',
+            'em andamento' => 'serviço em andamento',
             'finalizado' => 'concluído',
             'finalizada' => 'concluído',
             'concluido' => 'concluído',
             'concluida' => 'concluído',
             'arquivado' => 'cancelado',
             'arquivada' => 'cancelado',
+            'recusado' => 'cancelado',
+            'recusada' => 'cancelado',
         ];
 
         if (isset($aliases[$normalized])) {
@@ -177,11 +182,10 @@ class VendedorDashboardController
         $labels = [
             'orçamento' => 'Orçamento',
             'orçamento pendente' => 'Orçamento Pendente',
-            'aprovado' => 'Aprovado',
-            'em andamento' => 'Em andamento',
+            'serviço pendente' => 'Serviço Pendente',
+            'serviço em andamento' => 'Serviço em Andamento',
             'concluído' => 'Concluído',
             'cancelado' => 'Cancelado',
-            'pendente' => 'Pendente',
         ];
 
         $label = $labels[$normalized] ?? ($status === '' ? 'N/A' : $status);

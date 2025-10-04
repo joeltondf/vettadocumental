@@ -16,7 +16,11 @@ define('WP_DB_NAME', 'u371107598_0v1Nw');
 define('WP_DB_USER', 'u371107598_rAy2o');
 define('WP_DB_PASS', '@Amora051307');
 
-$statusMap = ['status-aberto' => 'Em Andamento', 'status-fechado' => 'Finalizado', 'arquivado' => 'Arquivado'];
+$statusMap = [
+    'status-aberto'   => 'Serviço em Andamento',
+    'status-fechado'  => 'Concluído',
+    'arquivado'       => 'Cancelado',
+];
 $categoryMap = ['19' => 'Tradução', '20' => 'CRC', '21' => 'Apostilamento', '72' => 'Postagem'];
 $prazoTipoMap = ['colocar-data' => 'data', 'colocar-dia' => 'dias'];
 

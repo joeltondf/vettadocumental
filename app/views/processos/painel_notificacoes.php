@@ -11,16 +11,21 @@ if (!function_exists('normalize_status_info_local')) {
         $aliases = [
             'orcamento' => 'orçamento',
             'orcamento pendente' => 'orçamento pendente',
-            'serviço pendente' => 'pendente',
-            'servico pendente' => 'pendente',
-            'serviço em andamento' => 'em andamento',
-            'servico em andamento' => 'em andamento',
+            'serviço pendente' => 'serviço pendente',
+            'servico pendente' => 'serviço pendente',
+            'pendente' => 'serviço pendente',
+            'aprovado' => 'serviço pendente',
+            'serviço em andamento' => 'serviço em andamento',
+            'servico em andamento' => 'serviço em andamento',
+            'em andamento' => 'serviço em andamento',
             'finalizado' => 'concluído',
             'finalizada' => 'concluído',
             'concluido' => 'concluído',
             'concluida' => 'concluído',
             'arquivado' => 'cancelado',
             'arquivada' => 'cancelado',
+            'recusado' => 'cancelado',
+            'recusada' => 'cancelado',
         ];
 
         if (isset($aliases[$normalized])) {
@@ -30,11 +35,10 @@ if (!function_exists('normalize_status_info_local')) {
         $labels = [
             'orçamento' => 'Orçamento',
             'orçamento pendente' => 'Orçamento Pendente',
-            'aprovado' => 'Aprovado',
-            'em andamento' => 'Em andamento',
+            'serviço pendente' => 'Serviço Pendente',
+            'serviço em andamento' => 'Serviço em Andamento',
             'concluído' => 'Concluído',
             'cancelado' => 'Cancelado',
-            'pendente' => 'Pendente',
         ];
 
         $label = $labels[$normalized] ?? ($status === '' ? 'N/A' : $status);
@@ -101,13 +105,10 @@ if (!function_exists('normalize_status_info_local')) {
                                         case 'orçamento pendente':
                                             $statusClass = 'bg-yellow-100 text-yellow-800';
                                             break;
-                                        case 'pendente':
+                                        case 'serviço pendente':
                                             $statusClass = 'bg-orange-100 text-orange-800';
                                             break;
-                                        case 'aprovado':
-                                            $statusClass = 'bg-blue-100 text-blue-800';
-                                            break;
-                                        case 'em andamento':
+                                        case 'serviço em andamento':
                                             $statusClass = 'bg-cyan-100 text-cyan-800';
                                             break;
                                         case 'concluído':
@@ -125,21 +126,25 @@ if (!function_exists('normalize_status_info_local')) {
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <div class="flex flex-wrap items-center justify-end gap-2">
                                     <?php if ($isManager && $isBudgetPending): ?>
-                                        <a href="processos.php?action=aprovar_orcamento&id=<?= $processo['id']; ?>" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-green-600 text-white shadow hover:bg-green-700">
-                                            Aprovar orçamento
-                                        </a>
-                                        <form action="processos.php?action=recusar_orcamento" method="POST" class="flex flex-wrap items-center gap-2 justify-end">
-                                            <input type="hidden" name="id" value="<?= $processo['id']; ?>">
-                                            <input type="text" name="motivo_recusa" class="w-full sm:w-56 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent" placeholder="Motivo da recusa" required>
-                                            <button type="submit" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-red-600 text-white shadow hover:bg-red-700">
-                                                Recusar orçamento
-                                            </button>
-                                        </form>
+                                        <div class="flex flex-col w-full space-y-2">
+                                            <div class="flex flex-wrap justify-end gap-2">
+                                                <a href="processos.php?action=aprovar_orcamento&id=<?= $processo['id']; ?>" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-green-600 text-white shadow hover:bg-green-700">
+                                                    Aprovar orçamento
+                                                </a>
+                                                <form action="processos.php?action=recusar_orcamento" method="POST" class="flex flex-wrap items-center justify-end gap-2">
+                                                    <input type="hidden" name="id" value="<?= $processo['id']; ?>">
+                                                    <input type="text" name="motivo_recusa" class="w-full sm:w-56 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent" placeholder="Motivo do cancelamento" required>
+                                                    <button type="submit" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-red-600 text-white shadow hover:bg-red-700">
+                                                        Cancelar orçamento
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
                                     <?php elseif ($isManager && $isServicePending): ?>
                                         <div class="flex flex-wrap justify-end gap-2 w-full">
                                             <form action="processos.php?action=change_status" method="POST" class="inline-flex">
                                                 <input type="hidden" name="id" value="<?= $processo['id']; ?>">
-                                                <input type="hidden" name="status_processo" value="Em andamento">
+                                                <input type="hidden" name="status_processo" value="Serviço em Andamento">
                                                 <button type="submit" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-green-600 text-white shadow hover:bg-green-700">
                                                     Aprovar serviço
                                                 </button>
