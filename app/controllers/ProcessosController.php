@@ -2519,11 +2519,19 @@ class ProcessosController
 
     private function getClientesForOrcamentoForm(?array $processo = null): array
     {
-        $clientes = [];
-        if ($processo !== null && !$this->isBudgetStatus($processo['status_processo'] ?? null)) {
+        $userProfile = $_SESSION['user_perfil'] ?? '';
+        $userId = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
+
+        $isEditingNonBudget = $processo !== null && !$this->isBudgetStatus($processo['status_processo'] ?? null);
+
+        if ($isEditingNonBudget) {
             $clientes = $this->clienteModel->getAll();
+        } elseif ($userProfile === 'vendedor') {
+            $clientes = $userId !== null
+                ? $this->clienteModel->getProspectsByOwner($userId)
+                : $this->clienteModel->getProspects();
         } else {
-            $clientes = $this->clienteModel->getProspects();
+            $clientes = $this->clienteModel->getAll();
         }
 
         if ($processo === null) {
