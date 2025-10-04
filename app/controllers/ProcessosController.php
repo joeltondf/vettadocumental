@@ -17,6 +17,7 @@ require_once __DIR__ . '/../models/Vendedor.php';
 require_once __DIR__ . '/../models/Tradutor.php';
 require_once __DIR__ . '/../models/User.php';
 require_once __DIR__ . '/../services/OmieService.php';
+require_once __DIR__ . '/../services/AsyncTaskDispatcher.php';
 require_once __DIR__ . '/../models/Configuracao.php';
 require_once __DIR__ . '/../models/CategoriaFinanceira.php';
 require_once __DIR__ . '/../models/LancamentoFinanceiro.php';
@@ -255,20 +256,17 @@ class ProcessosController
                 if ($processoId) {
                     if ($dadosParaSalvar['status_processo'] === 'Serviço Pendente') {
                         $_SESSION['message'] = "Serviço enviado para aprovação da gerência/supervisão.";
-                        $this->notificarGerenciaPendencia($processoId, $clienteId, $_SESSION['user_id'], 'serviço');
+                        $this->queueManagementNotification($processoId, (int)$clienteId, (int)$_SESSION['user_id'], 'serviço');
                     } else {
                         $_SESSION['success_message'] = "Serviço cadastrado com sucesso!";
                         if ($this->shouldGenerateOmieOs($dadosParaSalvar['status_processo'])) {
-                            $osNumero = $this->gerarOsOmie($processoId);
-                            if ($osNumero) {
-                                $_SESSION['success_message'] .= " Ordem de Serviço #{$osNumero} gerada na Omie.";
-                            }
+                            $this->queueServiceOrderGeneration($processoId);
                         }
                     }
 
                     $this->convertProspectIfNeeded((int)($dadosParaSalvar['cliente_id'] ?? 0), $dadosParaSalvar['status_processo'] ?? null);
                     if (in_array($dadosParaSalvar['status_processo'], ['Serviço em Andamento', 'Serviço Pendente'], true)) {
-                        $this->gerarOsOmie($processoId);
+                        $this->queueServiceOrderGeneration($processoId);
                     }
                     $this->clearFormInput(self::SESSION_KEY_SERVICO_FORM);
                 } else {
@@ -296,21 +294,18 @@ class ProcessosController
                 $mensagemSucesso = "Processo cadastrado com sucesso!";
 
                 if ($status_inicial === 'Orçamento') {
-                    $this->sendBudgetEmails($novo_id, $_SESSION['user_id'] ?? null);
+                    $this->queueBudgetEmails($novo_id, $_SESSION['user_id'] ?? null);
                     $mensagemSucesso = "Orçamento cadastrado e enviado para o cliente.";
                 } elseif ($status_inicial === 'Orçamento Pendente') {
                     $mensagemSucesso = 'Orçamento cadastrado e enviado para aprovação da gerência.';
                     $clienteIdNotificacao = (int)($dadosProcesso['cliente_id'] ?? 0);
                     if ($clienteIdNotificacao > 0 && isset($_SESSION['user_id'])) {
-                        $this->notificarGerenciaPendencia($novo_id, $clienteIdNotificacao, (int)$_SESSION['user_id'], 'orçamento');
+                        $this->queueManagementNotification($novo_id, $clienteIdNotificacao, (int)$_SESSION['user_id'], 'orçamento');
                     }
                 }
 
                 if ($this->shouldGenerateOmieOs($status_inicial)) {
-                    $osNumero = $this->gerarOsOmie($novo_id);
-                    if ($osNumero) {
-                        $mensagemSucesso .= " Ordem de Serviço #{$osNumero} gerada na Omie.";
-                    }
+                    $this->queueServiceOrderGeneration($novo_id);
                 }
 
                 $_SESSION['message'] = $mensagemSucesso;
@@ -371,16 +366,12 @@ class ProcessosController
             }
             $novoStatus = $dadosParaAtualizar['status_processo'] ?? $processoOriginal['status_processo'];
             if ($this->shouldGenerateOmieOs($novoStatus)) {
-                $osNumero = $this->gerarOsOmie($id_existente);
-                if ($osNumero) {
-                    $mensagemBase = $_SESSION['success_message'] ?? 'Processo atualizado com sucesso!';
-                    $_SESSION['success_message'] = $mensagemBase . " Ordem de Serviço #{$osNumero} gerada na Omie.";
-                }
+                $this->queueServiceOrderGeneration($id_existente);
             }
             $clienteParaConverter = (int)($dadosParaAtualizar['cliente_id'] ?? $processoOriginal['cliente_id']);
             $this->convertProspectIfNeeded($clienteParaConverter, $novoStatus);
             if ($this->isBudgetStatus($novoStatus)) {
-                $this->sendBudgetEmails($id_existente, $_SESSION['user_id'] ?? null);
+                $this->queueBudgetEmails($id_existente, $_SESSION['user_id'] ?? null);
             }
         } else {
             $_SESSION['error_message'] = $_SESSION['error_message'] ?? "Ocorreu um erro ao atualizar o processo.";
@@ -548,14 +539,11 @@ class ProcessosController
         if ($processoId) {
             if ($dadosParaSalvar['status_processo'] === 'Serviço Pendente') {
                 $_SESSION['message'] = "Serviço enviado para aprovação da gerência/supervisão.";
-                $this->notificarGerenciaPendencia($processoId, $clienteId, $_SESSION['user_id'], 'serviço');
+                $this->queueManagementNotification($processoId, (int)$clienteId, (int)$_SESSION['user_id'], 'serviço');
             } else {
                 $_SESSION['success_message'] = "Serviço cadastrado com sucesso!";
                 if ($this->shouldGenerateOmieOs($dadosParaSalvar['status_processo'])) {
-                    $osNumero = $this->gerarOsOmie($processoId);
-                    if ($osNumero) {
-                        $_SESSION['success_message'] .= " Ordem de Serviço #{$osNumero} gerada na Omie.";
-                    }
+                    $this->queueServiceOrderGeneration($processoId);
                 }
             }
         } else {
@@ -1006,7 +994,7 @@ class ProcessosController
 
             $_SESSION['success_message'] = $successMessage;
             if ($customerId > 0 && $senderId) {
-                $this->notificarGerenciaPendencia($processId, $customerId, $senderId, 'serviço');
+                $this->queueManagementNotification($processId, $customerId, $senderId, 'serviço');
             }
         } else {
             $successMessage = 'Status do processo atualizado com sucesso!';
@@ -1026,14 +1014,11 @@ class ProcessosController
         }
 
         if ($this->shouldGenerateOmieOs($newStatusNormalized)) {
-            $osNumero = $this->gerarOsOmie($processId);
-            if ($osNumero) {
-                $_SESSION['success_message'] .= " Ordem de Serviço #{$osNumero} gerada na Omie.";
-            }
+            $this->queueServiceOrderGeneration($processId);
         }
 
         if ($newStatusNormalized === 'cancelado') {
-            $this->cancelarOsOmie($processId);
+            $this->queueServiceOrderCancellation($processId);
         }
 
         $sellerUserId = $this->vendedorModel->getUserIdByVendedorId($process['vendedor_id']);
@@ -1046,7 +1031,7 @@ class ProcessosController
                 }
                 break;
             case 'orçamento':
-                $this->sendBudgetEmails($processId, $senderId);
+                $this->queueBudgetEmails($processId, $senderId);
                 if ($sellerUserId && $senderId !== $sellerUserId) {
                     $message = "Seu orçamento #{$process['orcamento_numero']} foi enviado ao cliente.";
                     $this->notificacaoModel->criar($sellerUserId, $senderId, $message, $link);
@@ -1376,6 +1361,78 @@ class ProcessosController
 
         $digits = preg_replace('/\D+/', '', (string)$value);
         return $digits === '' ? null : $digits;
+    }
+
+    private function queueServiceOrderGeneration(int $processId): void
+    {
+        if ($processId <= 0) {
+            return;
+        }
+
+        AsyncTaskDispatcher::queue(function () use ($processId) {
+            $serviceOrderNumber = $this->gerarOsOmie($processId);
+            if (!empty($serviceOrderNumber)) {
+                $message = "Ordem de Serviço #{$serviceOrderNumber} gerada na Omie.";
+                $this->appendSessionMessage('success_message', $message);
+                $this->appendSessionMessage('message', $message);
+            }
+        });
+    }
+
+    private function queueServiceOrderCancellation(int $processId): void
+    {
+        if ($processId <= 0) {
+            return;
+        }
+
+        AsyncTaskDispatcher::queue(function () use ($processId) {
+            $this->cancelarOsOmie($processId);
+        });
+    }
+
+    private function queueBudgetEmails(int $processId, ?int $userId): void
+    {
+        if ($processId <= 0) {
+            return;
+        }
+
+        AsyncTaskDispatcher::queue(function () use ($processId, $userId) {
+            try {
+                $this->sendBudgetEmails($processId, $userId);
+            } catch (\Throwable $exception) {
+                error_log('Erro ao processar envio assíncrono de e-mails de orçamento: ' . $exception->getMessage());
+            }
+        });
+    }
+
+    private function queueManagementNotification(int $processId, int $customerId, int $senderId, string $pendingType): void
+    {
+        if ($processId <= 0 || $customerId <= 0 || $senderId <= 0) {
+            return;
+        }
+
+        AsyncTaskDispatcher::queue(function () use ($processId, $customerId, $senderId, $pendingType) {
+            try {
+                $this->notificarGerenciaPendencia($processId, $customerId, $senderId, $pendingType);
+            } catch (\Throwable $exception) {
+                error_log('Erro ao processar notificação assíncrona para gerência: ' . $exception->getMessage());
+            }
+        });
+    }
+
+    private function appendSessionMessage(string $key, string $message): void
+    {
+        $trimmedMessage = trim($message);
+        if ($trimmedMessage === '') {
+            return;
+        }
+
+        if (!isset($_SESSION[$key]) || trim((string)$_SESSION[$key]) === '') {
+            $_SESSION[$key] = $trimmedMessage;
+            return;
+        }
+
+        $_SESSION[$key] = rtrim((string)$_SESSION[$key]) . ' ' . $trimmedMessage;
     }
 
     /**
