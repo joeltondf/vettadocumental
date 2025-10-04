@@ -89,7 +89,7 @@ class Prospeccao
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-        /**
+    /**
      * CONTA o número de prospecções que precisam de retorno.
      */
     public function countProspectsForReturn($days, $excluded_statuses, $user_id, $user_perfil)
@@ -120,12 +120,12 @@ class Prospeccao
             $params[] = $user_id;
         }
 
-        $sql = "SELECT p.id, p.nome_prospecto, DATEDIFF(NOW(), p.data_ultima_atualizacao) as dias_sem_contato 
+        $sql = "SELECT p.id, p.nome_prospecto, DATEDIFF(NOW(), p.data_ultima_atualizacao) as dias_sem_contato
                 FROM prospeccoes p
                 WHERE " . $sql_conditions . "
-                ORDER BY p.data_ultima_atualizacao ASC 
+                ORDER BY p.data_ultima_atualizacao ASC
                 LIMIT ?";
-        
+
         $stmt = $this->pdo->prepare($sql);
 
         // Bind parameters with correct types
@@ -142,31 +142,179 @@ class Prospeccao
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-        /**
+
+    /**
      * Busca todos os usuários do sistema para preencher filtros e selects.
      * @return array
      */
-        public function getAllUsers(): array
-        {
-            // Busca apenas usuários que podem ser responsáveis por prospecções.
-            $sql = "SELECT id, nome_completo 
-                    FROM users 
-                    WHERE perfil IN ('admin', 'gerencia', 'supervisor', 'vendedor')
-                    ORDER BY nome_completo ASC";
-            
-            try {
-                $stmt = $this->pdo->prepare($sql);
-                $stmt->execute();
-                return $stmt->fetchAll(PDO::FETCH_ASSOC);
-            } catch (PDOException $e) {
-                error_log("Erro ao buscar todos os usuários: " . $e->getMessage());
-                return []; // Retorna um array vazio em caso de erro.
-            }
+    public function getAllUsers(): array
+    {
+        $sql = "SELECT id, nome_completo
+                FROM users
+                WHERE perfil IN ('admin', 'gerencia', 'supervisor', 'vendedor')
+                ORDER BY nome_completo ASC";
+
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Erro ao buscar todos os usuários: " . $e->getMessage());
+            return [];
         }
-        public function getById(int $id)
-        {
-            $stmt = $this->pdo->prepare("SELECT * FROM prospeccoes WHERE id = ?");
-            $stmt->execute([$id]);
-            return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    public function getById(int $id)
+    {
+        $stmt = $this->pdo->prepare("SELECT * FROM prospeccoes WHERE id = ?");
+        $stmt->execute([$id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * @param array<string> $statuses
+     * @return array<int, array<string, mixed>>
+     */
+    public function getKanbanLeads(array $statuses, ?int $responsavelId = null, bool $onlyUnassigned = false): array
+    {
+        if (empty($statuses)) {
+            return [];
         }
+
+        $placeholders = implode(',', array_fill(0, count($statuses), '?'));
+        $params = $statuses;
+
+        $sql = "SELECT
+                    p.id,
+                    p.nome_prospecto,
+                    p.valor_proposto,
+                    p.status,
+                    p.responsavel_id,
+                    p.data_ultima_atualizacao,
+                    c.nome_cliente,
+                    u.nome_completo AS responsavel_nome
+                FROM prospeccoes p
+                LEFT JOIN clientes c ON p.cliente_id = c.id
+                LEFT JOIN users u ON p.responsavel_id = u.id
+                WHERE p.status IN ($placeholders)";
+
+        if ($onlyUnassigned) {
+            $sql .= " AND (p.responsavel_id IS NULL OR p.responsavel_id = 0)";
+        } elseif ($responsavelId !== null) {
+            $sql .= " AND p.responsavel_id = ?";
+            $params[] = $responsavelId;
+        }
+
+        $sql .= " ORDER BY p.data_ultima_atualizacao DESC, p.id DESC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * @param array<string> $statuses
+     * @return array<int, array<string, mixed>>
+     */
+    public function getKanbanOwners(array $statuses): array
+    {
+        if (empty($statuses)) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($statuses), '?'));
+
+        $sql = "SELECT DISTINCT u.id, u.nome_completo
+                FROM prospeccoes p
+                INNER JOIN users u ON p.responsavel_id = u.id
+                WHERE p.status IN ($placeholders)
+                ORDER BY u.nome_completo ASC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($statuses);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getActiveSellers(): array
+    {
+        $sql = "SELECT id, nome_completo
+                FROM users
+                WHERE perfil = 'vendedor' AND (ativo = 1 OR ativo IS NULL)
+                ORDER BY nome_completo ASC";
+
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $exception) {
+            error_log('Erro ao buscar vendedores ativos: ' . $exception->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * @param array<string> $statuses
+     * @return array<int, array<string, mixed>>
+     */
+    public function getLeadsOutsideKanban(array $statuses, ?int $responsavelId = null, bool $onlyUnassigned = false): array
+    {
+        if (empty($statuses)) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($statuses), '?'));
+        $params = $statuses;
+
+        $sql = "SELECT
+                    p.id,
+                    p.nome_prospecto,
+                    p.responsavel_id,
+                    p.status,
+                    p.data_ultima_atualizacao,
+                    u.nome_completo AS responsavel_nome
+                FROM prospeccoes p
+                LEFT JOIN users u ON p.responsavel_id = u.id
+                WHERE (p.status IS NULL OR p.status = '' OR p.status NOT IN ($placeholders))";
+
+        if ($onlyUnassigned) {
+            $sql .= " AND (p.responsavel_id IS NULL OR p.responsavel_id = 0)";
+        } elseif ($responsavelId !== null) {
+            $sql .= " AND p.responsavel_id = ?";
+            $params[] = $responsavelId;
+        }
+
+        $sql .= " ORDER BY p.data_ultima_atualizacao DESC, p.id DESC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * @param array<string> $statuses
+     */
+    public function hasUnassignedKanbanLeads(array $statuses): bool
+    {
+        if (empty($statuses)) {
+            return false;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($statuses), '?'));
+
+        $sql = "SELECT COUNT(*)
+                FROM prospeccoes p
+                WHERE p.status IN ($placeholders)
+                  AND (p.responsavel_id IS NULL OR p.responsavel_id = 0)";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($statuses);
+
+        return (int)$stmt->fetchColumn() > 0;
+    }
 }
