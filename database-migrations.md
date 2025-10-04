@@ -48,13 +48,35 @@ CREATE INDEX `idx_processos_status` ON `processos` (`status_processo`);
 CREATE INDEX `idx_processos_data_inicio_traducao` ON `processos` (`data_inicio_traducao`);
 ```
 
-## 4. Inclusão do status "Serviço Pendente"
+## 4. Atualização do `status_processo`
 
 ```sql
 ALTER TABLE `processos`
   MODIFY COLUMN `status_processo`
-    ENUM('Orçamento','Aprovado','Em andamento','Concluído','Cancelado','Pendente','Orçamento Pendente','Serviço Pendente')
+    ENUM('Orçamento Pendente','Orçamento','Serviço Pendente','Serviço em Andamento','Concluído','Cancelado')
     DEFAULT 'Orçamento';
+```
+
+## 5. Migração dos valores legados de status
+
+Execute os comandos abaixo para alinhar registros antigos aos novos rótulos padronizados:
+
+```sql
+UPDATE `processos`
+   SET `status_processo` = 'Concluído'
+ WHERE `status_processo` IN ('Finalizado','Finalizada','Concluido','Concluida');
+
+UPDATE `processos`
+   SET `status_processo` = 'Serviço em Andamento'
+ WHERE `status_processo` IN ('Em andamento','Em Andamento','Serviço em Andamento','Serviço em andamento');
+
+UPDATE `processos`
+   SET `status_processo` = 'Serviço Pendente'
+ WHERE `status_processo` IN ('Pendente','Serviço pendente','Serviço Pendente','Aprovado');
+
+UPDATE `processos`
+   SET `status_processo` = 'Cancelado'
+ WHERE `status_processo` IN ('Arquivado','Arquivada','Recusado','Recusada');
 ```
 
 ## Exemplos de uso

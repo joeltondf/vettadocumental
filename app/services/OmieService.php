@@ -949,8 +949,10 @@ class OmieService {
     private function maybeUpdateProcessStatus(int $processoId, ?string $statusAtual): void
     {
         $normalized = mb_strtolower($statusAtual ?? '');
-        if ($normalized !== 'em andamento') {
-            $this->getProcessoModel()->updateStatus($processoId, ['status_processo' => 'Em andamento']);
+        $serviceInProgressAliases = ['serviço em andamento', 'servico em andamento', 'em andamento'];
+
+        if (!in_array($normalized, $serviceInProgressAliases, true)) {
+            $this->getProcessoModel()->updateStatus($processoId, ['status_processo' => 'Serviço em Andamento']);
         }
     }
 }

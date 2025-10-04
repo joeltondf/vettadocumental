@@ -28,36 +28,75 @@ function format_prazo_countdown($dateString) {
     }
 }
 
-$status = $processo['status_processo'] ?? 'N/A';
-$statusNormalized = mb_strtolower($status);
+function normalize_status_info(?string $status): array {
+    $normalized = mb_strtolower(trim((string)$status));
+
+    if ($normalized === '') {
+        return ['normalized' => '', 'label' => 'N/A'];
+    }
+
+    $aliasMap = [
+        'orcamento' => 'orçamento',
+        'orcamento pendente' => 'orçamento pendente',
+        'serviço pendente' => 'serviço pendente',
+        'servico pendente' => 'serviço pendente',
+        'pendente' => 'serviço pendente',
+        'aprovado' => 'serviço pendente',
+        'serviço em andamento' => 'serviço em andamento',
+        'servico em andamento' => 'serviço em andamento',
+        'em andamento' => 'serviço em andamento',
+        'finalizado' => 'concluído',
+        'finalizada' => 'concluído',
+        'concluido' => 'concluído',
+        'concluida' => 'concluído',
+        'arquivado' => 'cancelado',
+        'arquivada' => 'cancelado',
+    ];
+
+    if (isset($aliasMap[$normalized])) {
+        $normalized = $aliasMap[$normalized];
+    }
+
+    $labels = [
+        'orçamento' => 'Orçamento',
+        'orçamento pendente' => 'Orçamento Pendente',
+        'serviço pendente' => 'Serviço Pendente',
+        'serviço em andamento' => 'Serviço em Andamento',
+        'concluído' => 'Concluído',
+        'cancelado' => 'Cancelado',
+    ];
+
+    $label = $labels[$normalized] ?? ($status === '' ? 'N/A' : $status);
+
+    return ['normalized' => $normalized, 'label' => $label];
+}
+
+$rawStatus = $processo['status_processo'] ?? '';
+$statusInfo = normalize_status_info($rawStatus);
+$statusLabel = $statusInfo['label'];
+$statusNormalized = $statusInfo['normalized'];
 $status_classes = 'bg-gray-100 text-gray-800';
 switch ($statusNormalized) {
     case 'orçamento':
     case 'orçamento pendente':
         $status_classes = 'bg-yellow-100 text-yellow-800';
         break;
-    case 'aprovado':
-        $status_classes = 'bg-blue-100 text-blue-800';
-        break;
     case 'serviço pendente':
         $status_classes = 'bg-orange-100 text-orange-800';
         break;
-    case 'em andamento':
     case 'serviço em andamento':
         $status_classes = 'bg-cyan-100 text-cyan-800';
         break;
-    case 'finalizado':
+    case 'concluído':
         $status_classes = 'bg-green-100 text-green-800';
-        break;
-    case 'arquivado':
-        $status_classes = 'bg-gray-200 text-gray-600';
         break;
     case 'cancelado':
         $status_classes = 'bg-red-100 text-red-800';
         break;
 }
+$statusLabel = $statusLabel ?: 'N/A';
 $leadConversionContext = $leadConversionContext ?? ['shouldRender' => false];
-$isAprovadoOuSuperior = !in_array($statusNormalized, ['orçamento', 'orçamento pendente', 'cancelado']);
+$isAprovadoOuSuperior = in_array($statusNormalized, ['serviço pendente', 'serviço em andamento', 'concluído'], true);
 $isManager = in_array($_SESSION['user_perfil'] ?? '', ['admin', 'gerencia', 'supervisor'], true);
 $isBudgetPending = $statusNormalized === 'orçamento pendente';
 $isServicePending = $statusNormalized === 'serviço pendente';
@@ -71,7 +110,7 @@ $isServicePending = $statusNormalized === 'serviço pendente';
     </div>
     <div class="flex items-center space-x-4">
         <span id="display-status-badge" class="px-3 py-1.5 inline-flex text-sm leading-5 font-semibold rounded-full <?php echo $status_classes; ?>">
-            <?php echo htmlspecialchars($status); ?>
+            <?php echo htmlspecialchars($statusLabel); ?>
         </span>
         <?php if (!empty($leadConversionContext['shouldRender'])): ?>
             <a
@@ -96,49 +135,6 @@ $isServicePending = $statusNormalized === 'serviço pendente';
 </div>
 
 <div id="feedback-container" class="hidden mb-4"></div>
-
-<?php if ($isManager && ($isBudgetPending || $isServicePending)): ?>
-    <div class="mb-6 bg-white shadow-lg rounded-lg p-6">
-        <div class="flex items-center justify-between border-b pb-3 mb-4">
-            <h2 class="text-xl font-semibold text-gray-700">Ações de Aprovação</h2>
-            <span class="text-sm text-gray-500">Visíveis apenas para gerência</span>
-        </div>
-        <?php if ($isBudgetPending): ?>
-            <div class="space-y-3">
-                <div class="flex flex-wrap justify-end gap-2">
-                    <a href="processos.php?action=aprovar_orcamento&id=<?= $processo['id']; ?>" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-green-600 text-white shadow hover:bg-green-700">
-                        Aprovar orçamento
-                    </a>
-                    <form action="processos.php?action=recusar_orcamento" method="POST" class="flex flex-wrap items-center justify-end gap-2">
-                        <input type="hidden" name="id" value="<?= $processo['id']; ?>">
-                        <label for="motivo_recusa_detalhe" class="sr-only">Motivo da recusa</label>
-                        <input id="motivo_recusa_detalhe" type="text" name="motivo_recusa" class="w-full sm:w-60 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent" placeholder="Motivo da recusa" required>
-                        <button type="submit" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-red-600 text-white shadow hover:bg-red-700">
-                            Recusar orçamento
-                        </button>
-                    </form>
-                </div>
-            </div>
-        <?php elseif ($isServicePending): ?>
-            <div class="flex flex-wrap justify-end gap-2">
-                <form action="processos.php?action=change_status" method="POST" class="inline-flex">
-                    <input type="hidden" name="id" value="<?= $processo['id']; ?>">
-                    <input type="hidden" name="status_processo" value="Serviço em andamento">
-                    <button type="submit" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-green-600 text-white shadow hover:bg-green-700">
-                        Aprovar serviço
-                    </button>
-                </form>
-                <form action="processos.php?action=change_status" method="POST" class="inline-flex">
-                    <input type="hidden" name="id" value="<?= $processo['id']; ?>">
-                    <input type="hidden" name="status_processo" value="Orçamento Pendente">
-                    <button type="submit" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-yellow-600 text-white shadow hover:bg-yellow-700">
-                        Solicitar ajustes
-                    </button>
-                </form>
-            </div>
-        <?php endif; ?>
-    </div>
-<?php endif; ?>
 
 <div class="flex flex-col lg:flex-row gap-6">
 
@@ -329,7 +325,49 @@ $isServicePending = $statusNormalized === 'serviço pendente';
     </div>
 
     <div class="lg:w-1/3 space-y-6">
-       <?php if ($isAprovadoOuSuperior): ?>
+        <?php if ($isManager && ($isBudgetPending || $isServicePending)): ?>
+        <div class="bg-white shadow-lg rounded-lg p-6">
+            <div class="flex items-center justify-between border-b pb-3 mb-4">
+                <h2 class="text-xl font-semibold text-gray-700">Ações de Aprovação</h2>
+                <span class="text-sm text-gray-500">Visíveis apenas para gerência</span>
+            </div>
+            <?php if ($isBudgetPending): ?>
+                <div class="space-y-3">
+                    <div class="flex flex-wrap justify-end gap-2">
+                        <a href="processos.php?action=aprovar_orcamento&id=<?= $processo['id']; ?>" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-green-600 text-white shadow hover:bg-green-700">
+                            Aprovar orçamento
+                        </a>
+                        <form action="processos.php?action=recusar_orcamento" method="POST" class="flex flex-wrap items-center justify-end gap-2">
+                            <input type="hidden" name="id" value="<?= $processo['id']; ?>">
+                            <label for="motivo_recusa_detalhe" class="sr-only">Motivo do cancelamento</label>
+                            <input id="motivo_recusa_detalhe" type="text" name="motivo_recusa" class="w-full sm:w-60 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent" placeholder="Motivo do cancelamento" required>
+                            <button type="submit" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-red-600 text-white shadow hover:bg-red-700">
+                                Cancelar orçamento
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            <?php elseif ($isServicePending): ?>
+                <div class="flex flex-wrap justify-end gap-2">
+                    <form action="processos.php?action=change_status" method="POST" class="inline-flex">
+                        <input type="hidden" name="id" value="<?= $processo['id']; ?>">
+                        <input type="hidden" name="status_processo" value="Serviço em Andamento">
+                        <button type="submit" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-green-600 text-white shadow hover:bg-green-700">
+                            Aprovar serviço
+                        </button>
+                    </form>
+                    <form action="processos.php?action=change_status" method="POST" class="inline-flex">
+                        <input type="hidden" name="id" value="<?= $processo['id']; ?>">
+                        <input type="hidden" name="status_processo" value="Orçamento Pendente">
+                        <button type="submit" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-yellow-600 text-white shadow hover:bg-yellow-700">
+                            Solicitar ajustes
+                        </button>
+                    </form>
+                </div>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
+        <?php if ($isAprovadoOuSuperior): ?>
         <div class="bg-white shadow-lg rounded-lg p-6 border-l-4 border-green-500">
             <div class="border-b pb-3 mb-4">
                 <h2 class="text-xl font-semibold text-gray-700">Dados de Faturamento</h2>
@@ -385,12 +423,12 @@ $isServicePending = $statusNormalized === 'serviço pendente';
             <?php endif; ?>
         </div>
         <?php endif; ?>
-        <?php if ($processo['status_processo'] == 'Recusado' && $_SESSION['user_perfil'] === 'vendedor'): ?>
+        <?php if (in_array($processo['status_processo'], ['Cancelado', 'Recusado'], true) && $_SESSION['user_perfil'] === 'vendedor'): ?>
             <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6 rounded-lg shadow-md" role="alert">
-                <p class="font-bold text-lg">Orçamento marcado como Recusado</p>
+                <p class="font-bold text-lg">Orçamento cancelado</p>
 
                 <?php if (!empty($processo['motivo_recusa'])): ?>
-                    <p class="mt-2"><strong>Motivo:</strong> <?php echo nl2br(htmlspecialchars($processo['motivo_recusa'])); ?></p>
+                    <p class="mt-2"><strong>Motivo do cancelamento:</strong> <?php echo nl2br(htmlspecialchars($processo['motivo_recusa'])); ?></p>
                 <?php endif; ?>
 
                 <p class="mt-3">Revise o orçamento e <a href="processos.php?action=edit&id=<?php echo $processo['id']; ?>" class="font-bold underline hover:text-yellow-800">faça os ajustes necessários</a>. Em seguida, você pode reenviar diretamente ao cliente.</p>
@@ -422,10 +460,11 @@ $isServicePending = $statusNormalized === 'serviço pendente';
                     <div>
                         <label for="status_processo" class="block text-sm font-medium text-gray-700">Mudar Status para:</label>
                         <select id="status_processo" name="status_processo" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                            <?php $allStatus = ['Orçamento Pendente', 'Orçamento', 'Serviço pendente', 'Serviço Pendente', 'Serviço em andamento', 'Serviço em Andamento', 'Aprovado', 'Em Andamento', 'Finalizado', 'Arquivado', 'Cancelado']; ?>
-                            <?php foreach ($allStatus as $stat): ?>
-                                <option value="<?php echo $stat; ?>" <?php echo ($processo['status_processo'] == $stat) ? 'selected' : ''; ?>>
-                                    <?php echo $stat; ?>
+                            <?php $statusOptions = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Concluído', 'Cancelado']; ?>
+                            <?php foreach ($statusOptions as $stat): ?>
+                                <?php $optionInfo = normalize_status_info($stat); ?>
+                                <option value="<?php echo $optionInfo['label']; ?>" <?php echo ($statusNormalized === $optionInfo['normalized']) ? 'selected' : ''; ?>>
+                                    <?php echo $optionInfo['label']; ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -449,54 +488,14 @@ $isServicePending = $statusNormalized === 'serviço pendente';
             <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <i class="fas fa-paperclip mr-2 text-gray-400"></i>Arquivos do Processo
             </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="flex flex-col space-y-6">
-                    <div>
-                        <h4 class="text-sm font-semibold text-blue-700 mb-2 uppercase tracking-wide">Tradução</h4>
-                        <?php if (!empty($translationAttachments)): ?>
-                            <ul class="space-y-2">
-                                <?php foreach ($translationAttachments as $anexo): ?>
-                                    <li class="flex items-center justify-between text-sm text-gray-700 bg-blue-50 border border-blue-100 rounded-md px-3 py-2">
-                                        <a href="visualizar_anexo.php?id=<?= $anexo['id'] ?>" target="_blank" class="text-blue-600 hover:underline">
-                                            <?= htmlspecialchars($anexo['nome_arquivo_original']); ?>
-                                        </a>
-                                        <?php if (!empty($processo['id'])): ?>
-                                            <a href="processos.php?action=excluir_anexo&id=<?= $processo['id'] ?>&anexo_id=<?= $anexo['id'] ?>" class="text-red-500 hover:text-red-700 text-xs font-semibold" onclick="return confirm('Tem certeza que deseja excluir este anexo?');">Remover</a>
-                                        <?php endif; ?>
-                                    </li>
-                                <?php endforeach; ?>
-                            </ul>
-                        <?php else: ?>
-                            <p class="text-xs text-gray-500">Nenhum arquivo de tradução.</p>
-                        <?php endif; ?>
-                    </div>
-                    <div>
-                        <h4 class="text-sm font-semibold text-green-700 mb-2 uppercase tracking-wide">CRC</h4>
-                        <?php if (!empty($crcAttachments)): ?>
-                            <ul class="space-y-2">
-                                <?php foreach ($crcAttachments as $anexo): ?>
-                                    <li class="flex items-center justify-between text-sm text-gray-700 bg-green-50 border border-green-100 rounded-md px-3 py-2">
-                                        <a href="visualizar_anexo.php?id=<?= $anexo['id'] ?>" target="_blank" class="text-green-600 hover:underline">
-                                            <?= htmlspecialchars($anexo['nome_arquivo_original']); ?>
-                                        </a>
-                                        <?php if (!empty($processo['id'])): ?>
-                                            <a href="processos.php?action=excluir_anexo&id=<?= $processo['id'] ?>&anexo_id=<?= $anexo['id'] ?>" class="text-red-500 hover:text-red-700 text-xs font-semibold" onclick="return confirm('Tem certeza que deseja excluir este anexo?');">Remover</a>
-                                        <?php endif; ?>
-                                    </li>
-                                <?php endforeach; ?>
-                            </ul>
-                        <?php else: ?>
-                            <p class="text-xs text-gray-500">Nenhum arquivo de CRC.</p>
-                        <?php endif; ?>
-                    </div>
-                </div>
+            <div class="space-y-6">
                 <div>
-                    <h4 class="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">Comprovantes</h4>
-                    <?php if (!empty($paymentProofAttachments)): ?>
+                    <h4 class="text-sm font-semibold text-blue-700 mb-2 uppercase tracking-wide">Tradução</h4>
+                    <?php if (!empty($translationAttachments)): ?>
                         <ul class="space-y-2">
-                            <?php foreach ($paymentProofAttachments as $anexo): ?>
-                                <li class="flex items-center justify-between text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
-                                    <a href="visualizar_anexo.php?id=<?= $anexo['id'] ?>" target="_blank" class="text-gray-700 hover:underline">
+                            <?php foreach ($translationAttachments as $anexo): ?>
+                                <li class="flex items-center justify-between text-sm text-gray-700 bg-blue-50 border border-blue-100 rounded-md px-3 py-2">
+                                    <a href="visualizar_anexo.php?id=<?= $anexo['id'] ?>" target="_blank" class="text-blue-600 hover:underline">
                                         <?= htmlspecialchars($anexo['nome_arquivo_original']); ?>
                                     </a>
                                     <?php if (!empty($processo['id'])): ?>
@@ -506,7 +505,26 @@ $isServicePending = $statusNormalized === 'serviço pendente';
                             <?php endforeach; ?>
                         </ul>
                     <?php else: ?>
-                        <p class="text-xs text-gray-500">Nenhum comprovante enviado.</p>
+                        <p class="text-xs text-gray-500">Nenhum arquivo de tradução.</p>
+                    <?php endif; ?>
+                </div>
+                <div>
+                    <h4 class="text-sm font-semibold text-green-700 mb-2 uppercase tracking-wide">CRC</h4>
+                    <?php if (!empty($crcAttachments)): ?>
+                        <ul class="space-y-2">
+                            <?php foreach ($crcAttachments as $anexo): ?>
+                                <li class="flex items-center justify-between text-sm text-gray-700 bg-green-50 border border-green-100 rounded-md px-3 py-2">
+                                    <a href="visualizar_anexo.php?id=<?= $anexo['id'] ?>" target="_blank" class="text-green-600 hover:underline">
+                                        <?= htmlspecialchars($anexo['nome_arquivo_original']); ?>
+                                    </a>
+                                    <?php if (!empty($processo['id'])): ?>
+                                        <a href="processos.php?action=excluir_anexo&id=<?= $processo['id'] ?>&anexo_id=<?= $anexo['id'] ?>" class="text-red-500 hover:text-red-700 text-xs font-semibold" onclick="return confirm('Tem certeza que deseja excluir este anexo?');">Remover</a>
+                                    <?php endif; ?>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php else: ?>
+                        <p class="text-xs text-gray-500">Nenhum arquivo de CRC.</p>
                     <?php endif; ?>
                 </div>
             </div>
@@ -981,7 +999,7 @@ document.addEventListener('DOMContentLoaded', function() {
   };
 
   //-----------------------------------------------------
-  // Lógica 1: Validação de Mudança de Status para "Aprovado" / "Em Andamento"
+  // Lógica 1: Validação de Mudança de Status para "Serviço Pendente" / "Serviço em Andamento"
   //-----------------------------------------------------
   const statusSelect = $id('status_processo');
   const statusForm = $id('status-change-form'); // O formulário principal
@@ -996,15 +1014,15 @@ document.addEventListener('DOMContentLoaded', function() {
   const hData  = $id('hidden_traducao_prazo_data');
 
   // valor vindo do PHP no template
-  let originalStatus = (typeof <?php echo json_encode($status ?? null); ?> !== 'undefined')
-    ? <?php echo json_encode($status ?? null); ?>
+  let originalStatus = (typeof <?php echo json_encode($statusLabel ?? null); ?> !== 'undefined')
+    ? <?php echo json_encode($statusLabel ?? null); ?>
     : null;
 
   // Lógica para o novo modal de requisitos de status
   if (statusForm && statusSelect && requirementsModal) {
     statusForm.addEventListener('submit', function(e) {
       const newStatus = statusSelect.value;
-      const requiresModal = (originalStatus === 'Orçamento' && (newStatus === 'Aprovado' || newStatus === 'Em Andamento'));
+      const requiresModal = (originalStatus === 'Orçamento' && (newStatus === 'Serviço Pendente' || newStatus === 'Serviço em Andamento'));
 
       if (requiresModal) {
         e.preventDefault(); // Impede o envio direto do formulário

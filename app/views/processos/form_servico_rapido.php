@@ -759,14 +759,14 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // --- Campo oculto para controle de status proposto ---
-    // Criado dinamicamente para que o backend saiba se o serviço deve iniciar 'Pendente' ou 'Em andamento'.
+    // Criado dinamicamente para que o backend saiba se o serviço deve iniciar 'Serviço Pendente' ou 'Serviço em Andamento'.
     const formElement = document.querySelector('form');
     if (formElement && !document.getElementById('status_proposto')) {
         const hiddenStatusInput = document.createElement('input');
         hiddenStatusInput.type = 'hidden';
         hiddenStatusInput.name = 'status_proposto';
         hiddenStatusInput.id = 'status_proposto';
-        hiddenStatusInput.value = 'Em andamento'; // valor padrão
+        hiddenStatusInput.value = 'Serviço em Andamento'; // valor padrão
         formElement.appendChild(hiddenStatusInput);
     }
 
@@ -1232,7 +1232,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (isGestor) {
-            statusInput.value = 'Em andamento';
+            statusInput.value = 'Serviço em Andamento';
             return;
         }
 
@@ -1245,7 +1245,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 
-        statusInput.value = pendente ? 'Pendente' : 'Em andamento';
+        statusInput.value = pendente ? 'Serviço Pendente' : 'Serviço em Andamento';
     }
 
     // Este bloco agora funcionará, pois 'servicosCheckboxes' foi definido no início

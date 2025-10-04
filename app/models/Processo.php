@@ -310,7 +310,7 @@ public function create($data, $files)
             
             // --- INÍCIO DA NOVA LÓGICA DE LANÇAMENTO FINANCEIRO ---
             $newStatus = $data['status_processo'];
-            $statusTrigger = ['Aprovado', 'Em Andamento']; // Status que disparam a criação da receita
+            $statusTrigger = ['Serviço Pendente', 'Serviço em Andamento', 'Serviço pendente', 'Serviço em andamento']; // Status que disparam a criação da receita
 
             // Dispara a lógica apenas se o status MUDOU para um dos status do gatilho
             if ($oldStatus != $newStatus && in_array($newStatus, $statusTrigger)) {
@@ -523,7 +523,7 @@ public function create($data, $files)
                 JOIN users u_colab ON p.colaborador_id = u_colab.id
                 LEFT JOIN vendedores v ON p.vendedor_id = v.id
                 LEFT JOIN users u_vend ON v.user_id = u_vend.id
-                WHERE p.status_processo NOT IN ('Recusado')
+                WHERE p.status_processo NOT IN ('Cancelado', 'Recusado')
                 ORDER BY p.id DESC";
         $stmt = $this->pdo->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -558,7 +558,7 @@ public function getFilteredProcesses(array $filters = [], int $limit = 50, int $
     $params = [];
     // Se nenhum filtro de status for aplicado, exclui os orçamentos por padrão.
     if (empty($filters['status'])) {
-        $where_clauses[] = "p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Recusado', 'Pendente', 'Serviço Pendente', 'Serviço pendente')";
+        $where_clauses[] = "p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado', 'Serviço Pendente', 'Serviço pendente')";
 
     }
 
@@ -568,13 +568,13 @@ public function getFilteredProcesses(array $filters = [], int $limit = 50, int $
     if (!empty($filters['filtro_card'])) {
         switch ($filters['filtro_card']) {
             case 'ativos':
-                $where_clauses[] = "p.status_processo IN ('Aprovado', 'Em Andamento', 'Serviço em Andamento', 'Serviço em andamento')";
+                $where_clauses[] = "p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento')";
                 break;
             case 'finalizados_mes':
-                $where_clauses[] = "p.status_processo = 'Finalizado' AND MONTH(p.data_finalizacao_real) = MONTH(CURDATE()) AND YEAR(p.data_finalizacao_real) = YEAR(CURDATE())";
+                $where_clauses[] = "p.status_processo IN ('Concluído', 'Finalizado') AND MONTH(p.data_finalizacao_real) = MONTH(CURDATE()) AND YEAR(p.data_finalizacao_real) = YEAR(CURDATE())";
                 break;
             case 'atrasados':
-                $where_clauses[] = "p.traducao_prazo_data < CURDATE() AND p.status_processo NOT IN ('Finalizado', 'Arquivado', 'Cancelado')";
+                $where_clauses[] = "p.traducao_prazo_data < CURDATE() AND p.status_processo NOT IN ('Concluído', 'Finalizado', 'Arquivado', 'Cancelado', 'Recusado')";
                 break;
         }
     }
@@ -667,7 +667,7 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
     
     // Garante que a contagem também exclua os orçamentos por padrão.
     if (empty($filters['status'])) {
-        $where_clauses[] = "p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Recusado', 'Pendente', 'Serviço Pendente', 'Serviço pendente')";
+        $where_clauses[] = "p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado', 'Serviço Pendente', 'Serviço pendente')";
 
     }
 
@@ -761,7 +761,7 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
                 LEFT JOIN users AS u ON v.user_id = u.id
                 LEFT JOIN formas_pagamento AS fp ON p.forma_pagamento_id = fp.id";
 
-        $where = ["p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado')"];
+        $where = ["p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado')"];
         $params = [];
 
         if (!empty($filters['data_inicio'])) {
@@ -810,7 +810,7 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
     public function getOverallFinancialSummary($start_date, $end_date, array $filters = []): array
     {
         // --- Constrói a base da query e das cláusulas WHERE ---
-        $base_where_sql = " FROM processos p WHERE p.data_criacao BETWEEN :start_date AND :end_date AND p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado')";
+        $base_where_sql = " FROM processos p WHERE p.data_criacao BETWEEN :start_date AND :end_date AND p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado')";
         $params = [
             ':start_date' => $start_date . ' 00:00:00',
             ':end_date' => $end_date . ' 23:59:59'
@@ -913,10 +913,10 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
     public function getDashboardStats()
     {
         $sql = "SELECT
-            COUNT(CASE WHEN status_processo IN ('Aprovado', 'Em Andamento') THEN 1 END) as processos_ativos,
-            COUNT(CASE WHEN status_processo = 'Orçamento' THEN 1 END) as orcamentos_pendentes,
-            COUNT(CASE WHEN status_processo = 'Finalizado' AND MONTH(data_finalizacao_real) = MONTH(CURDATE()) AND YEAR(data_finalizacao_real) = YEAR(CURDATE()) THEN 1 END) as finalizados_mes,
-            COUNT(CASE WHEN traducao_prazo_data < CURDATE() AND status_processo NOT IN ('Finalizado', 'Arquivado', 'Cancelado') THEN 1 END) as processos_atrasados
+            COUNT(CASE WHEN status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento') THEN 1 END) as processos_ativos,
+            COUNT(CASE WHEN status_processo IN ('Orçamento', 'Orçamento Pendente') THEN 1 END) as orcamentos_pendentes,
+            COUNT(CASE WHEN status_processo IN ('Concluído', 'Finalizado') AND MONTH(data_finalizacao_real) = MONTH(CURDATE()) AND YEAR(data_finalizacao_real) = YEAR(CURDATE()) THEN 1 END) as finalizados_mes,
+            COUNT(CASE WHEN traducao_prazo_data < CURDATE() AND status_processo NOT IN ('Concluído', 'Finalizado', 'Arquivado', 'Cancelado', 'Recusado') THEN 1 END) as processos_atrasados
         FROM processos";
         try {
             $stmt = $this->pdo->prepare($sql);
@@ -975,8 +975,8 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
             'finalizacao_tipo', 'data_envio_cartorio', 'os_numero_conta_azul', 'os_numero_omie'
         ];
 
-        // Adiciona a data de finalização apenas se o status for 'Finalizado'
-        if (isset($data['status_processo']) && $data['status_processo'] == 'Finalizado') {
+        // Adiciona a data de finalização apenas se o status for 'Concluído'
+        if (isset($data['status_processo']) && in_array($data['status_processo'], ['Concluído', 'Finalizado'], true)) {
             $data['data_finalizacao_real'] = date('Y-m-d H:i:s');
             $allowed_fields[] = 'data_finalizacao_real'; // Adiciona à lista de permissões
         }
@@ -1019,7 +1019,7 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
     public function updateStatus(int $id, array $data): bool
     {
         // LÓGICA DA VERSÃO ANTIGA: Adiciona a data de finalização automaticamente.
-        if (isset($data['status_processo']) && $data['status_processo'] === 'Finalizado') {
+        if (isset($data['status_processo']) && in_array($data['status_processo'], ['Concluído', 'Finalizado'], true)) {
             $data['data_finalizacao_real'] = date('Y-m-d H:i:s');
         }
 
@@ -1375,7 +1375,7 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
         $sql = "SELECT SUM(p.valor_total) as total_vendas_mes
                 FROM processos p
                 WHERE p.vendedor_id = :vendedor_id
-                  AND p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado')
+                  AND p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado')
                   AND MONTH(p.data_criacao) = MONTH(CURDATE())
                   AND YEAR(p.data_criacao) = YEAR(CURDATE())";
     
@@ -1409,7 +1409,7 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
                     JOIN clientes c ON p.cliente_id = c.id
                     WHERE p.valor_total > 0 
                       AND p.vendedor_id IS NOT NULL
-                      AND p.status_processo IN ('Aprovado', 'Em Andamento', 'Finalizado')"; // Apenas status que contam como venda
+                      AND p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Concluído', 'Finalizado')"; // Apenas status que contam como venda
         
             $params = [];
         
@@ -1538,7 +1538,7 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
                 WHERE 
                     p.traducao_prazo_data IS NOT NULL
                     AND p.traducao_prazo_data < CURDATE()
-                    AND p.status_processo NOT IN ('Finalizado', 'Cancelado', 'Arquivado')
+                    AND p.status_processo NOT IN ('Concluído', 'Finalizado', 'Cancelado', 'Arquivado', 'Recusado')
                 ORDER BY p.traducao_prazo_data ASC";
         
         $stmt = $this->pdo->prepare($sql);
@@ -1596,7 +1596,7 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
                 JOIN categorias_financeiras cf ON doc.tipo_documento = cf.nome_categoria
                 WHERE 
                     p.data_criacao BETWEEN :data_inicio AND :data_fim
-                    AND p.status_processo IN ('Aprovado', 'Em Andamento', 'Finalizado')
+                    AND p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Concluído', 'Finalizado')
                     AND cf.servico_tipo IN ('Tradução', 'CRC')
                 GROUP BY 
                     cf.servico_tipo";
