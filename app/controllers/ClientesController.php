@@ -70,6 +70,7 @@ class ClientesController
         $pageTitle = "Editar Cliente";
         $cliente = $this->clienteModel->getById($id);
         $isEdit = true;
+        $return_url = $_GET['return_to'] ?? 'clientes.php';
 
         $formData = $this->consumeClientFormInput();
         if (!empty($formData)) {
@@ -200,15 +201,22 @@ class ClientesController
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id = $_POST['id'];
             $data = $_POST;
+            $returnTo = trim((string)($data['return_to'] ?? 'clientes.php'));
+
             if (isset($data['tipo_pessoa']) && $data['tipo_pessoa'] === 'Física') {
                 $data['nome_responsavel'] = $data['nome_cliente'];
+            }
+
+            $redirectToEdit = 'clientes.php?action=edit&id=' . $id;
+            if ($returnTo !== '' && $returnTo !== 'clientes.php') {
+                $redirectToEdit .= '&return_to=' . urlencode($returnTo);
             }
 
             $validationErrors = $this->validateClientData($data);
             if (!empty($validationErrors)) {
                 $_SESSION['error_message'] = implode('<br>', $validationErrors);
                 $this->rememberClientFormInput($_POST);
-                header('Location: clientes.php?action=edit&id=' . $id);
+                header('Location: ' . $redirectToEdit);
                 exit();
             }
 
@@ -219,7 +227,7 @@ class ClientesController
             } catch (InvalidArgumentException $exception) {
                 $_SESSION['error_message'] = $exception->getMessage();
                 $this->rememberClientFormInput($_POST);
-                header('Location: clientes.php?action=edit&id=' . $id);
+                header('Location: ' . $redirectToEdit);
                 exit();
             }
 
@@ -249,14 +257,20 @@ class ClientesController
                 }
 
                 $this->clearClientFormInput();
-                header('Location: clientes.php');
+                $shouldRedirectToReturn = $returnTo !== '' && !preg_match('/^clientes\.php(\?.*)?$/', $returnTo);
+                if ($shouldRedirectToReturn) {
+                    $separator = parse_url($returnTo, PHP_URL_QUERY) === null ? '?' : '&';
+                    header('Location: ' . $returnTo . $separator . 'updated_client_id=' . $id);
+                } else {
+                    header('Location: clientes.php');
+                }
                 exit();
             } else {
                 $_SESSION['error_message'] = ($result === 'error_duplicate_cpf_cnpj')
                     ? "O CPF/CNPJ informado já está em uso por outro cliente."
                     : "Erro ao atualizar cliente.";
                 $this->rememberClientFormInput($_POST);
-                header('Location: clientes.php?action=edit&id=' . $id);
+                header('Location: ' . $redirectToEdit);
                 exit();
             }
         }

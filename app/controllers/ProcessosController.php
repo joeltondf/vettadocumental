@@ -31,6 +31,7 @@ class ProcessosController
     private const DEFAULT_OMIE_BANK_ACCOUNT_CODE = 4394066898;
     private const SESSION_KEY_PROCESS_FORM = 'process_form_data';
     private const SESSION_KEY_SERVICO_FORM = 'servico_rapido_form_data';
+    private const SESSION_KEY_CLIENT_FORM = 'cliente_form_data';
 
     private $pdo;
     private $processoModel;
@@ -708,53 +709,53 @@ class ProcessosController
         }
 
         $conversionContext = $this->requireConversionContext($processId, $process, $customer);
-        $budgetProducts = $conversionContext['produtos'] ?? (new CategoriaFinanceira($this->pdo))->getProdutosOrcamento();
-        $existingSubscriptions = $conversionContext['servicosMensalistas'] ?? [];
-        $formData = $this->prepareClientConversionInitialData($process, $conversionContext);
-        $submittedServices = [];
 
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $formData = array_merge($formData, $_POST);
-            $submittedServices = $this->normalizeSubmittedSubscriptionServices($_POST);
-
+        $returnedClientId = (int)($_GET['new_client_id'] ?? $_GET['updated_client_id'] ?? 0);
+        if ($returnedClientId > 0) {
             try {
                 $this->pdo->beginTransaction();
-                $currentCustomerId = (int)($process['cliente_id'] ?? 0);
-                $customerId = $this->handleLeadConversion($processId, $currentCustomerId, $_POST);
-                $this->processoModel->updateFromLeadConversion($processId, [
-                    'cliente_id' => $customerId > 0 ? $customerId : null,
-                ]);
-                $this->pdo->commit();
 
-                $syncResult = $this->attemptSyncConvertedClientWithOmie($customerId);
-                if (!$syncResult['success']) {
-                    $_SESSION['warning_message'] = $syncResult['message'] ?? 'Cliente salvo, mas não foi possível sincronizar com a Omie.';
-                } else {
-                    $_SESSION['success_message'] = $syncResult['message'] ?? 'Cliente atualizado com sucesso.';
+                if (!$this->processoModel->updateFromLeadConversion($processId, ['cliente_id' => $returnedClientId])) {
+                    throw new RuntimeException('Falha ao vincular o cliente ao processo.');
                 }
 
-                header('Location: processos.php?action=convert_to_service_deadline&id=' . $processId);
-                exit();
-            } catch (InvalidArgumentException $exception) {
-                $this->pdo->rollBack();
-                $_SESSION['error_message'] = $exception->getMessage();
+                $this->clienteModel->promoteProspectToClient($returnedClientId);
+
+                $this->pdo->commit();
+
+                $nextStepMessage = 'Defina o prazo do serviço.';
+                if (!empty($_SESSION['success_message'])) {
+                    $_SESSION['success_message'] = trim($_SESSION['success_message'] . ' ' . $nextStepMessage);
+                } else {
+                    $_SESSION['success_message'] = 'Cliente vinculado ao processo. ' . $nextStepMessage;
+                }
             } catch (Throwable $exception) {
                 $this->pdo->rollBack();
-                error_log('Erro ao salvar dados do cliente na conversão: ' . $exception->getMessage());
-                $_SESSION['error_message'] = 'Erro ao salvar os dados do cliente.';
+                error_log('Erro ao vincular cliente na conversão: ' . $exception->getMessage());
+                $_SESSION['error_message'] = 'Não foi possível vincular o cliente ao processo.';
+                header('Location: processos.php?action=view&id=' . $processId);
+                exit();
             }
+
+            header('Location: processos.php?action=convert_to_service_deadline&id=' . $processId);
+            exit();
         }
 
-        $pageTitle = 'Converter em Serviço — Dados do Cliente';
+        $clientPrefill = $this->prepareClientConversionInitialData($process, $conversionContext);
+        if (!empty($clientPrefill)) {
+            $_SESSION[self::SESSION_KEY_CLIENT_FORM] = $clientPrefill;
+        }
 
-        $this->render('conversao_cliente', [
-            'processo' => $process,
-            'formData' => $formData,
-            'produtosOrcamento' => $budgetProducts,
-            'servicosMensalistas' => !empty($submittedServices) ? $submittedServices : $existingSubscriptions,
-            'submittedServices' => !empty($submittedServices) ? $submittedServices : [],
-            'pageTitle' => $pageTitle,
-        ]);
+        $returnTo = 'processos.php?action=convert_to_service_client&id=' . $processId . '&from_client_form=1';
+        $linkedClientId = (int)($process['cliente_id'] ?? 0);
+        if ($linkedClientId > 0) {
+            $redirectUrl = 'clientes.php?action=edit&id=' . $linkedClientId . '&return_to=' . urlencode($returnTo);
+        } else {
+            $redirectUrl = 'clientes.php?action=create&return_to=' . urlencode($returnTo);
+        }
+
+        header('Location: ' . $redirectUrl);
+        exit();
     }
 
     public function convertToServiceDeadline($id)
@@ -1060,51 +1061,23 @@ class ProcessosController
         $customer = $context['cliente'] ?? [];
 
         return [
-            'lead_tipo_pessoa' => $customer['tipo_pessoa'] ?? 'Jurídica',
-            'lead_tipo_cliente' => $customer['tipo_assessoria'] ?? 'À vista',
-            'lead_agreed_deadline_days' => $customer['prazo_acordado_dias'] ?? '',
-            'lead_nome_cliente' => $customer['nome_cliente'] ?? ($process['nome_cliente'] ?? ''),
-            'lead_nome_responsavel' => $customer['nome_responsavel'] ?? '',
-            'lead_cpf_cnpj' => $customer['cpf_cnpj'] ?? '',
-            'lead_email' => $customer['email'] ?? '',
-            'lead_telefone' => $customer['telefone'] ?? '',
-            'lead_endereco' => $customer['endereco'] ?? '',
-            'lead_numero' => $customer['numero'] ?? '',
-            'lead_complemento' => $customer['complemento'] ?? '',
-            'lead_bairro' => $customer['bairro'] ?? '',
-            'lead_cidade' => $customer['cidade'] ?? '',
-            'lead_estado' => $customer['estado'] ?? '',
-            'lead_cep' => $customer['cep'] ?? '',
-            'lead_city_validation_source' => $customer['cidade_validation_source'] ?? 'api',
+            'tipo_pessoa' => $customer['tipo_pessoa'] ?? 'Jurídica',
+            'tipo_assessoria' => $customer['tipo_assessoria'] ?? 'À vista',
+            'nome_cliente' => $customer['nome_cliente'] ?? ($process['nome_cliente'] ?? ''),
+            'nome_responsavel' => $customer['nome_responsavel'] ?? '',
+            'cpf_cnpj' => $customer['cpf_cnpj'] ?? '',
+            'email' => $customer['email'] ?? '',
+            'telefone' => $customer['telefone'] ?? '',
+            'endereco' => $customer['endereco'] ?? '',
+            'numero' => $customer['numero'] ?? '',
+            'complemento' => $customer['complemento'] ?? '',
+            'bairro' => $customer['bairro'] ?? '',
+            'cidade' => $customer['cidade'] ?? '',
+            'estado' => $customer['estado'] ?? '',
+            'cep' => $customer['cep'] ?? '',
+            'city_validation_source' => $customer['cidade_validation_source'] ?? 'api',
+            'servicos_mensalistas' => $context['servicosMensalistas'] ?? [],
         ];
-    }
-
-    private function normalizeSubmittedSubscriptionServices(array $input): array
-    {
-        if (empty($input['lead_subscription_services']) || !is_array($input['lead_subscription_services'])) {
-            return [];
-        }
-
-        $normalized = [];
-
-        foreach ($input['lead_subscription_services'] as $service) {
-            if (!is_array($service)) {
-                continue;
-            }
-
-            $productId = isset($service['productBudgetId']) ? (int)$service['productBudgetId'] : 0;
-            if ($productId <= 0) {
-                continue;
-            }
-
-            $normalized[] = [
-                'produto_orcamento_id' => $productId,
-                'valor_padrao' => $service['standardValue'] ?? null,
-                'servico_tipo' => $service['serviceType'] ?? null,
-            ];
-        }
-
-        return $normalized;
     }
 
     /**
@@ -1496,9 +1469,6 @@ class ProcessosController
         }
 
         $clienteEhProspect = $cliente === null || (int)($cliente['is_prospect'] ?? 1) === 1;
-        if (!$clienteEhProspect) {
-            return ['shouldRender' => false];
-        }
 
         $categoriaModel = new CategoriaFinanceira($this->pdo);
         $produtos = $categoriaModel->getProdutosOrcamento();
@@ -1510,7 +1480,7 @@ class ProcessosController
 
         return [
             'shouldRender' => true,
-            'leadConversionRequired' => true,
+            'leadConversionRequired' => $clienteEhProspect,
             'cliente' => $cliente,
             'produtos' => $produtos,
             'servicosMensalistas' => $servicosMensalistas,
