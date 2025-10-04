@@ -1696,12 +1696,15 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
 
     private function resolveUploadDirectory(string $month, string $day, string $storageContext, string $categoria): string
     {
+        $normalizedCategoria = trim($categoria, '/');
+        $normalizedContext = trim($storageContext, '/');
+
         $segments = [
             __DIR__ . '/../../uploads/',
             sprintf('%02d', (int)$month) . '/',
             sprintf('%02d', (int)$day) . '/',
-            trim($storageContext, '/') . '/',
-            trim($categoria, '/') . '/',
+            $normalizedCategoria . '/',
+            $normalizedContext !== '' ? $normalizedContext . '/' : '',
         ];
 
         return implode('', $segments);
@@ -1709,12 +1712,17 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
 
     private function buildRelativePath(string $month, string $day, string $storageContext, string $categoria, string $filename): string
     {
+        $normalizedCategoria = trim($categoria, '/');
+        $normalizedContext = trim($storageContext, '/');
+
+        $contextSegment = $normalizedContext !== '' ? $normalizedContext . '/' : '';
+
         return sprintf(
-            'uploads/%02d/%02d/%s/%s/%s',
+            'uploads/%02d/%02d/%s/%s%s',
             (int)$month,
             (int)$day,
-            trim($storageContext, '/'),
-            trim($categoria, '/'),
+            $normalizedCategoria,
+            $contextSegment,
             $filename
         );
     }
