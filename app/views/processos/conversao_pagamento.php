@@ -73,7 +73,7 @@ $totalNumeric = $parseCurrencyValue($totalValue);
 $displayTotal = $totalNumeric !== null ? $formatCurrencyDisplay($totalNumeric) : 'Não informado';
 $paymentDateOne = $formData['data_pagamento_1'] ?? '';
 $paymentDateTwo = $formData['data_pagamento_2'] ?? '';
-if ($paymentDateOne === '' && ($totalValue === '' || $totalValue === null)) {
+if ($paymentDateOne === '') {
     $paymentDateOne = date('Y-m-d');
 }
 $entryRaw = $formData['valor_entrada'] ?? '';
@@ -85,7 +85,7 @@ $balanceNumeric = ($totalNumeric !== null && $entryNumeric !== null)
 $balanceDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balanceNumeric) : '-';
 $parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balanceNumeric) : 'R$ 0,00';
 ?>
-<div class="max-w-3xl mx-auto space-y-8">
+<div class="max-w-3xl mx-auto space-y-10">
     <div class="flex items-center justify-between">
         <div>
             <h1 class="text-2xl font-bold text-gray-800">Converter em Serviço &mdash; Pagamento</h1>
@@ -98,16 +98,16 @@ $parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balan
         action="processos.php?action=convert_to_service_payment&id=<?php echo $processId; ?>"
         method="POST"
         enctype="multipart/form-data"
-        class="bg-white shadow rounded-lg p-6 space-y-6"
+        class="bg-white shadow rounded-lg p-8 space-y-8"
         data-conversion-step="payment"
     >
-        <fieldset class="border border-gray-200 rounded-md p-6 space-y-6">
+        <fieldset class="border border-gray-200 rounded-md p-8 space-y-8">
             <legend class="text-lg font-semibold text-gray-700 px-2 bg-white ml-4">Condições de Pagamento</legend>
-            <div class="space-y-6">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="space-y-8">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div>
                         <label class="block text-sm font-semibold text-gray-700" for="forma_cobranca">Forma de cobrança</label>
-                        <select id="forma_cobranca" name="forma_cobranca" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500" data-payment-method>
+                        <select id="forma_cobranca" name="forma_cobranca" class="mt-2 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500" data-payment-method>
                             <option value="Pagamento único" <?php echo $paymentMethod === 'Pagamento único' ? 'selected' : ''; ?>>Pagamento único</option>
                             <option value="Pagamento parcelado" <?php echo $paymentMethod === 'Pagamento parcelado' ? 'selected' : ''; ?>>Pagamento parcelado</option>
                             <option value="Pagamento mensal" <?php echo $paymentMethod === 'Pagamento mensal' ? 'selected' : ''; ?>>Pagamento mensal</option>
@@ -120,30 +120,30 @@ $parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balan
                             id="valor_total"
                             name="valor_total"
                             value="<?php echo htmlspecialchars((string)$totalValue); ?>"
-                            class="mt-1 block w-full rounded-md border border-blue-200 bg-blue-50 text-blue-700 font-semibold shadow-sm focus:ring-orange-500 focus:border-orange-500"
+                            class="mt-2 block w-full rounded-md border border-blue-200 bg-blue-50 text-blue-700 font-semibold shadow-sm focus:ring-orange-500 focus:border-orange-500"
                             data-total-value
                             readonly
                         >
                     </div>
                 </div>
 
-                <div class="space-y-4 <?php echo $paymentMethod === 'Pagamento único' ? '' : 'hidden'; ?>" data-payment-section="Pagamento único">
+                <div class="space-y-6 <?php echo $paymentMethod === 'Pagamento único' ? '' : 'hidden'; ?>" data-payment-section="Pagamento único">
                     <h3 class="text-md font-semibold text-gray-800">Pagamento único</h3>
                     <p class="text-sm text-gray-600">O valor recebido será igual ao total calculado para o serviço.</p>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div>
                             <label class="block text-sm font-semibold text-gray-700" for="payment_unique_date">Data do pagamento</label>
                             <input
                                 type="date"
                                 id="payment_unique_date"
                                 value="<?php echo htmlspecialchars($paymentDateOne); ?>"
-                                class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
+                                class="mt-2 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
                                 data-field-name="data_pagamento_1"
                                 <?php echo $paymentMethod === 'Pagamento único' ? 'name="data_pagamento_1"' : 'disabled'; ?>
                             >
                         </div>
                         <div>
-                            <label for="payment_unique_receipt" class="mt-2 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-blue-300 bg-blue-50 px-4 py-5 text-center text-blue-600 transition hover:border-blue-400 hover:bg-blue-100 cursor-pointer" role="button">
+                            <label for="payment_unique_receipt" class="mt-4 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-blue-300 bg-blue-50 px-5 py-6 text-center text-blue-600 transition hover:border-blue-400 hover:bg-blue-100 cursor-pointer" role="button">
                                 <svg class="mb-2 h-6 w-6 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-3-3v6m8 4a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h7.586a2 2 0 011.414.586l4.414 4.414A2 2 0 0120 9.414V19z" />
                                 </svg>
@@ -163,16 +163,16 @@ $parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balan
                     </div>
                 </div>
 
-                <div class="space-y-4 <?php echo $paymentMethod === 'Pagamento parcelado' ? '' : 'hidden'; ?>" data-payment-section="Pagamento parcelado">
+                <div class="space-y-6 <?php echo $paymentMethod === 'Pagamento parcelado' ? '' : 'hidden'; ?>" data-payment-section="Pagamento parcelado">
                     <h3 class="text-md font-semibold text-gray-800">Pagamento parcelado</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                         <div>
                             <label class="block text-sm font-semibold text-gray-700" for="valor_entrada">Valor da 1ª parcela</label>
                             <input
                                 type="text"
                                 id="valor_entrada"
                                 value="<?php echo htmlspecialchars($entryDisplay); ?>"
-                                class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
+                                class="mt-2 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
                                 data-entry-value
                                 data-field-name="valor_entrada"
                                 <?php echo $paymentMethod === 'Pagamento parcelado' ? 'name="valor_entrada"' : 'disabled'; ?>
@@ -185,13 +185,13 @@ $parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balan
                                 type="date"
                                 id="payment_installment_date_1"
                                 value="<?php echo htmlspecialchars($paymentDateOne); ?>"
-                                class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
+                                class="mt-2 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
                                 data-field-name="data_pagamento_1"
                                 <?php echo $paymentMethod === 'Pagamento parcelado' ? 'name="data_pagamento_1"' : 'disabled'; ?>
                             >
                         </div>
                         <div>
-                            <label for="payment_installment_receipt_1" class="mt-2 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-green-300 bg-green-50 px-4 py-5 text-center text-green-600 transition hover:border-green-400 hover:bg-green-100 cursor-pointer" role="button">
+                            <label for="payment_installment_receipt_1" class="mt-4 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-green-300 bg-green-50 px-5 py-6 text-center text-green-600 transition hover:border-green-400 hover:bg-green-100 cursor-pointer" role="button">
                                 <svg class="mb-2 h-6 w-6 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
                                 </svg>
@@ -209,7 +209,7 @@ $parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balan
                             >
                         </div>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                         <div>
                             <label class="block text-sm font-semibold text-gray-700" for="valor_restante">Valor restante</label>
                             <input
@@ -228,13 +228,13 @@ $parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balan
                                 type="date"
                                 id="payment_installment_date_2"
                                 value="<?php echo htmlspecialchars($paymentDateTwo); ?>"
-                                class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
+                                class="mt-2 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
                                 data-field-name="data_pagamento_2"
                                 <?php echo $paymentMethod === 'Pagamento parcelado' ? 'name="data_pagamento_2"' : 'disabled'; ?>
                             >
                         </div>
                         <div>
-                            <label for="payment_installment_receipt_2" class="mt-2 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-purple-300 bg-purple-50 px-4 py-5 text-center text-purple-600 transition hover:border-purple-400 hover:bg-purple-100 cursor-pointer" role="button">
+                            <label for="payment_installment_receipt_2" class="mt-4 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-purple-300 bg-purple-50 px-5 py-6 text-center text-purple-600 transition hover:border-purple-400 hover:bg-purple-100 cursor-pointer" role="button">
                                 <svg class="mb-2 h-6 w-6 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
                                 </svg>
@@ -254,23 +254,23 @@ $parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balan
                     </div>
                 </div>
 
-                <div class="space-y-4 <?php echo $paymentMethod === 'Pagamento mensal' ? '' : 'hidden'; ?>" data-payment-section="Pagamento mensal">
+                <div class="space-y-6 <?php echo $paymentMethod === 'Pagamento mensal' ? '' : 'hidden'; ?>" data-payment-section="Pagamento mensal">
                     <h3 class="text-md font-semibold text-gray-800">Pagamento mensal</h3>
                     <p class="text-sm text-gray-600">A primeira cobrança será igual ao valor total calculado para o período.</p>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div>
                             <label class="block text-sm font-semibold text-gray-700" for="payment_monthly_date">Data do pagamento</label>
                             <input
                                 type="date"
                                 id="payment_monthly_date"
                                 value="<?php echo htmlspecialchars($paymentDateOne); ?>"
-                                class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
+                                class="mt-2 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
                                 data-field-name="data_pagamento_1"
                                 <?php echo $paymentMethod === 'Pagamento mensal' ? 'name="data_pagamento_1"' : 'disabled'; ?>
                             >
                         </div>
                         <div>
-                            <label for="payment_monthly_receipt" class="mt-2 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-indigo-300 bg-indigo-50 px-4 py-5 text-center text-indigo-600 transition hover:border-indigo-400 hover:bg-indigo-100 cursor-pointer" role="button">
+                            <label for="payment_monthly_receipt" class="mt-4 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-indigo-300 bg-indigo-50 px-5 py-6 text-center text-indigo-600 transition hover:border-indigo-400 hover:bg-indigo-100 cursor-pointer" role="button">
                                 <svg class="mb-2 h-6 w-6 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-3-3v6m8 4a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h7.586a2 2 0 011.414.586l4.414 4.414A2 2 0 0120 9.414V19z" />
                                 </svg>
@@ -290,14 +290,14 @@ $parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balan
                     </div>
                 </div>
 
-                <div class="rounded-md bg-gray-50 p-4 space-y-2">
+                <div class="rounded-md bg-gray-50 p-5 space-y-3">
                     <p class="text-sm text-gray-700"><strong>Valor total:</strong> <span data-total-display><?php echo htmlspecialchars($displayTotal); ?></span></p>
                     <p class="text-sm text-gray-700"><strong>Saldo restante:</strong> <span data-balance-display><?php echo htmlspecialchars($balanceDisplay); ?></span></p>
                 </div>
             </div>
         </fieldset>
 
-        <div class="flex items-center justify-between pt-4 border-t border-gray-200">
+        <div class="flex items-center justify-between pt-6 border-t border-gray-200">
             <a href="processos.php?action=convert_to_service_deadline&id=<?php echo $processId; ?>" class="px-4 py-2 rounded-md border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50">Voltar</a>
             <div class="flex items-center space-x-3">
                 <a href="processos.php?action=view&id=<?php echo $processId; ?>" class="px-4 py-2 rounded-md border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50">Cancelar</a>
