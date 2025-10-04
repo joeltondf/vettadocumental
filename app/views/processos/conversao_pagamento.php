@@ -19,36 +19,71 @@ $mapLegacyPaymentMethod = static function (?string $method): string {
     }
 };
 
+$parseCurrencyValue = static function ($value): ?float {
+    if ($value === null) {
+        return null;
+    }
+
+    $normalized = trim((string)$value);
+    if ($normalized === '') {
+        return null;
+    }
+
+    $normalized = str_replace(['R$', ' '], '', $normalized);
+    $normalized = preg_replace('/[^0-9,.-]/u', '', $normalized);
+
+    $commaPos = strrpos($normalized, ',');
+    $dotPos = strrpos($normalized, '.');
+    $decimalSeparator = null;
+
+    if ($commaPos !== false && $dotPos !== false) {
+        $decimalSeparator = $commaPos > $dotPos ? ',' : '.';
+    } elseif ($commaPos !== false) {
+        $decimalSeparator = ',';
+    } elseif ($dotPos !== false) {
+        $decimalSeparator = '.';
+    }
+
+    if ($decimalSeparator !== null) {
+        $thousandSeparator = $decimalSeparator === ',' ? '.' : ',';
+        $normalized = str_replace($thousandSeparator, '', $normalized);
+        $normalized = str_replace($decimalSeparator, '.', $normalized);
+    } else {
+        $normalized = str_replace([',', '.'], '', $normalized);
+    }
+
+    if (!is_numeric($normalized)) {
+        return null;
+    }
+
+    return (float)$normalized;
+};
+
+$formatCurrencyDisplay = static function (?float $value): string {
+    if ($value === null) {
+        return 'R$ 0,00';
+    }
+
+    return 'R$ ' . number_format($value, 2, ',', '.');
+};
+
 $paymentMethod = $mapLegacyPaymentMethod($formData['forma_cobranca'] ?? null);
 $totalValue = $formData['valor_total'] ?? ($processo['valor_total'] ?? '');
-$displayTotal = ($totalValue !== '' && $totalValue !== null)
-    ? 'R$ ' . htmlspecialchars((string)$totalValue)
-    : 'Não informado';
+$totalNumeric = $parseCurrencyValue($totalValue);
+$displayTotal = $totalNumeric !== null ? $formatCurrencyDisplay($totalNumeric) : 'Não informado';
 $paymentDateOne = $formData['data_pagamento_1'] ?? '';
+$paymentDateTwo = $formData['data_pagamento_2'] ?? '';
 if ($paymentDateOne === '' && ($totalValue === '' || $totalValue === null)) {
     $paymentDateOne = date('Y-m-d');
 }
-
-$conversionSteps = [
-    [
-        'key' => 'client',
-        'label' => 'Cliente',
-        'description' => 'Revise ou cadastre os dados do cliente.',
-    ],
-    [
-        'key' => 'deadline',
-        'label' => 'Prazo do serviço',
-        'description' => 'Defina data de início e prazo de entrega.',
-    ],
-    [
-        'key' => 'payment',
-        'label' => 'Pagamento',
-        'description' => 'Informe as condições financeiras.',
-    ],
-];
-$currentStep = 'payment';
-$completedSteps = ['client', 'deadline'];
-include __DIR__ . '/partials/conversion_steps.php';
+$entryRaw = $formData['valor_entrada'] ?? '';
+$entryNumeric = $parseCurrencyValue($entryRaw);
+$entryDisplay = $entryNumeric !== null ? number_format($entryNumeric, 2, ',', '.') : (string)$entryRaw;
+$balanceNumeric = ($totalNumeric !== null && $entryNumeric !== null)
+    ? max($totalNumeric - $entryNumeric, 0.0)
+    : null;
+$balanceDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balanceNumeric) : '-';
+$parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balanceNumeric) : 'R$ 0,00';
 ?>
 <div class="max-w-3xl mx-auto space-y-8">
     <div class="flex items-center justify-between">
@@ -66,54 +101,201 @@ include __DIR__ . '/partials/conversion_steps.php';
         class="bg-white shadow rounded-lg p-6 space-y-6"
         data-conversion-step="payment"
     >
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-semibold text-gray-700" for="valor_total">Valor total do serviço</label>
-                <input type="text" id="valor_total" name="valor_total" value="<?php echo htmlspecialchars($totalValue); ?>" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500" data-total-value readonly>
-            </div>
-            <div>
-                <label class="block text-sm font-semibold text-gray-700" for="forma_cobranca">Forma de cobrança</label>
-                <select id="forma_cobranca" name="forma_cobranca" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500" data-payment-method>
-                    <option value="Pagamento único" <?php echo $paymentMethod === 'Pagamento único' ? 'selected' : ''; ?>>Pagamento único</option>
-                    <option value="Pagamento parcelado" <?php echo $paymentMethod === 'Pagamento parcelado' ? 'selected' : ''; ?>>Pagamento parcelado</option>
-                    <option value="Pagamento mensal" <?php echo $paymentMethod === 'Pagamento mensal' ? 'selected' : ''; ?>>Pagamento mensal</option>
-                </select>
-            </div>
-        </div>
+        <fieldset class="border border-gray-200 rounded-md p-6 space-y-6">
+            <legend class="text-lg font-semibold text-gray-700 px-2 bg-white ml-4">Condições de Pagamento</legend>
+            <div class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700" for="forma_cobranca">Forma de cobrança</label>
+                        <select id="forma_cobranca" name="forma_cobranca" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500" data-payment-method>
+                            <option value="Pagamento único" <?php echo $paymentMethod === 'Pagamento único' ? 'selected' : ''; ?>>Pagamento único</option>
+                            <option value="Pagamento parcelado" <?php echo $paymentMethod === 'Pagamento parcelado' ? 'selected' : ''; ?>>Pagamento parcelado</option>
+                            <option value="Pagamento mensal" <?php echo $paymentMethod === 'Pagamento mensal' ? 'selected' : ''; ?>>Pagamento mensal</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-semibold text-gray-700" for="valor_total">Valor total do serviço</label>
+                        <input
+                            type="text"
+                            id="valor_total"
+                            name="valor_total"
+                            value="<?php echo htmlspecialchars((string)$totalValue); ?>"
+                            class="mt-1 block w-full rounded-md border border-blue-200 bg-blue-50 text-blue-700 font-semibold shadow-sm focus:ring-orange-500 focus:border-orange-500"
+                            data-total-value
+                            readonly
+                        >
+                    </div>
+                </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div id="entrada-wrapper" class="<?php echo $paymentMethod === 'Pagamento parcelado' ? '' : 'hidden'; ?>">
-                <label class="block text-sm font-semibold text-gray-700" for="valor_entrada">Valor pago / entrada</label>
-                <input type="text" id="valor_entrada" name="valor_entrada" value="<?php echo htmlspecialchars($formData['valor_entrada'] ?? ''); ?>" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500" data-entry-value>
-            </div>
-        </div>
+                <div class="space-y-4 <?php echo $paymentMethod === 'Pagamento único' ? '' : 'hidden'; ?>" data-payment-section="Pagamento único">
+                    <h3 class="text-md font-semibold text-gray-800">Pagamento único</h3>
+                    <p class="text-sm text-gray-600">O valor recebido será igual ao total calculado para o serviço.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700" for="payment_unique_date">Data do pagamento</label>
+                            <input
+                                type="date"
+                                id="payment_unique_date"
+                                value="<?php echo htmlspecialchars($paymentDateOne); ?>"
+                                class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
+                                data-field-name="data_pagamento_1"
+                                <?php echo $paymentMethod === 'Pagamento único' ? 'name="data_pagamento_1"' : 'disabled'; ?>
+                            >
+                        </div>
+                        <div>
+                            <label for="payment_unique_receipt" class="mt-2 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-blue-300 bg-blue-50 px-4 py-5 text-center text-blue-600 transition hover:border-blue-400 hover:bg-blue-100 cursor-pointer" role="button">
+                                <svg class="mb-2 h-6 w-6 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-3-3v6m8 4a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h7.586a2 2 0 011.414.586l4.414 4.414A2 2 0 0120 9.414V19z" />
+                                </svg>
+                                <span class="text-sm font-semibold">Clique para anexar o comprovante</span>
+                                <span class="mt-1 text-xs text-blue-500" data-upload-filename="payment_unique_receipt" data-placeholder="Nenhum arquivo selecionado">Nenhum arquivo selecionado</span>
+                            </label>
+                            <input
+                                type="file"
+                                id="payment_unique_receipt"
+                                accept=".pdf,.png,.jpg,.jpeg,.webp"
+                                class="hidden"
+                                data-field-name="payment_proof_entry"
+                                data-upload-display="payment_unique_receipt"
+                                <?php echo $paymentMethod === 'Pagamento único' ? 'name="payment_proof_entry"' : 'disabled'; ?>
+                            >
+                        </div>
+                    </div>
+                </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-semibold text-gray-700" for="data_pagamento_1">Data do pagamento / 1ª parcela</label>
-                <input type="date" id="data_pagamento_1" name="data_pagamento_1" value="<?php echo htmlspecialchars($paymentDateOne); ?>" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500">
-            </div>
-            <div id="segunda-parcela-wrapper" class="<?php echo $paymentMethod === 'Pagamento parcelado' ? '' : 'hidden'; ?>">
-                <label class="block text-sm font-semibold text-gray-700" for="data_pagamento_2">Data da 2ª parcela</label>
-                <input type="date" id="data_pagamento_2" name="data_pagamento_2" value="<?php echo htmlspecialchars($formData['data_pagamento_2'] ?? ''); ?>" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500">
-            </div>
-        </div>
+                <div class="space-y-4 <?php echo $paymentMethod === 'Pagamento parcelado' ? '' : 'hidden'; ?>" data-payment-section="Pagamento parcelado">
+                    <h3 class="text-md font-semibold text-gray-800">Pagamento parcelado</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700" for="valor_entrada">Valor da 1ª parcela</label>
+                            <input
+                                type="text"
+                                id="valor_entrada"
+                                value="<?php echo htmlspecialchars($entryDisplay); ?>"
+                                class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
+                                data-entry-value
+                                data-field-name="valor_entrada"
+                                <?php echo $paymentMethod === 'Pagamento parcelado' ? 'name="valor_entrada"' : 'disabled'; ?>
+                                placeholder="R$ 0,00"
+                            >
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700" for="payment_installment_date_1">Data da 1ª parcela</label>
+                            <input
+                                type="date"
+                                id="payment_installment_date_1"
+                                value="<?php echo htmlspecialchars($paymentDateOne); ?>"
+                                class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
+                                data-field-name="data_pagamento_1"
+                                <?php echo $paymentMethod === 'Pagamento parcelado' ? 'name="data_pagamento_1"' : 'disabled'; ?>
+                            >
+                        </div>
+                        <div>
+                            <label for="payment_installment_receipt_1" class="mt-2 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-green-300 bg-green-50 px-4 py-5 text-center text-green-600 transition hover:border-green-400 hover:bg-green-100 cursor-pointer" role="button">
+                                <svg class="mb-2 h-6 w-6 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                                </svg>
+                                <span class="text-sm font-semibold">Enviar comprovante da primeira parcela</span>
+                                <span class="mt-1 text-xs text-green-600" data-upload-filename="payment_installment_receipt_1" data-placeholder="Nenhum arquivo selecionado">Nenhum arquivo selecionado</span>
+                            </label>
+                            <input
+                                type="file"
+                                id="payment_installment_receipt_1"
+                                accept=".pdf,.png,.jpg,.jpeg,.webp"
+                                class="hidden"
+                                data-field-name="payment_proof_entry"
+                                data-upload-display="payment_installment_receipt_1"
+                                <?php echo $paymentMethod === 'Pagamento parcelado' ? 'name="payment_proof_entry"' : 'disabled'; ?>
+                            >
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700" for="valor_restante">Valor restante</label>
+                            <input
+                                type="text"
+                                id="valor_restante"
+                                value="<?php echo htmlspecialchars($parceladoRestDisplay); ?>"
+                                class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm bg-gray-100"
+                                data-balance-input
+                                data-default-value="<?php echo htmlspecialchars($parceladoRestDisplay); ?>"
+                                readonly
+                            >
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700" for="payment_installment_date_2">Data da 2ª parcela</label>
+                            <input
+                                type="date"
+                                id="payment_installment_date_2"
+                                value="<?php echo htmlspecialchars($paymentDateTwo); ?>"
+                                class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
+                                data-field-name="data_pagamento_2"
+                                <?php echo $paymentMethod === 'Pagamento parcelado' ? 'name="data_pagamento_2"' : 'disabled'; ?>
+                            >
+                        </div>
+                        <div>
+                            <label for="payment_installment_receipt_2" class="mt-2 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-purple-300 bg-purple-50 px-4 py-5 text-center text-purple-600 transition hover:border-purple-400 hover:bg-purple-100 cursor-pointer" role="button">
+                                <svg class="mb-2 h-6 w-6 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                                </svg>
+                                <span class="text-sm font-semibold">Enviar comprovante da segunda parcela</span>
+                                <span class="mt-1 text-xs text-purple-600" data-upload-filename="payment_installment_receipt_2" data-placeholder="Nenhum arquivo selecionado">Nenhum arquivo selecionado</span>
+                            </label>
+                            <input
+                                type="file"
+                                id="payment_installment_receipt_2"
+                                accept=".pdf,.png,.jpg,.jpeg,.webp"
+                                class="hidden"
+                                data-field-name="payment_proof_balance"
+                                data-upload-display="payment_installment_receipt_2"
+                                <?php echo $paymentMethod === 'Pagamento parcelado' ? 'name="payment_proof_balance"' : 'disabled'; ?>
+                            >
+                        </div>
+                    </div>
+                </div>
 
-        <div class="rounded-md bg-gray-50 p-4 space-y-2">
-            <p class="text-sm text-gray-700"><strong>Valor total:</strong> <span data-total-display><?php echo $displayTotal; ?></span></p>
-            <p class="text-sm text-gray-700"><strong>Saldo restante:</strong> <span data-balance-display>-</span></p>
-        </div>
+                <div class="space-y-4 <?php echo $paymentMethod === 'Pagamento mensal' ? '' : 'hidden'; ?>" data-payment-section="Pagamento mensal">
+                    <h3 class="text-md font-semibold text-gray-800">Pagamento mensal</h3>
+                    <p class="text-sm text-gray-600">A primeira cobrança será igual ao valor total calculado para o período.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700" for="payment_monthly_date">Data do pagamento</label>
+                            <input
+                                type="date"
+                                id="payment_monthly_date"
+                                value="<?php echo htmlspecialchars($paymentDateOne); ?>"
+                                class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
+                                data-field-name="data_pagamento_1"
+                                <?php echo $paymentMethod === 'Pagamento mensal' ? 'name="data_pagamento_1"' : 'disabled'; ?>
+                            >
+                        </div>
+                        <div>
+                            <label for="payment_monthly_receipt" class="mt-2 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-indigo-300 bg-indigo-50 px-4 py-5 text-center text-indigo-600 transition hover:border-indigo-400 hover:bg-indigo-100 cursor-pointer" role="button">
+                                <svg class="mb-2 h-6 w-6 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-3-3v6m8 4a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h7.586a2 2 0 011.414.586l4.414 4.414A2 2 0 0120 9.414V19z" />
+                                </svg>
+                                <span class="text-sm font-semibold">Anexar comprovante mensal</span>
+                                <span class="mt-1 text-xs text-indigo-600" data-upload-filename="payment_monthly_receipt" data-placeholder="Nenhum arquivo selecionado">Nenhum arquivo selecionado</span>
+                            </label>
+                            <input
+                                type="file"
+                                id="payment_monthly_receipt"
+                                accept=".pdf,.png,.jpg,.jpeg,.webp"
+                                class="hidden"
+                                data-field-name="payment_proof_entry"
+                                data-upload-display="payment_monthly_receipt"
+                                <?php echo $paymentMethod === 'Pagamento mensal' ? 'name="payment_proof_entry"' : 'disabled'; ?>
+                            >
+                        </div>
+                    </div>
+                </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-semibold text-gray-700" for="payment_proof_entry">Comprovante de pagamento</label>
-                <input type="file" id="payment_proof_entry" name="payment_proof_entry" accept=".pdf,.png,.jpg,.jpeg,.webp" class="mt-1 block w-full text-sm text-gray-600">
+                <div class="rounded-md bg-gray-50 p-4 space-y-2">
+                    <p class="text-sm text-gray-700"><strong>Valor total:</strong> <span data-total-display><?php echo htmlspecialchars($displayTotal); ?></span></p>
+                    <p class="text-sm text-gray-700"><strong>Saldo restante:</strong> <span data-balance-display><?php echo htmlspecialchars($balanceDisplay); ?></span></p>
+                </div>
             </div>
-            <div id="segunda-comprovante-wrapper" class="<?php echo $paymentMethod === 'Pagamento parcelado' ? '' : 'hidden'; ?>">
-                <label class="block text-sm font-semibold text-gray-700" for="payment_proof_balance">Comprovante saldo</label>
-                <input type="file" id="payment_proof_balance" name="payment_proof_balance" accept=".pdf,.png,.jpg,.jpeg,.webp" class="mt-1 block w-full text-sm text-gray-600">
-            </div>
-        </div>
+        </fieldset>
 
         <div class="flex items-center justify-between pt-4 border-t border-gray-200">
             <a href="processos.php?action=convert_to_service_deadline&id=<?php echo $processId; ?>" class="px-4 py-2 rounded-md border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50">Voltar</a>
