@@ -159,11 +159,24 @@ class User
         $placeholders = implode(',', array_fill(0, count($perfis), '?'));
 
         $sql = "SELECT id FROM users WHERE perfil IN ($placeholders)";
-        
+
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($perfis);
-        
+
         // Retorna um array simples de IDs, ex: [1, 5, 12]
         return $stmt->fetchAll(PDO::FETCH_COLUMN);
+    }
+
+    public function getActiveVendors(): array
+    {
+        $sql = "SELECT id, nome_completo
+                FROM users
+                WHERE perfil = 'vendedor' AND (ativo = 1 OR ativo IS NULL)
+                ORDER BY nome_completo ASC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
