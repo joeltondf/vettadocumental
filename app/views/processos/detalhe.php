@@ -347,6 +347,25 @@ $isServicePending = $statusNormalized === 'serviço pendente';
                     </p>
                 </div>
             </div>
+            <div class="mt-4 pt-4 border-t border-gray-200">
+                <p class="font-medium text-gray-500">Comprovante de Pagamento</p>
+                <?php if (!empty($paymentProofAttachments)): ?>
+                    <ul class="mt-2 space-y-2">
+                        <?php foreach ($paymentProofAttachments as $anexo): ?>
+                            <li class="flex items-center justify-between text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
+                                <a href="visualizar_anexo.php?id=<?= $anexo['id'] ?>" target="_blank" class="text-gray-700 hover:underline">
+                                    <?= htmlspecialchars($anexo['nome_arquivo_original']); ?>
+                                </a>
+                                <?php if (!empty($processo['id'])): ?>
+                                    <a href="processos.php?action=excluir_anexo&id=<?= $processo['id'] ?>&anexo_id=<?= $anexo['id'] ?>" class="text-red-500 hover:text-red-700 text-xs font-semibold" onclick="return confirm('Tem certeza que deseja excluir este anexo?');">Remover</a>
+                                <?php endif; ?>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php else: ?>
+                    <p class="text-xs text-gray-500 mt-2">Nenhum comprovante enviado.</p>
+                <?php endif; ?>
+            </div>
             <?php
             // Botão para gerar OS Manualmente
             if (
@@ -430,44 +449,46 @@ $isServicePending = $statusNormalized === 'serviço pendente';
             <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <i class="fas fa-paperclip mr-2 text-gray-400"></i>Arquivos do Processo
             </h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                    <h4 class="text-sm font-semibold text-blue-700 mb-2 uppercase tracking-wide">Tradução</h4>
-                    <?php if (!empty($translationAttachments)): ?>
-                        <ul class="space-y-2">
-                            <?php foreach ($translationAttachments as $anexo): ?>
-                                <li class="flex items-center justify-between text-sm text-gray-700 bg-blue-50 border border-blue-100 rounded-md px-3 py-2">
-                                    <a href="visualizar_anexo.php?id=<?= $anexo['id'] ?>" target="_blank" class="text-blue-600 hover:underline">
-                                        <?= htmlspecialchars($anexo['nome_arquivo_original']); ?>
-                                    </a>
-                                    <?php if (!empty($processo['id'])): ?>
-                                        <a href="processos.php?action=excluir_anexo&id=<?= $processo['id'] ?>&anexo_id=<?= $anexo['id'] ?>" class="text-red-500 hover:text-red-700 text-xs font-semibold" onclick="return confirm('Tem certeza que deseja excluir este anexo?');">Remover</a>
-                                    <?php endif; ?>
-                                </li>
-                            <?php endforeach; ?>
-                        </ul>
-                    <?php else: ?>
-                        <p class="text-xs text-gray-500">Nenhum arquivo de tradução.</p>
-                    <?php endif; ?>
-                </div>
-                <div>
-                    <h4 class="text-sm font-semibold text-green-700 mb-2 uppercase tracking-wide">CRC</h4>
-                    <?php if (!empty($crcAttachments)): ?>
-                        <ul class="space-y-2">
-                            <?php foreach ($crcAttachments as $anexo): ?>
-                                <li class="flex items-center justify-between text-sm text-gray-700 bg-green-50 border border-green-100 rounded-md px-3 py-2">
-                                    <a href="visualizar_anexo.php?id=<?= $anexo['id'] ?>" target="_blank" class="text-green-600 hover:underline">
-                                        <?= htmlspecialchars($anexo['nome_arquivo_original']); ?>
-                                    </a>
-                                    <?php if (!empty($processo['id'])): ?>
-                                        <a href="processos.php?action=excluir_anexo&id=<?= $processo['id'] ?>&anexo_id=<?= $anexo['id'] ?>" class="text-red-500 hover:text-red-700 text-xs font-semibold" onclick="return confirm('Tem certeza que deseja excluir este anexo?');">Remover</a>
-                                    <?php endif; ?>
-                                </li>
-                            <?php endforeach; ?>
-                        </ul>
-                    <?php else: ?>
-                        <p class="text-xs text-gray-500">Nenhum arquivo de CRC.</p>
-                    <?php endif; ?>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="flex flex-col space-y-6">
+                    <div>
+                        <h4 class="text-sm font-semibold text-blue-700 mb-2 uppercase tracking-wide">Tradução</h4>
+                        <?php if (!empty($translationAttachments)): ?>
+                            <ul class="space-y-2">
+                                <?php foreach ($translationAttachments as $anexo): ?>
+                                    <li class="flex items-center justify-between text-sm text-gray-700 bg-blue-50 border border-blue-100 rounded-md px-3 py-2">
+                                        <a href="visualizar_anexo.php?id=<?= $anexo['id'] ?>" target="_blank" class="text-blue-600 hover:underline">
+                                            <?= htmlspecialchars($anexo['nome_arquivo_original']); ?>
+                                        </a>
+                                        <?php if (!empty($processo['id'])): ?>
+                                            <a href="processos.php?action=excluir_anexo&id=<?= $processo['id'] ?>&anexo_id=<?= $anexo['id'] ?>" class="text-red-500 hover:text-red-700 text-xs font-semibold" onclick="return confirm('Tem certeza que deseja excluir este anexo?');">Remover</a>
+                                        <?php endif; ?>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        <?php else: ?>
+                            <p class="text-xs text-gray-500">Nenhum arquivo de tradução.</p>
+                        <?php endif; ?>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-semibold text-green-700 mb-2 uppercase tracking-wide">CRC</h4>
+                        <?php if (!empty($crcAttachments)): ?>
+                            <ul class="space-y-2">
+                                <?php foreach ($crcAttachments as $anexo): ?>
+                                    <li class="flex items-center justify-between text-sm text-gray-700 bg-green-50 border border-green-100 rounded-md px-3 py-2">
+                                        <a href="visualizar_anexo.php?id=<?= $anexo['id'] ?>" target="_blank" class="text-green-600 hover:underline">
+                                            <?= htmlspecialchars($anexo['nome_arquivo_original']); ?>
+                                        </a>
+                                        <?php if (!empty($processo['id'])): ?>
+                                            <a href="processos.php?action=excluir_anexo&id=<?= $processo['id'] ?>&anexo_id=<?= $anexo['id'] ?>" class="text-red-500 hover:text-red-700 text-xs font-semibold" onclick="return confirm('Tem certeza que deseja excluir este anexo?');">Remover</a>
+                                        <?php endif; ?>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        <?php else: ?>
+                            <p class="text-xs text-gray-500">Nenhum arquivo de CRC.</p>
+                        <?php endif; ?>
+                    </div>
                 </div>
                 <div>
                     <h4 class="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">Comprovantes</h4>
