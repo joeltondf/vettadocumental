@@ -10,6 +10,66 @@ class Notificacao
         $this->pdo = $pdo;
     }
 
+    public function getDropdownNotifications(int $userId, int $limit = 15, string $sourceTimezone = 'UTC'): array
+    {
+        $statusToIgnore = ['Aprovado', 'Concluído', 'Finalizado'];
+        $statusPlaceholders = [];
+
+        foreach ($statusToIgnore as $index => $status) {
+            $statusPlaceholders[] = ':status_' . $index;
+        }
+
+        $statusFilter = '';
+
+        if (!empty($statusPlaceholders)) {
+            $statusFilter = 'AND (p.id IS NULL OR p.status_processo NOT IN (' . implode(', ', $statusPlaceholders) . '))';
+        } else {
+            $statusFilter = 'AND (p.id IS NULL)';
+        }
+
+        $sql = "
+            SELECT n.*
+            FROM notificacoes n
+            LEFT JOIN processos p ON p.id = CAST(SUBSTRING_INDEX(n.link, 'id=', -1) AS UNSIGNED)
+            WHERE n.usuario_id = :usuario_id
+              {$statusFilter}
+            ORDER BY n.data_criacao DESC
+            LIMIT :limit
+        ";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(':usuario_id', $userId, PDO::PARAM_INT);
+
+        foreach ($statusToIgnore as $index => $status) {
+            $stmt->bindValue(':status_' . $index, $status, PDO::PARAM_STR);
+        }
+
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+
+        $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return array_map(function (array $notification) use ($sourceTimezone) {
+            $notification['link'] = $this->normalizeNotificationLink($notification['link'] ?? null);
+
+            $convertedDate = $this->convertToTimezone($notification['data_criacao'] ?? null, 'Y-m-d H:i:s', 'America/Sao_Paulo', $sourceTimezone);
+            $notification['data_criacao'] = $convertedDate;
+
+            if ($convertedDate === '') {
+                $notification['display_date'] = '';
+            } else {
+                try {
+                    $displayDate = new \DateTime($convertedDate, new \DateTimeZone('America/Sao_Paulo'));
+                    $notification['display_date'] = $displayDate->format('d/m/Y H:i');
+                } catch (\Exception $exception) {
+                    $notification['display_date'] = $convertedDate;
+                }
+            }
+
+            return $notification;
+        }, $notifications);
+    }
+
     /**
      * Cria um novo registro de notificação no banco de dados.
      *
@@ -113,6 +173,54 @@ class Notificacao
         }
     }
 
+    private function normalizeNotificationLink(?string $link): string
+    {
+        if ($link === null) {
+            return '#';
+        }
+
+        $trimmedLink = trim($link);
+
+        if ($trimmedLink === '') {
+            return '#';
+        }
+
+        if (!defined('APP_URL')) {
+            return $this->isAbsoluteUrl($trimmedLink)
+                ? $trimmedLink
+                : $this->ensureLeadingSlash($trimmedLink);
+        }
+
+        $baseUrl = rtrim((string)APP_URL, '/');
+
+        if ($this->isAbsoluteUrl($trimmedLink)) {
+            if (strpos($trimmedLink, $baseUrl) === 0) {
+                $relative = substr($trimmedLink, strlen($baseUrl));
+                return $this->ensureLeadingSlash($relative);
+            }
+
+            return $trimmedLink;
+        }
+
+        return $this->ensureLeadingSlash($trimmedLink);
+    }
+
+    private function convertToTimezone(?string $dateTime, string $format, string $targetTimezone, string $sourceTimezone): string
+    {
+        if ($dateTime === null || trim($dateTime) === '') {
+            return '';
+        }
+
+        try {
+            $date = new \DateTime($dateTime, new \DateTimeZone($sourceTimezone));
+            $date->setTimezone(new \DateTimeZone($targetTimezone));
+
+            return $date->format($format);
+        } catch (\Exception $exception) {
+            return $dateTime;
+        }
+    }
+
     private function buildLinkVariants(string $link): array
     {
         $trimmedLink = trim($link);
@@ -121,6 +229,11 @@ class Notificacao
         }
 
         $variants = [$trimmedLink];
+
+        $normalizedLink = $this->normalizeNotificationLink($trimmedLink);
+        if ($normalizedLink !== '#' && $normalizedLink !== $trimmedLink) {
+            $variants[] = $normalizedLink;
+        }
 
         if (!defined('APP_URL')) {
             return $variants;

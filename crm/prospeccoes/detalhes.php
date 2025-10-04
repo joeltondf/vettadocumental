@@ -11,6 +11,28 @@ if (!$prospeccao_id) {
     exit;
 }
 
+function formatSaoPauloDate(?string $dateTime, string $format = 'd/m/Y H:i', string $sourceTimezone = 'UTC'): string
+{
+    if ($dateTime === null || trim($dateTime) === '') {
+        return '';
+    }
+
+    try {
+        $date = new \DateTime($dateTime, new \DateTimeZone($sourceTimezone));
+        $date->setTimezone(new \DateTimeZone('America/Sao_Paulo'));
+
+        return $date->format($format);
+    } catch (\Exception $exception) {
+        $timestamp = strtotime($dateTime);
+
+        if ($timestamp === false) {
+            return $dateTime;
+        }
+
+        return date($format, $timestamp);
+    }
+}
+
 try {
     // A consulta já está correta
     $stmt = $pdo->prepare("
@@ -128,7 +150,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label for="data_reuniao_agendada" class="block text-sm font-medium text-gray-700">Data da Reunião</label>
-                            <input type="datetime-local" name="data_reuniao_agendada" id="data_reuniao_agendada" value="<?php echo !empty($prospect['data_reuniao_agendada']) ? date('Y-m-d\TH:i', strtotime($prospect['data_reuniao_agendada'])) : ''; ?>" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                            <input type="datetime-local" name="data_reuniao_agendada" id="data_reuniao_agendada" value="<?php echo !empty($prospect['data_reuniao_agendada']) ? htmlspecialchars(formatSaoPauloDate($prospect['data_reuniao_agendada'], 'Y-m-d\TH:i')) : ''; ?>" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
                         </div>
                         <div class="sm:col-span-1 flex items-center pt-4">
                             <input type="checkbox" name="reuniao_compareceu" id="reuniao_compareceu" value="1" <?php echo (!empty($prospect['reuniao_compareceu'])) ? 'checked' : ''; ?> class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
@@ -200,7 +222,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                                                 <p class="text-sm text-gray-500"><?php echo htmlspecialchars($interacao['usuario_nome'] ?? 'Sistema'); ?></p>
                                                 <p class="mt-1 text-sm text-gray-700"><?php echo nl2br(htmlspecialchars($interacao['observacao'])); ?></p>
                                             </div>
-                                            <div class="text-right text-sm whitespace-nowrap text-gray-500"><time><?php echo date('d/m/Y H:i', strtotime($interacao['data_interacao'])); ?></time></div>
+                                            <div class="text-right text-sm whitespace-nowrap text-gray-500"><time><?php echo htmlspecialchars(formatSaoPauloDate($interacao['data_interacao'])); ?></time></div>
                                         </div>
                                     </div>
                                 </div>
