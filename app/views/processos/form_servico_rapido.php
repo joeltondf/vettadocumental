@@ -337,35 +337,6 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
         </div>
     </div>
 
-    <div class="bg-gray-50 p-6 rounded-lg shadow-lg border border-gray-200 mt-6">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-semibold text-gray-700">Comprovantes de Pagamento</h2>
-            <span class="text-xs text-gray-600 font-medium" data-upload-counter="payment">0 arquivos novos</span>
-        </div>
-        <div class="space-y-2">
-            <label for="fastPaymentProofFiles" class="sr-only">Escolher arquivos</label>
-            <input type="file" name="paymentProofFiles[]" id="fastPaymentProofFiles" multiple data-preview-target="payment" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-gray-200 file:text-gray-700 hover:file:bg-gray-300">
-            <p class="text-xs text-gray-500">Anexe comprovantes de pagamento para agilizar a conciliação financeira.</p>
-            <ul class="text-xs text-gray-700 bg-white border border-gray-200 rounded-md divide-y" data-upload-preview="payment" data-empty-message="Nenhum arquivo selecionado.">
-                <li class="py-2 px-3 text-gray-500" data-upload-placeholder="payment">Nenhum arquivo selecionado.</li>
-            </ul>
-        </div>
-        <?php if (!empty($paymentProofAttachments)): ?>
-            <div class="rounded-md border border-gray-200 bg-white p-4 mt-4">
-                <h4 class="text-sm font-semibold text-gray-700 mb-2">Comprovantes já anexados</h4>
-                <ul class="space-y-2">
-                    <?php foreach ($paymentProofAttachments as $anexo): ?>
-                        <li class="flex items-center justify-between text-sm text-gray-700">
-                            <a href="visualizar_anexo.php?id=<?= $anexo['id'] ?>" target="_blank" class="text-gray-700 hover:underline">
-                                <?= htmlspecialchars($anexo['nome_arquivo_original']); ?>
-                            </a>
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
-            </div>
-        <?php endif; ?>
-    </div>
-
     <div id="section-container-apostilamento" class="bg-yellow-50 p-6 rounded-lg shadow-lg border border-yellow-200 mt-6" style="display: none;">
         <h2 class="text-xl font-semibold text-yellow-800 border-b border-yellow-200 pb-2">Etapa Apostilamento</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
@@ -430,8 +401,8 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
                     <label for="billing_type" class="block text-sm font-medium text-gray-700">Forma de Cobrança</label>
                     <select name="orcamento_forma_pagamento" id="billing_type" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
                         <option value="Pagamento único">Pagamento único</option>
-                        <option value="Pagamento Parcelado">Pagamento Parcelado</option>
-                        <option value="Pagamento Mensal">Pagamento Mensal</option>
+                        <option value="Pagamento parcelado">Pagamento parcelado</option>
+                        <option value="Pagamento mensal">Pagamento mensal</option>
                     </select>
                 </div>
                 <div class="md:col-span-2">
@@ -442,11 +413,8 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
 
             <div class="space-y-4" data-billing-section="Pagamento único">
                 <h3 class="text-md font-semibold text-gray-800">Pagamento único</h3>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700" for="billing_unique_amount">Valor pago</label>
-                        <input type="text" id="billing_unique_amount" data-field-name="orcamento_valor_entrada" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm valor-servico" placeholder="R$ 0,00">
-                    </div>
+                <p class="text-sm text-gray-600">O valor recebido será igual ao total calculado do serviço.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label class="block text-sm font-medium text-gray-700" for="billing_unique_date">Data do pagamento</label>
                         <input type="date" id="billing_unique_date" data-field-name="data_pagamento_1" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
@@ -458,10 +426,10 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
                 </div>
             </div>
 
-            <div class="space-y-4 hidden" data-billing-section="Pagamento Parcelado">
-                <h3 class="text-md font-semibold text-gray-800">Pagamento Parcelado</h3>
+            <div class="space-y-4 hidden" data-billing-section="Pagamento parcelado">
+                <h3 class="text-md font-semibold text-gray-800">Pagamento parcelado</h3>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
+                    <div id="entrada-wrapper">
                         <label class="block text-sm font-medium text-gray-700" for="billing_parcelado_entrada">Valor da 1ª parcela</label>
                         <input type="text" id="billing_parcelado_entrada" data-field-name="orcamento_valor_entrada" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm valor-servico" placeholder="R$ 0,00">
                     </div>
@@ -490,13 +458,10 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
                 </div>
             </div>
 
-            <div class="space-y-4 hidden" data-billing-section="Pagamento Mensal">
-                <h3 class="text-md font-semibold text-gray-800">Pagamento Mensal</h3>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700" for="billing_mensal_amount">Valor pago</label>
-                        <input type="text" id="billing_mensal_amount" data-field-name="orcamento_valor_entrada" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm valor-servico" placeholder="R$ 0,00">
-                    </div>
+            <div class="space-y-4 hidden" data-billing-section="Pagamento mensal">
+                <h3 class="text-md font-semibold text-gray-800">Pagamento mensal</h3>
+                <p class="text-sm text-gray-600">A primeira cobrança será igual ao valor total calculado para o período.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label class="block text-sm font-medium text-gray-700" for="billing_mensal_date">Data do pagamento</label>
                         <input type="date" id="billing_mensal_date" data-field-name="data_pagamento_1" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">

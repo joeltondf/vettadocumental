@@ -2,7 +2,7 @@
 // /app/views/processos/form.php
 $isEditMode = isset($processo) && $processo !== null;
 $cliente_pre_selecionado_id = $_GET['cliente_id'] ?? null;
-$return_url = $_GET['return_to'] ?? 'processos.php';
+$return_url = $_GET['return_to'] ?? ($_SERVER['HTTP_REFERER'] ?? 'processos.php');
 global $pdo; // Torna a conexão PDO disponível no escopo da view
 // Verificamos os parâmetros que são passados pela URL após a atualização do cliente
 $fromProspeccao = isset($_GET['cliente_id']) && (isset($_GET['titulo']) || isset($_GET['prospeccao_id']));
@@ -41,7 +41,6 @@ $disableFields = false;
 
 
 // O restante da sua lógica original continua aqui...
-$return_url = $_GET['return_to'] ?? 'processos.php';
 $tipos_traducao = $tipos_traducao ?? [];
 $tipos_crc = $tipos_crc ?? [];
 $financeiroServicos = [
@@ -52,6 +51,31 @@ $translationAttachments = isset($translationAttachments) && is_array($translatio
 $crcAttachments = isset($crcAttachments) && is_array($crcAttachments) ? $crcAttachments : [];
 $paymentProofAttachments = isset($paymentProofAttachments) && is_array($paymentProofAttachments) ? $paymentProofAttachments : [];
 $reuseTranslationForCrc = !empty($processo['reuseTraducaoForCrc'] ?? $formData['reuseTraducaoForCrc'] ?? null);
+$mapPaymentMethod = static function (?string $method): string {
+    $normalized = trim((string)$method);
+    switch (mb_strtolower($normalized)) {
+        case 'pagamento parcelado':
+        case 'parcelado':
+            return 'Pagamento parcelado';
+        case 'pagamento mensal':
+        case 'mensal':
+            return 'Pagamento mensal';
+        case 'pagamento único':
+        case 'pagamento unico':
+        case 'à vista':
+        case 'a vista':
+            return 'Pagamento único';
+        default:
+            return 'Pagamento único';
+    }
+};
+$paymentMethod = $mapPaymentMethod($processo['orcamento_forma_pagamento'] ?? $formData['orcamento_forma_pagamento'] ?? null);
+$paymentEntryRaw = $processo['orcamento_valor_entrada'] ?? $formData['orcamento_valor_entrada'] ?? '';
+$paymentEntryValue = is_numeric($paymentEntryRaw) ? number_format((float)$paymentEntryRaw, 2, ',', '.') : (string)$paymentEntryRaw;
+$paymentRestRaw = $processo['orcamento_valor_restante'] ?? $formData['orcamento_valor_restante'] ?? '';
+$paymentRestValue = is_numeric($paymentRestRaw) ? number_format((float)$paymentRestRaw, 2, ',', '.') : (string)$paymentRestRaw;
+$paymentDateOne = $processo['data_pagamento_1'] ?? $formData['data_pagamento_1'] ?? '';
+$paymentDateTwo = $processo['data_pagamento_2'] ?? $formData['data_pagamento_2'] ?? '';
 ?>
 
 <div class="flex items-center justify-between mb-6">
@@ -113,7 +137,11 @@ $reuseTranslationForCrc = !empty($processo['reuseTraducaoForCrc'] ?? $formData['
                             </option>
                         <?php endforeach; endif; ?>
                     </select>
-                    <a href="clientes.php?action=create&return_to=<?php echo urlencode(APP_URL . $_SERVER['REQUEST_URI']); ?>" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-md text-sm whitespace-nowrap" title="Adicionar Novo Cliente">+</a>
+                    <?php if ($isVendedor): ?>
+                        <a href="crm/leads.php?action=create&return_to=<?php echo urlencode(APP_URL . $_SERVER['REQUEST_URI']); ?>" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 rounded-md text-sm whitespace-nowrap" title="Adicionar Novo Lead">Adicionar Novo Lead</a>
+                    <?php else: ?>
+                        <a href="clientes.php?action=create&return_to=<?php echo urlencode(APP_URL . $_SERVER['REQUEST_URI']); ?>" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-md text-sm whitespace-nowrap" title="Adicionar Novo Cliente">+</a>
+                    <?php endif; ?>
                 </div>
             </div>
             <div>
@@ -308,22 +336,89 @@ $reuseTranslationForCrc = !empty($processo['reuseTraducaoForCrc'] ?? $formData['
         </fieldset>
     </div>
 
-    <div class="mt-6">
-        <fieldset class="border border-gray-200 rounded-md p-6 bg-gray-50 space-y-4">
-            <div class="flex items-center justify-between">
-                <legend class="text-lg font-semibold text-gray-700 px-2">Comprovantes de Pagamento</legend>
-                <span class="text-xs text-gray-600 font-medium" data-upload-counter="payment">0 arquivos novos</span>
-            </div>
-            <div class="space-y-2">
-                <label class="sr-only" for="paymentProofFiles">Escolher arquivos</label>
-                <input type="file" name="paymentProofFiles[]" id="paymentProofFiles" multiple data-preview-target="payment" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-gray-200 file:text-gray-700 hover:file:bg-gray-300">
-                <p class="text-xs text-gray-500">Faça o upload de comprovantes de pagamento para registrar entradas financeiras.</p>
-                <ul class="text-xs text-gray-700 bg-white border border-gray-200 rounded-md divide-y" data-upload-preview="payment" data-empty-message="Nenhum arquivo selecionado.">
-                    <li class="py-2 px-3 text-gray-500" data-upload-placeholder="payment">Nenhum arquivo selecionado.</li>
-                </ul>
+    <?php if (!$isVendedor): ?>
+        <fieldset class="border border-gray-200 rounded-md p-6 mt-6">
+            <legend class="text-lg font-semibold text-gray-700 px-2 bg-white ml-4">Condições de Pagamento</legend>
+            <div class="space-y-6 mt-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label for="billing_type" class="block text-sm font-medium text-gray-700">Forma de Cobrança</label>
+                        <select name="orcamento_forma_pagamento" id="billing_type" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                            <option value="Pagamento único" <?php echo $paymentMethod === 'Pagamento único' ? 'selected' : ''; ?>>Pagamento único</option>
+                            <option value="Pagamento parcelado" <?php echo $paymentMethod === 'Pagamento parcelado' ? 'selected' : ''; ?>>Pagamento parcelado</option>
+                            <option value="Pagamento mensal" <?php echo $paymentMethod === 'Pagamento mensal' ? 'selected' : ''; ?>>Pagamento mensal</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700" for="billing_total_display">Valor Total do Orçamento</label>
+                        <input type="text" id="billing_total_display" class="mt-1 block w-full p-2 border border-blue-200 rounded-md bg-blue-50 text-blue-700 font-semibold" value="R$ 0,00" readonly>
+                    </div>
+                </div>
+
+                <div class="space-y-4 <?php echo $paymentMethod === 'Pagamento único' ? '' : 'hidden'; ?>" data-billing-section="Pagamento único">
+                    <h3 class="text-md font-semibold text-gray-800">Pagamento único</h3>
+                    <p class="text-sm text-gray-600">O valor recebido será igual ao total calculado do orçamento.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700" for="billing_unique_date">Data do pagamento</label>
+                            <input type="date" id="billing_unique_date" value="<?php echo htmlspecialchars($paymentDateOne); ?>" data-field-name="data_pagamento_1" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700" for="billing_unique_receipt">Comprovante do pagamento</label>
+                            <input type="file" id="billing_unique_receipt" data-field-name="paymentProofFiles[]" class="mt-1 block w-full text-sm text-gray-500">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-4 <?php echo $paymentMethod === 'Pagamento parcelado' ? '' : 'hidden'; ?>" data-billing-section="Pagamento parcelado">
+                    <h3 class="text-md font-semibold text-gray-800">Pagamento parcelado</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div id="entrada-wrapper" class="<?php echo $paymentMethod === 'Pagamento parcelado' ? '' : 'hidden'; ?>">
+                            <label class="block text-sm font-medium text-gray-700" for="billing_parcelado_entrada">Valor da 1ª parcela</label>
+                            <input type="text" id="billing_parcelado_entrada" value="<?php echo htmlspecialchars($paymentEntryValue); ?>" data-field-name="orcamento_valor_entrada" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm valor-servico" placeholder="R$ 0,00">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700" for="billing_parcelado_data1">Data da 1ª parcela</label>
+                            <input type="date" id="billing_parcelado_data1" value="<?php echo htmlspecialchars($paymentDateOne); ?>" data-field-name="data_pagamento_1" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700" for="billing_parcelado_receipt1">Comprovante da 1ª parcela</label>
+                            <input type="file" id="billing_parcelado_receipt1" data-field-name="paymentProofFiles[]" class="mt-1 block w-full text-sm text-gray-500">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700" for="billing_parcelado_restante">Valor restante</label>
+                            <input type="text" id="billing_parcelado_restante" value="<?php echo htmlspecialchars($paymentRestValue ?: 'R$ 0,00'); ?>" data-field-name="orcamento_valor_restante" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm bg-gray-100" readonly>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700" for="billing_parcelado_data2">Data da 2ª parcela</label>
+                            <input type="date" id="billing_parcelado_data2" value="<?php echo htmlspecialchars($paymentDateTwo); ?>" data-field-name="data_pagamento_2" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700" for="billing_parcelado_receipt2">Comprovante da 2ª parcela</label>
+                            <input type="file" id="billing_parcelado_receipt2" data-field-name="paymentProofFiles[]" class="mt-1 block w-full text-sm text-gray-500">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-4 <?php echo $paymentMethod === 'Pagamento mensal' ? '' : 'hidden'; ?>" data-billing-section="Pagamento mensal">
+                    <h3 class="text-md font-semibold text-gray-800">Pagamento mensal</h3>
+                    <p class="text-sm text-gray-600">A primeira cobrança será igual ao valor total calculado para o período.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700" for="billing_mensal_date">Data do pagamento</label>
+                            <input type="date" id="billing_mensal_date" value="<?php echo htmlspecialchars($paymentDateOne); ?>" data-field-name="data_pagamento_1" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700" for="billing_mensal_receipt">Comprovante do pagamento</label>
+                            <input type="file" id="billing_mensal_receipt" data-field-name="paymentProofFiles[]" class="mt-1 block w-full text-sm text-gray-500">
+                        </div>
+                    </div>
+                </div>
             </div>
             <?php if (!empty($paymentProofAttachments)): ?>
-                <div class="rounded-md border border-gray-200 bg-white p-4">
+                <div class="rounded-md border border-gray-200 bg-white p-4 mt-4">
                     <h4 class="text-sm font-semibold text-gray-700 mb-2">Comprovantes já anexados</h4>
                     <ul class="space-y-2">
                         <?php foreach ($paymentProofAttachments as $anexo): ?>
@@ -340,7 +435,7 @@ $reuseTranslationForCrc = !empty($processo['reuseTraducaoForCrc'] ?? $formData['
                 </div>
             <?php endif; ?>
         </fieldset>
-    </div>
+    <?php endif; ?>
 
     <div id="section-apostilamento" class="service-section hidden">
         <fieldset class="border border-yellow-300 rounded-md p-6 bg-yellow-50">
@@ -487,6 +582,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const budgetMinAlertMessage = 'Atenção: O valor informado está abaixo do mínimo cadastrado. A supervisão irá validar e o orçamento ficará pendente até a aprovação.';
     const financeServices = <?php echo json_encode($financeiroServicos, JSON_UNESCAPED_UNICODE); ?>;
     const statusHiddenInput = document.querySelector('input[name="status_processo"]');
+    const billingTypeSelect = document.getElementById('billing_type');
+    const billingSections = document.querySelectorAll('[data-billing-section]');
+    const entradaWrapper = document.getElementById('entrada-wrapper');
+    const parceladoEntryInput = document.getElementById('billing_parcelado_entrada');
+    const parceladoRestInput = document.getElementById('billing_parcelado_restante');
     if (statusHiddenInput) {
         statusHiddenInput.dataset.originalStatus = statusHiddenInput.value || 'Orçamento';
     }
@@ -536,6 +636,56 @@ document.addEventListener('DOMContentLoaded', function() {
     function formatInteger(value) {
         if (!value) return '0';
         return String(value).replace(/\D/g, '');
+    }
+
+    function updateParceladoRestante() {
+        if (!parceladoEntryInput || !parceladoRestInput) {
+            return;
+        }
+
+        const hiddenTotalInput = document.getElementById('valor_total_hidden');
+        if (!hiddenTotalInput) {
+            return;
+        }
+
+        const total = parseCurrency(hiddenTotalInput.value || '');
+        const entrada = parseCurrency(parceladoEntryInput.value || '');
+        const restante = Math.max(total - entrada, 0);
+        parceladoRestInput.value = formatCurrency(restante * 100);
+    }
+
+    function toggleBillingSections() {
+        if (!billingTypeSelect || billingSections.length === 0) {
+            return;
+        }
+
+        const selectedType = billingTypeSelect.value;
+        billingSections.forEach(section => {
+            const isActive = section.dataset.billingSection === selectedType;
+            section.classList.toggle('hidden', !isActive);
+            section.querySelectorAll('[data-field-name]').forEach(input => {
+                if (isActive) {
+                    input.name = input.dataset.fieldName;
+                    input.disabled = false;
+                } else {
+                    input.removeAttribute('name');
+                    input.disabled = true;
+                    if (input.type === 'file') {
+                        input.value = '';
+                    }
+                }
+            });
+        });
+
+        if (entradaWrapper) {
+            const showEntry = selectedType === 'Pagamento parcelado';
+            entradaWrapper.classList.toggle('hidden', !showEntry);
+            if (!showEntry && parceladoEntryInput) {
+                parceladoEntryInput.value = '';
+            }
+        }
+
+        updateParceladoRestante();
     }
 
     function setPreviewMessage(target, message = null) {
@@ -795,6 +945,14 @@ document.addEventListener('DOMContentLoaded', function() {
             handleClienteChange(true);
         });
     }
+
+    if (billingTypeSelect) {
+        billingTypeSelect.addEventListener('change', toggleBillingSections);
+    }
+
+    if (parceladoEntryInput) {
+        parceladoEntryInput.addEventListener('input', updateParceladoRestante);
+    }
     // Aplica a máscara de moeda a todos os campos relevantes em tempo real,
     // inclusive os que forem criados dinamicamente (.doc-price).
     document.body.addEventListener('input', function(e) {
@@ -858,6 +1016,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const totalDocumentosEl = document.getElementById('total-documentos');
         const resumoTotalInput = document.getElementById('resumo_valor_total');
         const hiddenTotalInput = document.getElementById('valor_total_hidden');
+        const billingTotalDisplayInput = document.getElementById('billing_total_display');
 
         if (totalDocumentosEl) {
             totalDocumentosEl.textContent = totalDocumentos;
@@ -868,6 +1027,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (hiddenTotalInput) {
             hiddenTotalInput.value = formatCurrency(totalGeral * 100);
         }
+        if (billingTotalDisplayInput) {
+            billingTotalDisplayInput.value = formatCurrency(totalGeral * 100);
+        }
+
+        updateParceladoRestante();
     }
 
     const form = document.getElementById('processo-form');
@@ -1056,6 +1220,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     handleClienteChange(false).then(() => {
         loadExistingData();
+        toggleBillingSections();
+        updateParceladoRestante();
     });
 });
 </script>
