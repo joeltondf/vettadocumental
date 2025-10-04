@@ -135,9 +135,23 @@ try {
 </style>
 
 
-<div class="flex justify-between items-center border-b border-gray-200 pb-4 mb-4">
-    <h1 class="text-2xl font-bold text-gray-800">Funil de Vendas (Kanban)</h1>
-    <a href="<?php echo APP_URL; ?>/crm/prospeccoes/lista.php" class="bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">Ver em Lista</a>
+<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between border-b border-gray-200 pb-4 mb-4">
+    <div class="flex items-center justify-between gap-3">
+        <h1 class="text-2xl font-bold text-gray-800">Funil de Vendas (Kanban)</h1>
+        <a href="<?php echo APP_URL; ?>/crm/prospeccoes/lista.php" class="bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">Ver em Lista</a>
+    </div>
+    <div class="flex flex-wrap items-center gap-3">
+        <button id="toggleSelectionBtn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">Selecionar múltiplos</button>
+        <div id="bulkActions" class="hidden items-center gap-2">
+            <span class="text-sm text-gray-600">Selecionados: <span id="selectedCount">0</span></span>
+            <select id="bulkStatusSelect" class="border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <?php foreach ($colunas_kanban as $coluna): ?>
+                    <option value="<?php echo htmlspecialchars($coluna); ?>"><?php echo htmlspecialchars($coluna); ?></option>
+                <?php endforeach; ?>
+            </select>
+            <button id="bulkMoveBtn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>Mover selecionados</button>
+        </div>
+    </div>
 </div>
 
 <!-- O Painel Kanban -->
@@ -148,10 +162,14 @@ try {
             <div class="p-3 kanban-cards-container space-y-3" data-status="<?php echo htmlspecialchars($status); ?>">
                 <?php foreach ($prospeccoes_por_status[$status] as $prospeccao): ?>
                     <div class="bg-white p-3 rounded-lg shadow-sm kanban-card" data-id="<?php echo $prospeccao['id']; ?>">
-                        <p class="font-semibold text-sm text-gray-800"><?php echo htmlspecialchars($prospeccao['nome_prospecto']); ?></p>
-                        <p class="text-xs text-gray-600 mt-1"><?php echo htmlspecialchars($prospeccao['nome_cliente'] ?? 'Lead não associado'); ?></p>
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <p class="font-semibold text-sm text-gray-800"><?php echo htmlspecialchars($prospeccao['nome_prospecto']); ?></p>
+                                <p class="text-xs text-gray-600 mt-1"><?php echo htmlspecialchars($prospeccao['nome_cliente'] ?? 'Lead não associado'); ?></p>
+                            </div>
+                            <input type="checkbox" class="card-checkbox hidden mt-1 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" aria-label="Selecionar lead">
+                        </div>
                         <div class="flex justify-between items-center mt-3">
-                            
                             <p class="text-xs text-blue-600 font-bold">R$ <?php echo number_format($prospeccao['valor_proposto'] ?? 0, 2, ',', '.'); ?></p>
                             <?php if (!empty($prospeccao['responsavel_nome'])): ?>
                                 <div class="avatar" title="<?php echo htmlspecialchars($prospeccao['responsavel_nome']); ?>">
@@ -183,27 +201,178 @@ try {
         const API_BASE_URL = '<?php echo APP_URL; ?>/crm/prospeccoes';
         
         const containers = document.querySelectorAll('.kanban-cards-container');
-        containers.forEach(container => { new Sortable(container, { group: 'kanban', animation: 150, ghostClass: 'sortable-ghost', onEnd: updateCardStatus }); });
+        const sortableInstances = [];
 
-        function updateCardStatus(evt) {
-            const prospeccao_id = evt.item.dataset.id;
-            const novo_status = evt.to.dataset.status;
-            fetch(`${API_BASE_URL}/atualizar_status_kanban.php`, {
+        containers.forEach(container => {
+            const sortable = new Sortable(container, {
+                group: 'kanban',
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                onEnd: handleSortEnd
+            });
+            sortableInstances.push(sortable);
+        });
+
+        const toggleSelectionBtn = document.getElementById('toggleSelectionBtn');
+        const bulkActions = document.getElementById('bulkActions');
+        const selectedCountEl = document.getElementById('selectedCount');
+        const bulkStatusSelect = document.getElementById('bulkStatusSelect');
+        const bulkMoveBtn = document.getElementById('bulkMoveBtn');
+
+        const selectionElementsExist = toggleSelectionBtn && bulkActions && selectedCountEl && bulkStatusSelect && bulkMoveBtn;
+
+        let selectionMode = false;
+        const selectedCards = new Set();
+
+        if (selectionElementsExist) {
+            toggleSelectionBtn.addEventListener('click', () => {
+                selectionMode = !selectionMode;
+                toggleSelectionBtn.textContent = selectionMode ? 'Cancelar seleção' : 'Selecionar múltiplos';
+                bulkActions.classList.toggle('hidden', !selectionMode);
+
+                if (!selectionMode) {
+                    selectedCards.clear();
+                }
+
+                refreshSelectionState();
+            });
+
+            bulkMoveBtn.addEventListener('click', () => {
+                if (selectedCards.size === 0) {
+                    return;
+                }
+
+                const targetStatus = bulkStatusSelect.value;
+
+                if (!targetStatus) {
+                    alert('Selecione uma coluna de destino.');
+                    return;
+                }
+
+                bulkMoveBtn.disabled = true;
+
+                const ids = Array.from(selectedCards);
+                const updatePromises = ids.map(id => postStatusChange(id, targetStatus));
+
+                Promise.allSettled(updatePromises).then(results => {
+                    const hasError = results.some(result => result.status === 'rejected');
+                    if (hasError) {
+                        alert('Alguns leads não foram atualizados corretamente. A página será recarregada.');
+                    }
+                    window.location.reload();
+                });
+            });
+        }
+
+        function postStatusChange(prospeccaoId, novoStatus) {
+            return fetch(`${API_BASE_URL}/atualizar_status_kanban.php`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prospeccao_id: prospeccao_id, novo_status: novo_status })
-            }).then(res => res.json()).then(data => { if (!data.success) { alert('Erro ao atualizar.'); location.reload(); }});
+                body: JSON.stringify({ prospeccao_id: prospeccaoId, novo_status: novoStatus })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erro ao atualizar o status.');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (!data.success) {
+                    throw new Error(data.message || 'Erro ao atualizar o status.');
+                }
+                return data;
+            });
+        }
+
+        function handleSortEnd(evt) {
+            const prospeccaoId = evt.item.dataset.id;
+            const novoStatus = evt.to.dataset.status;
+
+            postStatusChange(prospeccaoId, novoStatus).catch(() => {
+                alert('Erro ao atualizar.');
+                location.reload();
+            });
+        }
+
+        function toggleCardSelection(card, shouldSelect) {
+            if (!selectionElementsExist) {
+                return;
+            }
+
+            const cardId = card.dataset.id;
+            if (!cardId) {
+                return;
+            }
+
+            if (shouldSelect) {
+                selectedCards.add(cardId);
+            } else {
+                selectedCards.delete(cardId);
+            }
+
+            refreshSelectionState();
+        }
+
+        function refreshSelectionState() {
+            if (!selectionElementsExist) {
+                return;
+            }
+
+            sortableInstances.forEach(instance => instance.option('disabled', selectionMode));
+
+            document.querySelectorAll('.kanban-card').forEach(card => {
+                const checkbox = card.querySelector('.card-checkbox');
+                if (!checkbox) {
+                    return;
+                }
+
+                if (selectionMode) {
+                    checkbox.classList.remove('hidden');
+                    const isSelected = selectedCards.has(card.dataset.id);
+                    checkbox.checked = isSelected;
+                    card.classList.toggle('ring-2', isSelected);
+                    card.classList.toggle('ring-blue-500', isSelected);
+                    card.classList.toggle('bg-blue-50', isSelected);
+                } else {
+                    checkbox.classList.add('hidden');
+                    checkbox.checked = false;
+                    card.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50');
+                }
+            });
+
+            selectedCountEl.textContent = selectedCards.size;
+            bulkMoveBtn.disabled = selectedCards.size === 0;
         }
 
         const modal = document.getElementById('cardModal');
         const modalContent = document.getElementById('modalContent');
-        
+
         document.querySelectorAll('.kanban-card').forEach(card => {
-            card.addEventListener('click', function() {
+            const checkbox = card.querySelector('.card-checkbox');
+
+            if (selectionElementsExist && checkbox) {
+                checkbox.addEventListener('click', (event) => event.stopPropagation());
+                checkbox.addEventListener('change', (event) => {
+                    toggleCardSelection(card, event.target.checked);
+                });
+            }
+
+            card.addEventListener('click', function(event) {
+                if (selectionElementsExist && selectionMode) {
+                    const isSelected = selectedCards.has(card.dataset.id);
+                    toggleCardSelection(card, !isSelected);
+                    event.preventDefault();
+                    return;
+                }
+
                 const prospeccaoId = this.dataset.id;
                 openCardModal(prospeccaoId);
             });
         });
+
+        if (selectionElementsExist) {
+            refreshSelectionState();
+        }
 
         modal.addEventListener('click', function(e) {
             if (e.target === modal) {

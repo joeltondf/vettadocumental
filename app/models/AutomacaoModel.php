@@ -237,4 +237,36 @@ class AutomacaoModel
         $stmt->execute([$campanhaId, $clienteId]);
         return $stmt->fetchColumn() > 0;
     }
+
+    /**
+     * Retorna as campanhas ativas associadas a um status específico do Kanban.
+     *
+     * @param string $status
+     * @return array
+     */
+    public function getCampanhasAtivasPorStatus(string $status): array
+    {
+        $stmt = $this->pdo->query("SELECT * FROM automacao_campanhas WHERE ativo = 1");
+        $campanhasAtivas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (empty($campanhasAtivas)) {
+            return [];
+        }
+
+        $campanhasFiltradas = [];
+
+        foreach ($campanhasAtivas as $campanha) {
+            $gatilhos = json_decode($campanha['crm_gatilhos'], true);
+
+            if (!is_array($gatilhos)) {
+                continue;
+            }
+
+            if (in_array($status, $gatilhos, true)) {
+                $campanhasFiltradas[] = $campanha;
+            }
+        }
+
+        return $campanhasFiltradas;
+    }
 }
