@@ -178,7 +178,7 @@
         updateSummary();
     };
 
-document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener('DOMContentLoaded', () => {
         const deadlineForm = document.querySelector('[data-conversion-step="deadline"]');
         if (deadlineForm) {
             setupDeadlineForm(deadlineForm);
