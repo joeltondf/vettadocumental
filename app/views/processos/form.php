@@ -156,14 +156,23 @@ $paymentDateTwo = $processo['data_pagamento_2'] ?? $formData['data_pagamento_2']
                             </option>
                         <?php endforeach; endif; ?>
                     </select>
-                    <?php if ($isVendedor): ?>
-                        <a href="crm/leads.php?action=create&return_to=<?php echo urlencode(APP_URL . $_SERVER['REQUEST_URI']); ?>" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 rounded-md text-sm whitespace-nowrap flex items-center justify-center" title="Adicionar Novo Lead">
-                            <span class="sr-only">Adicionar Novo Lead</span>
-                            <span aria-hidden="true" class="text-lg leading-none font-bold">+</span>
-                        </a>
-                    <?php else: ?>
-                        <a href="clientes.php?action=create&return_to=<?php echo urlencode(APP_URL . $_SERVER['REQUEST_URI']); ?>" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-md text-sm whitespace-nowrap" title="Adicionar Novo Cliente">+</a>
-                    <?php endif; ?>
+            <?php
+            $currentUrl = APP_URL . $_SERVER['REQUEST_URI'];
+            $returnToUrl = urlencode($currentUrl);
+            if ($isVendedor):
+                // Para vendedores, o link aponta para o formulário de criação de leads.
+                $createUrl = "crm/clientes/novo.php?return_to=" . $returnToUrl;
+            ?>
+                <a href="<?php echo $createUrl; ?>" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 rounded-md text-sm whitespace-nowrap flex items-center justify-center" title="Adicionar Novo Lead">
+                    <span class="sr-only">Adicionar Novo Lead</span>
+                    <span aria-hidden="true" class="text-lg leading-none font-bold">+</span>
+                </a>
+            <?php else:
+                // Para outros perfis, o link aponta para o formulário de criação de clientes.
+                $createUrl = "clientes.php?action=create&return_to=" . $returnToUrl;
+            ?>
+                <a href="<?php echo $createUrl; ?>" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-md text-sm whitespace-nowrap" title="Adicionar Novo Cliente">+</a>
+            <?php endif; ?>
                 </div>
             </div>
             <div>
