@@ -309,4 +309,4 @@ $parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balan
     </form>
 </div>
 
-<script src="<?= ASSETS_URL ?>js/service-conversion.js"></script>
+<script src="assets/js/service-conversion.js"></script>
