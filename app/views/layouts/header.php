@@ -38,18 +38,7 @@ $total_alertas = 0;
 if (isset($_SESSION['user_id'])) {
     // 1. Conta e busca notificações padrão
     $count_notificacoes = $notificacaoModel->countNaoLidas($_SESSION['user_id']);
-    $sql_notificacoes = "
-        SELECT n.*
-        FROM notificacoes n
-        LEFT JOIN processos p ON p.id = CAST(SUBSTRING_INDEX(n.link, 'id=', -1) AS UNSIGNED)
-        WHERE n.usuario_id = ?
-          AND (n.link NOT LIKE '%processos.php?action=view&id=%' OR p.id IS NOT NULL)
-        ORDER BY n.data_criacao DESC
-        LIMIT 15
-    ";
-    $stmt_list = $pdo->prepare($sql_notificacoes);
-    $stmt_list->execute([$_SESSION['user_id']]);
-    $lista_notificacoes_dropdown = $stmt_list->fetchAll(PDO::FETCH_ASSOC);
+    $lista_notificacoes_dropdown = $notificacaoModel->getDropdownNotifications($_SESSION['user_id']);
 
     // 2. Conta e busca retornos de prospecção (LÓGICA AJUSTADA)
     // Apenas para perfis de gestão e vendedores
@@ -194,18 +183,24 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
                                 }
                                 ?>
                                 <?php foreach ($lista_notificacoes_dropdown as $notificacao): ?>
-                                    <?php 
+                                    <?php
                                     $style = get_notification_style($notificacao['mensagem']);
                                     $is_unread = !$notificacao['lida'];
+                                    $link_href = '#';
+                                    if (!empty($notificacao['link']) && $notificacao['link'] !== '#') {
+                                        $link_href = preg_match('/^https?:\/\//i', $notificacao['link'])
+                                            ? $notificacao['link']
+                                            : APP_URL . $notificacao['link'];
+                                    }
                                     ?>
                                     <div class="border-b border-gray-100 last:border-b-0">
                                         <div class="flex items-center justify-between px-4 py-3 <?php echo $style; ?>">
-                                            <a href="<?php echo APP_URL . htmlspecialchars($notificacao['link']); ?>" class="flex-grow truncate">
+                                            <a href="<?php echo htmlspecialchars($link_href); ?>" class="flex-grow truncate">
                                                 <p class="text-sm text-gray-800 <?php echo $is_unread ? 'font-bold' : ''; ?>">
                                                     <?php echo htmlspecialchars($notificacao['mensagem']); ?>
                                                 </p>
                                                 <p class="text-xs text-gray-500 mt-1">
-                                                    <?php echo date('d/m/Y H:i', strtotime($notificacao['data_criacao'])); ?>
+                                                    <?php echo htmlspecialchars($notificacao['display_date'] ?? ''); ?>
                                                 </p>
                                             </a>
                                             <a href="<?php echo APP_URL; ?>/dashboard.php?action=delete_notification&id=<?php echo $notificacao['id']; ?>" 
