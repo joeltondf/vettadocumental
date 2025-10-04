@@ -421,7 +421,14 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700" for="billing_unique_receipt">Comprovante do pagamento</label>
-                        <input type="file" id="billing_unique_receipt" data-field-name="paymentProofFiles[]" class="mt-1 block w-full text-sm text-gray-500">
+                        <label for="billing_unique_receipt" class="mt-2 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-blue-300 bg-blue-50 px-4 py-5 text-center text-blue-600 transition hover:border-blue-400 hover:bg-blue-100 cursor-pointer" role="button">
+                            <svg class="mb-2 h-6 w-6 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-3-3v6m8 4a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h7.586a2 2 0 011.414.586l4.414 4.414A2 2 0 0120 9.414V19z" />
+                            </svg>
+                            <span class="text-sm font-semibold">Clique para selecionar ou arraste o arquivo</span>
+                            <span class="mt-1 text-xs text-blue-500" data-upload-filename="billing_unique_receipt" data-placeholder="Nenhum arquivo selecionado">Nenhum arquivo selecionado</span>
+                        </label>
+                        <input type="file" id="billing_unique_receipt" data-field-name="paymentProofFiles[]" data-upload-display="billing_unique_receipt" class="hidden" accept=".pdf,.png,.jpg,.jpeg,.heic">
                     </div>
                 </div>
             </div>
@@ -439,7 +446,14 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700" for="billing_parcelado_receipt1">Comprovante da 1ª parcela</label>
-                        <input type="file" id="billing_parcelado_receipt1" data-field-name="paymentProofFiles[]" class="mt-1 block w-full text-sm text-gray-500">
+                        <label for="billing_parcelado_receipt1" class="mt-2 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-green-300 bg-green-50 px-4 py-5 text-center text-green-600 transition hover:border-green-400 hover:bg-green-100 cursor-pointer" role="button">
+                            <svg class="mb-2 h-6 w-6 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                            </svg>
+                            <span class="text-sm font-semibold">Envie o comprovante da primeira parcela</span>
+                            <span class="mt-1 text-xs text-green-600" data-upload-filename="billing_parcelado_receipt1" data-placeholder="Nenhum arquivo selecionado">Nenhum arquivo selecionado</span>
+                        </label>
+                        <input type="file" id="billing_parcelado_receipt1" data-field-name="paymentProofFiles[]" data-upload-display="billing_parcelado_receipt1" class="hidden" accept=".pdf,.png,.jpg,.jpeg,.heic">
                     </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -453,7 +467,14 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700" for="billing_parcelado_receipt2">Comprovante da 2ª parcela</label>
-                        <input type="file" id="billing_parcelado_receipt2" data-field-name="paymentProofFiles[]" class="mt-1 block w-full text-sm text-gray-500">
+                        <label for="billing_parcelado_receipt2" class="mt-2 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-purple-300 bg-purple-50 px-4 py-5 text-center text-purple-600 transition hover:border-purple-400 hover:bg-purple-100 cursor-pointer" role="button">
+                            <svg class="mb-2 h-6 w-6 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                            </svg>
+                            <span class="text-sm font-semibold">Envie o comprovante da segunda parcela</span>
+                            <span class="mt-1 text-xs text-purple-600" data-upload-filename="billing_parcelado_receipt2" data-placeholder="Nenhum arquivo selecionado">Nenhum arquivo selecionado</span>
+                        </label>
+                        <input type="file" id="billing_parcelado_receipt2" data-field-name="paymentProofFiles[]" data-upload-display="billing_parcelado_receipt2" class="hidden" accept=".pdf,.png,.jpg,.jpeg,.heic">
                     </div>
                 </div>
             </div>
@@ -468,7 +489,14 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700" for="billing_mensal_receipt">Comprovante do pagamento</label>
-                        <input type="file" id="billing_mensal_receipt" data-field-name="paymentProofFiles[]" class="mt-1 block w-full text-sm text-gray-500">
+                        <label for="billing_mensal_receipt" class="mt-2 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-indigo-300 bg-indigo-50 px-4 py-5 text-center text-indigo-600 transition hover:border-indigo-400 hover:bg-indigo-100 cursor-pointer" role="button">
+                            <svg class="mb-2 h-6 w-6 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-3-3v6m8 4a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h7.586a2 2 0 011.414.586l4.414 4.414A2 2 0 0120 9.414V19z" />
+                            </svg>
+                            <span class="text-sm font-semibold">Envie o comprovante do pagamento mensal</span>
+                            <span class="mt-1 text-xs text-indigo-600" data-upload-filename="billing_mensal_receipt" data-placeholder="Nenhum arquivo selecionado">Nenhum arquivo selecionado</span>
+                        </label>
+                        <input type="file" id="billing_mensal_receipt" data-field-name="paymentProofFiles[]" data-upload-display="billing_mensal_receipt" class="hidden" accept=".pdf,.png,.jpg,.jpeg,.heic">
                     </div>
                 </div>
             </div>
@@ -595,6 +623,39 @@ document.addEventListener('DOMContentLoaded', function () {
     const billingTypeSelect = document.getElementById('billing_type');
     const billingSections = document.querySelectorAll('[data-billing-section]');
 
+    function updateFileTileDisplay(input) {
+        if (!input) {
+            return;
+        }
+
+        const displayId = input.dataset.uploadDisplay;
+        if (!displayId) {
+            return;
+        }
+
+        const displayElement = document.querySelector(`[data-upload-filename="${displayId}"]`);
+        if (!displayElement) {
+            return;
+        }
+
+        const placeholder = displayElement.dataset.placeholder || 'Nenhum arquivo selecionado';
+
+        if (!input.files || input.files.length === 0) {
+            displayElement.textContent = placeholder;
+            return;
+        }
+
+        const names = Array.from(input.files).map(file => file.name).join(', ');
+        displayElement.textContent = names;
+    }
+
+    function bindFileTileInputs() {
+        document.querySelectorAll('input[type="file"][data-upload-display]').forEach(input => {
+            input.addEventListener('change', () => updateFileTileDisplay(input));
+            updateFileTileDisplay(input);
+        });
+    }
+
     function setPreviewMessage(target, message = null) {
         const preview = document.querySelector(`[data-upload-preview="${target}"]`);
         if (!preview) {
@@ -661,6 +722,8 @@ document.addEventListener('DOMContentLoaded', function () {
     uploadInputs.forEach(input => {
         input.addEventListener('change', () => refreshUploadSummary(input));
     });
+
+    bindFileTileInputs();
 
     const fastReuseCheckbox = document.getElementById('fastReuseTranslationForCrc');
     const fastCrcInput = document.getElementById('fastCrcFiles');
@@ -1123,6 +1186,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     input.disabled = true;
                     if (input.type === 'file') {
                         input.value = '';
+                        updateFileTileDisplay(input);
                     }
                 }
             });

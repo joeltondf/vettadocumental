@@ -13,12 +13,14 @@ $processStatus = isset($processo['status_processo']) ? $processo['status_process
 // 2. Obtém os dados do usuário logado
 $isVendedor = (isset($_SESSION['user_perfil']) && $_SESSION['user_perfil'] === 'vendedor');
 $loggedInVendedorId = null;
+$vendedor_nome_logado = '';
 if ($isVendedor && isset($_SESSION['user_id'])) {
-    $stmt = $pdo->prepare("SELECT id FROM vendedores WHERE user_id = ?");
+    $stmt = $pdo->prepare("SELECT id, nome_vendedor FROM vendedores WHERE user_id = ? LIMIT 1");
     $stmt->execute([$_SESSION['user_id']]);
     $vendedor_logado = $stmt->fetch();
     if ($vendedor_logado) {
         $loggedInVendedorId = $vendedor_logado['id'];
+        $vendedor_nome_logado = $vendedor_logado['nome_vendedor'] ?? '';
     }
 }
 
@@ -32,8 +34,14 @@ if ($isEditMode) {
 }
 $cliente_id_selecionado = $_GET['cliente_id'] ?? ($processo['cliente_id'] ?? null);
 
-// Se for conversão, o vendedor é o logado. Se for edição, é o que está salvo no processo.
-$vendedor_id_selecionado = $fromProspeccao ? $loggedInVendedorId : ($processo['vendedor_id'] ?? null);
+// Se o usuário for vendedor, fixa o responsável como o próprio usuário logado.
+if ($isVendedor && $loggedInVendedorId) {
+    $vendedor_id_selecionado = $isEditMode
+        ? ($processo['vendedor_id'] ?? $loggedInVendedorId)
+        : $loggedInVendedorId;
+} else {
+    $vendedor_id_selecionado = $fromProspeccao ? $loggedInVendedorId : ($processo['vendedor_id'] ?? null);
+}
 
 // 4. Define se os campos devem ser desabilitados
 $disableFields = false;
@@ -132,13 +140,16 @@ $paymentDateTwo = $processo['data_pagamento_2'] ?? $formData['data_pagamento_2']
                     <select name="cliente_id" id="cliente_id" class="block w-full p-2 border border-gray-300 rounded-md shadow-sm" required <?php if ($disableFields) echo 'disabled'; ?>>
                         <option value="">Selecione...</option>
                         <?php if (!empty($clientes)): foreach ($clientes as $cliente): ?>
-                            <option value="<?php echo $cliente['id']; ?>" data-tipo-assessoria="<?php echo $cliente['tipo_assessoria'] ?? ''; ?>" <?php echo ($cliente_id_selecionado == $cliente['id']) ? 'selected' : ''; ?>>
+                            <option value="<?php echo $cliente['id']; ?>" data-tipo-assessoria="<?php echo $cliente['tipo_assessoria'] ?? ''; ?>" data-canal-origem="<?php echo htmlspecialchars($cliente['canal_origem'] ?? ''); ?>" <?php echo ($cliente_id_selecionado == $cliente['id']) ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($cliente['nome_cliente']); ?>
                             </option>
                         <?php endforeach; endif; ?>
                     </select>
                     <?php if ($isVendedor): ?>
-                        <a href="crm/leads.php?action=create&return_to=<?php echo urlencode(APP_URL . $_SERVER['REQUEST_URI']); ?>" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 rounded-md text-sm whitespace-nowrap" title="Adicionar Novo Lead">Adicionar Novo Lead</a>
+                        <a href="crm/leads.php?action=create&return_to=<?php echo urlencode(APP_URL . $_SERVER['REQUEST_URI']); ?>" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 rounded-md text-sm whitespace-nowrap flex items-center justify-center" title="Adicionar Novo Lead">
+                            <span class="sr-only">Adicionar Novo Lead</span>
+                            <span aria-hidden="true" class="text-lg leading-none font-bold">+</span>
+                        </a>
                     <?php else: ?>
                         <a href="clientes.php?action=create&return_to=<?php echo urlencode(APP_URL . $_SERVER['REQUEST_URI']); ?>" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-md text-sm whitespace-nowrap" title="Adicionar Novo Cliente">+</a>
                     <?php endif; ?>
@@ -146,14 +157,21 @@ $paymentDateTwo = $processo['data_pagamento_2'] ?? $formData['data_pagamento_2']
             </div>
             <div>
                 <label for="vendedor_id" class="block text-sm font-medium text-gray-700">Vendedor *</label>
-                <select name="vendedor_id" id="vendedor_id" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required <?php if ($disableFields) echo 'disabled'; ?>>
-                    <option value="">Selecione...</option>
-                    <?php if (!empty($vendedores)): foreach ($vendedores as $vendedor): ?>
-                        <option value="<?php echo $vendedor['id']; ?>" <?php echo ($vendedor_id_selecionado == $vendedor['id']) ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($vendedor['nome_vendedor']); ?>
-                        </option>
-                    <?php endforeach; endif; ?>
-                </select>
+                <?php if ($isVendedor && $loggedInVendedorId): ?>
+                    <input type="hidden" id="vendedor_id" name="vendedor_id" value="<?php echo htmlspecialchars($loggedInVendedorId); ?>">
+                    <div class="mt-1 block w-full rounded-md border border-gray-300 bg-gray-100 p-2 text-gray-700 shadow-sm">
+                        <?php echo htmlspecialchars($vendedor_nome_logado ?? ''); ?>
+                    </div>
+                <?php else: ?>
+                    <select name="vendedor_id" id="vendedor_id" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required <?php if ($disableFields) echo 'disabled'; ?>>
+                        <option value="">Selecione...</option>
+                        <?php if (!empty($vendedores)): foreach ($vendedores as $vendedor): ?>
+                            <option value="<?php echo $vendedor['id']; ?>" <?php echo ($vendedor_id_selecionado == $vendedor['id']) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($vendedor['nome_vendedor']); ?>
+                            </option>
+                        <?php endforeach; endif; ?>
+                    </select>
+                <?php endif; ?>
             </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -365,7 +383,14 @@ $paymentDateTwo = $processo['data_pagamento_2'] ?? $formData['data_pagamento_2']
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700" for="billing_unique_receipt">Comprovante do pagamento</label>
-                            <input type="file" id="billing_unique_receipt" data-field-name="paymentProofFiles[]" class="mt-1 block w-full text-sm text-gray-500">
+                            <label for="billing_unique_receipt" class="mt-2 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-blue-300 bg-blue-50 px-4 py-5 text-center text-blue-600 transition hover:border-blue-400 hover:bg-blue-100 cursor-pointer" role="button">
+                                <svg class="mb-2 h-6 w-6 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-3-3v6m8 4a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h7.586a2 2 0 011.414.586l4.414 4.414A2 2 0 0120 9.414V19z" />
+                                </svg>
+                                <span class="text-sm font-semibold">Clique para anexar o comprovante</span>
+                                <span class="mt-1 text-xs text-blue-500" data-upload-filename="billing_unique_receipt" data-placeholder="Nenhum arquivo selecionado">Nenhum arquivo selecionado</span>
+                            </label>
+                            <input type="file" id="billing_unique_receipt" data-field-name="paymentProofFiles[]" data-upload-display="billing_unique_receipt" class="hidden" accept=".pdf,.png,.jpg,.jpeg,.heic">
                         </div>
                     </div>
                 </div>
@@ -383,7 +408,14 @@ $paymentDateTwo = $processo['data_pagamento_2'] ?? $formData['data_pagamento_2']
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700" for="billing_parcelado_receipt1">Comprovante da 1ª parcela</label>
-                            <input type="file" id="billing_parcelado_receipt1" data-field-name="paymentProofFiles[]" class="mt-1 block w-full text-sm text-gray-500">
+                            <label for="billing_parcelado_receipt1" class="mt-2 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-green-300 bg-green-50 px-4 py-5 text-center text-green-600 transition hover:border-green-400 hover:bg-green-100 cursor-pointer" role="button">
+                                <svg class="mb-2 h-6 w-6 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                                </svg>
+                                <span class="text-sm font-semibold">Enviar comprovante da primeira parcela</span>
+                                <span class="mt-1 text-xs text-green-600" data-upload-filename="billing_parcelado_receipt1" data-placeholder="Nenhum arquivo selecionado">Nenhum arquivo selecionado</span>
+                            </label>
+                            <input type="file" id="billing_parcelado_receipt1" data-field-name="paymentProofFiles[]" data-upload-display="billing_parcelado_receipt1" class="hidden" accept=".pdf,.png,.jpg,.jpeg,.heic">
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -397,7 +429,14 @@ $paymentDateTwo = $processo['data_pagamento_2'] ?? $formData['data_pagamento_2']
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700" for="billing_parcelado_receipt2">Comprovante da 2ª parcela</label>
-                            <input type="file" id="billing_parcelado_receipt2" data-field-name="paymentProofFiles[]" class="mt-1 block w-full text-sm text-gray-500">
+                            <label for="billing_parcelado_receipt2" class="mt-2 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-purple-300 bg-purple-50 px-4 py-5 text-center text-purple-600 transition hover:border-purple-400 hover:bg-purple-100 cursor-pointer" role="button">
+                                <svg class="mb-2 h-6 w-6 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                                </svg>
+                                <span class="text-sm font-semibold">Enviar comprovante da segunda parcela</span>
+                                <span class="mt-1 text-xs text-purple-600" data-upload-filename="billing_parcelado_receipt2" data-placeholder="Nenhum arquivo selecionado">Nenhum arquivo selecionado</span>
+                            </label>
+                            <input type="file" id="billing_parcelado_receipt2" data-field-name="paymentProofFiles[]" data-upload-display="billing_parcelado_receipt2" class="hidden" accept=".pdf,.png,.jpg,.jpeg,.heic">
                         </div>
                     </div>
                 </div>
@@ -412,7 +451,14 @@ $paymentDateTwo = $processo['data_pagamento_2'] ?? $formData['data_pagamento_2']
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700" for="billing_mensal_receipt">Comprovante do pagamento</label>
-                            <input type="file" id="billing_mensal_receipt" data-field-name="paymentProofFiles[]" class="mt-1 block w-full text-sm text-gray-500">
+                            <label for="billing_mensal_receipt" class="mt-2 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-indigo-300 bg-indigo-50 px-4 py-5 text-center text-indigo-600 transition hover:border-indigo-400 hover:bg-indigo-100 cursor-pointer" role="button">
+                                <svg class="mb-2 h-6 w-6 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-3-3v6m8 4a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h7.586a2 2 0 011.414.586l4.414 4.414A2 2 0 0120 9.414V19z" />
+                                </svg>
+                                <span class="text-sm font-semibold">Anexar comprovante mensal</span>
+                                <span class="mt-1 text-xs text-indigo-600" data-upload-filename="billing_mensal_receipt" data-placeholder="Nenhum arquivo selecionado">Nenhum arquivo selecionado</span>
+                            </label>
+                            <input type="file" id="billing_mensal_receipt" data-field-name="paymentProofFiles[]" data-upload-display="billing_mensal_receipt" class="hidden" accept=".pdf,.png,.jpg,.jpeg,.heic">
                         </div>
                     </div>
                 </div>
@@ -577,6 +623,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const clienteSelect = document.getElementById('cliente_id');
     const userProfile = "<?php echo $_SESSION['user_perfil'] ?? ''; ?>";
+    const isEditMode = <?php echo $isEditMode ? 'true' : 'false'; ?>;
+    const isVendorProfile = userProfile === 'vendedor';
     const isGestor = ['admin', 'gerencia', 'supervisor'].includes(userProfile);
     const clienteState = { tipo: 'À vista', servicos: [] };
     const budgetMinAlertMessage = 'Atenção: O valor informado está abaixo do mínimo cadastrado. A supervisão irá validar e o orçamento ficará pendente até a aprovação.';
@@ -587,11 +635,44 @@ document.addEventListener('DOMContentLoaded', function() {
     const entradaWrapper = document.getElementById('entrada-wrapper');
     const parceladoEntryInput = document.getElementById('billing_parcelado_entrada');
     const parceladoRestInput = document.getElementById('billing_parcelado_restante');
+    const budgetOriginSelect = document.getElementById('orcamento_origem');
     if (statusHiddenInput) {
         statusHiddenInput.dataset.originalStatus = statusHiddenInput.value || 'Orçamento';
     }
 
     // Funções de formatação
+    function updateFileTileDisplay(input) {
+        if (!input) {
+            return;
+        }
+
+        const displayId = input.dataset.uploadDisplay;
+        if (!displayId) {
+            return;
+        }
+
+        const displayElement = document.querySelector(`[data-upload-filename="${displayId}"]`);
+        if (!displayElement) {
+            return;
+        }
+
+        const placeholder = displayElement.dataset.placeholder || 'Nenhum arquivo selecionado';
+        if (!input.files || input.files.length === 0) {
+            displayElement.textContent = placeholder;
+            return;
+        }
+
+        const names = Array.from(input.files).map(file => file.name).join(', ');
+        displayElement.textContent = names;
+    }
+
+    function bindFileTileInputs() {
+        document.querySelectorAll('input[type="file"][data-upload-display]').forEach(input => {
+            input.addEventListener('change', () => updateFileTileDisplay(input));
+            updateFileTileDisplay(input);
+        });
+    }
+
     function formatCurrency(value) {
         const numeric = String(value).replace(/\D/g, '');
         if (numeric === '') return 'R$\u00a00,00';
@@ -672,6 +753,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     input.disabled = true;
                     if (input.type === 'file') {
                         input.value = '';
+                        updateFileTileDisplay(input);
                     }
                 }
             });
@@ -754,6 +836,8 @@ document.addEventListener('DOMContentLoaded', function() {
     uploadInputs.forEach(input => {
         input.addEventListener('change', () => refreshUploadSummary(input));
     });
+
+    bindFileTileInputs();
 
     const reuseCrcCheckbox = document.getElementById('reuseTranslationForCrc');
     const crcInput = document.getElementById('crcFiles');
@@ -892,6 +976,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         const selectedOption = clienteSelect.options[clienteSelect.selectedIndex];
+        if (isVendorProfile && budgetOriginSelect && selectedOption) {
+            const shouldOverrideOrigin = !isEditMode || !budgetOriginSelect.value;
+            if (shouldOverrideOrigin) {
+                const originValue = selectedOption.getAttribute('data-canal-origem') || '';
+                if (originValue) {
+                    const match = Array.from(budgetOriginSelect.options).find(option => option.value === originValue);
+                    if (match) {
+                        budgetOriginSelect.value = originValue;
+                    }
+                }
+            }
+        }
         const tipo = selectedOption ? (selectedOption.dataset.tipoAssessoria || 'À vista') : 'À vista';
         clienteState.tipo = tipo;
 
