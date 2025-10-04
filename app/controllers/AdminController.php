@@ -13,6 +13,7 @@ require_once __DIR__ . '/../models/OmieProduto.php';
 require_once __DIR__ . '/../services/DigicApiService.php';
 require_once __DIR__ . '/../services/EmailService.php';
 require_once __DIR__ . '/../services/OmieSyncService.php';
+require_once __DIR__ . '/../services/KanbanConfigService.php';
 require_once __DIR__ . '/../models/SmtpConfigModel.php';
 
 class AdminController
@@ -25,6 +26,7 @@ class AdminController
     private $tradutorModel;
     private $omieSyncService;
     private $omieProdutoModel;
+    private KanbanConfigService $kanbanConfigService;
 
     public function __construct($pdo)
     {
@@ -36,6 +38,7 @@ class AdminController
         $this->tradutorModel = new Tradutor($pdo);
         $this->omieSyncService = null;
         $this->omieProdutoModel = new OmieProduto($pdo);
+        $this->kanbanConfigService = new KanbanConfigService($pdo);
     }
 
     // Métodos de Administração Geral...
@@ -501,6 +504,8 @@ public function saveConfiguracoes()
     public function showAutomacaoCampanhas()
     {
         $regras = $this->automacaoModel->getAllCampanhas();
+        $kanbanColumns = $this->kanbanConfigService->getColumns();
+        $kanbanDefaultColumns = $this->kanbanConfigService->getDefaultColumns();
         require_once __DIR__ . '/../views/admin/automacao_campanhas.php';
     }
 
@@ -618,6 +623,32 @@ public function saveConfiguracoes()
             echo json_encode(['success' => false, 'message' => 'Campanha não encontrada.']);
         }
         exit(); // <-- ADICIONE ESTA LINHA
+    }
+
+    public function saveKanbanColumns()
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: admin.php?action=automacao_campanhas');
+            exit();
+        }
+
+        $columns = $_POST['kanban_columns'] ?? [];
+        if (!is_array($columns)) {
+            $columns = [$columns];
+        }
+
+        try {
+            $this->kanbanConfigService->saveColumns($columns);
+            $_SESSION['success_message'] = 'Colunas do Kanban atualizadas com sucesso!';
+        } catch (InvalidArgumentException $exception) {
+            $_SESSION['error_message'] = $exception->getMessage();
+        } catch (Throwable $exception) {
+            $_SESSION['error_message'] = 'Não foi possível salvar as colunas do Kanban.';
+            error_log('Kanban config save error: ' . $exception->getMessage());
+        }
+
+        header('Location: admin.php?action=automacao_campanhas');
+        exit();
     }
 
     // =======================================================================

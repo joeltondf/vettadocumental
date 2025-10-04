@@ -1040,7 +1040,7 @@ class ProcessosController
 
         switch ($newStatusNormalized) {
             case 'orçamento pendente':
-                if ($sellerUserId && $senderId !== $sellerUserId && $previousStatusNormalized === 'serviço pendente') {
+                if ($sellerUserId && $senderId !== $sellerUserId && $previousStatusNormalized === 'pendente') {
                     $message = "O serviço do orçamento #{$process['orcamento_numero']} foi recusado pela gerência. Ajuste os dados.";
                     $this->notificacaoModel->criar($sellerUserId, $senderId, $message, $link);
                 }
@@ -1581,7 +1581,7 @@ class ProcessosController
         }
 
         $normalizedStatus = $this->normalizeStatusName($novoStatus);
-        if ($normalizedStatus === 'serviço pendente') {
+        if ($normalizedStatus === 'pendente') {
             return true;
         }
 
@@ -2544,11 +2544,19 @@ class ProcessosController
 
     private function getClientesForOrcamentoForm(?array $processo = null): array
     {
-        $clientes = [];
-        if ($processo !== null && !$this->isBudgetStatus($processo['status_processo'] ?? null)) {
+        $userProfile = $_SESSION['user_perfil'] ?? '';
+        $userId = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
+
+        $isEditingNonBudget = $processo !== null && !$this->isBudgetStatus($processo['status_processo'] ?? null);
+
+        if ($isEditingNonBudget) {
             $clientes = $this->clienteModel->getAll();
+        } elseif ($userProfile === 'vendedor') {
+            $clientes = $userId !== null
+                ? $this->clienteModel->getProspectsByOwner($userId)
+                : $this->clienteModel->getProspects();
         } else {
-            $clientes = $this->clienteModel->getProspects();
+            $clientes = $this->clienteModel->getAll();
         }
 
         if ($processo === null) {

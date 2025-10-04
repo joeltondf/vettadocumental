@@ -67,6 +67,22 @@ INSERT INTO `automacao_campanhas` (
  0, 1);
 ```
 
+## Configurando as colunas do Kanban
+
+O Kanban usa a chave `kanban_columns` da tabela `configuracoes`. A interface administrativa permite editar a ordem e os nomes, mas é possível manipular diretamente via SQL quando necessário:
+
+```sql
+-- Define as colunas na ordem desejada
+INSERT INTO configuracoes (chave, valor)
+VALUES ('kanban_columns', JSON_ARRAY('Contato ativo', 'Primeiro contato', 'Segundo contato', 'Reunião agendada', 'Proposta enviada', 'Fechamento', 'Pausar'))
+ON DUPLICATE KEY UPDATE valor = VALUES(valor);
+
+-- Restaura as colunas padrão do sistema
+DELETE FROM configuracoes WHERE chave = 'kanban_columns';
+```
+
+> Após alterar os nomes das colunas, revise as campanhas para garantir que os gatilhos (`crm_gatilhos`) usem exatamente os mesmos textos.
+
 ## Atualizações rápidas
 
 ```sql

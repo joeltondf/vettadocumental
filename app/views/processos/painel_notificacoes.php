@@ -86,7 +86,7 @@ if (!function_exists('normalize_status_info_local')) {
                             $statusNormalized = $statusInfo['normalized'];
                             $statusLabel = $statusInfo['label'];
                             $isBudgetPending = $statusNormalized === 'orçamento pendente';
-                            $isServicePending = $statusNormalized === 'serviço pendente';
+                            $isServicePending = $statusNormalized === 'pendente';
                         ?>
                         <tr>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -124,10 +124,7 @@ if (!function_exists('normalize_status_info_local')) {
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <div class="flex flex-col space-y-3 items-end">
-                                    <a href="processos.php?action=view&id=<?= $processo['id']; ?>" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                                        Ver Detalhes
-                                    </a>
+                                <div class="flex flex-wrap items-center justify-end gap-2">
                                     <?php if ($isManager && $isBudgetPending): ?>
                                         <div class="flex flex-col w-full space-y-2">
                                             <div class="flex flex-wrap justify-end gap-2">
@@ -161,6 +158,9 @@ if (!function_exists('normalize_status_info_local')) {
                                             </form>
                                         </div>
                                     <?php endif; ?>
+                                    <a href="processos.php?action=view&id=<?= $processo['id']; ?>" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                        Ver Detalhes
+                                    </a>
                                 </div>
                             </td>
                         </tr>

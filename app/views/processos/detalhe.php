@@ -99,7 +99,7 @@ $leadConversionContext = $leadConversionContext ?? ['shouldRender' => false];
 $isAprovadoOuSuperior = in_array($statusNormalized, ['serviço pendente', 'serviço em andamento', 'concluído'], true);
 $isManager = in_array($_SESSION['user_perfil'] ?? '', ['admin', 'gerencia', 'supervisor'], true);
 $isBudgetPending = $statusNormalized === 'orçamento pendente';
-$isServicePending = $statusNormalized === 'serviço pendente';
+$isServicePending = $statusNormalized === 'pendente';
 ?>
 
 
