@@ -265,18 +265,18 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
                             }
                         ?>
                         <tr class="<?php echo $rowClass; ?>">
-                            <td class="px-3 py-2 whitespace-nowrap text-xs font-medium">
+                            <td class="px-3 py-0.5 whitespace-nowrap text-xs font-medium">
                                 <a href="processos.php?action=view&id=<?php echo $processo['id']; ?>" class="text-blue-600 hover:text-blue-800 hover:underline truncate" title="<?php echo htmlspecialchars(mb_strtoupper($processo['titulo'] ?? 'N/A')); ?>">
                                     <?php echo htmlspecialchars(mb_strtoupper(mb_strimwidth($processo['titulo'] ?? 'N/A', 0, 25, "..."))); ?>
                                 </a>
                             </td>
-                            <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500 truncate" title="<?php echo htmlspecialchars(mb_strtoupper($processo['nome_cliente'] ?? 'N/A')); ?>">
+                            <td class="px-3 py-0.5 whitespace-nowrap text-xs text-gray-500 truncate" title="<?php echo htmlspecialchars(mb_strtoupper($processo['nome_cliente'] ?? 'N/A')); ?>">
                                 <?php echo htmlspecialchars(mb_strtoupper(mb_strimwidth($processo['nome_cliente'] ?? 'N/A', 0, 20, "..."))); ?>
                             </td>
-                            <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500 text-center">
+                            <td class="px-3 py-0.5 whitespace-nowrap text-xs text-gray-500 text-center">
                                 <?php echo $processo['total_documentos_soma']; ?>
                             </td>
-                            <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
+                            <td class="px-3 py-0.5 whitespace-nowrap text-xs text-gray-500">
                                 <?php 
                                     $osOmie = $processo['os_numero_omie'] ?? null;
                                     // Exibe apenas os últimos 5 dígitos para facilitar a leitura
@@ -284,7 +284,7 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
                                     echo htmlspecialchars($osOmieFormatado);
                                 ?>
                             </td>
-                            <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
+                            <td class="px-3 py-0.5 whitespace-nowrap text-xs text-gray-500">
                                 <?php
                                 $servicos = explode(',', $processo['categorias_servico'] ?? '');
                                 $mapServicos = ['Tradução' => 'Trad.', 'CRC' => 'CRC', 'Apostilamento' => 'Apost.', 'Postagem' => 'Post.'];
@@ -295,9 +295,9 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
                                 }
                                 ?>
                             </td>
-                            <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500"><?php echo isset($processo['data_criacao']) ? date('d/m/Y', strtotime($processo['data_criacao'])) : 'N/A'; ?></td>
-                            <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500"><?php echo isset($processo['data_inicio_traducao']) ? date('d/m/Y', strtotime($processo['data_inicio_traducao'])) : 'N/A'; ?></td>
-                            <td class="px-3 py-2 whitespace-nowrap text-xs font-medium">
+                            <td class="px-3 py-0.5 whitespace-nowrap text-xs text-gray-500"><?php echo isset($processo['data_criacao']) ? date('d/m/Y', strtotime($processo['data_criacao'])) : 'N/A'; ?></td>
+                            <td class="px-3 py-0.5 whitespace-nowrap text-xs text-gray-500"><?php echo isset($processo['data_inicio_traducao']) ? date('d/m/Y', strtotime($processo['data_inicio_traducao'])) : 'N/A'; ?></td>
+                            <td class="px-3 py-0.5 whitespace-nowrap text-xs font-medium">
                                 <?php
                                 $texto_tempo = 'A definir'; 
                                 $classe_tempo = 'text-gray-500';
@@ -341,7 +341,7 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
                                 echo "<span class='px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full " . $classe_tempo . "'>" . $texto_tempo . "</span>";
                                 ?>
                             </td>
-                            <td class="px-3 py-2 whitespace-nowrap text-center text-xs font-medium">
+                            <td class="px-3 py-0.5 whitespace-nowrap text-center text-xs font-medium">
                                 <div class="relative inline-block p-1">
                                     <svg id="tooltip-trigger-<?php echo $processo['id']; ?>" class="w-6 h-6 text-gray-500 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24"
                                          data-tooltip-trigger
