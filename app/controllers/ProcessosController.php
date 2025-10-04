@@ -187,6 +187,7 @@ class ProcessosController
         $pageTitle = "Cadastrar Novo Processo";
         $clientes = $this->getClientesForOrcamentoForm();
         $vendedores = $this->vendedorModel->getAll();
+        $loggedInVendedor = $this->resolveLoggedInVendedor($vendedores);
         $tradutores = $this->tradutorModel->getAll();
         $formData = $this->consumeFormInput(self::SESSION_KEY_PROCESS_FORM);
 
@@ -204,6 +205,8 @@ class ProcessosController
             'translationAttachments' => [],
             'crcAttachments' => [],
             'paymentProofAttachments' => [],
+            'loggedInVendedorId' => $loggedInVendedor['id'],
+            'loggedInVendedorName' => $loggedInVendedor['name'],
         ]);
     }
 
@@ -245,6 +248,7 @@ class ProcessosController
 
                 // Cria o serviço rápido
                 $dadosParaSalvar = $this->prepareOmieSelectionData($dadosParaSalvar);
+                $dadosParaSalvar = $this->applyPaymentDefaults($dadosParaSalvar);
                 $processoId = $this->processoModel->create($dadosParaSalvar, $_FILES);
                 $redirectUrl = 'dashboard.php';
 
@@ -279,6 +283,7 @@ class ProcessosController
 
             // Fluxo de orçamento normal
             $dadosProcesso = $this->prepareOmieSelectionData($_POST);
+            $dadosProcesso = $this->applyPaymentDefaults($dadosProcesso);
             $perfilCriador = $_SESSION['user_perfil'] ?? '';
             if ($perfilCriador === 'vendedor') {
                 $dadosProcesso['status_processo'] = 'Orçamento Pendente';
@@ -325,6 +330,7 @@ class ProcessosController
         // ------------------------------------------------------------------
         $dadosParaAtualizar = $_POST;
         $dadosParaAtualizar = $this->prepareOmieSelectionData($dadosParaAtualizar);
+        $dadosParaAtualizar = $this->applyPaymentDefaults($dadosParaAtualizar);
         $perfilUsuario = $_SESSION['user_perfil'] ?? '';
         $processoOriginal = $this->processoModel->getById($id_existente)['processo'];
 
@@ -425,6 +431,9 @@ class ProcessosController
 
         $pageTitle = "Editar Processo: " . htmlspecialchars($processo['titulo']);
         $categoriaModel = new CategoriaFinanceira($this->pdo);
+        $vendedores = $this->vendedorModel->getAll();
+        $loggedInVendedor = $this->resolveLoggedInVendedor($vendedores);
+
         $this->render('form', [
             'processo' => !empty($formData) ? array_merge($processo, $formData) : $processo,
             'documentos' => $processoData['documentos'],
@@ -432,12 +441,14 @@ class ProcessosController
             'crcAttachments' => $crcAttachments,
             'paymentProofAttachments' => $paymentProofAttachments,
             'clientes' => $this->getClientesForOrcamentoForm($processo),
-            'vendedores' => $this->vendedorModel->getAll(),
+            'vendedores' => $vendedores,
             'tradutores' => $this->tradutorModel->getAll(),
             'tipos_traducao' => $categoriaModel->getReceitasPorServico('Tradução'),
             'tipos_crc' => $categoriaModel->getReceitasPorServico('CRC'),
             'pageTitle' => $pageTitle,
             'formData' => $formData,
+            'loggedInVendedorId' => $loggedInVendedor['id'],
+            'loggedInVendedorName' => $loggedInVendedor['name'],
         ]);
 
         $_SESSION['redirect_after_oauth'] = $_SERVER['REQUEST_URI'];
@@ -532,6 +543,7 @@ class ProcessosController
             $dadosParaSalvar['status_processo'] = $pendente ? 'Pendente' : 'Em andamento';
         }
 
+        $dadosParaSalvar = $this->applyPaymentDefaults($dadosParaSalvar);
         $processoId = $this->processoModel->create($dadosParaSalvar, $_FILES);
         if ($processoId) {
             if ($dadosParaSalvar['status_processo'] === 'Pendente') {
@@ -1305,6 +1317,39 @@ class ProcessosController
         return $data;
     }
 
+    private function applyPaymentDefaults(array $data): array
+    {
+        $rawMethod = $data['orcamento_forma_pagamento'] ?? null;
+        $normalizedMethod = ($rawMethod === null || $rawMethod === '')
+            ? 'Pagamento único'
+            : $this->normalizePaymentMethod($rawMethod);
+        $data['orcamento_forma_pagamento'] = $normalizedMethod;
+
+        $totalSource = $data['valor_total_hidden'] ?? ($data['valor_total'] ?? null);
+        $valorTotal = $this->parseCurrencyValue($totalSource);
+        $valorEntrada = $this->parseCurrencyValue($data['orcamento_valor_entrada'] ?? null);
+
+        if ($normalizedMethod === 'Pagamento parcelado') {
+            if ($valorEntrada !== null) {
+                $data['orcamento_valor_entrada'] = number_format($valorEntrada, 2, '.', '');
+            }
+            if ($valorTotal !== null && $valorEntrada !== null) {
+                $restante = max($valorTotal - $valorEntrada, 0);
+                $data['orcamento_valor_restante'] = number_format($restante, 2, '.', '');
+            }
+        } else {
+            if ($valorTotal !== null) {
+                $data['orcamento_valor_entrada'] = number_format($valorTotal, 2, '.', '');
+            } else {
+                unset($data['orcamento_valor_entrada']);
+            }
+            $data['data_pagamento_2'] = null;
+            unset($data['orcamento_valor_restante']);
+        }
+
+        return $data;
+    }
+
     private function sanitizeOmieString($value): ?string
     {
         if ($value === null) {
@@ -1955,19 +2000,18 @@ class ProcessosController
                 throw new InvalidArgumentException('Informe uma forma de cobrança válida.');
             }
 
-            $valorEntrada = $this->parseCurrencyValue($input['valor_entrada'] ?? null);
-            if ($valorEntrada === null || $valorEntrada <= 0) {
-                throw new InvalidArgumentException('Informe o valor pago ou de entrada.');
-            }
-
             $valorTotal = $this->parseCurrencyValue($input['valor_total'] ?? ($processo['valor_total'] ?? null));
-            if ($valorTotal !== null && $valorEntrada >= $valorTotal) {
-                throw new InvalidArgumentException('O valor de entrada deve ser menor que o valor total.');
-            }
+            $valorEntrada = $this->parseCurrencyValue($input['valor_entrada'] ?? null);
 
             if ($formaCobranca === 'Pagamento parcelado') {
                 if ($valorTotal === null) {
                     throw new InvalidArgumentException('Informe o valor total do processo para parcelamentos.');
+                }
+                if ($valorEntrada === null || $valorEntrada <= 0) {
+                    throw new InvalidArgumentException('Informe o valor pago ou de entrada.');
+                }
+                if ($valorEntrada >= $valorTotal) {
+                    throw new InvalidArgumentException('O valor de entrada deve ser menor que o valor total.');
                 }
 
                 $data1 = $input['data_pagamento_1'] ?? null;
@@ -1983,6 +2027,8 @@ class ProcessosController
                 if ($dt2 <= $dt1) {
                     throw new InvalidArgumentException('A data da segunda parcela deve ser posterior à da primeira.');
                 }
+            } elseif ($valorEntrada !== null && $valorTotal !== null && $valorEntrada > $valorTotal) {
+                throw new InvalidArgumentException('O valor de entrada deve ser menor ou igual ao valor total.');
             }
         }
     }
@@ -2084,6 +2130,10 @@ class ProcessosController
             $parcelas = 1;
         }
 
+        if ($formaCobranca !== 'Pagamento parcelado' && $valorEntrada === null && $valorTotal !== null) {
+            $valorEntrada = $valorTotal;
+        }
+
         $valorRestante = null;
         if ($formaCobranca === 'Pagamento parcelado' && $valorTotal !== null && $valorEntrada !== null) {
             $valorRestante = max($valorTotal - $valorEntrada, 0);
@@ -2093,7 +2143,7 @@ class ProcessosController
         $dataPagamento2 = $input['data_pagamento_2'] ?? $processo['data_pagamento_2'] ?? null;
         if ($formaCobranca !== 'Pagamento parcelado') {
             $dataPagamento2 = null;
-            $valorRestante = $formaCobranca === null ? ($processo['orcamento_valor_restante'] ?? null) : null;
+            $valorRestante = $valorTotal !== null ? 0.0 : null;
         }
 
         $dados = [
@@ -2421,6 +2471,34 @@ class ProcessosController
         }
 
         $this->clienteModel->promoteProspectToClient($clienteId);
+    }
+
+    private function resolveLoggedInVendedor(array $vendedores): array
+    {
+        $defaultName = $_SESSION['user_nome'] ?? null;
+
+        if (empty($_SESSION['user_id'])) {
+            return ['id' => null, 'name' => $defaultName];
+        }
+
+        $userId = (int) $_SESSION['user_id'];
+
+        foreach ($vendedores as $vendedor) {
+            if ((int) ($vendedor['user_id'] ?? 0) !== $userId) {
+                continue;
+            }
+
+            $nome = $vendedor['nome_vendedor'] ?? ($vendedor['nome_completo'] ?? $defaultName);
+
+            $id = isset($vendedor['id']) ? (int) $vendedor['id'] : null;
+
+            return [
+                'id' => $id > 0 ? $id : null,
+                'name' => $nome,
+            ];
+        }
+
+        return ['id' => null, 'name' => $defaultName];
     }
 
     private function getClientesForOrcamentoForm(?array $processo = null): array
