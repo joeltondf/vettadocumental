@@ -1,6 +1,50 @@
 <?php
 // /app/views/processos/lista.php
 
+if (!function_exists('process_list_normalize_status')) {
+    function process_list_normalize_status(?string $status): array
+    {
+        $normalized = mb_strtolower(trim((string) $status));
+
+        if ($normalized === '') {
+            return ['normalized' => '', 'label' => 'N/A'];
+        }
+
+        $aliases = [
+            'orcamento' => 'orçamento',
+            'orcamento pendente' => 'orçamento pendente',
+            'serviço pendente' => 'pendente',
+            'servico pendente' => 'pendente',
+            'serviço em andamento' => 'em andamento',
+            'servico em andamento' => 'em andamento',
+            'finalizado' => 'concluído',
+            'finalizada' => 'concluído',
+            'concluido' => 'concluído',
+            'concluida' => 'concluído',
+            'arquivado' => 'cancelado',
+            'arquivada' => 'cancelado',
+        ];
+
+        if (isset($aliases[$normalized])) {
+            $normalized = $aliases[$normalized];
+        }
+
+        $labels = [
+            'orçamento' => 'Orçamento',
+            'orçamento pendente' => 'Orçamento Pendente',
+            'aprovado' => 'Aprovado',
+            'em andamento' => 'Em andamento',
+            'concluído' => 'Concluído',
+            'cancelado' => 'Cancelado',
+            'pendente' => 'Pendente',
+        ];
+
+        $label = $labels[$normalized] ?? ($status === '' ? 'N/A' : $status);
+
+        return ['normalized' => $normalized, 'label' => $label];
+    }
+}
+
 require_once __DIR__ . '/../layouts/header.php';
 
 if (session_status() == PHP_SESSION_NONE) {
@@ -41,34 +85,34 @@ if (session_status() == PHP_SESSION_NONE) {
                     <?php else: ?>
                         <?php foreach ($processos as $processo): ?>
                             <?php
-                            // --- INÍCIO DA LÓGICA PARA DEFINIR AS CORES DO STATUS ---
-                            $status = $processo['status_processo'] ?? 'N/A';
-                            $statusClasses = ''; // Variável que guardará as classes de cor
-                
-                            switch ($status) {
-                                case 'Orçamento':
+                            $statusInfo = process_list_normalize_status($processo['status_processo'] ?? '');
+                            $statusLabel = $statusInfo['label'];
+                            $statusNormalized = $statusInfo['normalized'];
+
+                            $statusClasses = 'bg-gray-200 text-gray-900';
+                            switch ($statusNormalized) {
+                                case 'orçamento':
                                     $statusClasses = 'bg-yellow-200 text-yellow-900';
                                     break;
-                                case 'Aprovado':
+                                case 'orçamento pendente':
+                                    $statusClasses = 'bg-yellow-300 text-yellow-900';
+                                    break;
+                                case 'aprovado':
                                     $statusClasses = 'bg-blue-200 text-blue-900';
                                     break;
-                                case 'Em Andamento':
+                                case 'em andamento':
                                     $statusClasses = 'bg-cyan-200 text-cyan-900';
                                     break;
-                                case 'Finalizado':
+                                case 'pendente':
+                                    $statusClasses = 'bg-orange-200 text-orange-900';
+                                    break;
+                                case 'concluído':
                                     $statusClasses = 'bg-green-200 text-green-900';
                                     break;
-                                case 'Arquivado':
-                                    $statusClasses = 'bg-gray-300 text-gray-700';
-                                    break;
-                                case 'Cancelado':
+                                case 'cancelado':
                                     $statusClasses = 'bg-red-200 text-red-900';
                                     break;
-                                default:
-                                    $statusClasses = 'bg-gray-200 text-gray-900';
-                                    break;
                             }
-                            // --- FIM DA LÓGICA ---
                             ?>
                             <tr>
                                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-xs">
@@ -82,7 +126,7 @@ if (session_status() == PHP_SESSION_NONE) {
                                 </td>
                                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-xs whitespace-nowrap">
                                     <span class="relative inline-block px-3 py-1 font-semibold leading-tight rounded-full <?php echo $statusClasses; ?>">
-                                        <span class="relative"><?php echo htmlspecialchars($status); ?></span>
+                                        <span class="relative"><?php echo htmlspecialchars($statusLabel); ?></span>
                                     </span>
                                 </td>
                                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-xs text-center">

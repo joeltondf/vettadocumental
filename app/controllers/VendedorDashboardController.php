@@ -62,11 +62,13 @@ class VendedorDashboardController
         $anoCorrente = date('Y');
 
         foreach ($todosOsProcessosDoVendedor as $processo) {
-            if (in_array($processo['status_processo'], ['Aprovado', 'Em Andamento'])) {
+            $statusInfo = $this->normalizeStatusData($processo['status_processo'] ?? '');
+            $statusNormalized = $statusInfo['normalized'];
+            if (in_array($statusNormalized, ['aprovado', 'em andamento'], true)) {
                 $stats['processos_ativos']++;
             }
-            
-            if ($processo['status_processo'] === 'Finalizado') {
+
+            if ($statusNormalized === 'concluído') {
                 $valorTotalFinalizado += (float)$processo['valor_total'];
                 if (!empty($processo['data_finalizacao_real'])) {
                     $dataFinalizacao = new DateTime($processo['data_finalizacao_real']);
@@ -77,7 +79,7 @@ class VendedorDashboardController
             }
             
             $prazo = $processo['traducao_prazo_data'] ?? '';
-            if (!empty($prazo) && strtotime($prazo) < time() && !in_array($processo['status_processo'], ['Finalizado', 'Arquivado', 'Cancelado'])) {
+            if (!empty($prazo) && strtotime($prazo) < time() && !in_array($statusNormalized, ['concluído', 'cancelado'], true)) {
                 $stats['processos_atrasados']++;
             }
         }
@@ -137,7 +139,54 @@ class VendedorDashboardController
             $filters[$key] = $value;
         }
 
+        if (!empty($filters['status'])) {
+            $statusInfo = $this->normalizeStatusData($filters['status']);
+            $filters['status'] = $statusInfo['label'];
+        }
+
         return $filters;
+    }
+
+    private function normalizeStatusData(?string $status): array
+    {
+        $normalized = mb_strtolower(trim((string)$status));
+
+        if ($normalized === '') {
+            return ['normalized' => '', 'label' => ''];
+        }
+
+        $aliases = [
+            'orcamento' => 'orçamento',
+            'orcamento pendente' => 'orçamento pendente',
+            'serviço pendente' => 'pendente',
+            'servico pendente' => 'pendente',
+            'serviço em andamento' => 'em andamento',
+            'servico em andamento' => 'em andamento',
+            'finalizado' => 'concluído',
+            'finalizada' => 'concluído',
+            'concluido' => 'concluído',
+            'concluida' => 'concluído',
+            'arquivado' => 'cancelado',
+            'arquivada' => 'cancelado',
+        ];
+
+        if (isset($aliases[$normalized])) {
+            $normalized = $aliases[$normalized];
+        }
+
+        $labels = [
+            'orçamento' => 'Orçamento',
+            'orçamento pendente' => 'Orçamento Pendente',
+            'aprovado' => 'Aprovado',
+            'em andamento' => 'Em andamento',
+            'concluído' => 'Concluído',
+            'cancelado' => 'Cancelado',
+            'pendente' => 'Pendente',
+        ];
+
+        $label = $labels[$normalized] ?? ($status === '' ? 'N/A' : $status);
+
+        return ['normalized' => $normalized, 'label' => $label];
     }
 
     private function cleanFilterValues(array $request): array
@@ -152,6 +201,12 @@ class VendedorDashboardController
 
             $trimmed = trim((string) $request[$key]);
             if ($trimmed === '') {
+                continue;
+            }
+
+            if ($key === 'status') {
+                $statusInfo = $this->normalizeStatusData($trimmed);
+                $result[$key] = $statusInfo['label'];
                 continue;
             }
 

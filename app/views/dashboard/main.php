@@ -9,6 +9,53 @@ $hasFilters = !empty($activeFilters);
 // Definir o limite inicial de processos para exibir no dashboard
 $initialProcessLimit = 50; // Altere este valor conforme necessário
 
+if (!function_exists('dashboard_normalize_status_info')) {
+    function dashboard_normalize_status_info(?string $status): array
+    {
+        $normalized = mb_strtolower(trim((string)$status));
+
+        if ($normalized === '') {
+            return ['normalized' => '', 'label' => 'N/A'];
+        }
+
+        $aliases = [
+            'orcamento' => 'orçamento',
+            'orcamento pendente' => 'orçamento pendente',
+            'serviço pendente' => 'pendente',
+            'servico pendente' => 'pendente',
+            'serviço em andamento' => 'em andamento',
+            'servico em andamento' => 'em andamento',
+            'finalizado' => 'concluído',
+            'finalizada' => 'concluído',
+            'concluido' => 'concluído',
+            'concluida' => 'concluído',
+            'arquivado' => 'cancelado',
+            'arquivada' => 'cancelado',
+        ];
+
+        if (isset($aliases[$normalized])) {
+            $normalized = $aliases[$normalized];
+        }
+
+        $labels = [
+            'orçamento' => 'Orçamento',
+            'orçamento pendente' => 'Orçamento Pendente',
+            'aprovado' => 'Aprovado',
+            'em andamento' => 'Em andamento',
+            'concluído' => 'Concluído',
+            'cancelado' => 'Cancelado',
+            'pendente' => 'Pendente',
+        ];
+
+        $label = $labels[$normalized] ?? ($status === '' ? 'N/A' : $status);
+
+        return ['normalized' => $normalized, 'label' => $label];
+    }
+}
+
+$selectedStatusInfo = dashboard_normalize_status_info($filters['status'] ?? '');
+$selectedStatusNormalized = $selectedStatusInfo['normalized'];
+
 ?>
 
 <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
@@ -45,7 +92,7 @@ $initialProcessLimit = 50; // Altere este valor conforme necessário
             </div>
             <div class="bg-white p-4 rounded-lg shadow-md flex items-center">
                 <div class="bg-green-100 p-2 rounded-full"><svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
-                <div class="ml-2"><p class="text-gray-500 text-sm">Finalizados (Mês)</p><p class="text-2xl font-bold text-gray-800"><?php echo $dashboardStats['finalizados_mes'] ?? 0; ?></p></div>
+                <div class="ml-2"><p class="text-gray-500 text-sm">Concluídos (Mês)</p><p class="text-2xl font-bold text-gray-800"><?php echo $dashboardStats['finalizados_mes'] ?? 0; ?></p></div>
             </div>
             <div class="bg-white p-4 rounded-lg shadow-md flex items-center">
                 <div class="bg-red-100 p-2 rounded-full"><svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
@@ -126,8 +173,9 @@ $initialProcessLimit = 50; // Altere este valor conforme necessário
                     <label for="status" class="text-sm font-semibold text-gray-700 mb-1">Status</label>
                     <select id="status" name="status" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition duration-200">
                         <option value="">Todos os Status</option>
-                        <?php $status_list = ['Orçamento', 'Orçamento Pendente', 'Serviço pendente', 'Serviço Pendente', 'Serviço em andamento', 'Serviço em Andamento', 'Em Andamento', 'Aprovado', 'Finalizado', 'Arquivado', 'Cancelado']; foreach(array_unique($status_list) as $s): ?>
-                            <option value="<?php echo $s; ?>" <?php echo (($filters['status'] ?? '') == $s) ? 'selected' : ''; ?>><?php echo $s; ?></option>
+                        <?php $statusOptions = ['Orçamento', 'Aprovado', 'Em andamento', 'Concluído', 'Cancelado', 'Pendente', 'Orçamento Pendente']; foreach ($statusOptions as $option): ?>
+                            <?php $optionInfo = dashboard_normalize_status_info($option); ?>
+                            <option value="<?php echo $optionInfo['label']; ?>" <?php echo ($selectedStatusNormalized === $optionInfo['normalized']) ? 'selected' : ''; ?>><?php echo $optionInfo['label']; ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -190,9 +238,9 @@ $initialProcessLimit = 50; // Altere este valor conforme necessário
                 <tbody class="bg-white divide-y divide-gray-200" id="processes-table-body">
                     <?php foreach ($processos as $processo): ?>
                         <?php
-                            // Lógica para definir a cor da linha com base no status
-                            $rowClass = 'hover:bg-gray-50'; // Cor padrão
-                            $statusNormalized = mb_strtolower($processo['status_processo'] ?? '');
+                            $rowClass = 'hover:bg-gray-50';
+                            $statusInfo = dashboard_normalize_status_info($processo['status_processo'] ?? '');
+                            $statusNormalized = $statusInfo['normalized'];
                             switch ($statusNormalized) {
                                 case 'orçamento':
                                 case 'orçamento pendente':
@@ -201,20 +249,18 @@ $initialProcessLimit = 50; // Altere este valor conforme necessário
                                 case 'aprovado':
                                     $rowClass = 'bg-green-50 hover:bg-green-100';
                                     break;
-                                case 'serviço pendente':
+                                case 'pendente':
                                     $rowClass = 'bg-orange-50 hover:bg-orange-100';
                                     break;
-                                case 'finalizado':
+                                case 'concluído':
                                     $rowClass = 'bg-purple-50 hover:bg-purple-100';
                                     break;
                                 case 'cancelado':
                                     $rowClass = 'bg-red-50 hover:bg-red-100';
                                     break;
-                                case 'serviço em andamento':
                                 case 'em andamento':
                                     $rowClass = 'bg-cyan-50 hover:bg-cyan-100';
                                     break;
-                                // Demais status permanecem com a cor padrão
                             }
                         ?>
                         <tr class="<?php echo $rowClass; ?>">
@@ -255,11 +301,11 @@ $initialProcessLimit = 50; // Altere este valor conforme necessário
                                 $texto_tempo = 'A definir'; 
                                 $classe_tempo = 'text-gray-500';
 
-                                if ($processo['status_processo'] == 'Finalizado') {
+                                if ($statusNormalized === 'concluído') {
                                     $finalizacao_tipo = htmlspecialchars($processo['finalizacao_tipo'] ?? 'Cliente');
-                                    $texto_tempo = "Finalizado para " . $finalizacao_tipo;
+                                    $texto_tempo = "Concluído para " . $finalizacao_tipo;
                                     $classe_tempo = 'bg-green-100 text-green-800';
-                                } elseif (in_array($processo['status_processo'], ['Arquivado', 'Cancelado', 'Orçamento'])) {
+                                } elseif (in_array($statusNormalized, ['cancelado', 'orçamento'], true)) {
                                     $texto_tempo = 'N/A';
                                     $classe_tempo = 'text-gray-500';
                                 } else {
@@ -538,6 +584,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadMoreButton = document.getElementById('load-more-processes');
     const processesTableBody = document.getElementById('processes-table-body');
     let currentLoadedProcesses = processesTableBody.children.length;
+    const normalizeStatus = (status) => {
+        const normalized = (status || '').toLowerCase();
+        const aliases = {
+            'orcamento': 'orçamento',
+            'orcamento pendente': 'orçamento pendente',
+            'serviço pendente': 'pendente',
+            'servico pendente': 'pendente',
+            'serviço em andamento': 'em andamento',
+            'servico em andamento': 'em andamento',
+            'finalizado': 'concluído',
+            'finalizada': 'concluído',
+            'concluido': 'concluído',
+            'concluida': 'concluído',
+            'arquivado': 'cancelado',
+            'arquivada': 'cancelado'
+        };
+        return aliases[normalized] ?? normalized;
+    };
     // O PHP já deve ter fornecido $totalProcessesCount para o JS
     const totalAvailableProcesses = <?php echo $totalProcessesCount; ?>;
 
@@ -598,11 +662,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         let texto_prazo_js = 'N/A';
                         let classe_prazo_js = 'text-gray-500';
 
-                        if (processo.status_processo === 'Finalizado') {
+                        const normalizedStatus = normalizeStatus(processo.status_processo);
+
+                        if (normalizedStatus === 'concluído') {
                             const finalizacao_tipo = processo.finalizacao_tipo || 'Cliente';
-                            texto_prazo_js = `Finalizado para ${finalizacao_tipo}`;
+                            texto_prazo_js = `Concluído para ${finalizacao_tipo}`;
                             classe_prazo_js = 'bg-green-100 text-green-800';
-                        } else if (['Arquivado', 'Cancelado'].includes(processo.status_processo)) {
+                        } else if (['cancelado', 'orçamento'].includes(normalizedStatus)) {
                             texto_prazo_js = 'N/A';
                             classe_prazo_js = 'text-gray-500';
                         } else {
