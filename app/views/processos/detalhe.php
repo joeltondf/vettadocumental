@@ -58,6 +58,9 @@ switch ($statusNormalized) {
 }
 $leadConversionContext = $leadConversionContext ?? ['shouldRender' => false];
 $isAprovadoOuSuperior = !in_array($statusNormalized, ['orçamento', 'orçamento pendente', 'cancelado']);
+$isManager = in_array($_SESSION['user_perfil'] ?? '', ['admin', 'gerencia', 'supervisor'], true);
+$isBudgetPending = $statusNormalized === 'orçamento pendente';
+$isServicePending = $statusNormalized === 'serviço pendente';
 ?>
 
 
@@ -93,6 +96,49 @@ $isAprovadoOuSuperior = !in_array($statusNormalized, ['orçamento', 'orçamento 
 </div>
 
 <div id="feedback-container" class="hidden mb-4"></div>
+
+<?php if ($isManager && ($isBudgetPending || $isServicePending)): ?>
+    <div class="mb-6 bg-white shadow-lg rounded-lg p-6">
+        <div class="flex items-center justify-between border-b pb-3 mb-4">
+            <h2 class="text-xl font-semibold text-gray-700">Ações de Aprovação</h2>
+            <span class="text-sm text-gray-500">Visíveis apenas para gerência</span>
+        </div>
+        <?php if ($isBudgetPending): ?>
+            <div class="space-y-3">
+                <div class="flex flex-wrap justify-end gap-2">
+                    <a href="processos.php?action=aprovar_orcamento&id=<?= $processo['id']; ?>" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-green-600 text-white shadow hover:bg-green-700">
+                        Aprovar orçamento
+                    </a>
+                    <form action="processos.php?action=recusar_orcamento" method="POST" class="flex flex-wrap items-center justify-end gap-2">
+                        <input type="hidden" name="id" value="<?= $processo['id']; ?>">
+                        <label for="motivo_recusa_detalhe" class="sr-only">Motivo da recusa</label>
+                        <input id="motivo_recusa_detalhe" type="text" name="motivo_recusa" class="w-full sm:w-60 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent" placeholder="Motivo da recusa" required>
+                        <button type="submit" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-red-600 text-white shadow hover:bg-red-700">
+                            Recusar orçamento
+                        </button>
+                    </form>
+                </div>
+            </div>
+        <?php elseif ($isServicePending): ?>
+            <div class="flex flex-wrap justify-end gap-2">
+                <form action="processos.php?action=change_status" method="POST" class="inline-flex">
+                    <input type="hidden" name="id" value="<?= $processo['id']; ?>">
+                    <input type="hidden" name="status_processo" value="Serviço em andamento">
+                    <button type="submit" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-green-600 text-white shadow hover:bg-green-700">
+                        Aprovar serviço
+                    </button>
+                </form>
+                <form action="processos.php?action=change_status" method="POST" class="inline-flex">
+                    <input type="hidden" name="id" value="<?= $processo['id']; ?>">
+                    <input type="hidden" name="status_processo" value="Orçamento Pendente">
+                    <button type="submit" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-yellow-600 text-white shadow hover:bg-yellow-700">
+                        Solicitar ajustes
+                    </button>
+                </form>
+            </div>
+        <?php endif; ?>
+    </div>
+<?php endif; ?>
 
 <div class="flex flex-col lg:flex-row gap-6">
 
