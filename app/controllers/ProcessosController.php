@@ -187,6 +187,7 @@ class ProcessosController
         $pageTitle = "Cadastrar Novo Processo";
         $clientes = $this->getClientesForOrcamentoForm();
         $vendedores = $this->vendedorModel->getAll();
+        $loggedInVendedor = $this->resolveLoggedInVendedor($vendedores);
         $tradutores = $this->tradutorModel->getAll();
         $formData = $this->consumeFormInput(self::SESSION_KEY_PROCESS_FORM);
 
@@ -204,6 +205,8 @@ class ProcessosController
             'translationAttachments' => [],
             'crcAttachments' => [],
             'paymentProofAttachments' => [],
+            'loggedInVendedorId' => $loggedInVendedor['id'],
+            'loggedInVendedorName' => $loggedInVendedor['name'],
         ]);
     }
 
@@ -428,6 +431,9 @@ class ProcessosController
 
         $pageTitle = "Editar Processo: " . htmlspecialchars($processo['titulo']);
         $categoriaModel = new CategoriaFinanceira($this->pdo);
+        $vendedores = $this->vendedorModel->getAll();
+        $loggedInVendedor = $this->resolveLoggedInVendedor($vendedores);
+
         $this->render('form', [
             'processo' => !empty($formData) ? array_merge($processo, $formData) : $processo,
             'documentos' => $processoData['documentos'],
@@ -435,12 +441,14 @@ class ProcessosController
             'crcAttachments' => $crcAttachments,
             'paymentProofAttachments' => $paymentProofAttachments,
             'clientes' => $this->getClientesForOrcamentoForm($processo),
-            'vendedores' => $this->vendedorModel->getAll(),
+            'vendedores' => $vendedores,
             'tradutores' => $this->tradutorModel->getAll(),
             'tipos_traducao' => $categoriaModel->getReceitasPorServico('Tradução'),
             'tipos_crc' => $categoriaModel->getReceitasPorServico('CRC'),
             'pageTitle' => $pageTitle,
             'formData' => $formData,
+            'loggedInVendedorId' => $loggedInVendedor['id'],
+            'loggedInVendedorName' => $loggedInVendedor['name'],
         ]);
 
         $_SESSION['redirect_after_oauth'] = $_SERVER['REQUEST_URI'];
@@ -2463,6 +2471,34 @@ class ProcessosController
         }
 
         $this->clienteModel->promoteProspectToClient($clienteId);
+    }
+
+    private function resolveLoggedInVendedor(array $vendedores): array
+    {
+        $defaultName = $_SESSION['user_nome'] ?? null;
+
+        if (empty($_SESSION['user_id'])) {
+            return ['id' => null, 'name' => $defaultName];
+        }
+
+        $userId = (int) $_SESSION['user_id'];
+
+        foreach ($vendedores as $vendedor) {
+            if ((int) ($vendedor['user_id'] ?? 0) !== $userId) {
+                continue;
+            }
+
+            $nome = $vendedor['nome_vendedor'] ?? ($vendedor['nome_completo'] ?? $defaultName);
+
+            $id = isset($vendedor['id']) ? (int) $vendedor['id'] : null;
+
+            return [
+                'id' => $id > 0 ? $id : null,
+                'name' => $nome,
+            ];
+        }
+
+        return ['id' => null, 'name' => $defaultName];
     }
 
     private function getClientesForOrcamentoForm(?array $processo = null): array

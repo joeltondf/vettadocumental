@@ -3,7 +3,6 @@
 $isEditMode = isset($processo) && $processo !== null;
 $cliente_pre_selecionado_id = $_GET['cliente_id'] ?? null;
 $return_url = $_GET['return_to'] ?? ($_SERVER['HTTP_REFERER'] ?? 'processos.php');
-global $pdo; // Torna a conexão PDO disponível no escopo da view
 // Verificamos os parâmetros que são passados pela URL após a atualização do cliente
 $fromProspeccao = isset($_GET['cliente_id']) && (isset($_GET['titulo']) || isset($_GET['prospeccao_id']));
 $processStatus = isset($processo['status_processo']) ? $processo['status_processo'] : null;
@@ -12,21 +11,26 @@ $processStatus = isset($processo['status_processo']) ? $processo['status_process
 
 // 2. Obtém os dados do usuário logado
 $isVendedor = (isset($_SESSION['user_perfil']) && $_SESSION['user_perfil'] === 'vendedor');
-$loggedInVendedorId = null;
-$vendedor_nome_logado = '';
-if ($isVendedor && isset($_SESSION['user_id'])) {
-    $stmt = $pdo->prepare("SELECT id, nome_vendedor FROM vendedores WHERE user_id = ? LIMIT 1");
-    $stmt->execute([$_SESSION['user_id']]);
-    $vendedor_logado = $stmt->fetch();
-    if ($vendedor_logado) {
-        $loggedInVendedorId = $vendedor_logado['id'];
-        if (!empty($vendedores) && is_array($vendedores)) {
-            foreach ($vendedores as $vendedor) {
-                if ((int) ($vendedor['id'] ?? 0) === (int) $loggedInVendedorId) {
-                    $vendedor_nome_logado = $vendedor['nome_vendedor'] ?? '';
-                    break;
-                }
-            }
+$loggedInVendedorId = $loggedInVendedorId ?? null;
+$loggedInVendedorName = $loggedInVendedorName ?? ($_SESSION['user_nome'] ?? '');
+
+$resolveVendedorNome = static function (array $vendedor): string {
+    foreach (['nome_vendedor', 'nome_completo', 'nome'] as $campoNome) {
+        if (!empty($vendedor[$campoNome])) {
+            return (string) $vendedor[$campoNome];
+        }
+    }
+
+    return '';
+};
+
+if ($isVendedor && $loggedInVendedorId === null && !empty($vendedores)) {
+    $userId = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
+    foreach ($vendedores as $vendedor) {
+        if ($userId !== null && (int) ($vendedor['user_id'] ?? 0) === $userId) {
+            $loggedInVendedorId = isset($vendedor['id']) ? (int) $vendedor['id'] : null;
+            $loggedInVendedorName = $resolveVendedorNome($vendedor) ?: $loggedInVendedorName;
+            break;
         }
     }
 }
@@ -167,14 +171,15 @@ $paymentDateTwo = $processo['data_pagamento_2'] ?? $formData['data_pagamento_2']
                 <?php if ($isVendedor && $loggedInVendedorId): ?>
                     <input type="hidden" id="vendedor_id" name="vendedor_id" value="<?php echo htmlspecialchars($loggedInVendedorId); ?>">
                     <div class="mt-1 block w-full rounded-md border border-gray-300 bg-gray-100 p-2 text-gray-700 shadow-sm">
-                        <?php echo htmlspecialchars($vendedor_nome_logado ?? ''); ?>
+                        <?php echo htmlspecialchars($loggedInVendedorName ?? ''); ?>
                     </div>
                 <?php else: ?>
                     <select name="vendedor_id" id="vendedor_id" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required <?php if ($disableFields) echo 'disabled'; ?>>
                         <option value="">Selecione...</option>
                         <?php if (!empty($vendedores)): foreach ($vendedores as $vendedor): ?>
+                            <?php $nomeVendedor = $resolveVendedorNome($vendedor); ?>
                             <option value="<?php echo $vendedor['id']; ?>" <?php echo ($vendedor_id_selecionado == $vendedor['id']) ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($vendedor['nome_vendedor']); ?>
+                                <?php echo htmlspecialchars($nomeVendedor); ?>
                             </option>
                         <?php endforeach; endif; ?>
                     </select>
