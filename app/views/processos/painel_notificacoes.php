@@ -123,25 +123,18 @@ if (!function_exists('normalize_status_info_local')) {
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <div class="flex flex-col space-y-3 items-end">
-                                    <a href="processos.php?action=view&id=<?= $processo['id']; ?>" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                                        Ver Detalhes
-                                    </a>
+                                <div class="flex flex-wrap items-center justify-end gap-2">
                                     <?php if ($isManager && $isBudgetPending): ?>
-                                        <div class="flex flex-col w-full space-y-2">
-                                            <div class="flex flex-wrap justify-end gap-2">
-                                                <a href="processos.php?action=aprovar_orcamento&id=<?= $processo['id']; ?>" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-green-600 text-white shadow hover:bg-green-700">
-                                                    Aprovar orçamento
-                                                </a>
-                                                <form action="processos.php?action=recusar_orcamento" method="POST" class="flex flex-wrap items-center justify-end gap-2">
-                                                    <input type="hidden" name="id" value="<?= $processo['id']; ?>">
-                                                    <input type="text" name="motivo_recusa" class="w-full sm:w-56 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent" placeholder="Motivo da recusa" required>
-                                                    <button type="submit" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-red-600 text-white shadow hover:bg-red-700">
-                                                        Recusar orçamento
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        </div>
+                                        <a href="processos.php?action=aprovar_orcamento&id=<?= $processo['id']; ?>" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-green-600 text-white shadow hover:bg-green-700">
+                                            Aprovar orçamento
+                                        </a>
+                                        <form action="processos.php?action=recusar_orcamento" method="POST" class="flex flex-wrap items-center gap-2 justify-end">
+                                            <input type="hidden" name="id" value="<?= $processo['id']; ?>">
+                                            <input type="text" name="motivo_recusa" class="w-full sm:w-56 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent" placeholder="Motivo da recusa" required>
+                                            <button type="submit" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-red-600 text-white shadow hover:bg-red-700">
+                                                Recusar orçamento
+                                            </button>
+                                        </form>
                                     <?php elseif ($isManager && $isServicePending): ?>
                                         <div class="flex flex-wrap justify-end gap-2 w-full">
                                             <form action="processos.php?action=change_status" method="POST" class="inline-flex">
@@ -160,6 +153,9 @@ if (!function_exists('normalize_status_info_local')) {
                                             </form>
                                         </div>
                                     <?php endif; ?>
+                                    <a href="processos.php?action=view&id=<?= $processo['id']; ?>" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                        Ver Detalhes
+                                    </a>
                                 </div>
                             </td>
                         </tr>
