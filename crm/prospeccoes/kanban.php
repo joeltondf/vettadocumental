@@ -34,9 +34,32 @@ $errorMessage = null;
 try {
     $kanbanColumns = $kanbanConfigService->getColumns();
     $kanbanOwners = $prospectionModel->getKanbanOwners($kanbanColumns);
+    if (!$isVendor) {
+        $activeSellers = $prospectionModel->getActiveSellers();
+        if (!empty($activeSellers)) {
+            $ownersMap = [];
+
+            foreach ($activeSellers as $seller) {
+                $ownersMap[(int)$seller['id']] = $seller['nome_completo'];
+            }
+
+            foreach ($kanbanOwners as $owner) {
+                $ownersMap[(int)$owner['id']] = $owner['nome_completo'];
+            }
+
+            $kanbanOwners = [];
+            foreach ($ownersMap as $id => $name) {
+                $kanbanOwners[] = [
+                    'id' => $id,
+                    'nome_completo' => $name
+                ];
+            }
+        }
+    }
     $hasUnassignedLeads = !$isVendor && $prospectionModel->hasUnassignedKanbanLeads($kanbanColumns);
 
     $kanbanLeads = $prospectionModel->getKanbanLeads($kanbanColumns, $selectedOwnerId, $filterOnlyUnassigned);
+    $assignableLeads = $prospectionModel->getLeadsOutsideKanban($kanbanColumns, $selectedOwnerId, $filterOnlyUnassigned);
 } catch (Throwable $exception) {
     $errorMessage = 'Não foi possível carregar o Kanban. Tente novamente mais tarde.';
     error_log('Kanban error: ' . $exception->getMessage());
@@ -44,6 +67,7 @@ try {
     $kanbanOwners = [];
     $hasUnassignedLeads = false;
     $kanbanLeads = [];
+    $assignableLeads = [];
 }
 
 $leadsByStatus = [];
@@ -75,6 +99,9 @@ if ($isVendor) {
         ];
     }
 }
+
+$assignableLeadsCount = count($assignableLeads ?? []);
+$defaultKanbanDestination = $kanbanColumns[0] ?? '';
 ?>
 
 <style>
@@ -218,6 +245,10 @@ if ($isVendor) {
                 });
             </script>
         <?php endif; ?>
+        <button id="openAddLeadsModal" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" <?php echo $assignableLeadsCount === 0 ? 'disabled' : ''; ?>>Adicionar leads ao Kanban<?php echo $assignableLeadsCount > 0 ? ' (' . $assignableLeadsCount . ')' : ''; ?></button>
+        <?php if ($assignableLeadsCount === 0): ?>
+            <span class="text-xs text-gray-500">Nenhum lead disponível fora do Kanban para este filtro.</span>
+        <?php endif; ?>
         <button id="toggleSelectionBtn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">Selecionar múltiplos</button>
         <div id="bulkActions" class="hidden items-center gap-2">
             <span class="text-sm text-gray-600">Selecionados: <span id="selectedCount">0</span></span>
@@ -278,6 +309,57 @@ if ($isVendor) {
     <?php endforeach; ?>
 </div>
 
+<div id="addLeadsModal" class="hidden fixed inset-0 z-40">
+    <div class="flex items-center justify-center min-h-screen">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75"></div>
+        <div class="relative bg-white rounded-lg shadow-xl m-4 max-w-3xl w-full z-10 p-6">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-900">Adicionar leads ao Kanban</h2>
+                    <p class="text-sm text-gray-500">Selecione os leads fora do Kanban e escolha a coluna de destino.</p>
+                </div>
+                <button type="button" id="closeAddLeadsModal" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+            </div>
+            <div class="border rounded-lg max-h-72 overflow-y-auto mb-4 bg-gray-50">
+                <?php if (empty($assignableLeads)): ?>
+                    <p class="text-sm text-gray-500 p-4" id="addLeadsEmptyState">Nenhum lead disponível para adicionar.</p>
+                <?php else: ?>
+                    <ul class="divide-y divide-gray-200" id="addLeadsList">
+                        <?php foreach ($assignableLeads as $lead): ?>
+                            <li class="flex items-start gap-3 p-3">
+                                <input type="checkbox" class="mt-1 add-lead-checkbox h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500" value="<?php echo (int)$lead['id']; ?>">
+                                <div class="flex-1">
+                                    <p class="font-semibold text-sm text-gray-900"><?php echo htmlspecialchars($lead['nome_prospecto']); ?></p>
+                                    <p class="text-xs text-gray-500">Status atual: <?php echo htmlspecialchars($lead['status'] ?? 'Sem status'); ?></p>
+                                    <?php if (!empty($lead['responsavel_nome'])): ?>
+                                        <p class="text-xs text-gray-500">Vendedor: <?php echo htmlspecialchars($lead['responsavel_nome']); ?></p>
+                                    <?php endif; ?>
+                                </div>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            </div>
+            <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center gap-2">
+                    <label for="addLeadTargetColumn" class="text-sm text-gray-700 font-medium">Enviar para</label>
+                    <select id="addLeadTargetColumn" class="border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <?php foreach ($kanbanColumns as $column): ?>
+                            <option value="<?php echo htmlspecialchars($column); ?>" <?php echo $column === $defaultKanbanDestination ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($column); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="flex gap-2 justify-end">
+                    <button type="button" id="cancelAddLeadsBtn" class="border border-gray-300 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-100">Cancelar</button>
+                    <button type="button" id="confirmAddLeadsBtn" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed" <?php echo empty($assignableLeads) ? 'disabled' : ''; ?>>Adicionar selecionados</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div id="cardModal" class="hidden fixed z-50 inset-0 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen">
         <div class="fixed inset-0 bg-gray-500 bg-opacity-75"></div>
@@ -310,11 +392,78 @@ if ($isVendor) {
         const selectedCountEl = document.getElementById('selectedCount');
         const bulkStatusSelect = document.getElementById('bulkStatusSelect');
         const bulkMoveBtn = document.getElementById('bulkMoveBtn');
+        const addLeadsModal = document.getElementById('addLeadsModal');
+        const openAddLeadsBtn = document.getElementById('openAddLeadsModal');
+        const closeAddLeadsBtn = document.getElementById('closeAddLeadsModal');
+        const cancelAddLeadsBtn = document.getElementById('cancelAddLeadsBtn');
+        const confirmAddLeadsBtn = document.getElementById('confirmAddLeadsBtn');
+        const addLeadTargetSelect = document.getElementById('addLeadTargetColumn');
 
         const selectionElementsExist = toggleSelectionBtn && bulkActions && selectedCountEl && bulkStatusSelect && bulkMoveBtn;
 
         let selectionMode = false;
         const selectedCards = new Set();
+
+        if (openAddLeadsBtn && addLeadsModal) {
+            const closeAddLeadsModal = () => addLeadsModal.classList.add('hidden');
+
+            openAddLeadsBtn.addEventListener('click', () => {
+                if (openAddLeadsBtn.hasAttribute('disabled')) {
+                    return;
+                }
+                addLeadsModal.classList.remove('hidden');
+            });
+
+            [closeAddLeadsBtn, cancelAddLeadsBtn].forEach(btn => {
+                if (btn) {
+                    btn.addEventListener('click', closeAddLeadsModal);
+                }
+            });
+
+            addLeadsModal.addEventListener('click', event => {
+                if (event.target === addLeadsModal) {
+                    closeAddLeadsModal();
+                }
+            });
+
+            if (confirmAddLeadsBtn) {
+                confirmAddLeadsBtn.addEventListener('click', () => {
+                    const checkboxes = Array.from(document.querySelectorAll('.add-lead-checkbox'));
+                    const selectedIds = checkboxes
+                        .filter(checkbox => checkbox.checked)
+                        .map(checkbox => checkbox.value);
+
+                    if (selectedIds.length === 0) {
+                        alert('Selecione ao menos um lead para adicionar.');
+                        return;
+                    }
+
+                    const targetStatus = addLeadTargetSelect ? addLeadTargetSelect.value : '';
+                    if (!targetStatus) {
+                        alert('Escolha a coluna de destino.');
+                        return;
+                    }
+
+                    confirmAddLeadsBtn.disabled = true;
+                    const originalText = confirmAddLeadsBtn.textContent;
+                    confirmAddLeadsBtn.textContent = 'Adicionando...';
+
+                    const updatePromises = selectedIds.map(id => postStatusChange(id, targetStatus));
+
+                    Promise.allSettled(updatePromises).then(results => {
+                        const hasError = results.some(result => result.status === 'rejected');
+                        if (hasError) {
+                            alert('Alguns leads não foram adicionados corretamente. A página será recarregada.');
+                        }
+                        window.location.reload();
+                    }).catch(() => {
+                        alert('Erro ao adicionar leads ao Kanban.');
+                        confirmAddLeadsBtn.disabled = false;
+                        confirmAddLeadsBtn.textContent = originalText;
+                    });
+                });
+            }
+        }
 
         if (selectionElementsExist) {
             toggleSelectionBtn.addEventListener('click', () => {

@@ -238,6 +238,65 @@ class Prospeccao
     }
 
     /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getActiveSellers(): array
+    {
+        $sql = "SELECT id, nome_completo
+                FROM users
+                WHERE perfil = 'vendedor' AND (ativo = 1 OR ativo IS NULL)
+                ORDER BY nome_completo ASC";
+
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $exception) {
+            error_log('Erro ao buscar vendedores ativos: ' . $exception->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * @param array<string> $statuses
+     * @return array<int, array<string, mixed>>
+     */
+    public function getLeadsOutsideKanban(array $statuses, ?int $responsavelId = null, bool $onlyUnassigned = false): array
+    {
+        if (empty($statuses)) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($statuses), '?'));
+        $params = $statuses;
+
+        $sql = "SELECT
+                    p.id,
+                    p.nome_prospecto,
+                    p.responsavel_id,
+                    p.status,
+                    p.data_ultima_atualizacao,
+                    u.nome_completo AS responsavel_nome
+                FROM prospeccoes p
+                LEFT JOIN users u ON p.responsavel_id = u.id
+                WHERE (p.status IS NULL OR p.status = '' OR p.status NOT IN ($placeholders))";
+
+        if ($onlyUnassigned) {
+            $sql .= " AND (p.responsavel_id IS NULL OR p.responsavel_id = 0)";
+        } elseif ($responsavelId !== null) {
+            $sql .= " AND p.responsavel_id = ?";
+            $params[] = $responsavelId;
+        }
+
+        $sql .= " ORDER BY p.data_ultima_atualizacao DESC, p.id DESC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
      * @param array<string> $statuses
      */
     public function hasUnassignedKanbanLeads(array $statuses): bool
