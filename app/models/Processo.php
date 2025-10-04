@@ -122,7 +122,9 @@ public function create($data, $files)
             'idioma' => $data['idioma'] ?? null,
             'valor_total' => $this->parseCurrency($data['valor_total'] ?? $data['valor_total_hidden'] ?? 0),
             'orcamento_forma_pagamento' => $data['orcamento_forma_pagamento'] ?? null,
-            'orcamento_parcelas' => ($data['orcamento_forma_pagamento'] ?? '') == 'À vista' ? ($data['orcamento_parcelas'] ?? null) : null,
+            'orcamento_parcelas' => in_array(mb_strtolower($data['orcamento_forma_pagamento'] ?? ''), ['à vista', 'pagamento único', 'pagamento unico'], true)
+                ? ($data['orcamento_parcelas'] ?? null)
+                : null,
             'orcamento_valor_entrada' => $this->parseCurrency($data['orcamento_valor_entrada'] ?? null),
             'data_pagamento_1' => empty($data['data_pagamento_1']) ? null : $data['data_pagamento_1'],
             'data_pagamento_2' => empty($data['data_pagamento_2']) ? null : $data['data_pagamento_2'],
@@ -281,7 +283,9 @@ public function create($data, $files)
                 'modalidade_assinatura' => $data['modalidade_assinatura'] ?? null,
                 'valor_total' => $this->parseCurrency($data['valor_total_hidden'] ?? null),
                 'orcamento_forma_pagamento' => $data['orcamento_forma_pagamento'] ?? null,
-                'orcamento_parcelas' => ($data['orcamento_forma_pagamento'] == 'À vista') ? ($data['orcamento_parcelas'] ?? null) : null,
+                'orcamento_parcelas' => in_array(mb_strtolower($data['orcamento_forma_pagamento'] ?? ''), ['à vista', 'pagamento único', 'pagamento unico'], true)
+                    ? ($data['orcamento_parcelas'] ?? null)
+                    : null,
                 'orcamento_valor_entrada' => $this->parseCurrency($data['orcamento_valor_entrada'] ?? null),
                 'data_pagamento_1' => empty($data['data_pagamento_1']) ? null : $data['data_pagamento_1'],
                 'data_pagamento_2' => empty($data['data_pagamento_2']) ? null : $data['data_pagamento_2'],
@@ -554,7 +558,7 @@ public function getFilteredProcesses(array $filters = [], int $limit = 50, int $
     $params = [];
     // Se nenhum filtro de status for aplicado, exclui os orçamentos por padrão.
     if (empty($filters['status'])) {
-        $where_clauses[] = "p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Recusado', 'Pendente', 'Serviço Pendente')";
+        $where_clauses[] = "p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Recusado', 'Pendente', 'Serviço Pendente', 'Serviço pendente')";
 
     }
 
@@ -564,7 +568,7 @@ public function getFilteredProcesses(array $filters = [], int $limit = 50, int $
     if (!empty($filters['filtro_card'])) {
         switch ($filters['filtro_card']) {
             case 'ativos':
-                $where_clauses[] = "p.status_processo IN ('Aprovado', 'Em Andamento', 'Serviço em Andamento')";
+                $where_clauses[] = "p.status_processo IN ('Aprovado', 'Em Andamento', 'Serviço em Andamento', 'Serviço em andamento')";
                 break;
             case 'finalizados_mes':
                 $where_clauses[] = "p.status_processo = 'Finalizado' AND MONTH(p.data_finalizacao_real) = MONTH(CURDATE()) AND YEAR(p.data_finalizacao_real) = YEAR(CURDATE())";
@@ -663,7 +667,7 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
     
     // Garante que a contagem também exclua os orçamentos por padrão.
     if (empty($filters['status'])) {
-        $where_clauses[] = "p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Recusado', 'Pendente', 'Serviço Pendente')";
+        $where_clauses[] = "p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Recusado', 'Pendente', 'Serviço Pendente', 'Serviço pendente')";
 
     }
 
