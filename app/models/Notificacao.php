@@ -96,13 +96,67 @@ class Notificacao
      */
     public function deleteByLink(string $link): bool
     {
-        $sql = "DELETE FROM notificacoes WHERE link = ?";
+        $links = $this->buildLinkVariants($link);
+        if (empty($links)) {
+            return false;
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($links), '?'));
+        $sql = "DELETE FROM notificacoes WHERE link IN ({$placeholders})";
+
         try {
             $stmt = $this->pdo->prepare($sql);
-            return $stmt->execute([$link]);
+            return $stmt->execute($links);
         } catch (PDOException $e) {
             error_log("Erro ao excluir notificação por link: " . $e->getMessage());
             return false;
         }
+    }
+
+    private function buildLinkVariants(string $link): array
+    {
+        $trimmedLink = trim($link);
+        if ($trimmedLink === '') {
+            return [];
+        }
+
+        $variants = [$trimmedLink];
+
+        if (!defined('APP_URL')) {
+            return $variants;
+        }
+
+        $baseUrl = rtrim((string)APP_URL, '/');
+        $relativeFromAbsolute = $this->stripBaseUrl($trimmedLink, $baseUrl);
+
+        if ($relativeFromAbsolute !== null) {
+            $variants[] = $relativeFromAbsolute;
+        } elseif (!$this->isAbsoluteUrl($trimmedLink)) {
+            $relativePath = $this->ensureLeadingSlash($trimmedLink);
+            $variants[] = $relativePath;
+            $variants[] = $baseUrl . $relativePath;
+        }
+
+        return array_values(array_unique($variants));
+    }
+
+    private function stripBaseUrl(string $link, string $baseUrl): ?string
+    {
+        if (strpos($link, $baseUrl) !== 0) {
+            return null;
+        }
+
+        $relative = substr($link, strlen($baseUrl));
+        return $this->ensureLeadingSlash($relative);
+    }
+
+    private function ensureLeadingSlash(string $path): string
+    {
+        return '/' . ltrim($path, '/');
+    }
+
+    private function isAbsoluteUrl(string $link): bool
+    {
+        return (bool)preg_match('/^https?:\/\//i', $link);
     }
 }
