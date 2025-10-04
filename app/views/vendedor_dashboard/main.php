@@ -5,6 +5,53 @@ $hasFilters = !empty($activeFilters);
 $initialProcessLimit = 50;
 $baseAppUrl = rtrim(APP_URL, '/');
 $dashboardVendedorUrl = $baseAppUrl . '/dashboard_vendedor.php';
+
+if (!function_exists('seller_normalize_status_info')) {
+    function seller_normalize_status_info(?string $status): array
+    {
+        $normalized = mb_strtolower(trim((string)$status));
+
+        if ($normalized === '') {
+            return ['normalized' => '', 'label' => 'N/A'];
+        }
+
+        $aliases = [
+            'orcamento' => 'orçamento',
+            'orcamento pendente' => 'orçamento pendente',
+            'serviço pendente' => 'pendente',
+            'servico pendente' => 'pendente',
+            'serviço em andamento' => 'em andamento',
+            'servico em andamento' => 'em andamento',
+            'finalizado' => 'concluído',
+            'finalizada' => 'concluído',
+            'concluido' => 'concluído',
+            'concluida' => 'concluído',
+            'arquivado' => 'cancelado',
+            'arquivada' => 'cancelado',
+        ];
+
+        if (isset($aliases[$normalized])) {
+            $normalized = $aliases[$normalized];
+        }
+
+        $labels = [
+            'orçamento' => 'Orçamento',
+            'orçamento pendente' => 'Orçamento Pendente',
+            'aprovado' => 'Aprovado',
+            'em andamento' => 'Em andamento',
+            'concluído' => 'Concluído',
+            'cancelado' => 'Cancelado',
+            'pendente' => 'Pendente',
+        ];
+
+        $label = $labels[$normalized] ?? ($status === '' ? 'N/A' : $status);
+
+        return ['normalized' => $normalized, 'label' => $label];
+    }
+}
+
+$selectedStatusInfo = seller_normalize_status_info($filters['status'] ?? '');
+$selectedStatusNormalized = $selectedStatusInfo['normalized'];
 ?>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
@@ -98,8 +145,9 @@ $dashboardVendedorUrl = $baseAppUrl . '/dashboard_vendedor.php';
                 <label for="status" class="text-sm font-semibold text-gray-700 mb-1 block">Status</label>
                 <select id="status" name="status" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg">
                     <option value="">Todos os Status</option>
-                    <?php $status_list = ['Orçamento', 'Orçamento Pendente', 'Serviço pendente', 'Serviço Pendente', 'Serviço em andamento', 'Serviço em Andamento', 'Em andamento', 'Finalizado']; foreach(array_unique($status_list) as $s): ?>
-                        <option value="<?php echo $s; ?>" <?php echo (($filters['status'] ?? '') == $s) ? 'selected' : ''; ?>><?php echo $s; ?></option>
+                    <?php $statusOptions = ['Orçamento', 'Aprovado', 'Em andamento', 'Concluído', 'Cancelado', 'Pendente', 'Orçamento Pendente']; foreach ($statusOptions as $option): ?>
+                        <?php $optionInfo = seller_normalize_status_info($option); ?>
+                        <option value="<?php echo $optionInfo['label']; ?>" <?php echo ($selectedStatusNormalized === $optionInfo['normalized']) ? 'selected' : ''; ?>><?php echo $optionInfo['label']; ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -143,7 +191,8 @@ $dashboardVendedorUrl = $baseAppUrl . '/dashboard_vendedor.php';
                     <?php foreach ($processos as $processo): ?>
                         <?php
                             $rowClass = 'hover:bg-gray-50';
-                            $statusAtual = strtolower($processo['status_processo'] ?? '');
+                            $statusInfo = seller_normalize_status_info($processo['status_processo'] ?? '');
+                            $statusAtual = $statusInfo['normalized'];
                             switch ($statusAtual) {
                                 case 'orçamento':
                                     $rowClass = 'bg-blue-50 hover:bg-blue-100';
@@ -154,11 +203,14 @@ $dashboardVendedorUrl = $baseAppUrl . '/dashboard_vendedor.php';
                                 case 'em andamento':
                                     $rowClass = 'bg-indigo-50 hover:bg-indigo-100';
                                     break;
-                                case 'serviço pendente':
+                                case 'pendente':
                                     $rowClass = 'bg-rose-50 hover:bg-rose-100';
                                     break;
-                                case 'finalizado':
+                                case 'concluído':
                                     $rowClass = 'bg-green-50 hover:bg-green-100';
+                                    break;
+                                case 'cancelado':
+                                    $rowClass = 'bg-red-50 hover:bg-red-100';
                                     break;
                             }
                         ?>
@@ -324,19 +376,40 @@ $dashboardVendedorUrl = $baseAppUrl . '/dashboard_vendedor.php';
             }).join('');
         }
 
+        const normalizeStatus = (status) => {
+            const normalized = (status || '').toLowerCase();
+            const aliases = {
+                'orcamento': 'orçamento',
+                'orcamento pendente': 'orçamento pendente',
+                'serviço pendente': 'pendente',
+                'servico pendente': 'pendente',
+                'serviço em andamento': 'em andamento',
+                'servico em andamento': 'em andamento',
+                'finalizado': 'concluído',
+                'finalizada': 'concluído',
+                'concluido': 'concluído',
+                'concluida': 'concluído',
+                'arquivado': 'cancelado',
+                'arquivada': 'cancelado'
+            };
+            return aliases[normalized] ?? normalized;
+        };
+
         function resolveRowClass(status) {
-            if (!status) return 'hover:bg-gray-50';
-            switch (status.toLowerCase()) {
+            const normalized = normalizeStatus(status);
+            switch (normalized) {
                 case 'orçamento':
                     return 'bg-blue-50 hover:bg-blue-100';
                 case 'orçamento pendente':
                     return 'bg-yellow-50 hover:bg-yellow-100';
                 case 'em andamento':
                     return 'bg-indigo-50 hover:bg-indigo-100';
-                case 'serviço pendente':
+                case 'pendente':
                     return 'bg-rose-50 hover:bg-rose-100';
-                case 'finalizado':
+                case 'concluído':
                     return 'bg-green-50 hover:bg-green-100';
+                case 'cancelado':
+                    return 'bg-red-50 hover:bg-red-100';
                 default:
                     return 'hover:bg-gray-50';
             }
