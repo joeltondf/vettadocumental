@@ -1,3 +1,49 @@
+<?php
+if (!function_exists('normalize_status_info_local')) {
+    function normalize_status_info_local(?string $status): array
+    {
+        $normalized = mb_strtolower(trim((string)$status));
+
+        if ($normalized === '') {
+            return ['normalized' => '', 'label' => 'N/A'];
+        }
+
+        $aliases = [
+            'orcamento' => 'orçamento',
+            'orcamento pendente' => 'orçamento pendente',
+            'serviço pendente' => 'pendente',
+            'servico pendente' => 'pendente',
+            'serviço em andamento' => 'em andamento',
+            'servico em andamento' => 'em andamento',
+            'finalizado' => 'concluído',
+            'finalizada' => 'concluído',
+            'concluido' => 'concluído',
+            'concluida' => 'concluído',
+            'arquivado' => 'cancelado',
+            'arquivada' => 'cancelado',
+        ];
+
+        if (isset($aliases[$normalized])) {
+            $normalized = $aliases[$normalized];
+        }
+
+        $labels = [
+            'orçamento' => 'Orçamento',
+            'orçamento pendente' => 'Orçamento Pendente',
+            'aprovado' => 'Aprovado',
+            'em andamento' => 'Em andamento',
+            'concluído' => 'Concluído',
+            'cancelado' => 'Cancelado',
+            'pendente' => 'Pendente',
+        ];
+
+        $label = $labels[$normalized] ?? ($status === '' ? 'N/A' : $status);
+
+        return ['normalized' => $normalized, 'label' => $label];
+    }
+}
+?>
+
 <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-gray-50">
 
     <div class="mb-6 border-b pb-4">
@@ -32,9 +78,11 @@
                     <?php foreach ($processos_pendentes as $processo): ?>
                         <?php
                             $statusAtual = $processo['status'] ?? $processo['status_processo'] ?? '';
-                            $statusNormalized = mb_strtolower($statusAtual);
+                            $statusInfo = normalize_status_info_local($statusAtual);
+                            $statusNormalized = $statusInfo['normalized'];
+                            $statusLabel = $statusInfo['label'];
                             $isBudgetPending = $statusNormalized === 'orçamento pendente';
-                            $isServicePending = $statusNormalized === 'serviço pendente';
+                            $isServicePending = $statusNormalized === 'pendente';
                         ?>
                         <tr>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -48,41 +96,50 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm">
                                 <?php
-                                    // Define classes de cor com base no status do processo
-                                    $status_class = 'bg-gray-100 text-gray-800'; // Cor padrão
-                                    if ($processo['status'] === 'Pendente') {
-                                        $status_class = 'bg-yellow-100 text-yellow-800';
+                                    $statusClass = 'bg-gray-100 text-gray-800';
+                                    switch ($statusNormalized) {
+                                        case 'orçamento pendente':
+                                            $statusClass = 'bg-yellow-100 text-yellow-800';
+                                            break;
+                                        case 'pendente':
+                                            $statusClass = 'bg-orange-100 text-orange-800';
+                                            break;
+                                        case 'aprovado':
+                                            $statusClass = 'bg-blue-100 text-blue-800';
+                                            break;
+                                        case 'em andamento':
+                                            $statusClass = 'bg-cyan-100 text-cyan-800';
+                                            break;
+                                        case 'concluído':
+                                            $statusClass = 'bg-green-100 text-green-800';
+                                            break;
+                                        case 'cancelado':
+                                            $statusClass = 'bg-red-100 text-red-800';
+                                            break;
                                     }
                                 ?>
-                                <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?= $status_class ?>">
-                                    <?= htmlspecialchars($processo['status']) ?>
+                                <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?= $statusClass ?>">
+                                    <?= htmlspecialchars($statusLabel) ?>
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <div class="flex flex-col space-y-3 items-end">
-                                    <a href="processos.php?action=view&id=<?= $processo['id']; ?>" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                                        Ver Detalhes
-                                    </a>
+                                <div class="flex flex-wrap items-center justify-end gap-2">
                                     <?php if ($isManager && $isBudgetPending): ?>
-                                        <div class="flex flex-col w-full space-y-2">
-                                            <div class="flex flex-wrap justify-end gap-2">
-                                                <a href="processos.php?action=aprovar_orcamento&id=<?= $processo['id']; ?>" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-green-600 text-white shadow hover:bg-green-700">
-                                                    Aprovar orçamento
-                                                </a>
-                                                <form action="processos.php?action=recusar_orcamento" method="POST" class="flex flex-wrap items-center justify-end gap-2">
-                                                    <input type="hidden" name="id" value="<?= $processo['id']; ?>">
-                                                    <input type="text" name="motivo_recusa" class="w-full sm:w-56 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent" placeholder="Motivo da recusa" required>
-                                                    <button type="submit" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-red-600 text-white shadow hover:bg-red-700">
-                                                        Recusar orçamento
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        </div>
+                                        <a href="processos.php?action=aprovar_orcamento&id=<?= $processo['id']; ?>" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-green-600 text-white shadow hover:bg-green-700">
+                                            Aprovar orçamento
+                                        </a>
+                                        <form action="processos.php?action=recusar_orcamento" method="POST" class="flex flex-wrap items-center gap-2 justify-end">
+                                            <input type="hidden" name="id" value="<?= $processo['id']; ?>">
+                                            <input type="text" name="motivo_recusa" class="w-full sm:w-56 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent" placeholder="Motivo da recusa" required>
+                                            <button type="submit" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-red-600 text-white shadow hover:bg-red-700">
+                                                Recusar orçamento
+                                            </button>
+                                        </form>
                                     <?php elseif ($isManager && $isServicePending): ?>
                                         <div class="flex flex-wrap justify-end gap-2 w-full">
                                             <form action="processos.php?action=change_status" method="POST" class="inline-flex">
                                                 <input type="hidden" name="id" value="<?= $processo['id']; ?>">
-                                                <input type="hidden" name="status_processo" value="Serviço em andamento">
+                                                <input type="hidden" name="status_processo" value="Em andamento">
                                                 <button type="submit" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-green-600 text-white shadow hover:bg-green-700">
                                                     Aprovar serviço
                                                 </button>
@@ -96,6 +153,9 @@
                                             </form>
                                         </div>
                                     <?php endif; ?>
+                                    <a href="processos.php?action=view&id=<?= $processo['id']; ?>" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                        Ver Detalhes
+                                    </a>
                                 </div>
                             </td>
                         </tr>
