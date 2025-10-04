@@ -279,6 +279,10 @@ class ProcessosController
 
             // Fluxo de orçamento normal
             $dadosProcesso = $this->prepareOmieSelectionData($_POST);
+            $perfilCriador = $_SESSION['user_perfil'] ?? '';
+            if ($perfilCriador === 'vendedor') {
+                $dadosProcesso['status_processo'] = 'Orçamento Pendente';
+            }
             $novo_id = $this->processoModel->create($dadosProcesso, $_FILES);
             $redirectUrl = 'dashboard.php';
             if ($novo_id) {
@@ -289,6 +293,12 @@ class ProcessosController
                 if ($status_inicial === 'Orçamento') {
                     $this->sendBudgetEmails($novo_id, $_SESSION['user_id'] ?? null);
                     $mensagemSucesso = "Orçamento cadastrado e enviado para o cliente.";
+                } elseif ($status_inicial === 'Orçamento Pendente') {
+                    $mensagemSucesso = 'Orçamento cadastrado e enviado para aprovação da gerência.';
+                    $clienteIdNotificacao = (int)($dadosProcesso['cliente_id'] ?? 0);
+                    if ($clienteIdNotificacao > 0 && isset($_SESSION['user_id'])) {
+                        $this->notificarGerenciaPendencia($novo_id, $clienteIdNotificacao, (int)$_SESSION['user_id'], 'orçamento');
+                    }
                 }
 
                 if ($this->shouldGenerateOmieOs($status_inicial)) {
@@ -871,10 +881,9 @@ class ProcessosController
         }
 
         $formData = [
-            'forma_cobranca' => $process['orcamento_forma_pagamento'] ?? 'À vista',
+            'forma_cobranca' => $this->normalizePaymentMethod($process['orcamento_forma_pagamento'] ?? null),
             'valor_total' => $process['valor_total'] ?? '',
             'valor_entrada' => $process['orcamento_valor_entrada'] ?? '',
-            'parcelas' => $process['orcamento_parcelas'] ?? 1,
             'data_pagamento_1' => $process['data_pagamento_1'] ?? '',
             'data_pagamento_2' => $process['data_pagamento_2'] ?? '',
         ];
@@ -883,11 +892,11 @@ class ProcessosController
             $formData = array_merge($formData, $_POST);
 
             try {
-                $resultadoAlteracao = $this->applyStatusChange($processId, $process, 'Serviço Pendente', $_POST, false);
+                $resultadoAlteracao = $this->applyStatusChange($processId, $process, 'Serviço pendente', $_POST, false);
                 $this->finalizeStatusChange(
                     $processId,
                     $process,
-                    'Serviço Pendente',
+                    'Serviço pendente',
                     $resultadoAlteracao['statusAnterior'],
                     $resultadoAlteracao['clienteId'],
                     true
@@ -962,9 +971,11 @@ class ProcessosController
     ): void {
         $link = "/processos.php?action=view&id={$processId}";
         $senderId = $_SESSION['user_id'] ?? null;
-        $pendingStatuses = ['Pendente', 'Serviço Pendente'];
-        $leftPending = in_array($previousStatus, $pendingStatuses, true)
-            && !in_array($newStatus, $pendingStatuses, true);
+        $pendingStatuses = ['pendente', 'serviço pendente', 'orçamento pendente'];
+        $previousStatusNormalized = $this->normalizeStatusName($previousStatus);
+        $newStatusNormalized = $this->normalizeStatusName($newStatus);
+        $leftPending = in_array($previousStatusNormalized, $pendingStatuses, true)
+            && !in_array($newStatusNormalized, $pendingStatuses, true);
 
         $this->convertProspectIfNeeded($customerId, $newStatus);
 
@@ -976,64 +987,68 @@ class ProcessosController
             $this->notificacaoModel->deleteByLink($link);
         }
 
-        if ($newStatus === 'Serviço Pendente') {
+        if ($newStatusNormalized === 'serviço pendente') {
             $_SESSION['success_message'] = 'Serviço convertido e aguardando aprovação da gerência.';
             if ($customerId > 0 && $senderId) {
                 $this->notificarGerenciaPendencia($processId, $customerId, $senderId, 'serviço');
             }
         } else {
             $successMessage = 'Status do processo atualizado com sucesso!';
-            if (in_array($newStatus, ['Em Andamento', 'Serviço em Andamento'], true)
-                && in_array($previousStatus, $pendingStatuses, true)) {
+            if (in_array($newStatusNormalized, ['em andamento', 'serviço em andamento'], true)
+                && in_array($previousStatusNormalized, $pendingStatuses, true)) {
                 $successMessage = 'Serviço aprovado e status atualizado para Em Andamento.';
-            } elseif ($newStatus === 'Orçamento') {
+            } elseif ($newStatusNormalized === 'orçamento') {
                 $successMessage = 'Orçamento enviado para o cliente.';
-            } elseif ($newStatus === 'Aprovado' && $previousStatus === 'Orçamento') {
+            } elseif ($newStatusNormalized === 'aprovado' && $previousStatusNormalized === 'orçamento') {
                 $successMessage = 'Orçamento aprovado com sucesso!';
+            } elseif ($newStatusNormalized === 'orçamento pendente' && $previousStatusNormalized === 'serviço pendente') {
+                $successMessage = 'Serviço pendente recusado. Orçamento retornou para ajustes.';
             }
             $_SESSION['success_message'] = $successMessage;
         }
 
-        if ($this->shouldGenerateOmieOs($newStatus)) {
+        if ($this->shouldGenerateOmieOs($newStatusNormalized)) {
             $osNumero = $this->gerarOsOmie($processId);
             if ($osNumero) {
                 $_SESSION['success_message'] .= " Ordem de Serviço #{$osNumero} gerada na Omie.";
             }
         }
 
-        if ($newStatus === 'Cancelado') {
+        if ($newStatusNormalized === 'cancelado') {
             $this->cancelarOsOmie($processId);
         }
 
         $sellerUserId = $this->vendedorModel->getUserIdByVendedorId($process['vendedor_id']);
 
-        switch ($newStatus) {
-            case 'Orçamento':
+        switch ($newStatusNormalized) {
+            case 'orçamento pendente':
+                if ($sellerUserId && $senderId !== $sellerUserId && $previousStatusNormalized === 'serviço pendente') {
+                    $message = "O serviço do orçamento #{$process['orcamento_numero']} foi recusado pela gerência. Ajuste os dados.";
+                    $this->notificacaoModel->criar($sellerUserId, $senderId, $message, $link);
+                }
+                break;
+            case 'orçamento':
                 $this->sendBudgetEmails($processId, $senderId);
                 if ($sellerUserId && $senderId !== $sellerUserId) {
                     $message = "Seu orçamento #{$process['orcamento_numero']} foi enviado ao cliente.";
                     $this->notificacaoModel->criar($sellerUserId, $senderId, $message, $link);
                 }
                 break;
-            case 'Aprovado':
+            case 'aprovado':
                 if ($sellerUserId) {
                     $message = "Seu orçamento #{$process['orcamento_numero']} foi APROVADO!";
                     $this->notificacaoModel->criar($sellerUserId, $senderId, $message, $link);
                 }
                 break;
-            case 'Recusado':
+            case 'recusado':
                 if ($sellerUserId) {
                     $message = "Seu orçamento #{$process['orcamento_numero']} foi RECUSADO. Ajuste-o.";
                     $this->notificacaoModel->criar($sellerUserId, $senderId, $message, $link);
                 }
                 break;
-            case 'Serviço Pendente':
-                if ($sellerUserId && $senderId !== $sellerUserId) {
-                    $message = "Seu orçamento #{$process['orcamento_numero']} foi convertido em serviço pendente.";
-                    $this->notificacaoModel->criar($sellerUserId, $senderId, $message, $link);
-                }
+            case 'serviço pendente':
                 break;
-            case 'Serviço em Andamento':
+            case 'serviço em andamento':
                 if ($sellerUserId && $senderId !== $sellerUserId) {
                     $message = "Seu serviço #{$process['orcamento_numero']} foi aprovado e está em andamento.";
                     $this->notificacaoModel->criar($sellerUserId, $senderId, $message, $link);
@@ -1086,8 +1101,8 @@ class ProcessosController
     public function painelNotificacoes()
     {
         $pageTitle = "Painel de Notificações";
-        $status_para_buscar = ['Pendente', 'Serviço Pendente'];
-        $processos_pendentes = $this->processoModel->getByMultipleStatus($status_para_buscar);
+        $status_para_buscar = ['Orçamento Pendente', 'Serviço pendente', 'Serviço Pendente'];
+        $processos_pendentes = $this->processoModel->getByMultipleStatus(array_unique($status_para_buscar));
         $this->render('painel_notificacoes', [
             'processos_pendentes' => $processos_pendentes,
             'pageTitle' => $pageTitle,
@@ -1485,7 +1500,7 @@ class ProcessosController
             'produtos' => $produtos,
             'servicosMensalistas' => $servicosMensalistas,
             'valorTotal' => $processo['valor_total'] ?? '',
-            'formaCobranca' => $processo['orcamento_forma_pagamento'] ?? '',
+            'formaCobranca' => $this->normalizePaymentMethod($processo['orcamento_forma_pagamento'] ?? null),
             'parcelas' => $processo['orcamento_parcelas'] ?? '',
             'valorEntrada' => $processo['orcamento_valor_entrada'] ?? '',
             'dataPagamento1' => $processo['data_pagamento_1'] ?? '',
@@ -1494,7 +1509,7 @@ class ProcessosController
             'traducaoPrazoTipo' => $processo['traducao_prazo_tipo'] ?? 'dias',
             'traducaoPrazoDias' => $processo['traducao_prazo_dias'] ?? '',
             'traducaoPrazoData' => $processo['traducao_prazo_data'] ?? '',
-            'statusDestino' => 'Serviço Pendente',
+            'statusDestino' => 'Serviço pendente',
         ];
     }
 
@@ -1507,10 +1522,24 @@ class ProcessosController
             if (!$vendedorUserId || $vendedorUserId != ($_SESSION['user_id'] ?? null)) {
                 return false;
             }
-            return in_array($novoStatus, ['Orçamento', 'Orçamento Pendente', 'Serviço Pendente'], true);
+            $allowed = ['Orçamento', 'Orçamento Pendente', 'Serviço Pendente', 'Serviço pendente'];
+            return in_array($novoStatus, $allowed, true);
         }
 
-        return in_array($perfil, ['admin', 'gerencia', 'supervisor'], true);
+        if (!in_array($perfil, ['admin', 'gerencia', 'supervisor'], true)) {
+            return false;
+        }
+
+        $normalizedStatus = $this->normalizeStatusName($novoStatus);
+        if ($normalizedStatus === 'serviço pendente') {
+            return true;
+        }
+
+        if (in_array($normalizedStatus, ['serviço em andamento', 'servico em andamento', 'orçamento pendente'], true)) {
+            return true;
+        }
+
+        return false;
     }
 
     private function isLeadConversionRequest(array $input): bool
@@ -1920,8 +1949,9 @@ class ProcessosController
 
         $validarPagamento = $leadConversionRequested || isset($input['forma_cobranca']) || isset($input['valor_entrada']);
         if ($validarPagamento) {
-            $formaCobranca = $input['forma_cobranca'] ?? $processo['orcamento_forma_pagamento'] ?? null;
-            if ($formaCobranca === null || !in_array($formaCobranca, ['À vista', 'Parcelado', 'Mensal'], true)) {
+            $formaCobranca = $this->normalizePaymentMethod($input['forma_cobranca'] ?? $processo['orcamento_forma_pagamento'] ?? null);
+            $formasValidas = ['Pagamento único', 'Pagamento parcelado', 'Pagamento mensal'];
+            if (!in_array($formaCobranca, $formasValidas, true)) {
                 throw new InvalidArgumentException('Informe uma forma de cobrança válida.');
             }
 
@@ -1931,26 +1961,27 @@ class ProcessosController
             }
 
             $valorTotal = $this->parseCurrencyValue($input['valor_total'] ?? ($processo['valor_total'] ?? null));
-            if ($valorTotal !== null && $valorEntrada > $valorTotal) {
-                throw new InvalidArgumentException('O valor de entrada não pode ser maior que o valor total.');
+            if ($valorTotal !== null && $valorEntrada >= $valorTotal) {
+                throw new InvalidArgumentException('O valor de entrada deve ser menor que o valor total.');
             }
 
-            if ($formaCobranca === 'Parcelado') {
+            if ($formaCobranca === 'Pagamento parcelado') {
                 if ($valorTotal === null) {
                     throw new InvalidArgumentException('Informe o valor total do processo para parcelamentos.');
-                }
-                if ($valorEntrada >= $valorTotal) {
-                    throw new InvalidArgumentException('O valor de entrada deve ser menor que o valor total para parcelamentos.');
                 }
 
                 $data1 = $input['data_pagamento_1'] ?? null;
                 $data2 = $input['data_pagamento_2'] ?? null;
-                if ($data1 && $data2) {
-                    $dt1 = DateTime::createFromFormat('Y-m-d', $data1);
-                    $dt2 = DateTime::createFromFormat('Y-m-d', $data2);
-                    if ($dt1 && $dt2 && $dt2 <= $dt1) {
-                        throw new InvalidArgumentException('A data da segunda parcela deve ser posterior à da primeira.');
-                    }
+                if (empty($data1) || empty($data2)) {
+                    throw new InvalidArgumentException('Informe as datas de ambas as parcelas.');
+                }
+                $dt1 = DateTime::createFromFormat('Y-m-d', $data1);
+                $dt2 = DateTime::createFromFormat('Y-m-d', $data2);
+                if (!$dt1 || !$dt2) {
+                    throw new InvalidArgumentException('Datas de pagamento inválidas.');
+                }
+                if ($dt2 <= $dt1) {
+                    throw new InvalidArgumentException('A data da segunda parcela deve ser posterior à da primeira.');
                 }
             }
         }
@@ -2034,18 +2065,35 @@ class ProcessosController
 
         $valorTotal = $this->parseCurrencyValue($input['valor_total'] ?? ($processo['valor_total'] ?? null));
         $valorEntrada = $this->parseCurrencyValue($input['valor_entrada'] ?? ($processo['orcamento_valor_entrada'] ?? null));
-        $formaCobranca = $input['forma_cobranca'] ?? $processo['orcamento_forma_pagamento'] ?? null;
-        $parcelas = isset($input['parcelas']) ? (int)$input['parcelas'] : ($processo['orcamento_parcelas'] ?? null);
 
-        if ($formaCobranca === 'Parcelado') {
-            $parcelas = $parcelas && $parcelas > 1 ? $parcelas : 2;
-        } elseif ($formaCobranca !== null) {
+        $rawStoredMethod = $processo['orcamento_forma_pagamento'] ?? null;
+        $inputMethod = array_key_exists('forma_cobranca', $input) ? $input['forma_cobranca'] : null;
+        $methodSource = $inputMethod ?? $rawStoredMethod;
+        $formaCobranca = $methodSource !== null && $methodSource !== ''
+            ? $this->normalizePaymentMethod($methodSource)
+            : null;
+        $formaCobrancaArmazenada = $formaCobranca !== null
+            ? $this->mapPaymentMethodForStorage($formaCobranca)
+            : $rawStoredMethod;
+
+        if ($formaCobranca === null) {
+            $parcelas = $processo['orcamento_parcelas'] ?? null;
+        } elseif ($formaCobranca === 'Pagamento parcelado') {
+            $parcelas = 2;
+        } else {
             $parcelas = 1;
         }
 
         $valorRestante = null;
-        if ($formaCobranca === 'Parcelado' && $valorTotal !== null && $valorEntrada !== null) {
-            $valorRestante = $valorTotal - $valorEntrada;
+        if ($formaCobranca === 'Pagamento parcelado' && $valorTotal !== null && $valorEntrada !== null) {
+            $valorRestante = max($valorTotal - $valorEntrada, 0);
+        }
+
+        $dataPagamento1 = $input['data_pagamento_1'] ?? $processo['data_pagamento_1'] ?? null;
+        $dataPagamento2 = $input['data_pagamento_2'] ?? $processo['data_pagamento_2'] ?? null;
+        if ($formaCobranca !== 'Pagamento parcelado') {
+            $dataPagamento2 = null;
+            $valorRestante = $formaCobranca === null ? ($processo['orcamento_valor_restante'] ?? null) : null;
         }
 
         $dados = [
@@ -2055,18 +2103,13 @@ class ProcessosController
             'traducao_prazo_dias' => $prazoDias,
             'traducao_prazo_data' => $prazoData,
             'valor_total' => $valorTotal,
-            'orcamento_forma_pagamento' => $formaCobranca,
+            'orcamento_forma_pagamento' => $formaCobrancaArmazenada,
             'orcamento_parcelas' => $parcelas,
             'orcamento_valor_entrada' => $valorEntrada,
             'orcamento_valor_restante' => $valorRestante,
-            'data_pagamento_1' => $input['data_pagamento_1'] ?? $processo['data_pagamento_1'] ?? null,
-            'data_pagamento_2' => $input['data_pagamento_2'] ?? $processo['data_pagamento_2'] ?? null,
+            'data_pagamento_1' => $dataPagamento1,
+            'data_pagamento_2' => $dataPagamento2,
         ];
-
-        if ($formaCobranca !== 'Parcelado') {
-            $dados['data_pagamento_2'] = null;
-            $dados['orcamento_valor_restante'] = null;
-        }
 
         if ($clienteId > 0) {
             $dados['cliente_id'] = $clienteId;
@@ -2231,6 +2274,48 @@ class ProcessosController
         return round((float)$normalized, 2);
     }
 
+    private function normalizePaymentMethod(?string $method): string
+    {
+        $normalized = mb_strtolower(trim((string)$method));
+        switch ($normalized) {
+            case 'pagamento parcelado':
+            case 'parcelado':
+                return 'Pagamento parcelado';
+            case 'pagamento mensal':
+            case 'mensal':
+                return 'Pagamento mensal';
+            case 'pagamento único':
+            case 'pagamento unico':
+            case 'à vista':
+            case 'a vista':
+                return 'Pagamento único';
+            default:
+                return 'Pagamento único';
+        }
+    }
+
+    private function mapPaymentMethodForStorage(?string $method): ?string
+    {
+        if ($method === null) {
+            return null;
+        }
+
+        switch ($this->normalizePaymentMethod($method)) {
+            case 'Pagamento parcelado':
+                return 'parcelado';
+            case 'Pagamento mensal':
+                return 'Pagamento mensal';
+            case 'Pagamento único':
+            default:
+                return 'Pagamento único';
+        }
+    }
+
+    private function normalizeStatusName(?string $status): string
+    {
+        return mb_strtolower(trim((string)$status));
+    }
+
     /**
      * Determina se um status pertence ao fluxo de orçamentos.
      */
@@ -2249,19 +2334,26 @@ class ProcessosController
      */
     private function getStatusClasses($status)
     {
-        switch ($status) {
-            case 'Orçamento':
-            case 'Orçamento Pendente':
+        $normalized = $this->normalizeStatusName($status);
+        switch ($normalized) {
+            case 'orçamento':
+            case 'orçamento pendente':
                 return 'bg-yellow-100 text-yellow-800';
-            case 'Aprovado': return 'bg-blue-100 text-blue-800';
-            case 'Serviço Pendente': return 'bg-orange-100 text-orange-800';
-            case 'Em Andamento':
-            case 'Serviço em Andamento':
+            case 'aprovado':
+                return 'bg-blue-100 text-blue-800';
+            case 'serviço pendente':
+                return 'bg-orange-100 text-orange-800';
+            case 'em andamento':
+            case 'serviço em andamento':
                 return 'bg-cyan-100 text-cyan-800';
-            case 'Finalizado': return 'bg-green-100 text-green-800';
-            case 'Arquivado': return 'bg-gray-200 text-gray-600';
-            case 'Cancelado': return 'bg-red-100 text-red-800';
-            default: return 'bg-gray-100 text-gray-800';
+            case 'finalizado':
+                return 'bg-green-100 text-green-800';
+            case 'arquivado':
+                return 'bg-gray-200 text-gray-600';
+            case 'cancelado':
+                return 'bg-red-100 text-red-800';
+            default:
+                return 'bg-gray-100 text-gray-800';
         }
     }
 
@@ -2300,7 +2392,9 @@ class ProcessosController
         if ($status === null) {
             return false;
         }
-        $normalizedStatus = strtolower(trim($status));
+
+        $normalizedStatus = $this->normalizeStatusName($status);
+
         return in_array($normalizedStatus, ['em andamento', 'aprovado', 'serviço em andamento'], true);
     }
 

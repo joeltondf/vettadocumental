@@ -98,7 +98,7 @@ $dashboardVendedorUrl = $baseAppUrl . '/dashboard_vendedor.php';
                 <label for="status" class="text-sm font-semibold text-gray-700 mb-1 block">Status</label>
                 <select id="status" name="status" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg">
                     <option value="">Todos os Status</option>
-                    <?php $status_list = ['Orçamento', 'Orçamento Pendente', 'Serviço Pendente', 'Serviço em Andamento', 'Em andamento', 'Finalizado']; foreach(array_unique($status_list) as $s): ?>
+                    <?php $status_list = ['Orçamento', 'Orçamento Pendente', 'Serviço pendente', 'Serviço Pendente', 'Serviço em andamento', 'Serviço em Andamento', 'Em andamento', 'Finalizado']; foreach(array_unique($status_list) as $s): ?>
                         <option value="<?php echo $s; ?>" <?php echo (($filters['status'] ?? '') == $s) ? 'selected' : ''; ?>><?php echo $s; ?></option>
                     <?php endforeach; ?>
                 </select>

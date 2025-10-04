@@ -1,11 +1,33 @@
 <?php
 $formData = $formData ?? [];
 $processId = (int)($processo['id'] ?? 0);
-$paymentMethod = $formData['forma_cobranca'] ?? 'À vista';
+$mapLegacyPaymentMethod = static function (?string $method): string {
+    $normalized = trim((string)$method);
+    switch ($normalized) {
+        case 'À vista':
+        case 'Pagamento único':
+            return 'Pagamento único';
+        case 'Parcelado':
+        case 'parcelado':
+        case 'Pagamento parcelado':
+            return 'Pagamento parcelado';
+        case 'Mensal':
+        case 'Pagamento mensal':
+            return 'Pagamento mensal';
+        default:
+            return 'Pagamento único';
+    }
+};
+
+$paymentMethod = $mapLegacyPaymentMethod($formData['forma_cobranca'] ?? null);
 $totalValue = $formData['valor_total'] ?? ($processo['valor_total'] ?? '');
 $displayTotal = ($totalValue !== '' && $totalValue !== null)
     ? 'R$ ' . htmlspecialchars((string)$totalValue)
     : 'Não informado';
+$paymentDateOne = $formData['data_pagamento_1'] ?? '';
+if ($paymentDateOne === '' && ($totalValue === '' || $totalValue === null)) {
+    $paymentDateOne = date('Y-m-d');
+}
 ?>
 <div class="max-w-3xl mx-auto space-y-8">
     <div class="flex items-center justify-between">
@@ -26,14 +48,14 @@ $displayTotal = ($totalValue !== '' && $totalValue !== null)
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <label class="block text-sm font-semibold text-gray-700" for="valor_total">Valor total do serviço</label>
-                <input type="text" id="valor_total" name="valor_total" value="<?php echo htmlspecialchars($totalValue); ?>" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500" data-total-value>
+                <input type="text" id="valor_total" name="valor_total" value="<?php echo htmlspecialchars($totalValue); ?>" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500" data-total-value readonly>
             </div>
             <div>
                 <label class="block text-sm font-semibold text-gray-700" for="forma_cobranca">Forma de cobrança</label>
                 <select id="forma_cobranca" name="forma_cobranca" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500" data-payment-method>
-                    <option value="À vista" <?php echo $paymentMethod === 'À vista' ? 'selected' : ''; ?>>À vista</option>
-                    <option value="Parcelado" <?php echo $paymentMethod === 'Parcelado' ? 'selected' : ''; ?>>Parcelado</option>
-                    <option value="Mensal" <?php echo $paymentMethod === 'Mensal' ? 'selected' : ''; ?>>Mensal</option>
+                    <option value="Pagamento único" <?php echo $paymentMethod === 'Pagamento único' ? 'selected' : ''; ?>>Pagamento único</option>
+                    <option value="Pagamento parcelado" <?php echo $paymentMethod === 'Pagamento parcelado' ? 'selected' : ''; ?>>Pagamento parcelado</option>
+                    <option value="Pagamento mensal" <?php echo $paymentMethod === 'Pagamento mensal' ? 'selected' : ''; ?>>Pagamento mensal</option>
                 </select>
             </div>
         </div>
@@ -43,18 +65,14 @@ $displayTotal = ($totalValue !== '' && $totalValue !== null)
                 <label class="block text-sm font-semibold text-gray-700" for="valor_entrada">Valor pago / entrada</label>
                 <input type="text" id="valor_entrada" name="valor_entrada" value="<?php echo htmlspecialchars($formData['valor_entrada'] ?? ''); ?>" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500" data-entry-value>
             </div>
-            <div id="parcelas-wrapper" class="<?php echo $paymentMethod === 'Parcelado' ? '' : 'hidden'; ?>">
-                <label class="block text-sm font-semibold text-gray-700" for="parcelas">Quantidade de parcelas</label>
-                <input type="number" min="2" id="parcelas" name="parcelas" value="<?php echo htmlspecialchars($formData['parcelas'] ?? 2); ?>" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500">
-            </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <label class="block text-sm font-semibold text-gray-700" for="data_pagamento_1">Data do pagamento / 1ª parcela</label>
-                <input type="date" id="data_pagamento_1" name="data_pagamento_1" value="<?php echo htmlspecialchars($formData['data_pagamento_1'] ?? ''); ?>" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500">
+                <input type="date" id="data_pagamento_1" name="data_pagamento_1" value="<?php echo htmlspecialchars($paymentDateOne); ?>" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500">
             </div>
-            <div id="segunda-parcela-wrapper" class="<?php echo $paymentMethod === 'Parcelado' ? '' : 'hidden'; ?>">
+            <div id="segunda-parcela-wrapper" class="<?php echo $paymentMethod === 'Pagamento parcelado' ? '' : 'hidden'; ?>">
                 <label class="block text-sm font-semibold text-gray-700" for="data_pagamento_2">Data da 2ª parcela</label>
                 <input type="date" id="data_pagamento_2" name="data_pagamento_2" value="<?php echo htmlspecialchars($formData['data_pagamento_2'] ?? ''); ?>" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500">
             </div>
@@ -70,7 +88,7 @@ $displayTotal = ($totalValue !== '' && $totalValue !== null)
                 <label class="block text-sm font-semibold text-gray-700" for="payment_proof_entry">Comprovante de pagamento</label>
                 <input type="file" id="payment_proof_entry" name="payment_proof_entry" accept=".pdf,.png,.jpg,.jpeg,.webp" class="mt-1 block w-full text-sm text-gray-600">
             </div>
-            <div id="segunda-comprovante-wrapper" class="<?php echo $paymentMethod === 'Parcelado' ? '' : 'hidden'; ?>">
+            <div id="segunda-comprovante-wrapper" class="<?php echo $paymentMethod === 'Pagamento parcelado' ? '' : 'hidden'; ?>">
                 <label class="block text-sm font-semibold text-gray-700" for="payment_proof_balance">Comprovante saldo</label>
                 <input type="file" id="payment_proof_balance" name="payment_proof_balance" accept=".pdf,.png,.jpg,.jpeg,.webp" class="mt-1 block w-full text-sm text-gray-600">
             </div>

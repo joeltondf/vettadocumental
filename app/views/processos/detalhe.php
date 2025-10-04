@@ -29,34 +29,35 @@ function format_prazo_countdown($dateString) {
 }
 
 $status = $processo['status_processo'] ?? 'N/A';
+$statusNormalized = mb_strtolower($status);
 $status_classes = 'bg-gray-100 text-gray-800';
-switch ($status) {
-    case 'Orçamento':
-    case 'Orçamento Pendente':
+switch ($statusNormalized) {
+    case 'orçamento':
+    case 'orçamento pendente':
         $status_classes = 'bg-yellow-100 text-yellow-800';
         break;
-    case 'Aprovado':
+    case 'aprovado':
         $status_classes = 'bg-blue-100 text-blue-800';
         break;
-    case 'Serviço Pendente':
+    case 'serviço pendente':
         $status_classes = 'bg-orange-100 text-orange-800';
         break;
-    case 'Em Andamento':
-    case 'Serviço em Andamento':
+    case 'em andamento':
+    case 'serviço em andamento':
         $status_classes = 'bg-cyan-100 text-cyan-800';
         break;
-    case 'Finalizado':
+    case 'finalizado':
         $status_classes = 'bg-green-100 text-green-800';
         break;
-    case 'Arquivado':
+    case 'arquivado':
         $status_classes = 'bg-gray-200 text-gray-600';
         break;
-    case 'Cancelado':
+    case 'cancelado':
         $status_classes = 'bg-red-100 text-red-800';
         break;
 }
 $leadConversionContext = $leadConversionContext ?? ['shouldRender' => false];
-$isAprovadoOuSuperior = !in_array($status, ['Orçamento', 'Orçamento Pendente', 'Cancelado']);
+$isAprovadoOuSuperior = !in_array($statusNormalized, ['orçamento', 'orçamento pendente', 'cancelado']);
 ?>
 
 
@@ -356,7 +357,7 @@ $isAprovadoOuSuperior = !in_array($status, ['Orçamento', 'Orçamento Pendente',
                     <div>
                         <label for="status_processo" class="block text-sm font-medium text-gray-700">Mudar Status para:</label>
                         <select id="status_processo" name="status_processo" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                            <?php $allStatus = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Aprovado', 'Em Andamento', 'Finalizado', 'Arquivado', 'Cancelado']; ?>
+                            <?php $allStatus = ['Orçamento Pendente', 'Orçamento', 'Serviço pendente', 'Serviço Pendente', 'Serviço em andamento', 'Serviço em Andamento', 'Aprovado', 'Em Andamento', 'Finalizado', 'Arquivado', 'Cancelado']; ?>
                             <?php foreach ($allStatus as $stat): ?>
                                 <option value="<?php echo $stat; ?>" <?php echo ($processo['status_processo'] == $stat) ? 'selected' : ''; ?>>
                                     <?php echo $stat; ?>

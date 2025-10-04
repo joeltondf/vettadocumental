@@ -67,16 +67,12 @@
         const entryInput = form.querySelector('[data-entry-value]');
         const totalDisplay = form.querySelector('[data-total-display]');
         const balanceDisplay = form.querySelector('[data-balance-display]');
-        const parcelasWrapper = form.querySelector('#parcelas-wrapper');
         const secondInstallmentWrapper = form.querySelector('#segunda-parcela-wrapper');
         const secondProofWrapper = form.querySelector('#segunda-comprovante-wrapper');
 
         const togglePaymentSections = () => {
-            const method = methodSelect ? methodSelect.value : 'À vista';
-            const shouldShowInstallments = method === 'Parcelado';
-            if (parcelasWrapper) {
-                parcelasWrapper.classList[shouldShowInstallments ? 'remove' : 'add']('hidden');
-            }
+            const method = methodSelect ? methodSelect.value : 'Pagamento único';
+            const shouldShowInstallments = method === 'Pagamento parcelado' || method === 'Parcelado';
             if (secondInstallmentWrapper) {
                 secondInstallmentWrapper.classList[shouldShowInstallments ? 'remove' : 'add']('hidden');
             }
