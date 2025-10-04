@@ -67,48 +67,98 @@
         const entryInput = form.querySelector('[data-entry-value]');
         const totalDisplay = form.querySelector('[data-total-display]');
         const balanceDisplay = form.querySelector('[data-balance-display]');
-        const secondInstallmentWrapper = form.querySelector('#segunda-parcela-wrapper');
-        const secondProofWrapper = form.querySelector('#segunda-comprovante-wrapper');
-        const entryWrapper = form.querySelector('#entrada-wrapper');
+        const sections = form.querySelectorAll('[data-payment-section]');
+        const balanceInput = form.querySelector('[data-balance-input]');
+        const fileInputs = form.querySelectorAll('input[type="file"][data-upload-display]');
 
-        const togglePaymentSections = () => {
-            const method = methodSelect ? methodSelect.value : 'Pagamento único';
-            const shouldShowInstallments = method === 'Pagamento parcelado' || method === 'Parcelado';
-            if (secondInstallmentWrapper) {
-                secondInstallmentWrapper.classList[shouldShowInstallments ? 'remove' : 'add']('hidden');
+        const updateFileTileDisplay = (input) => {
+            if (!input) {
+                return;
             }
-            if (secondProofWrapper) {
-                secondProofWrapper.classList[shouldShowInstallments ? 'remove' : 'add']('hidden');
+            const target = input.dataset.uploadDisplay;
+            if (!target) {
+                return;
             }
-            if (entryWrapper) {
-                entryWrapper.classList[shouldShowInstallments ? 'remove' : 'add']('hidden');
-                if (!shouldShowInstallments && entryInput) {
-                    entryInput.value = '';
+            const display = form.querySelector(`[data-upload-filename="${target}"]`);
+            if (!display) {
+                return;
+            }
+            const placeholder = display.dataset.placeholder || 'Nenhum arquivo selecionado';
+            const files = Array.from(input.files || []);
+            if (files.length > 0) {
+                display.textContent = files.length === 1 ? files[0].name : `${files.length} arquivos selecionados`;
+            } else {
+                display.textContent = placeholder;
+            }
+        };
+
+        const toggleFieldState = (field, enabled) => {
+            if (!field) {
+                return;
+            }
+
+            if (enabled) {
+                field.disabled = false;
+                field.name = field.dataset.fieldName || field.name;
+            } else {
+                field.disabled = true;
+                field.removeAttribute('name');
+                if (field.matches('[data-entry-value]')) {
+                    field.value = '';
+                }
+                if (field.type === 'file') {
+                    field.value = '';
+                    updateFileTileDisplay(field);
                 }
             }
         };
 
         const updateSummary = () => {
+            const method = methodSelect ? methodSelect.value : 'Pagamento único';
             const total = totalInput ? parseCurrency(totalInput.value) : null;
-            const entry = entryInput ? parseCurrency(entryInput.value) : null;
+            const entry = entryInput && !entryInput.disabled ? parseCurrency(entryInput.value) : null;
+
             if (totalDisplay) {
                 totalDisplay.textContent = total !== null ? formatCurrency(total) : 'Não informado';
             }
+
             if (balanceDisplay) {
-                if (total !== null && entry !== null) {
-                    const balance = total - entry;
-                    balanceDisplay.textContent = formatCurrency(balance >= 0 ? balance : 0);
+                if (method === 'Pagamento parcelado') {
+                    if (total !== null && entry !== null) {
+                        const balance = Math.max(total - entry, 0);
+                        balanceDisplay.textContent = formatCurrency(balance);
+                        if (balanceInput) {
+                            balanceInput.value = formatCurrency(balance);
+                        }
+                    } else {
+                        balanceDisplay.textContent = '-';
+                        if (balanceInput) {
+                            balanceInput.value = balanceInput.dataset.defaultValue || 'R$ 0,00';
+                        }
+                    }
                 } else {
-                    balanceDisplay.textContent = '-';
+                    balanceDisplay.textContent = total !== null ? formatCurrency(0) : '-';
+                    if (balanceInput) {
+                        balanceInput.value = balanceInput.dataset.defaultValue || 'R$ 0,00';
+                    }
                 }
             }
         };
 
-        if (methodSelect) {
-            methodSelect.addEventListener('change', () => {
-                togglePaymentSections();
-                updateSummary();
+        const toggleSections = () => {
+            const method = methodSelect ? methodSelect.value : 'Pagamento único';
+            sections.forEach((section) => {
+                const isActive = section.dataset.paymentSection === method;
+                section.classList.toggle('hidden', !isActive);
+                section.querySelectorAll('[data-field-name]').forEach((field) => {
+                    toggleFieldState(field, isActive);
+                });
             });
+            updateSummary();
+        };
+
+        if (methodSelect) {
+            methodSelect.addEventListener('change', toggleSections);
         }
 
         if (totalInput) {
@@ -119,7 +169,12 @@
             entryInput.addEventListener('input', updateSummary);
         }
 
-        togglePaymentSections();
+        fileInputs.forEach((input) => {
+            input.addEventListener('change', () => updateFileTileDisplay(input));
+            updateFileTileDisplay(input);
+        });
+
+        toggleSections();
         updateSummary();
     };
 
