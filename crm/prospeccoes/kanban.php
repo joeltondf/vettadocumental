@@ -1,43 +1,82 @@
 <?php
-// Arquivo: crm/prospeccoes/kanban.php (VERSÃO FINAL E CORRIGIDA)
-
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
+require_once __DIR__ . '/../../app/models/Prospeccao.php';
+require_once __DIR__ . '/../../app/services/KanbanConfigService.php';
 require_once __DIR__ . '/../../app/views/layouts/header.php';
 
-$colunas_kanban = [
-    'Contato ativo', 'Primeiro contato', 'Segundo contato', 'Terceiro contato',
-    'Reunião agendada', 'Proposta enviada', 'Fechamento', 'Pausar'
-];
+$kanbanConfigService = new KanbanConfigService($pdo);
+$prospectionModel = new Prospeccao($pdo);
 
-try {
-    // A consulta já está correta, selecionando todos os campos necessários.
-    $sql = "SELECT p.id, p.nome_prospecto, p.valor_proposto, p.status, c.nome_cliente, u.nome_completo as responsavel_nome
-            FROM prospeccoes p
-            LEFT JOIN clientes c ON p.cliente_id = c.id
-            LEFT JOIN users u ON p.responsavel_id = u.id
-            WHERE p.status IN ('" . implode("','", $colunas_kanban) . "')
-            ORDER BY p.id DESC";
-            
-    $stmt = $pdo->query($sql);
-    $prospeccoes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$userId = $_SESSION['user_id'] ?? null;
+$userProfile = $_SESSION['user_perfil'] ?? '';
+$isVendor = ($userProfile === 'vendedor');
 
-    $prospeccoes_por_status = [];
-    foreach ($colunas_kanban as $coluna) {
-        $prospeccoes_por_status[$coluna] = [];
-    }
-    foreach ($prospeccoes as $prospeccao) {
-        if (isset($prospeccoes_por_status[$prospeccao['status']])) {
-            $prospeccoes_por_status[$prospeccao['status']][] = $prospeccao;
+$selectedOwnerParam = $_GET['responsavel_id'] ?? null;
+$filterOnlyUnassigned = false;
+$selectedOwnerId = null;
+
+if ($isVendor && $userId !== null) {
+    $selectedOwnerId = (int)$userId;
+} else {
+    if ($selectedOwnerParam === 'none') {
+        $filterOnlyUnassigned = true;
+    } else {
+        $selectedOwnerId = filter_input(INPUT_GET, 'responsavel_id', FILTER_VALIDATE_INT);
+        if ($selectedOwnerId === false) {
+            $selectedOwnerId = null;
         }
     }
+}
 
-} catch (PDOException $e) { 
-    die("Erro ao buscar prospecções: " . $e->getMessage()); 
+$errorMessage = null;
+
+try {
+    $kanbanColumns = $kanbanConfigService->getColumns();
+    $kanbanOwners = $prospectionModel->getKanbanOwners($kanbanColumns);
+    $hasUnassignedLeads = !$isVendor && $prospectionModel->hasUnassignedKanbanLeads($kanbanColumns);
+
+    $kanbanLeads = $prospectionModel->getKanbanLeads($kanbanColumns, $selectedOwnerId, $filterOnlyUnassigned);
+} catch (Throwable $exception) {
+    $errorMessage = 'Não foi possível carregar o Kanban. Tente novamente mais tarde.';
+    error_log('Kanban error: ' . $exception->getMessage());
+    $kanbanColumns = $kanbanConfigService->getDefaultColumns();
+    $kanbanOwners = [];
+    $hasUnassignedLeads = false;
+    $kanbanLeads = [];
+}
+
+$leadsByStatus = [];
+foreach ($kanbanColumns as $column) {
+    $leadsByStatus[$column] = [];
+}
+
+foreach ($kanbanLeads as $lead) {
+    $status = $lead['status'] ?? '';
+    if (!isset($leadsByStatus[$status])) {
+        continue;
+    }
+    $leadsByStatus[$status][] = $lead;
+}
+
+$defaultFilterValue = 'all';
+if ($filterOnlyUnassigned) {
+    $defaultFilterValue = 'none';
+} elseif ($selectedOwnerId !== null) {
+    $defaultFilterValue = (string)$selectedOwnerId;
+}
+
+if ($isVendor) {
+    $defaultFilterValue = (string)$selectedOwnerId;
+    if (empty($kanbanOwners)) {
+        $kanbanOwners[] = [
+            'id' => $selectedOwnerId,
+            'nome_completo' => $_SESSION['user_nome'] ?? 'Meus leads'
+        ];
+    }
 }
 ?>
 
-<!-- Estilos CSS aprimorados para o Kanban -->
 <style>
     .kanban-board {
         display: flex;
@@ -122,18 +161,30 @@ try {
     }
 
     .kanban-column h3 {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         background-color: #1d4ed8;
         color: white;
         padding: 0.75rem;
         border-top-left-radius: 0.75rem;
         border-top-right-radius: 0.75rem;
+        font-size: 0.95rem;
     }
 
     .kanban-column h3 span {
         font-weight: 500;
     }
-</style>
 
+    .empty-column-message {
+        font-size: 0.875rem;
+        color: #64748b;
+        padding: 1rem;
+        text-align: center;
+        background-color: #f1f5f9;
+        border-radius: 0.5rem;
+    }
+</style>
 
 <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between border-b border-gray-200 pb-4 mb-4">
     <div class="flex items-center justify-between gap-3">
@@ -141,12 +192,38 @@ try {
         <a href="<?php echo APP_URL; ?>/crm/prospeccoes/lista.php" class="bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">Ver em Lista</a>
     </div>
     <div class="flex flex-wrap items-center gap-3">
+        <?php if ($isVendor): ?>
+            <div class="text-sm text-gray-600 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                <span class="font-semibold text-blue-700">Filtro ativo:</span>
+                <span><?php echo htmlspecialchars($_SESSION['user_nome'] ?? 'Seus leads'); ?></span>
+            </div>
+        <?php else: ?>
+            <form method="get" class="flex items-center gap-2" id="sellerFilterForm">
+                <label for="sellerFilter" class="text-sm text-gray-700 font-medium">Vendedor</label>
+                <select name="responsavel_id" id="sellerFilter" class="border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="" <?php echo $defaultFilterValue === 'all' ? 'selected' : ''; ?>>Todos os vendedores</option>
+                    <?php foreach ($kanbanOwners as $owner): ?>
+                        <option value="<?php echo (int)$owner['id']; ?>" <?php echo ((string)$owner['id'] === $defaultFilterValue) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($owner['nome_completo']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                    <?php if ($hasUnassignedLeads): ?>
+                        <option value="none" <?php echo $defaultFilterValue === 'none' ? 'selected' : ''; ?>>Sem responsável</option>
+                    <?php endif; ?>
+                </select>
+            </form>
+            <script>
+                document.getElementById('sellerFilter').addEventListener('change', function () {
+                    this.form.submit();
+                });
+            </script>
+        <?php endif; ?>
         <button id="toggleSelectionBtn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">Selecionar múltiplos</button>
         <div id="bulkActions" class="hidden items-center gap-2">
             <span class="text-sm text-gray-600">Selecionados: <span id="selectedCount">0</span></span>
             <select id="bulkStatusSelect" class="border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <?php foreach ($colunas_kanban as $coluna): ?>
-                    <option value="<?php echo htmlspecialchars($coluna); ?>"><?php echo htmlspecialchars($coluna); ?></option>
+                <?php foreach ($kanbanColumns as $column): ?>
+                    <option value="<?php echo htmlspecialchars($column); ?>"><?php echo htmlspecialchars($column); ?></option>
                 <?php endforeach; ?>
             </select>
             <button id="bulkMoveBtn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>Mover selecionados</button>
@@ -154,37 +231,53 @@ try {
     </div>
 </div>
 
-<!-- O Painel Kanban -->
+<?php if ($errorMessage): ?>
+    <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4 text-sm">
+        <?php echo htmlspecialchars($errorMessage); ?>
+    </div>
+<?php endif; ?>
+
 <div class="kanban-board" id="kanbanBoard">
-    <?php foreach ($colunas_kanban as $status): ?>
+    <?php foreach ($kanbanColumns as $column): ?>
         <div class="kanban-column">
-            <h3 class="font-bold text-gray-700 p-3 border-b"><?php echo $status; ?> (<?php echo count($prospeccoes_por_status[$status]); ?>)</h3>
-            <div class="p-3 kanban-cards-container space-y-3" data-status="<?php echo htmlspecialchars($status); ?>">
-                <?php foreach ($prospeccoes_por_status[$status] as $prospeccao): ?>
-                    <div class="bg-white p-3 rounded-lg shadow-sm kanban-card" data-id="<?php echo $prospeccao['id']; ?>">
-                        <div class="flex items-start justify-between gap-3">
-                            <div>
-                                <p class="font-semibold text-sm text-gray-800"><?php echo htmlspecialchars($prospeccao['nome_prospecto']); ?></p>
-                                <p class="text-xs text-gray-600 mt-1"><?php echo htmlspecialchars($prospeccao['nome_cliente'] ?? 'Lead não associado'); ?></p>
-                            </div>
-                            <input type="checkbox" class="card-checkbox hidden mt-1 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" aria-label="Selecionar lead">
-                        </div>
-                        <div class="flex justify-between items-center mt-3">
-                            <p class="text-xs text-blue-600 font-bold">R$ <?php echo number_format($prospeccao['valor_proposto'] ?? 0, 2, ',', '.'); ?></p>
-                            <?php if (!empty($prospeccao['responsavel_nome'])): ?>
-                                <div class="avatar" title="<?php echo htmlspecialchars($prospeccao['responsavel_nome']); ?>">
-                                    <?php echo strtoupper(substr($prospeccao['responsavel_nome'], 0, 2)); ?>
+            <h3>
+                <span><?php echo htmlspecialchars($column); ?></span>
+                <span class="text-xs font-semibold">(<?php echo count($leadsByStatus[$column] ?? []); ?>)</span>
+            </h3>
+            <div class="p-3 kanban-cards-container space-y-3" data-status="<?php echo htmlspecialchars($column); ?>">
+                <?php if (empty($leadsByStatus[$column])): ?>
+                    <p class="empty-column-message">Nenhum lead neste estágio.</p>
+                <?php else: ?>
+                    <?php foreach ($leadsByStatus[$column] as $lead): ?>
+                        <div class="bg-white p-3 rounded-lg shadow-sm kanban-card" data-id="<?php echo (int)$lead['id']; ?>" data-owner-id="<?php echo (int)($lead['responsavel_id'] ?? 0); ?>">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <p class="font-semibold text-sm text-gray-800"><?php echo htmlspecialchars($lead['nome_prospecto']); ?></p>
+                                    <p class="text-xs text-gray-600 mt-1"><?php echo htmlspecialchars($lead['nome_cliente'] ?? 'Lead não associado'); ?></p>
+                                    <?php if (!empty($lead['responsavel_nome'])): ?>
+                                        <p class="text-xs text-gray-500 mt-1">Vendedor: <?php echo htmlspecialchars($lead['responsavel_nome']); ?></p>
+                                    <?php endif; ?>
                                 </div>
-                            <?php endif; ?>
+                                <input type="checkbox" class="card-checkbox hidden mt-1 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" aria-label="Selecionar lead">
+                            </div>
+                            <div class="flex justify-between items-center mt-3">
+                                <p class="text-xs text-blue-600 font-bold">R$ <?php echo number_format((float)($lead['valor_proposto'] ?? 0), 2, ',', '.'); ?></p>
+                                <?php if (!empty($lead['responsavel_nome'])): ?>
+                                    <div class="avatar" title="<?php echo htmlspecialchars($lead['responsavel_nome']); ?>">
+                                        <?php echo strtoupper(substr($lead['responsavel_nome'], 0, 2)); ?>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="text-xs text-gray-400" title="Sem responsável">--</div>
+                                <?php endif; ?>
+                            </div>
                         </div>
-                    </div>
-                <?php endforeach; ?>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </div>
         </div>
     <?php endforeach; ?>
 </div>
 
-<!-- Modal de Detalhes (escondido por padrão) -->
 <div id="cardModal" class="hidden fixed z-50 inset-0 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen">
         <div class="fixed inset-0 bg-gray-500 bg-opacity-75"></div>
@@ -197,9 +290,8 @@ try {
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        // Define a URL base para as chamadas de API
         const API_BASE_URL = '<?php echo APP_URL; ?>/crm/prospeccoes';
-        
+
         const containers = document.querySelectorAll('.kanban-cards-container');
         const sortableInstances = [];
 
@@ -229,6 +321,7 @@ try {
                 selectionMode = !selectionMode;
                 toggleSelectionBtn.textContent = selectionMode ? 'Cancelar seleção' : 'Selecionar múltiplos';
                 bulkActions.classList.toggle('hidden', !selectionMode);
+                bulkActions.classList.toggle('flex', selectionMode);
 
                 if (!selectionMode) {
                     selectedCards.clear();
@@ -380,7 +473,6 @@ try {
             }
         });
 
-        // --- INÍCIO DA CORREÇÃO: FUNÇÕES DO MODAL COMPLETAS ---
         function openCardModal(id) {
             modal.classList.remove('hidden');
             modalContent.innerHTML = '<p class="text-center">Carregando detalhes...</p>';
@@ -431,7 +523,7 @@ try {
             event.preventDefault();
             const form = event.target;
             const textarea = form.querySelector('textarea');
-            
+
             const formData = new FormData();
             formData.append('action', 'add_interaction');
             formData.append('prospeccao_id', prospeccaoId);
@@ -443,39 +535,47 @@ try {
             })
             .then(response => {
                 if (response.ok) {
-                    // Recarrega os detalhes do modal para mostrar a nova nota
                     openCardModal(prospeccaoId);
                 } else {
                     alert('Erro ao adicionar a nota.');
                 }
             });
         }
-        // --- FIM DA CORREÇÃO ---
 
         const board = document.getElementById('kanbanBoard');
-        let isDown = false;
+        let isPanning = false;
         let startX;
         let scrollLeft;
 
-        board.addEventListener('mousedown', (e) => {
-            if (e.target.closest('.kanban-card')) return;
-            isDown = true;
+        board.addEventListener('mousedown', (event) => {
+            if (event.target.closest('.kanban-card')) {
+                return;
+            }
+            isPanning = true;
             board.classList.add('active');
-            startX = e.pageX - board.offsetLeft;
+            startX = event.pageX - board.offsetLeft;
             scrollLeft = board.scrollLeft;
         });
-        board.addEventListener('mouseleave', () => { isDown = false; board.classList.remove('active'); });
-        board.addEventListener('mouseup', () => { isDown = false; board.classList.remove('active'); });
-        board.addEventListener('mousemove', (e) => {
-            if (!isDown) return;
-            e.preventDefault();
-            const x = e.pageX - board.offsetLeft;
+
+        ['mouseleave', 'mouseup'].forEach(eventName => {
+            board.addEventListener(eventName, () => {
+                isPanning = false;
+                board.classList.remove('active');
+            });
+        });
+
+        board.addEventListener('mousemove', (event) => {
+            if (!isPanning) {
+                return;
+            }
+            event.preventDefault();
+            const x = event.pageX - board.offsetLeft;
             const walk = (x - startX) * 2;
             board.scrollLeft = scrollLeft - walk;
         });
     });
 </script>
 
-<?php 
-require_once __DIR__ . '/../../app/views/layouts/footer.php'; 
+<?php
+require_once __DIR__ . '/../../app/views/layouts/footer.php';
 ?>
