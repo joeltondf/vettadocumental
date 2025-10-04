@@ -19,12 +19,18 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
 
 <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-    <div class="flex justify-between items-center mb-6">
+    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
         <h1 class="text-3xl font-bold text-gray-800"><?php echo $pageTitle; ?></h1>
-        <a href="<?php echo APP_URL; ?>/crm/clientes/novo.php" class="bg-blue-600 text-white py-2 px-4 rounded-md shadow-md hover:bg-blue-700 transition duration-300 flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-            Novo Lead
-        </a>
+        <div class="flex flex-col sm:flex-row gap-3">
+            <a href="<?php echo APP_URL; ?>/crm/clientes/importar.php" class="bg-green-600 text-white py-2 px-4 rounded-md shadow-md hover:bg-green-700 transition duration-300 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                Importar Leads
+            </a>
+            <a href="<?php echo APP_URL; ?>/crm/clientes/novo.php" class="bg-blue-600 text-white py-2 px-4 rounded-md shadow-md hover:bg-blue-700 transition duration-300 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                Novo Lead
+            </a>
+        </div>
     </div>
 
     <?php if (isset($_SESSION['success_message'])): ?>
@@ -35,6 +41,27 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
     <?php if (isset($_SESSION['error_message'])): ?>
         <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
             <p><?php echo $_SESSION['error_message']; unset($_SESSION['error_message']); ?></p>
+        </div>
+    <?php endif; ?>
+    <?php if (isset($_SESSION['import_summary'])): ?>
+        <?php $summary = $_SESSION['import_summary']; unset($_SESSION['import_summary']); ?>
+        <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-700 p-4 mb-6">
+            <p class="font-semibold">Resumo da importação</p>
+            <ul class="mt-2 text-sm list-disc list-inside space-y-1">
+                <li>Leads criados: <?php echo (int)($summary['created'] ?? 0); ?></li>
+                <li>Linhas ignoradas: <?php echo (int)($summary['skipped'] ?? 0); ?></li>
+                <li>Registros duplicados: <?php echo (int)($summary['duplicates'] ?? 0); ?></li>
+            </ul>
+            <?php if (!empty($summary['errors'])): ?>
+                <div class="mt-3 text-sm">
+                    <p class="font-semibold">Ocorrências:</p>
+                    <ul class="list-disc list-inside space-y-1">
+                        <?php foreach ($summary['errors'] as $errorMessage): ?>
+                            <li><?php echo htmlspecialchars($errorMessage); ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php endif; ?>
         </div>
     <?php endif; ?>
 
