@@ -20,7 +20,14 @@ if ($isVendedor && isset($_SESSION['user_id'])) {
     $vendedor_logado = $stmt->fetch();
     if ($vendedor_logado) {
         $loggedInVendedorId = $vendedor_logado['id'];
-        $vendedor_nome_logado = $vendedor_logado['nome_vendedor'] ?? '';
+        if (!empty($vendedores) && is_array($vendedores)) {
+            foreach ($vendedores as $vendedor) {
+                if ((int) ($vendedor['id'] ?? 0) === (int) $loggedInVendedorId) {
+                    $vendedor_nome_logado = $vendedor['nome_vendedor'] ?? '';
+                    break;
+                }
+            }
+        }
     }
 }
 
