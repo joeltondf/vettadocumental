@@ -137,8 +137,6 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
                                 <i class="fas fa-chevron-down text-xs ml-1"></i>
                             </button>
                             <div id="crm-menu" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20 hidden">
-                                <a href="<?php echo APP_URL; ?>/crm/dashboard.php" class="block px-4 py-2 text-sm font-weight-bold text-gray-700 hover:bg-gray-100"><strong>Dashboard CRM</strong></a>
-                                <div class="border-t border-gray-200 my-1"></div>
                                 <a href="<?php echo APP_URL; ?>/crm/prospeccoes/kanban.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Kanban</a>
                                 <a href="<?php echo APP_URL; ?>/crm/agendamentos/calendario.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Agendamentos</a>
                                 <a href="<?php echo APP_URL; ?>/crm/clientes/lista.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Leads</a>

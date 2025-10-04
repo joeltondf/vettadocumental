@@ -622,6 +622,17 @@ document.addEventListener('DOMContentLoaded', function () {
     let clienteCache = { tipo: 'À vista', servicos: [] };
     const billingTypeSelect = document.getElementById('billing_type');
     const billingSections = document.querySelectorAll('[data-billing-section]');
+    const prazoTipoSelect = document.getElementById('prazo_tipo');
+    const prazoDiasInput = document.getElementById('traducao_prazo_dias');
+    const prazoDataInput = document.getElementById('traducao_prazo_data');
+    let currentDeadlineDays = (() => {
+        if (!prazoDiasInput) {
+            return null;
+        }
+        const initialValue = parseInt(prazoDiasInput.value, 10);
+        return Number.isNaN(initialValue) ? null : initialValue;
+    })();
+    let agreedDeadlineFromClient = currentDeadlineDays;
 
     function updateFileTileDisplay(input) {
         if (!input) {
@@ -768,9 +779,17 @@ document.addEventListener('DOMContentLoaded', function () {
     // Lógica para clientes mensalistas: carrega serviços via API.
     $(clienteSelect).on('change', function() {
         const selectedOption = $(this).find('option:selected');
+        const rawPrazoValue = selectedOption.data('prazo-acordado');
+        const parsedPrazo = Number.parseInt(rawPrazoValue, 10);
+        agreedDeadlineFromClient = Number.isNaN(parsedPrazo) ? null : parsedPrazo;
+        currentDeadlineDays = agreedDeadlineFromClient;
+
         if (prazoAcordadoDisplay) {
-            const prazoValue = selectedOption.data('prazo-acordado');
-            prazoAcordadoDisplay.textContent = prazoValue ? prazoValue : '--';
+            prazoAcordadoDisplay.textContent = agreedDeadlineFromClient !== null ? agreedDeadlineFromClient : '--';
+        }
+
+        if (prazoDiasInput) {
+            prazoDiasInput.value = currentDeadlineDays !== null ? currentDeadlineDays : '';
         }
         const tipo = selectedOption.data('tipo-assessoria') || 'À vista';
         if (tipoAssessoriaInput) {
@@ -1253,12 +1272,9 @@ document.addEventListener('DOMContentLoaded', function () {
     updateAllCalculations();
     evaluateValorMinimo();
 
-    const prazoTipoSelect = document.getElementById('prazo_tipo');
     const togglePrazoFields = () => {
         const diasContainer = document.getElementById('prazo_dias_container');
         const dataContainer = document.getElementById('prazo_data_container');
-        const diasInput = document.getElementById('traducao_prazo_dias');
-        const dataInput = document.getElementById('traducao_prazo_data');
 
         if (!diasContainer || !dataContainer) {
             return;
@@ -1267,28 +1283,36 @@ document.addEventListener('DOMContentLoaded', function () {
         if (prazoTipoSelect && prazoTipoSelect.value === 'data') {
             diasContainer.classList.add('hidden');
             dataContainer.classList.remove('hidden');
-            if (diasInput) {
-                diasInput.setAttribute('disabled', 'disabled');
+            if (prazoDiasInput) {
+                prazoDiasInput.setAttribute('disabled', 'disabled');
             }
-            if (dataInput) {
-                dataInput.removeAttribute('disabled');
+            if (prazoDataInput) {
+                prazoDataInput.removeAttribute('disabled');
             }
             return;
         }
 
         dataContainer.classList.add('hidden');
         diasContainer.classList.remove('hidden');
-        if (dataInput) {
-            dataInput.setAttribute('disabled', 'disabled');
+        if (prazoDataInput) {
+            prazoDataInput.setAttribute('disabled', 'disabled');
         }
-        if (diasInput) {
-            diasInput.removeAttribute('disabled');
+        if (prazoDiasInput) {
+            prazoDiasInput.removeAttribute('disabled');
+            prazoDiasInput.value = currentDeadlineDays !== null ? currentDeadlineDays : '';
         }
     };
 
     if (prazoTipoSelect) {
         prazoTipoSelect.addEventListener('change', togglePrazoFields);
         togglePrazoFields();
+    }
+
+    if (prazoDiasInput) {
+        prazoDiasInput.addEventListener('input', () => {
+            const parsedValue = parseInt(prazoDiasInput.value, 10);
+            currentDeadlineDays = Number.isNaN(parsedValue) ? null : parsedValue;
+        });
     }
     
     updateAllCalculations(); // Execução inicial

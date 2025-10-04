@@ -31,3 +31,9 @@ WHERE customerEmail = 'maria.oliveira@example.com';
 DELETE FROM customers
 WHERE statusFlag = 0;
 ```
+
+```sql
+DELETE FROM process_notifications
+WHERE processId = 42
+  AND alertStatus IN ('Approved', 'Rejected');
+```

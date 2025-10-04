@@ -2,6 +2,27 @@
 $formData = $formData ?? [];
 $processId = (int)($processo['id'] ?? 0);
 $deadlineType = $formData['traducao_prazo_tipo'] ?? 'dias';
+
+$conversionSteps = [
+    [
+        'key' => 'client',
+        'label' => 'Cliente',
+        'description' => 'Revise ou cadastre os dados do cliente.',
+    ],
+    [
+        'key' => 'deadline',
+        'label' => 'Prazo do serviço',
+        'description' => 'Defina data de início e prazo de entrega.',
+    ],
+    [
+        'key' => 'payment',
+        'label' => 'Pagamento',
+        'description' => 'Informe as condições financeiras.',
+    ],
+];
+$currentStep = 'deadline';
+$completedSteps = ['client'];
+include __DIR__ . '/partials/conversion_steps.php';
 ?>
 <div class="max-w-3xl mx-auto space-y-8">
     <div class="flex items-center justify-between">
