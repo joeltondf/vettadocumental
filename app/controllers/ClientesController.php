@@ -331,6 +331,15 @@ class ClientesController
             }
         }
 
+        if (isset($data['prazo_acordado_dias'])) {
+            $prazoAcordado = trim((string) $data['prazo_acordado_dias']);
+            if ($prazoAcordado !== '') {
+                if (!ctype_digit($prazoAcordado) || (int) $prazoAcordado <= 0) {
+                    $errors[] = 'Informe um prazo acordado válido (número inteiro maior que zero).';
+                }
+            }
+        }
+
         return $errors;
     }
 
@@ -425,6 +434,11 @@ class ClientesController
         $data['estado'] = strtoupper(trim((string) ($data['estado'] ?? '')));
         $data['cep'] = trim((string) ($data['cep'] ?? ''));
         $data['cpf_cnpj'] = trim((string) ($data['cpf_cnpj'] ?? ''));
+
+        if (array_key_exists('prazo_acordado_dias', $data)) {
+            $prazoAcordado = trim((string) $data['prazo_acordado_dias']);
+            $data['prazo_acordado_dias'] = $prazoAcordado === '' ? null : (int) $prazoAcordado;
+        }
 
         return $data;
     }

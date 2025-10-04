@@ -85,20 +85,24 @@ class Cliente
                 }
             }
             
-            $sql = "UPDATE clientes SET 
-                        nome_cliente = ?, nome_responsavel = ?, cpf_cnpj = ?, 
-                        email = ?, telefone = ?, endereco = ?, numero = ?, bairro = ?, cidade = ?, estado = ?, cep = ?, 
-                        tipo_pessoa = ?, tipo_assessoria = ?, user_id = ? 
+            $prazoAcordadoDias = array_key_exists('prazo_acordado_dias', $data)
+                ? $data['prazo_acordado_dias']
+                : ($clienteAtual['prazo_acordado_dias'] ?? null);
+
+            $sql = "UPDATE clientes SET
+                        nome_cliente = ?, nome_responsavel = ?, cpf_cnpj = ?,
+                        email = ?, telefone = ?, endereco = ?, numero = ?, bairro = ?, cidade = ?, estado = ?, cep = ?,
+                        tipo_pessoa = ?, tipo_assessoria = ?, prazo_acordado_dias = ?, user_id = ?
                     WHERE id = ?";
-            
+
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute([
                 $data['nome_cliente'], $data['nome_responsavel'] ?? null, $cpf_cnpj,
-                $data['email'] ?? null, $data['telefone'] ?? null, 
-                $data['endereco'] ?? null, $data['numero'] ?? null, $data['bairro'] ?? null, 
+                $data['email'] ?? null, $data['telefone'] ?? null,
+                $data['endereco'] ?? null, $data['numero'] ?? null, $data['bairro'] ?? null,
                 $data['cidade'] ?? null, $data['estado'] ?? null,
-                $data['cep'] ?? null, $data['tipo_pessoa'] ?? 'Jurídica', // Salva o tipo de pessoa
-                $data['tipo_assessoria'] ?? null, $userId, $id
+                $data['cep'] ?? null, $data['tipo_pessoa'] ?? 'Jurídica',
+                $data['tipo_assessoria'] ?? null, $prazoAcordadoDias, $userId, $id
             ]);
             
             $this->pdo->commit();
@@ -299,13 +303,13 @@ class Cliente
             }
 
             // --- CORREÇÃO AQUI ---
-            $sql = "INSERT INTO clientes 
-                        (nome_cliente, nome_responsavel, cpf_cnpj, email, telefone, endereco, numero, bairro, cidade, estado, cep, tipo_pessoa, tipo_assessoria, user_id, is_prospect) 
-                    VALUES 
-                        (:nome_cliente, :nome_responsavel, :cpf_cnpj, :email, :telefone, :endereco, :numero, :bairro, :cidade, :estado, :cep, :tipo_pessoa, :tipo_assessoria, :user_id, :is_prospect)";
-            
+            $sql = "INSERT INTO clientes
+                        (nome_cliente, nome_responsavel, cpf_cnpj, email, telefone, endereco, numero, bairro, cidade, estado, cep, tipo_pessoa, tipo_assessoria, prazo_acordado_dias, user_id, is_prospect)
+                    VALUES
+                        (:nome_cliente, :nome_responsavel, :cpf_cnpj, :email, :telefone, :endereco, :numero, :bairro, :cidade, :estado, :cep, :tipo_pessoa, :tipo_assessoria, :prazo_acordado_dias, :user_id, :is_prospect)";
+
             $stmt = $this->pdo->prepare($sql);
-            
+
             $stmt->execute([
                 ':nome_cliente' => $data['nome_cliente'],
                 ':nome_responsavel' => $data['nome_responsavel'] ?? null,
@@ -320,6 +324,7 @@ class Cliente
                 ':cep' => $data['cep'] ?? null,
                 ':tipo_pessoa' => $data['tipo_pessoa'] ?? 'Jurídica',
                 ':tipo_assessoria' => $data['tipo_assessoria'] ?? null,
+                ':prazo_acordado_dias' => $data['prazo_acordado_dias'] ?? null,
                 ':user_id' => $userId,
                 ':is_prospect' => 0 // Define como cliente normal, e não prospecção
             ]);

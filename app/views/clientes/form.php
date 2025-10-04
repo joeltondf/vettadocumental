@@ -16,6 +16,7 @@ $formValues = array_merge($cliente, $formData);
 
 // Preenche as variáveis para os campos do formulário
 $nome_cliente = $formValues['nome_cliente'] ?? '';
+$prazo_acordado_dias = $formValues['prazo_acordado_dias'] ?? '';
 $nome_responsavel = $formValues['nome_responsavel'] ?? '';
 $cpf_cnpj = $formValues['cpf_cnpj'] ?? '';
 $email = $formValues['email'] ?? '';
@@ -91,6 +92,24 @@ require_once __DIR__ . '/../layouts/header.php';
             <label for="nome_cliente" id="label_nome_cliente" class="block text-sm font-semibold text-gray-700">Nome do Cliente / Empresa *</label>
             <input type="text" id="nome_cliente" name="nome_cliente" autocomplete="nope" value="<?php echo htmlspecialchars($nome_cliente); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
         </div>
+
+        <?php
+            $userPerfil = $_SESSION['user_perfil'] ?? '';
+            $perfisPrazoVisivel = ['admin', 'gerencia', 'supervisor', 'colaborador'];
+        ?>
+        <?php if (in_array($userPerfil, $perfisPrazoVisivel, true)): ?>
+            <div class="md:col-span-1">
+                <label for="prazo_acordado_dias" class="block text-sm font-semibold text-gray-700">Prazo Acordado (dias)</label>
+                <input
+                    type="number"
+                    id="prazo_acordado_dias"
+                    name="prazo_acordado_dias"
+                    min="1"
+                    value="<?php echo htmlspecialchars($prazo_acordado_dias); ?>"
+                    class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                >
+            </div>
+        <?php endif; ?>
 
         <div id="container_nome_responsavel">
             <label for="nome_responsavel" class="block text-sm font-semibold text-gray-700">Nome do Responsável</label>
