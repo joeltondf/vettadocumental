@@ -61,7 +61,7 @@ if ($paymentDateOne === '' && ($totalValue === '' || $totalValue === null)) {
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
+            <div id="entrada-wrapper" class="<?php echo $paymentMethod === 'Pagamento parcelado' ? '' : 'hidden'; ?>">
                 <label class="block text-sm font-semibold text-gray-700" for="valor_entrada">Valor pago / entrada</label>
                 <input type="text" id="valor_entrada" name="valor_entrada" value="<?php echo htmlspecialchars($formData['valor_entrada'] ?? ''); ?>" class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500" data-entry-value>
             </div>
