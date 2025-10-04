@@ -15,7 +15,7 @@ $isVendedor = (isset($_SESSION['user_perfil']) && $_SESSION['user_perfil'] === '
 $loggedInVendedorId = null;
 $vendedor_nome_logado = '';
 if ($isVendedor && isset($_SESSION['user_id'])) {
-    $stmt = $pdo->prepare("SELECT id, nome_vendedor FROM vendedores WHERE user_id = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT id, nome_completo FROM vendedores WHERE user_id = ? LIMIT 1");
     $stmt->execute([$_SESSION['user_id']]);
     $vendedor_logado = $stmt->fetch();
     if ($vendedor_logado) {
@@ -23,7 +23,7 @@ if ($isVendedor && isset($_SESSION['user_id'])) {
         if (!empty($vendedores) && is_array($vendedores)) {
             foreach ($vendedores as $vendedor) {
                 if ((int) ($vendedor['id'] ?? 0) === (int) $loggedInVendedorId) {
-                    $vendedor_nome_logado = $vendedor['nome_vendedor'] ?? '';
+                    $vendedor_nome_logado = $vendedor['nome_completo'] ?? '';
                     break;
                 }
             }
