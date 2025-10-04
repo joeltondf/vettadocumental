@@ -99,7 +99,7 @@ class GerenteDashboardController
                 JOIN users u ON v.user_id = u.id
                 LEFT JOIN processos p
                     ON v.id = p.vendedor_id
-                    AND p.status_processo = 'Finalizado'
+                    AND p.status_processo IN ('Concluído', 'Finalizado')
                 GROUP BY v.id, u.nome_completo
             ");
             $stmt->execute();
@@ -115,7 +115,7 @@ class GerenteDashboardController
                 JOIN users u ON v.user_id = u.id
                 LEFT JOIN processos p
                     ON v.id = p.vendedor_id
-                    AND p.status_processo IN ('Aprovado', 'Em Andamento')
+                    AND p.status_processo IN ('Aprovado', 'Em andamento', 'Em Andamento')
                 GROUP BY v.id, u.nome_completo
             ");
             $stmt->execute();

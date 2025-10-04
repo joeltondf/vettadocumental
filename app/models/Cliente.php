@@ -227,6 +227,18 @@ class Cliente
     }
 
     /**
+     * Fetch prospects filtered by the CRM owner identifier.
+     */
+    public function getProspectsByOwner(int $ownerId): array
+    {
+        $sql = 'SELECT * FROM clientes WHERE is_prospect = 1 AND crmOwnerId = :ownerId ORDER BY nome_cliente';
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([':ownerId' => $ownerId]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
      * Busca apenas os clientes finais utilizados no sistema principal.
      *
      * @return array Lista de clientes com is_prospect = 0.

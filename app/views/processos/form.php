@@ -313,8 +313,6 @@ $paymentDateTwo = $processo['data_pagamento_2'] ?? $formData['data_pagamento_2']
                             <?php endforeach; ?>
                         </ul>
                     </div>
-                <?php else: ?>
-                    <div class="rounded-md border border-blue-100 bg-white p-4 text-sm text-gray-500">Documentos para Tradução: Nenhum documento listado.</div>
                 <?php endif; ?>
             </div>
             <div class="space-y-4">
