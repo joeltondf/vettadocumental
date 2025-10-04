@@ -69,6 +69,7 @@
         const balanceDisplay = form.querySelector('[data-balance-display]');
         const secondInstallmentWrapper = form.querySelector('#segunda-parcela-wrapper');
         const secondProofWrapper = form.querySelector('#segunda-comprovante-wrapper');
+        const entryWrapper = form.querySelector('#entrada-wrapper');
 
         const togglePaymentSections = () => {
             const method = methodSelect ? methodSelect.value : 'Pagamento único';
@@ -78,6 +79,12 @@
             }
             if (secondProofWrapper) {
                 secondProofWrapper.classList[shouldShowInstallments ? 'remove' : 'add']('hidden');
+            }
+            if (entryWrapper) {
+                entryWrapper.classList[shouldShowInstallments ? 'remove' : 'add']('hidden');
+                if (!shouldShowInstallments && entryInput) {
+                    entryInput.value = '';
+                }
             }
         };
 
