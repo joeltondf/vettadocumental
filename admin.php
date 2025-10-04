@@ -128,6 +128,9 @@ switch ($action) {
     case 'update_automacao_campanha':
         $adminController->updateAutomacaoCampanha();
         break;
+    case 'save_kanban_columns':
+        $adminController->saveKanbanColumns();
+        break;
     case 'delete_automacao_campanha':
         $adminController->deleteAutomacaoCampanha();
         break;
