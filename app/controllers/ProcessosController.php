@@ -1512,24 +1512,23 @@ class ProcessosController
     private function buildLeadConversionContext(array $processo, ?array $cliente): array
     {
         $perfil = $_SESSION['user_perfil'] ?? '';
-        $usuarioId = $_SESSION['user_id'] ?? null;
-        $perfisGerenciais = ['admin', 'gerencia', 'supervisor'];
-        $usuarioAutorizado = in_array($perfil, $perfisGerenciais, true);
-
-        if (!$usuarioAutorizado && $perfil === 'vendedor') {
-            $vendedorId = $processo['vendedor_id'] ?? null;
-            if ($vendedorId) {
-                $vendedorUserId = $this->vendedorModel->getUserIdByVendedorId((int)$vendedorId);
-                $usuarioAutorizado = $vendedorUserId && $usuarioId && (int)$vendedorUserId === (int)$usuarioId;
-            }
-        }
-
-        if (!$usuarioAutorizado) {
+        if ($perfil !== 'vendedor') {
             return ['shouldRender' => false];
         }
 
-        $statusAtual = $processo['status_processo'] ?? '';
-        if (!in_array($statusAtual, ['Orçamento', 'Orçamento Pendente'], true)) {
+        $usuarioId = $_SESSION['user_id'] ?? null;
+        $vendedorId = $processo['vendedor_id'] ?? null;
+        if (!$usuarioId || !$vendedorId) {
+            return ['shouldRender' => false];
+        }
+
+        $vendedorUserId = $this->vendedorModel->getUserIdByVendedorId((int)$vendedorId);
+        if (!$vendedorUserId || (int)$vendedorUserId !== (int)$usuarioId) {
+            return ['shouldRender' => false];
+        }
+
+        $statusAtual = $this->normalizeStatusName($processo['status_processo'] ?? '');
+        if ($statusAtual !== 'orçamento') {
             return ['shouldRender' => false];
         }
 
