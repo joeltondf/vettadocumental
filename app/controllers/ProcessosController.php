@@ -1481,13 +1481,14 @@ class ProcessosController
     {
         $cliente = $this->clienteModel->getById($clienteId);
         $nomeCliente = $cliente['nome_cliente'] ?? 'Cliente';
-        $link = APP_URL . "/processos.php?action=view&id=" . $processoId;
+        $linkPath = '/processos.php?action=view&id=' . $processoId;
+        $link = $this->buildAbsoluteUrl($linkPath);
         $tipoMinusculo = mb_strtolower($tipoPendencia, 'UTF-8');
         $tipoCapitalizado = mb_convert_case($tipoMinusculo, MB_CASE_TITLE, 'UTF-8');
         $gerentesIds = $this->userModel->getIdsByPerfil(['admin', 'gerencia', 'supervisor']);
         foreach ($gerentesIds as $gerenteId) {
             $mensagem = "Novo {$tipoMinusculo} pendente para o cliente '{$nomeCliente}'.";
-            $this->notificacaoModel->criar($gerenteId, $remetenteId, $mensagem, $link);
+            $this->notificacaoModel->criar($gerenteId, $remetenteId, $mensagem, $linkPath);
             $gerente = $this->userModel->getById($gerenteId);
             if ($gerente && !empty($gerente['email'])) {
                 $subject = "{$tipoCapitalizado} pendente de aprovação";
@@ -2364,6 +2365,21 @@ class ProcessosController
     private function normalizeStatusName(?string $status): string
     {
         return mb_strtolower(trim((string)$status));
+    }
+
+    private function buildAbsoluteUrl(string $path): string
+    {
+        if (!defined('APP_URL')) {
+            return $this->ensureLeadingSlash($path);
+        }
+
+        $normalizedPath = $this->ensureLeadingSlash($path);
+        return rtrim(APP_URL, '/') . $normalizedPath;
+    }
+
+    private function ensureLeadingSlash(string $path): string
+    {
+        return '/' . ltrim($path, '/');
     }
 
     /**
