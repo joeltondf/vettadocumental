@@ -3,7 +3,6 @@
 
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
-require_once __DIR__ . '/../../app/utils/LeadCategory.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
@@ -12,14 +11,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $valor_proposto = filter_input(INPUT_POST, 'valor_proposto', FILTER_VALIDATE_FLOAT, FILTER_NULL_ON_FAILURE);
     $feedback_inicial = trim($_POST['feedback_inicial']);
     $status = trim($_POST['status']);
-    $leadCategory = $_POST['lead_category'] ?? LeadCategory::DEFAULT;
-    if (!LeadCategory::isValid(is_string($leadCategory) ? trim($leadCategory) : null)) {
-        $leadCategory = LeadCategory::DEFAULT;
-    } else {
-        $leadCategory = trim($leadCategory);
-    }
-
-    $responsavel_id = $_SESSION['user_id'];
+    
+    $responsavel_id = $_SESSION['user_id']; 
     $data_prospeccao = date('Y-m-d H:i:s');
 
     if (empty($cliente_id) || empty($nome_prospecto) || !isset($_POST['valor_proposto']) || empty($feedback_inicial) || empty($status)) {
@@ -29,13 +22,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     try {
-        $sql = "INSERT INTO prospeccoes
-                    (cliente_id, nome_prospecto, data_prospeccao, responsavel_id, feedback_inicial, valor_proposto, status, leadCategory)
-                VALUES
-                    (:cliente_id, :nome_prospecto, :data_prospeccao, :responsavel_id, :feedback_inicial, :valor_proposto, :status, :lead_category)";
+        $sql = "INSERT INTO prospeccoes 
+                    (cliente_id, nome_prospecto, data_prospeccao, responsavel_id, feedback_inicial, valor_proposto, status) 
+                VALUES 
+                    (:cliente_id, :nome_prospecto, :data_prospeccao, :responsavel_id, :feedback_inicial, :valor_proposto, :status)";
 
         $stmt = $pdo->prepare($sql);
-
+        
         $stmt->execute([
             ':cliente_id' => $cliente_id,
             ':nome_prospecto' => $nome_prospecto,
@@ -43,8 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':responsavel_id' => $responsavel_id,
             ':feedback_inicial' => $feedback_inicial,
             ':valor_proposto' => $valor_proposto,
-            ':status' => $status,
-            ':lead_category' => $leadCategory
+            ':status' => $status
         ]);
 
         $prospeccao_id = $pdo->lastInsertId();

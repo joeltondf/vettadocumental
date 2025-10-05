@@ -3,8 +3,6 @@ require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
 require_once __DIR__ . '/../../app/models/Prospeccao.php';
 require_once __DIR__ . '/../../app/services/KanbanConfigService.php';
-require_once __DIR__ . '/../../app/utils/LeadCategory.php';
-require_once __DIR__ . '/../../app/views/layouts/header.php';
 
 $kanbanConfigService = new KanbanConfigService($pdo);
 $prospectionModel = new Prospeccao($pdo);
@@ -296,8 +294,6 @@ $defaultKanbanDestination = $kanbanColumns[0] ?? '';
                                 <div>
                                     <p class="font-semibold text-sm text-gray-800"><?php echo htmlspecialchars($lead['nome_prospecto']); ?></p>
                                     <p class="text-xs text-gray-600 mt-1"><?php echo htmlspecialchars($lead['nome_cliente'] ?? 'Lead não associado'); ?></p>
-                                    <?php $leadCategory = $lead['leadCategory'] ?? LeadCategory::DEFAULT; ?>
-                                    <span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-[0.65rem] font-medium text-gray-700 mt-1"><?php echo htmlspecialchars($leadCategory); ?></span>
                                     <?php if (!empty($lead['responsavel_nome'])): ?>
                                         <p class="text-xs text-gray-500 mt-1">Vendedor: <?php echo htmlspecialchars($lead['responsavel_nome']); ?></p>
                                     <?php endif; ?>
@@ -346,8 +342,6 @@ $defaultKanbanDestination = $kanbanColumns[0] ?? '';
                                 <div class="flex-1">
                                     <p class="font-semibold text-sm text-gray-900"><?php echo htmlspecialchars($lead['nome_prospecto']); ?></p>
                                     <p class="text-xs text-gray-500">Status atual: <?php echo htmlspecialchars($lead['status'] ?? 'Sem status'); ?></p>
-                                    <?php $leadCategory = $lead['leadCategory'] ?? LeadCategory::DEFAULT; ?>
-                                    <p class="text-xs text-gray-500">Categoria: <?php echo htmlspecialchars($leadCategory); ?></p>
                                     <?php if (!empty($lead['responsavel_nome'])): ?>
                                         <p class="text-xs text-gray-500">Vendedor: <?php echo htmlspecialchars($lead['responsavel_nome']); ?></p>
                                     <?php endif; ?>
