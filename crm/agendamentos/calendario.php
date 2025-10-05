@@ -3,7 +3,7 @@
 
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
-require_once __DIR__ . '/../../app/views/layouts/header.php';
+require_once __DIR__ . '/../../app/views/layouts/header.php'; 
 
 $responsavel_filtrado = null;
 if (in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'supervisor']) && isset($_GET['responsavel_id']) && !empty($_GET['responsavel_id'])) {

@@ -8,13 +8,14 @@ require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
 require_once __DIR__ . '/../../app/models/Cliente.php';
 
+
 $clienteModel = new Cliente($pdo);
 $currentUserId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
 $currentUserPerfil = $_SESSION['user_perfil'] ?? '';
 $clientes = $clienteModel->getCrmProspects($currentUserId, $currentUserPerfil);
 
 $pageTitle = "CRM - Lista de Leads";
-require_once __DIR__ . '/../../app/views/layouts/crm_start.php';
+require_once __DIR__ . '/../../app/views/layouts/header.php'; 
 ?>
 
     <section class="crm-section">
