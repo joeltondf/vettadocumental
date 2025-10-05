@@ -39,7 +39,7 @@ if (!empty($cliente_pre_selecionado_id)) {
     }
 }
 
-require_once __DIR__ . '/../../app/views/layouts/header.php';
+require_once __DIR__ . '/../../app/views/layouts/crm_start.php';
 ?>
 
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
@@ -50,45 +50,21 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
     .select2-container--default .select2-selection--single .select2-selection__arrow { height: 2.5rem; }
 </style>
 
-<div class="bg-white shadow px-4 py-5 sm:rounded-lg sm:p-6">
-    <h1 class="text-2xl font-bold text-gray-800 mb-6">Criar Nova Prospecção</h1>
+<section class="crm-section">
+    <div class="crm-card">
+        <h1 class="crm-card-title">Criar Nova Prospecção</h1>
 
-    <?php if (isset($_SESSION['success_message'])): ?>
-        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6" role="alert">
-            <p><?php echo $_SESSION['success_message']; unset($_SESSION['success_message']); ?></p>
-        </div>
-    <?php endif; ?>
-
-    <?php if (isset($_SESSION['error_message'])): ?>
-        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
-            <p><?php echo $_SESSION['error_message']; unset($_SESSION['error_message']); ?></p>
-        </div>
-    <?php endif; ?>
-
-    <?php if (empty($clientes)): ?>
-        <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6" role="alert">
-            <p class="font-bold">Nenhum lead encontrado!</p>
-            <p>Você precisa cadastrar um lead antes. <a href="<?php echo APP_URL; ?>/crm/clientes/novo.php" class="font-bold underline hover:text-yellow-800">Clique aqui para cadastrar.</a></p>
-        </div>
-    <?php else: ?>
-        <form action="<?php echo APP_URL; ?>/crm/prospeccoes/salvar.php" method="POST" id="form-nova-prospeccao" class="space-y-6">
-            <div>
-                <label for="cliente_id" class="block text-sm font-medium text-gray-700">Nome do Lead</label>
-                <div class="flex items-center space-x-2 mt-1">
-                    <select name="cliente_id" id="cliente_id" class="block w-full">
-                        <option></option>
-                        <?php foreach ($clientes as $cliente): ?>
-                            <option value="<?php echo $cliente['id']; ?>" <?php echo ($cliente['id'] == $cliente_pre_selecionado_id) ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($cliente['nome_cliente']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <a href="<?php echo APP_URL; ?>/crm/clientes/novo.php?redirect_url=<?php echo urlencode(APP_URL . '/crm/prospeccoes/nova.php'); ?>"
-                       class="flex-shrink-0 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md text-sm">
-                        Novo Lead
-                    </a>
-                </div>
+        <?php if (isset($_SESSION['success_message'])): ?>
+            <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">
+                <?php echo $_SESSION['success_message']; unset($_SESSION['success_message']); ?>
             </div>
+        <?php endif; ?>
+
+        <?php if (isset($_SESSION['error_message'])): ?>
+            <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+                <?php echo $_SESSION['error_message']; unset($_SESSION['error_message']); ?>
+            </div>
+        <?php endif; ?>
 
             <div>
                 <label for="lead_category" class="block text-sm font-medium text-gray-700">Categoria do Lead</label>
@@ -105,9 +81,34 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                 <a href="<?php echo APP_URL; ?>/crm/prospeccoes/lista.php" class="bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded hover:bg-gray-300 mr-3">Cancelar</a>
                 <button type="submit" class="bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700">Salvar Prospecção</button>
             </div>
-        </form>
-    <?php endif; ?>
-</div>
+        <?php else: ?>
+            <form action="<?php echo APP_URL; ?>/crm/prospeccoes/salvar.php" method="POST" id="form-nova-prospeccao" class="space-y-6 mt-6">
+                <div>
+                    <label for="cliente_id" class="block text-sm font-medium text-gray-700">Nome do Lead</label>
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:space-x-3 mt-2 gap-3">
+                        <select name="cliente_id" id="cliente_id" class="block w-full">
+                            <option></option>
+                            <?php foreach ($clientes as $cliente): ?>
+                                <option value="<?php echo $cliente['id']; ?>" <?php echo ($cliente['id'] == $cliente_pre_selecionado_id) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($cliente['nome_cliente']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <a href="<?php echo APP_URL; ?>/crm/clientes/novo.php?redirect_url=<?php echo urlencode(APP_URL . '/crm/prospeccoes/nova.php'); ?>"
+                           class="inline-flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-4 rounded-xl text-sm">
+                            Novo Lead
+                        </a>
+                    </div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row justify-end gap-3 pt-4">
+                    <a href="<?php echo APP_URL; ?>/crm/prospeccoes/lista.php" class="inline-flex justify-center items-center bg-slate-200 text-slate-800 font-medium py-2.5 px-4 rounded-xl hover:bg-slate-300 transition">Cancelar</a>
+                    <button type="submit" class="inline-flex justify-center items-center bg-blue-600 text-white font-medium py-2.5 px-4 rounded-xl hover:bg-blue-700 transition">Salvar Prospecção</button>
+                </div>
+            </form>
+        <?php endif; ?>
+    </div>
+</section>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
@@ -137,6 +138,4 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
     });
 </script>
 
-<?php 
-require_once __DIR__ . '/../../app/views/layouts/footer.php'; 
-?>
+<?php require_once __DIR__ . '/../../app/views/layouts/crm_end.php'; ?>

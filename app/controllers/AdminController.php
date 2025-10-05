@@ -9,6 +9,9 @@ require_once __DIR__ . '/../models/User.php';
 require_once __DIR__ . '/../models/Vendedor.php';
 require_once __DIR__ . '/../models/Tradutor.php';
 require_once __DIR__ . '/../models/OmieProduto.php';
+require_once __DIR__ . '/../models/Processo.php';
+
+require_once __DIR__ . '/../utils/DashboardProcessFormatter.php';
 
 require_once __DIR__ . '/../services/DigicApiService.php';
 require_once __DIR__ . '/../services/EmailService.php';
@@ -27,6 +30,9 @@ class AdminController
     private $omieSyncService;
     private $omieProdutoModel;
     private KanbanConfigService $kanbanConfigService;
+    private $processoModel;
+
+    private const TV_PANEL_SETTINGS_KEY = 'tv_panel_settings';
 
     public function __construct($pdo)
     {
@@ -39,6 +45,7 @@ class AdminController
         $this->omieSyncService = null;
         $this->omieProdutoModel = new OmieProduto($pdo);
         $this->kanbanConfigService = new KanbanConfigService($pdo);
+        $this->processoModel = new Processo($pdo);
     }
 
     // Métodos de Administração Geral...
@@ -69,6 +76,142 @@ class AdminController
         // Redireciona de volta para a página que fez a requisição
         $redirect_url = $_SERVER['HTTP_REFERER'] ?? 'admin.php?action=settings';
         header('Location: ' . $redirect_url);
+        exit();
+    }
+
+    private function getTvPanelSettings(): array
+    {
+        $defaults = [
+            'overdue_color' => 'bg-red-200 text-red-800',
+            'due_today_color' => 'bg-red-200 text-red-800',
+            'due_soon_color' => 'bg-yellow-200 text-yellow-800',
+            'on_track_color' => 'text-green-600',
+            'refresh_interval' => 60,
+            'orientation' => 'portrait',
+            'enable_progress_bar' => true,
+            'enable_alert_pulse' => true,
+        ];
+
+        $stored = $this->configModel->get(self::TV_PANEL_SETTINGS_KEY);
+        if (is_string($stored) && $stored !== '') {
+            $decoded = json_decode($stored, true);
+            if (is_array($decoded)) {
+                $defaults = array_merge($defaults, $decoded);
+            }
+        }
+
+        $validIntervals = [60, 180, 300];
+        $defaults['refresh_interval'] = in_array((int) $defaults['refresh_interval'], $validIntervals, true) ? (int) $defaults['refresh_interval'] : 60;
+        $defaults['orientation'] = in_array($defaults['orientation'], ['portrait', 'landscape'], true) ? $defaults['orientation'] : 'portrait';
+        $defaults['enable_progress_bar'] = (bool) $defaults['enable_progress_bar'];
+        $defaults['enable_alert_pulse'] = (bool) $defaults['enable_alert_pulse'];
+
+        return $defaults;
+    }
+
+    private function persistTvPanelSettings(array $settings): void
+    {
+        $this->configModel->save(self::TV_PANEL_SETTINGS_KEY, json_encode($settings, JSON_UNESCAPED_UNICODE));
+    }
+
+    public function showTvPanel(): void
+    {
+        $pageTitle = 'Painel de TV';
+        $settings = $this->getTvPanelSettings();
+        $deadlineColors = [
+            'overdue' => $settings['overdue_color'],
+            'due_today' => $settings['due_today_color'],
+            'due_soon' => $settings['due_soon_color'],
+            'on_track' => $settings['on_track_color'],
+        ];
+        $processes = $this->processoModel->getProcessesForTvPanel();
+        $bodyClass = 'tv-panel-page bg-slate-900 text-white';
+        $orientationClass = $settings['orientation'] === 'landscape' ? 'tv-panel-landscape' : 'tv-panel-portrait';
+
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/admin/tv_painel.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+
+    public function showTvPanelConfig(): void
+    {
+        $pageTitle = 'Configurações do Painel de TV';
+        $settings = $this->getTvPanelSettings();
+
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/admin/tv_painel_config.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+
+    public function saveTvPanelConfig(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: admin.php?action=tv_panel_config');
+            exit();
+        }
+
+        $current = $this->getTvPanelSettings();
+
+        $payload = [
+            'overdue_color' => trim($_POST['overdue_color'] ?? $current['overdue_color']),
+            'due_today_color' => trim($_POST['due_today_color'] ?? $current['due_today_color']),
+            'due_soon_color' => trim($_POST['due_soon_color'] ?? $current['due_soon_color']),
+            'on_track_color' => trim($_POST['on_track_color'] ?? $current['on_track_color']),
+            'refresh_interval' => (int) ($_POST['refresh_interval'] ?? $current['refresh_interval']),
+            'orientation' => $_POST['orientation'] ?? $current['orientation'],
+            'enable_progress_bar' => isset($_POST['enable_progress_bar']),
+            'enable_alert_pulse' => isset($_POST['enable_alert_pulse']),
+        ];
+
+        $validIntervals = [60, 180, 300];
+        if (!in_array($payload['refresh_interval'], $validIntervals, true)) {
+            $payload['refresh_interval'] = 60;
+        }
+
+        if (!in_array($payload['orientation'], ['portrait', 'landscape'], true)) {
+            $payload['orientation'] = 'portrait';
+        }
+
+        $this->persistTvPanelSettings($payload);
+        $_SESSION['success_message'] = 'Configurações do painel atualizadas com sucesso!';
+
+        header('Location: admin.php?action=tv_panel_config');
+        exit();
+    }
+
+    public function getTvPanelData(): void
+    {
+        $settings = $this->getTvPanelSettings();
+        $processes = $this->processoModel->getProcessesForTvPanel();
+
+        $deadlineColors = [
+            'overdue' => $settings['overdue_color'],
+            'due_today' => $settings['due_today_color'],
+            'due_soon' => $settings['due_soon_color'],
+            'on_track' => $settings['on_track_color'],
+        ];
+
+        $processesForView = $processes;
+        if (!empty($processesForView)) {
+            ob_start();
+            $processes = $processesForView;
+            $showActions = false;
+            $showProgress = $settings['enable_progress_bar'];
+            $highlightAnimations = $settings['enable_alert_pulse'];
+            require __DIR__ . '/../views/dashboard/partials/process_table_rows.php';
+            $htmlRows = ob_get_clean();
+        } else {
+            $colspan = 8;
+            $htmlRows = '<tr><td colspan="' . $colspan . '" class="px-4 py-6 text-center text-lg text-slate-500">Nenhum processo disponível no momento.</td></tr>';
+        }
+
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => true,
+            'html' => $htmlRows,
+            'generated_at' => date(DATE_ATOM),
+            'total' => count($processesForView),
+        ]);
         exit();
     }
 

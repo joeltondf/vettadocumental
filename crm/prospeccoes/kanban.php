@@ -105,6 +105,8 @@ $assignableLeadsCount = count($assignableLeads ?? []);
 $defaultKanbanDestination = $kanbanColumns[0] ?? '';
 ?>
 
+<?php require_once __DIR__ . '/../../app/views/layouts/crm_start.php'; ?>
+
 <style>
     .kanban-board {
         display: flex;
@@ -214,21 +216,23 @@ $defaultKanbanDestination = $kanbanColumns[0] ?? '';
     }
 </style>
 
-<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between border-b border-gray-200 pb-4 mb-4">
-    <div class="flex items-center justify-between gap-3">
-        <h1 class="text-2xl font-bold text-gray-800">Funil de Vendas (Kanban)</h1>
-        <a href="<?php echo APP_URL; ?>/crm/prospeccoes/lista.php" class="bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">Ver em Lista</a>
+<section class="crm-section">
+    <div class="crm-section-header">
+        <h1 class="crm-title">Funil de Vendas (Kanban)</h1>
+        <div class="crm-actions">
+            <a href="<?php echo APP_URL; ?>/crm/prospeccoes/lista.php" class="bg-slate-600 text-white font-semibold py-2.5 px-4 rounded-xl hover:bg-slate-700 transition">Ver em Lista</a>
+        </div>
     </div>
-    <div class="flex flex-wrap items-center gap-3">
+    <div class="crm-card space-y-4">
         <?php if ($isVendor): ?>
-            <div class="text-sm text-gray-600 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                <span class="font-semibold text-blue-700">Filtro ativo:</span>
+            <div class="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+                <span class="font-semibold">Filtro ativo:</span>
                 <span><?php echo htmlspecialchars($_SESSION['user_nome'] ?? 'Seus leads'); ?></span>
             </div>
         <?php else: ?>
-            <form method="get" class="flex items-center gap-2" id="sellerFilterForm">
-                <label for="sellerFilter" class="text-sm text-gray-700 font-medium">Vendedor</label>
-                <select name="responsavel_id" id="sellerFilter" class="border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <form method="get" class="flex flex-wrap items-center gap-3" id="sellerFilterForm">
+                <label for="sellerFilter" class="text-sm font-medium text-gray-700">Vendedor</label>
+                <select name="responsavel_id" id="sellerFilter" class="border border-gray-300 rounded-xl py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="" <?php echo $defaultFilterValue === 'all' ? 'selected' : ''; ?>>Todos os vendedores</option>
                     <?php foreach ($kanbanOwners as $owner): ?>
                         <option value="<?php echo (int)$owner['id']; ?>" <?php echo ((string)$owner['id'] === $defaultFilterValue) ? 'selected' : ''; ?>>
@@ -246,30 +250,36 @@ $defaultKanbanDestination = $kanbanColumns[0] ?? '';
                 });
             </script>
         <?php endif; ?>
-        <button id="openAddLeadsModal" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" <?php echo $assignableLeadsCount === 0 ? 'disabled' : ''; ?>>Adicionar leads ao Kanban<?php echo $assignableLeadsCount > 0 ? ' (' . $assignableLeadsCount . ')' : ''; ?></button>
-        <?php if ($assignableLeadsCount === 0): ?>
-            <span class="text-xs text-gray-500">Nenhum lead disponível fora do Kanban para este filtro.</span>
-        <?php endif; ?>
-        <button id="toggleSelectionBtn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">Selecionar múltiplos</button>
-        <div id="bulkActions" class="hidden items-center gap-2">
-            <span class="text-sm text-gray-600">Selecionados: <span id="selectedCount">0</span></span>
-            <select id="bulkStatusSelect" class="border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <?php foreach ($kanbanColumns as $column): ?>
-                    <option value="<?php echo htmlspecialchars($column); ?>"><?php echo htmlspecialchars($column); ?></option>
-                <?php endforeach; ?>
-            </select>
-            <button id="bulkMoveBtn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>Mover selecionados</button>
+        <div class="flex flex-wrap items-center gap-3">
+            <button id="openAddLeadsModal" class="bg-indigo-600 text-white font-semibold py-2.5 px-4 rounded-xl hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed" <?php echo $assignableLeadsCount === 0 ? 'disabled' : ''; ?>>Adicionar leads ao Kanban<?php echo $assignableLeadsCount > 0 ? ' (' . $assignableLeadsCount . ')' : ''; ?></button>
+            <?php if ($assignableLeadsCount === 0): ?>
+                <span class="text-xs text-gray-500">Nenhum lead disponível fora do Kanban para este filtro.</span>
+            <?php endif; ?>
+            <button id="toggleSelectionBtn" class="bg-blue-600 text-white font-semibold py-2.5 px-4 rounded-xl hover:bg-blue-700 transition">Selecionar múltiplos</button>
+            <div id="bulkActions" class="hidden items-center gap-2">
+                <span class="text-sm text-gray-600">Selecionados: <span id="selectedCount">0</span></span>
+                <select id="bulkStatusSelect" class="border border-gray-300 rounded-xl py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <?php foreach ($kanbanColumns as $column): ?>
+                        <option value="<?php echo htmlspecialchars($column); ?>"><?php echo htmlspecialchars($column); ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <button id="bulkMoveBtn" class="bg-green-600 text-white font-semibold py-2.5 px-4 rounded-xl hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>Mover selecionados</button>
+            </div>
         </div>
     </div>
-</div>
+</section>
 
 <?php if ($errorMessage): ?>
-    <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4 text-sm">
-        <?php echo htmlspecialchars($errorMessage); ?>
-    </div>
+    <section class="crm-section">
+        <div class="crm-card crm-card--tight bg-red-50 border border-red-200 text-red-700">
+            <?php echo htmlspecialchars($errorMessage); ?>
+        </div>
+    </section>
 <?php endif; ?>
 
-<div class="kanban-board" id="kanbanBoard">
+<section class="crm-section">
+    <div class="crm-card overflow-hidden">
+        <div class="kanban-board" id="kanbanBoard">
     <?php foreach ($kanbanColumns as $column): ?>
         <div class="kanban-column">
             <h3>
@@ -310,7 +320,9 @@ $defaultKanbanDestination = $kanbanColumns[0] ?? '';
             </div>
         </div>
     <?php endforeach; ?>
-</div>
+        </div>
+    </div>
+</section>
 
 <div id="addLeadsModal" class="hidden fixed inset-0 z-40">
     <div class="flex items-center justify-center min-h-screen">
@@ -730,6 +742,4 @@ $defaultKanbanDestination = $kanbanColumns[0] ?? '';
     });
 </script>
 
-<?php
-require_once __DIR__ . '/../../app/views/layouts/footer.php';
-?>
+<?php require_once __DIR__ . '/../../app/views/layouts/crm_end.php'; ?>

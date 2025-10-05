@@ -36,7 +36,10 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
         <h1 class="text-2xl font-bold text-gray-800 mb-6"><?php echo $pageTitle; ?></h1>
         <form action="<?php echo APP_URL; ?>/crm/clientes/importar_processar.php" method="POST" enctype="multipart/form-data" class="space-y-6">
             <div>
-                <label for="csv_file" class="block text-sm font-medium text-gray-700">Arquivo CSV</label>
+                <div class="flex items-center justify-between">
+                    <label for="csv_file" class="block text-sm font-medium text-gray-700">Arquivo CSV</label>
+                    <a href="<?php echo APP_URL; ?>/crm/clientes/importar_modelo.php" class="text-sm font-semibold text-blue-600 hover:text-blue-700">Baixar modelo</a>
+                </div>
                 <input type="file" name="csv_file" id="csv_file" accept=".csv" required class="mt-1 block w-full text-sm text-gray-700" />
                 <p class="mt-2 text-sm text-gray-500">Estrutura esperada: Nome do Lead / Empresa, Nome do Lead Principal, E-mail, Telefone.</p>
             </div>
@@ -72,8 +75,8 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
             <?php else: ?>
                 <div>
                     <label for="assigned_owner" class="block text-sm font-medium text-gray-700">Responsável pelos leads</label>
-                    <select id="assigned_owner" name="assigned_owner" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
-                        <option value="">Sem responsável</option>
+                    <select id="assigned_owner" name="assigned_owner" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        <option value="" disabled selected>Selecione um vendedor</option>
                         <?php foreach ($vendors as $vendor): ?>
                             <option value="<?php echo (int) $vendor['id']; ?>"><?php echo htmlspecialchars($vendor['nome_completo']); ?></option>
                         <?php endforeach; ?>
