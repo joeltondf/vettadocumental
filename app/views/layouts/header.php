@@ -285,59 +285,37 @@ $bodyClassList = trim($defaultBodyClass . ' ' . $extraBodyClass);
         <div class="md:hidden hidden" id="mobile-menu"> 
              </div>
     </nav>
-    <?php endif; ?>
-
-    <main class="<?php echo htmlspecialchars($mainClass); ?>">
-        <div class="<?php echo htmlspecialchars($mainInnerClass); ?>">
-            <?php if (!$hideHeader): ?>
-                <?php if(isset($_SESSION['success_message'])): ?>
-                    <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4" role="alert">
-                        <p><?php echo $_SESSION['success_message']; ?></p>
-                    </div>
-                    <?php unset($_SESSION['success_message']); ?>
-                <?php endif; ?>
-                <?php if(isset($_SESSION['error_message'])): ?>
-                    <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
-                        <p><?php echo $_SESSION['error_message']; ?></p>
-                    </div>
-                    <?php unset($_SESSION['error_message']); ?>
-                <?php endif; ?>
-                <?php if (isset($_SESSION['warning_message'])): ?>
-                    <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4" role="alert">
-                        <p><?php echo htmlspecialchars($_SESSION['warning_message']); ?></p>
-                    </div>
-                    <?php unset($_SESSION['warning_message']); ?>
-                <?php endif; ?>
-
-    <main class="max-w-[95%] mx-auto py-6 sm:px-6 lg:px-8">
-        <div class="px-4 py-6 sm:px-0">
-            <?php if (!empty($_SESSION['success_message'])) { ?>
+    <?php if (!$hideHeader): // Apenas mostra o header se $hideHeader não for true ?>
+        <main class="<?php echo htmlspecialchars($mainClass); ?>">
+            <div class="<?php echo htmlspecialchars($mainInnerClass); ?>">
+            <?php if (!empty($_SESSION['success_message'])): ?>
                 <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4" role="alert">
                     <p><?php echo $_SESSION['success_message']; ?></p>
                 </div>
                 <?php unset($_SESSION['success_message']); ?>
-            <?php } ?>
+            <?php endif; ?>
 
-            <?php if (!empty($_SESSION['error_message'])) { ?>
+            <?php if (!empty($_SESSION['error_message'])): ?>
                 <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
                     <p><?php echo $_SESSION['error_message']; ?></p>
                 </div>
                 <?php unset($_SESSION['error_message']); ?>
-            <?php } ?>
+            <?php endif; ?>
 
-            <?php if (!empty($_SESSION['warning_message'])) { ?>
+            <?php if (!empty($_SESSION['warning_message'])): ?>
                 <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4" role="alert">
                     <p><?php echo htmlspecialchars($_SESSION['warning_message']); ?></p>
                 </div>
                 <?php unset($_SESSION['warning_message']); ?>
-            <?php } ?>
+            <?php endif; ?>
 
-            <?php if (!empty($_SESSION['info_message'])) { ?>
+            <?php if (!empty($_SESSION['info_message'])): ?>
                 <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 mb-4" role="alert">
                     <p><?php echo htmlspecialchars($_SESSION['info_message']); ?></p>
                 </div>
                 <?php unset($_SESSION['info_message']); ?>
-            <?php } ?>
+            <?php endif; ?>
+    <?php endif; // Fim do if (!$hideHeader) ?>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
