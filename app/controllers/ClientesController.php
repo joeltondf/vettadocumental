@@ -310,6 +310,16 @@ class ClientesController
             $errors[] = 'Informe um CEP válido.';
         }
 
+        $endereco = trim((string) ($data['endereco'] ?? ''));
+        if ($endereco === '') {
+            $errors[] = 'Informe o endereço.';
+        }
+
+        $bairro = trim((string) ($data['bairro'] ?? ''));
+        if ($bairro === '') {
+            $errors[] = 'Informe o bairro.';
+        }
+
         $cidade = trim((string) ($data['cidade'] ?? ''));
         $estado = strtoupper(trim((string) ($data['estado'] ?? '')));
         $cityValidationSource = strtolower(trim((string) ($data['city_validation_source'] ?? '')));
@@ -434,6 +444,11 @@ class ClientesController
         $data['estado'] = strtoupper(trim((string) ($data['estado'] ?? '')));
         $data['cep'] = trim((string) ($data['cep'] ?? ''));
         $data['cpf_cnpj'] = trim((string) ($data['cpf_cnpj'] ?? ''));
+        $data['endereco'] = trim((string) ($data['endereco'] ?? ''));
+        $data['bairro'] = trim((string) ($data['bairro'] ?? ''));
+
+        $numero = trim((string) ($data['numero'] ?? ''));
+        $data['numero'] = $numero === '' ? 'N/A' : $numero;
 
         if (array_key_exists('prazo_acordado_dias', $data)) {
             $prazoAcordado = trim((string) $data['prazo_acordado_dias']);
