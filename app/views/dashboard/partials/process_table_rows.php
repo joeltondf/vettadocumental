@@ -85,13 +85,15 @@ foreach ($processes as $processo):
                     $nomeTradutor = htmlspecialchars($processo['nome_tradutor'] ?? 'Não definido', ENT_QUOTES, 'UTF-8');
                     $modalidadeTraducao = htmlspecialchars($processo['traducao_modalidade'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
                     $envioCartorio = !empty($processo['data_envio_cartorio']) ? date('d/m/Y', strtotime($processo['data_envio_cartorio'])) : 'Pendente';
-                    $tooltipHtml = '<div class="space-y-1 text-left whitespace-nowrap">'
-                        . '<div><span class="font-semibold">Tradutor:</span> ' . $nomeTradutor . '</div>'
-                        . '<div><span class="font-semibold">Modalidade:</span> ' . $modalidadeTraducao . '</div>'
-                        . '<div><span class="font-semibold">Assinatura:</span> <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full '
-                        . $statusAssinaturaClasse . '">' . $statusAssinaturaTexto . '</span></div>'
-                        . '<div><span class="font-semibold">Envio Cartório:</span> ' . $envioCartorio . '</div>'
-                        . '</div>';
+                    $tooltipHtml = '<div class="flex flex-col gap-2 text-left whitespace-normal leading-relaxed text-sm">'
+                        . '<p class="font-semibold text-xs uppercase tracking-wide text-gray-200 border-b border-gray-600 pb-2">Detalhes Rápidos</p>'
+                        . '<p><strong>Tradutor:</strong> ' . $nomeTradutor . '</p>'
+                        . '<p><strong>Modalidade:</strong> ' . $modalidadeTraducao . '</p>'
+                        . '<p><strong>Status Ass.:</strong> <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full '
+                        . $statusAssinaturaClasse . '">' . $statusAssinaturaTexto . '</span></p>'
+                        . '<p><strong>Envio Cartório:</strong> ' . $envioCartorio . '</p>'
+                        . '</div>'
+                        . '<div class="tooltip-arrow" data-tooltip-arrow></div>';
                     echo $tooltipHtml;
                  ?>'>
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
