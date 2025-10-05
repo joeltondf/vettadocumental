@@ -87,7 +87,7 @@ class AdminController
             'due_soon_color' => 'bg-yellow-200 text-yellow-800',
             'on_track_color' => 'text-green-600',
             'refresh_interval' => 60,
-            'orientation' => 'portrait',
+            'color_scheme' => 'dark',
             'enable_progress_bar' => true,
             'enable_alert_pulse' => true,
         ];
@@ -102,7 +102,7 @@ class AdminController
 
         $validIntervals = [60, 180, 300];
         $defaults['refresh_interval'] = in_array((int) $defaults['refresh_interval'], $validIntervals, true) ? (int) $defaults['refresh_interval'] : 60;
-        $defaults['orientation'] = in_array($defaults['orientation'], ['portrait', 'landscape'], true) ? $defaults['orientation'] : 'portrait';
+        $defaults['color_scheme'] = in_array($defaults['color_scheme'], ['dark', 'light'], true) ? $defaults['color_scheme'] : 'dark';
         $defaults['enable_progress_bar'] = (bool) $defaults['enable_progress_bar'];
         $defaults['enable_alert_pulse'] = (bool) $defaults['enable_alert_pulse'];
 
@@ -125,8 +125,10 @@ class AdminController
             'on_track' => $settings['on_track_color'],
         ];
         $processes = $this->processoModel->getProcessesForTvPanel();
-        $bodyClass = 'tv-panel-page bg-slate-900 text-white';
-        $orientationClass = $settings['orientation'] === 'landscape' ? 'tv-panel-landscape' : 'tv-panel-portrait';
+        $bodyClass = $settings['color_scheme'] === 'light'
+            ? 'tv-panel-page bg-white text-slate-900'
+            : 'tv-panel-page bg-slate-900 text-white';
+        $theme = $settings['color_scheme'];
 
         require_once __DIR__ . '/../views/layouts/header.php';
         require_once __DIR__ . '/../views/admin/tv_painel.php';
@@ -158,7 +160,7 @@ class AdminController
             'due_soon_color' => trim($_POST['due_soon_color'] ?? $current['due_soon_color']),
             'on_track_color' => trim($_POST['on_track_color'] ?? $current['on_track_color']),
             'refresh_interval' => (int) ($_POST['refresh_interval'] ?? $current['refresh_interval']),
-            'orientation' => $_POST['orientation'] ?? $current['orientation'],
+            'color_scheme' => $_POST['color_scheme'] ?? $current['color_scheme'],
             'enable_progress_bar' => isset($_POST['enable_progress_bar']),
             'enable_alert_pulse' => isset($_POST['enable_alert_pulse']),
         ];
@@ -168,8 +170,8 @@ class AdminController
             $payload['refresh_interval'] = 60;
         }
 
-        if (!in_array($payload['orientation'], ['portrait', 'landscape'], true)) {
-            $payload['orientation'] = 'portrait';
+        if (!in_array($payload['color_scheme'], ['dark', 'light'], true)) {
+            $payload['color_scheme'] = 'dark';
         }
 
         $this->persistTvPanelSettings($payload);
@@ -198,6 +200,8 @@ class AdminController
             $showActions = false;
             $showProgress = $settings['enable_progress_bar'];
             $highlightAnimations = $settings['enable_alert_pulse'];
+            $showRowStatusColors = $settings['color_scheme'] === 'light';
+            $progressTrackClass = $settings['color_scheme'] === 'light' ? 'bg-slate-200' : 'bg-slate-800';
             require __DIR__ . '/../views/dashboard/partials/process_table_rows.php';
             $htmlRows = ob_get_clean();
         } else {

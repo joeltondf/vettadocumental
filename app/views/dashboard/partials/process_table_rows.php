@@ -6,16 +6,19 @@ $showActions = $showActions ?? true;
 $showProgress = $showProgress ?? false;
 $highlightAnimations = $highlightAnimations ?? false;
 $allowLinks = $allowLinks ?? true;
+$showRowStatusColors = $showRowStatusColors ?? true;
+$progressTrackClass = $progressTrackClass ?? 'bg-slate-200';
 
 foreach ($processes as $processo):
     $statusInfo = DashboardProcessFormatter::normalizeStatusInfo($processo['status_processo'] ?? '');
     $statusNormalized = $statusInfo['normalized'];
-    $rowClass = DashboardProcessFormatter::getRowClass($statusNormalized);
+    $rowClass = $showRowStatusColors ? DashboardProcessFormatter::getRowClass($statusNormalized) : '';
     $deadlineDescriptor = DashboardProcessFormatter::buildDeadlineDescriptor($processo, $deadlineColors);
     $serviceBadges = DashboardProcessFormatter::getServiceBadges($processo['categorias_servico'] ?? '');
     $deadlineClass = $deadlineDescriptor['class'];
     $deadlineLabel = $deadlineDescriptor['label'];
     $progressValue = $deadlineDescriptor['progress'];
+    $progressClass = $deadlineDescriptor['progress_class'] ?? 'bg-slate-500';
     $rowHighlight = '';
 
     if ($highlightAnimations && in_array($deadlineDescriptor['state'], ['overdue', 'due_today'], true)) {
@@ -61,14 +64,16 @@ foreach ($processes as $processo):
         <?php echo !empty($processo['data_inicio_traducao']) ? date('d/m/Y', strtotime($processo['data_inicio_traducao'])) : 'N/A'; ?>
     </td>
     <td class="px-3 py-1 whitespace-nowrap text-xs font-medium">
-        <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $deadlineClass; ?>">
-            <?php echo htmlspecialchars($deadlineLabel); ?>
-        </span>
-        <?php if ($showProgress && $progressValue !== null): ?>
-            <div class="mt-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-                <div class="h-2 bg-slate-500" style="width: <?php echo $progressValue; ?>%"></div>
-            </div>
-        <?php endif; ?>
+        <div class="flex items-center gap-3">
+            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $deadlineClass; ?>">
+                <?php echo htmlspecialchars($deadlineLabel); ?>
+            </span>
+            <?php if ($showProgress && $progressValue !== null): ?>
+                <div class="flex-1 h-2 rounded-full overflow-hidden <?php echo htmlspecialchars($progressTrackClass); ?>">
+                    <div class="h-2 <?php echo htmlspecialchars($progressClass); ?> transition-all duration-500" style="width: <?php echo $progressValue; ?>%"></div>
+                </div>
+            <?php endif; ?>
+        </div>
     </td>
     <?php if ($showActions): ?>
     <td class="px-3 py-1 whitespace-nowrap text-center text-xs font-medium">
