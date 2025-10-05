@@ -14,12 +14,10 @@ $currentUserPerfil = $_SESSION['user_perfil'] ?? '';
 $clientes = $clienteModel->getCrmProspects($currentUserId, $currentUserPerfil);
 
 $pageTitle = "CRM - Lista de Leads";
-require_once __DIR__ . '/../../app/views/layouts/header.php';
+require_once __DIR__ . '/../../app/views/layouts/crm_start.php';
 ?>
 
-<div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
-    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
+    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <h1 class="text-3xl font-bold text-gray-800"><?php echo $pageTitle; ?></h1>
         <div class="flex flex-col sm:flex-row gap-3">
             <a href="<?php echo APP_URL; ?>/crm/clientes/importar.php" class="bg-green-600 text-white py-2 px-4 rounded-md shadow-md hover:bg-green-700 transition duration-300 flex items-center justify-center">
@@ -34,18 +32,20 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
     </div>
 
     <?php if (isset($_SESSION['success_message'])): ?>
-        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6" role="alert">
+        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4" role="alert">
             <p><?php echo $_SESSION['success_message']; unset($_SESSION['success_message']); ?></p>
         </div>
     <?php endif; ?>
+
     <?php if (isset($_SESSION['error_message'])): ?>
-        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
+        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4" role="alert">
             <p><?php echo $_SESSION['error_message']; unset($_SESSION['error_message']); ?></p>
         </div>
     <?php endif; ?>
+
     <?php if (isset($_SESSION['import_summary'])): ?>
         <?php $summary = $_SESSION['import_summary']; unset($_SESSION['import_summary']); ?>
-        <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-700 p-4 mb-6">
+        <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-700 p-4">
             <p class="font-semibold">Resumo da importação</p>
             <ul class="mt-2 text-sm list-disc list-inside space-y-1">
                 <li>Leads criados: <?php echo (int)($summary['created'] ?? 0); ?></li>
@@ -110,7 +110,6 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                                             <a href="<?php echo APP_URL; ?>/crm/prospeccoes/nova.php?cliente_id=<?php echo $cliente['id']; ?>" class="text-green-600 hover:text-green-800 font-semibold">Criar prospecção</a>
                                         <?php endif; ?>
                                         <a href="<?php echo APP_URL; ?>/crm/clientes/editar_cliente.php?id=<?php echo $cliente['id']; ?>" class="text-blue-600 hover:text-blue-800 font-semibold">Editar</a>
-
                                         <form action="<?php echo APP_URL; ?>/crm/clientes/excluir_cliente.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este lead?');">
                                             <input type="hidden" name="id" value="<?php echo $cliente['id']; ?>">
                                             <button type="submit" class="text-red-600 hover:text-red-800 font-semibold">Excluir</button>
@@ -124,8 +123,5 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
             </table>
         </div>
     </div>
-</div>
 
-<?php
-require_once __DIR__ . '/../../app/views/layouts/footer.php';
-?>
+<?php require_once __DIR__ . '/../../app/views/layouts/crm_end.php'; ?>
