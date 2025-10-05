@@ -3,7 +3,6 @@
 
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
-require_once __DIR__ . '/../../app/utils/LeadCategory.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: ' . APP_URL . '/crm/prospeccoes/lista.php');
@@ -39,23 +38,14 @@ try {
 
     } elseif ($action === 'update_prospect') {
 
-        $leadCategory = $_POST['lead_category'] ?? LeadCategory::DEFAULT;
-        if (!LeadCategory::isValid(is_string($leadCategory) ? trim($leadCategory) : null)) {
-            $leadCategory = LeadCategory::DEFAULT;
-        } else {
-            $leadCategory = trim($leadCategory);
-        }
-
         $new_data = [
             'data_reuniao_agendada' => !empty($_POST['data_reuniao_agendada']) ? $_POST['data_reuniao_agendada'] : null,
-            'reuniao_compareceu' => isset($_POST['reuniao_compareceu']) ? 1 : 0,
-            'lead_category' => $leadCategory
+            'reuniao_compareceu' => isset($_POST['reuniao_compareceu']) ? 1 : 0
         ];
 
         $sql_update = "UPDATE prospeccoes SET
                             data_reuniao_agendada = :data_reuniao_agendada,
-                            reuniao_compareceu = :reuniao_compareceu,
-                            leadCategory = :lead_category
+                            reuniao_compareceu = :reuniao_compareceu
                         WHERE id = :id";
         $stmt_update = $pdo->prepare($sql_update);
         $stmt_update->execute(array_merge($new_data, ['id' => $prospeccao_id]));

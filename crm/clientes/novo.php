@@ -62,6 +62,17 @@ if (strpos($redirectUrl, APP_URL) !== 0) {
                     <input type="tel" name="telefone" id="telefone" autocomplete="tel" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
                 </div>
 
+                <div class="md:col-span-2">
+                    <label for="categoria" class="block text-sm font-medium text-gray-700">Categoria do Lead</label>
+                    <select name="categoria" id="categoria" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        <option value="Entrada">Entrada</option>
+                        <option value="Qualificado">Qualificado</option>
+                        <option value="Com Orçamento">Com Orçamento</option>
+                        <option value="Em Negociação">Em Negociação</option>
+                        <option value="Cliente Ativo">Lead Ativo</option>
+                        <option value="Sem Interesse">Sem Interesse</option>
+                    </select>
+                </div>
             </div>
 
             <div class="pt-5 flex justify-end border-t mt-6">
