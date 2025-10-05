@@ -87,8 +87,8 @@ require_once __DIR__ . '/../layouts/header.php';
         </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="md:col-span-2">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div class="md:col-span-2 xl:col-span-3">
             <label for="nome_cliente" id="label_nome_cliente" class="block text-sm font-semibold text-gray-700">Nome do Cliente / Empresa *</label>
             <input type="text" id="nome_cliente" name="nome_cliente" autocomplete="nope" value="<?php echo htmlspecialchars($nome_cliente); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
         </div>
@@ -98,7 +98,7 @@ require_once __DIR__ . '/../layouts/header.php';
             $perfisPrazoVisivel = ['admin', 'gerencia', 'supervisor', 'colaborador'];
         ?>
         <?php if (in_array($userPerfil, $perfisPrazoVisivel, true)): ?>
-            <div class="md:col-span-1">
+            <div class="md:col-span-1 xl:col-span-1">
                 <label for="prazo_acordado_dias" class="block text-sm font-semibold text-gray-700">Prazo Acordado (dias)</label>
                 <input
                     type="number"
@@ -111,47 +111,47 @@ require_once __DIR__ . '/../layouts/header.php';
             </div>
         <?php endif; ?>
 
-        <div id="container_nome_responsavel">
+        <div id="container_nome_responsavel" class="md:col-span-1 xl:col-span-1">
             <label for="nome_responsavel" class="block text-sm font-semibold text-gray-700">Nome do Responsável</label>
             <input type="text" id="nome_responsavel" name="nome_responsavel" autocomplete="nope" value="<?php echo htmlspecialchars($nome_responsavel); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
         </div>
 
-        <div>
+        <div class="md:col-span-1 xl:col-span-1">
             <label for="cpf_cnpj" id="label_cpf_cnpj" class="block text-sm font-semibold text-gray-700">CPF/CNPJ *</label>
             <input type="text" id="cpf_cnpj" name="cpf_cnpj" autocomplete="nope" value="<?php echo htmlspecialchars($cpf_cnpj); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
         </div>
 
-        <div>
+        <div class="md:col-span-1 xl:col-span-1">
             <label for="email" class="block text-sm font-semibold text-gray-700">E-mail *</label>
             <input type="email" id="email" name="email" autocomplete="nope" value="<?php echo htmlspecialchars($email); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
         </div>
 
-        <div>
+        <div class="md:col-span-1 xl:col-span-1">
             <label for="telefone" class="block text-sm font-semibold text-gray-700">Telefone</label>
             <input type="text" id="telefone" name="telefone" autocomplete="nope" value="<?php echo htmlspecialchars($telefone); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" maxlength="15">
         </div>
 
-        <div class="md:col-span-2">
-            <label for="endereco" class="block text-sm font-semibold text-gray-700">Endereço</label>
-            <textarea id="endereco" name="endereco" autocomplete="nope" rows="3" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"><?php echo htmlspecialchars($endereco); ?></textarea>
+        <div class="md:col-span-2 xl:col-span-3">
+            <label for="endereco" class="block text-sm font-semibold text-gray-700">Endereço *</label>
+            <input type="text" id="endereco" name="endereco" autocomplete="nope" value="<?php echo htmlspecialchars($endereco); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
         </div>
 
-        <div>
-            <label for="numero" class="block text-sm font-semibold text-gray-700">Número</label>
-            <input type="text" id="numero" name="numero" autocomplete="nope" value="<?php echo htmlspecialchars($numero); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+        <div class="md:col-span-1 xl:col-span-1 md:max-w-xs">
+            <label for="numero" class="block text-sm font-semibold text-gray-700">Número *</label>
+            <input type="text" id="numero" name="numero" autocomplete="nope" value="<?php echo htmlspecialchars($numero); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
         </div>
 
-        <div>
-            <label for="bairro" class="block text-sm font-semibold text-gray-700">Bairro</label>
-            <input type="text" id="bairro" name="bairro" autocomplete="nope" value="<?php echo htmlspecialchars($bairro); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+        <div class="md:col-span-1 xl:col-span-1">
+            <label for="bairro" class="block text-sm font-semibold text-gray-700">Bairro *</label>
+            <input type="text" id="bairro" name="bairro" autocomplete="nope" value="<?php echo htmlspecialchars($bairro); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
         </div>
 
-        <div>
+        <div class="md:col-span-1 xl:col-span-1">
             <label for="cep" class="block text-sm font-semibold text-gray-700">CEP *</label>
             <input type="text" id="cep" name="cep" autocomplete="nope" value="<?php echo htmlspecialchars($cep); ?>" readonly onfocus="this.removeAttribute('readonly');" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" maxlength="9" required>
         </div>
 
-        <div>
+        <div class="md:col-span-1 xl:col-span-1">
             <label for="cidade" class="block text-sm font-semibold text-gray-700">Cidade *</label>
             <div id="cidade-combobox" data-city-autocomplete class="relative" role="combobox" aria-haspopup="listbox" aria-expanded="false">
                 <input type="hidden" name="city_validation_source" id="city_validation_source" value="<?php echo htmlspecialchars($city_validation_source); ?>">
@@ -173,12 +173,12 @@ require_once __DIR__ . '/../layouts/header.php';
             <p id="cidade-status" class="mt-1 text-sm text-gray-500 hidden" role="status" aria-live="polite"></p>
         </div>
 
-        <div>
+        <div class="md:col-span-1 xl:col-span-1 md:max-w-[120px]">
             <label for="estado" class="block text-sm font-semibold text-gray-700">Estado (UF) *</label>
-            <input type="text" id="estado" name="estado" autocomplete="off" value="<?php echo htmlspecialchars($estado); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-gray-50" maxlength="2" required>
+            <input type="text" id="estado" name="estado" autocomplete="off" value="<?php echo htmlspecialchars($estado); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-gray-50 uppercase" maxlength="2" required readonly>
         </div>
 
-        <div>
+        <div class="md:col-span-1 xl:col-span-1">
             <label for="tipo_assessoria" class="block text-sm font-semibold text-gray-700">Tipo de Assessoria</label>
             <select id="tipo_assessoria" name="tipo_assessoria" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                 <option value="" <?php echo ($tipo_assessoria == '') ? 'selected' : ''; ?>>Não definido</option>
