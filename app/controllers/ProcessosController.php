@@ -256,7 +256,7 @@ class ProcessosController
                 if ($processoId) {
                     if ($dadosParaSalvar['status_processo'] === 'Serviço Pendente') {
                         $_SESSION['message'] = "Serviço enviado para aprovação da gerência/supervisão.";
-                        $this->queueManagementNotification($processoId, (int)$clienteId, (int)$_SESSION['user_id'], 'serviço');
+                        $this->queueManagementNotification($processoId, (int)$clienteId, (int)$_SESSION['user_id'], 'servico');
                     } else {
                         $_SESSION['success_message'] = "Serviço cadastrado com sucesso!";
                         if ($this->shouldGenerateOmieOs($dadosParaSalvar['status_processo'])) {
@@ -300,7 +300,7 @@ class ProcessosController
                     $mensagemSucesso = 'Orçamento cadastrado e enviado para aprovação da gerência.';
                     $clienteIdNotificacao = (int)($dadosProcesso['cliente_id'] ?? 0);
                     if ($clienteIdNotificacao > 0 && isset($_SESSION['user_id'])) {
-                        $this->queueManagementNotification($novo_id, $clienteIdNotificacao, (int)$_SESSION['user_id'], 'orçamento');
+                        $this->queueManagementNotification($novo_id, $clienteIdNotificacao, (int)$_SESSION['user_id'], 'orcamento');
                     }
                 }
 
@@ -350,21 +350,35 @@ class ProcessosController
                 $dadosParaAtualizar['status_processo'] = 'Serviço Pendente';
                 $_SESSION['message'] = "Alteração salva. O serviço aguarda aprovação da gerência/supervisão.";
                 $_SESSION['success_message'] = $_SESSION['message'];
-                $cliente = $this->clienteModel->getById($dadosParaAtualizar['cliente_id']);
-                $link = "/processos.php?action=view&id=" . $id_existente;
-                $mensagem = "O serviço para o cliente '{$cliente['nome']}' foi alterado e precisa de aprovação.";
-                $gerentes_ids = $this->userModel->getIdsByPerfil(['admin', 'gerencia', 'supervisor']);
-                foreach ($gerentes_ids as $gerente_id) {
-                    $this->notificacaoModel->criar($gerente_id, $_SESSION['user_id'], $mensagem, $link);
-                }
             }
         }
+
+        $previousStatusNormalized = $this->normalizeStatusName($processoOriginal['status_processo'] ?? '');
+        $pendingStatuses = ['serviço pendente', 'orçamento pendente'];
+        $senderId = $_SESSION['user_id'] ?? null;
+        $customerId = (int)($dadosParaAtualizar['cliente_id'] ?? $processoOriginal['cliente_id'] ?? 0);
+        $link = "/processos.php?action=view&id={$id_existente}";
 
         if ($this->processoModel->update($id_existente, $dadosParaAtualizar, $_FILES)) {
             if (!isset($_SESSION['message'])) {
                 $_SESSION['success_message'] = "Processo atualizado com sucesso!";
             }
             $novoStatus = $dadosParaAtualizar['status_processo'] ?? $processoOriginal['status_processo'];
+            $novoStatusNormalized = $this->normalizeStatusName($novoStatus);
+            $enteredPending = in_array($novoStatusNormalized, $pendingStatuses, true)
+                && !in_array($previousStatusNormalized, $pendingStatuses, true);
+            $leftPending = !in_array($novoStatusNormalized, $pendingStatuses, true)
+                && in_array($previousStatusNormalized, $pendingStatuses, true);
+
+            if ($enteredPending && $customerId > 0 && $senderId) {
+                $pendingType = $novoStatusNormalized === 'orçamento pendente' ? 'orcamento' : 'servico';
+                $this->queueManagementNotification($id_existente, $customerId, (int)$senderId, $pendingType);
+            }
+
+            if ($leftPending) {
+                $this->notificacaoModel->deleteByLink($link);
+            }
+
             if ($this->shouldGenerateOmieOs($novoStatus)) {
                 $this->queueServiceOrderGeneration($id_existente);
             }
@@ -539,7 +553,7 @@ class ProcessosController
         if ($processoId) {
             if ($dadosParaSalvar['status_processo'] === 'Serviço Pendente') {
                 $_SESSION['message'] = "Serviço enviado para aprovação da gerência/supervisão.";
-                $this->queueManagementNotification($processoId, (int)$clienteId, (int)$_SESSION['user_id'], 'serviço');
+                $this->queueManagementNotification($processoId, (int)$clienteId, (int)$_SESSION['user_id'], 'servico');
             } else {
                 $_SESSION['success_message'] = "Serviço cadastrado com sucesso!";
                 if ($this->shouldGenerateOmieOs($dadosParaSalvar['status_processo'])) {
@@ -994,7 +1008,12 @@ class ProcessosController
 
             $_SESSION['success_message'] = $successMessage;
             if ($customerId > 0 && $senderId) {
-                $this->queueManagementNotification($processId, $customerId, $senderId, 'serviço');
+                $this->queueManagementNotification($processId, $customerId, $senderId, 'servico');
+            }
+        } elseif ($newStatusNormalized === 'orçamento pendente') {
+            $_SESSION['success_message'] = 'Orçamento enviado para aprovação da gerência.';
+            if ($customerId > 0 && $senderId) {
+                $this->queueManagementNotification($processId, $customerId, $senderId, 'orcamento');
             }
         } else {
             $successMessage = 'Status do processo atualizado com sucesso!';
@@ -1538,31 +1557,17 @@ class ProcessosController
     /**
      * Notifica perfis de gestão quando há serviço pendente.
      */
-    private function notificarGerenciaPendencia(int $processoId, int $clienteId, int $remetenteId, string $tipoPendencia = 'serviço'): void
+    private function notificarGerenciaPendencia(int $processoId, int $clienteId, int $remetenteId, string $tipoPendencia = 'servico'): void
     {
         $cliente = $this->clienteModel->getById($clienteId);
         $nomeCliente = $cliente['nome_cliente'] ?? 'Cliente';
         $linkPath = '/processos.php?action=view&id=' . $processoId;
-        $link = $this->buildAbsoluteUrl($linkPath);
-        $tipoMinusculo = mb_strtolower($tipoPendencia, 'UTF-8');
-        $tipoCapitalizado = mb_convert_case($tipoMinusculo, MB_CASE_TITLE, 'UTF-8');
+        $pendingLabel = $tipoPendencia === 'orcamento' ? 'Orçamento' : 'Serviço';
         $gerentesIds = $this->userModel->getIdsByPerfil(['admin', 'gerencia', 'supervisor']);
+
         foreach ($gerentesIds as $gerenteId) {
-            $mensagem = "Novo {$tipoMinusculo} pendente para o cliente '{$nomeCliente}'.";
+            $mensagem = "{$pendingLabel} pendente para o cliente {$nomeCliente}.";
             $this->notificacaoModel->criar($gerenteId, $remetenteId, $mensagem, $linkPath);
-            $gerente = $this->userModel->getById($gerenteId);
-            if ($gerente && !empty($gerente['email'])) {
-                $subject = "{$tipoCapitalizado} pendente de aprovação";
-                $body = "Olá {$gerente['nome_completo']},<br><br>"
-                    . "Foi criado um {$tipoMinusculo} para o cliente <strong>{$nomeCliente}</strong> que está pendente de aprovação.<br>"
-                    . "Clique no link a seguir para visualizar e aprovar: <a href=\"{$link}\">Ver {$tipoMinusculo}</a>.<br><br>"
-                    . "Obrigado.";
-                try {
-                    $this->emailService->sendEmail($gerente['email'], $subject, $body);
-                } catch (Exception $e) {
-                    error_log("Erro ao enviar e-mail para {$gerente['email']}: " . $e->getMessage());
-                }
-            }
         }
     }
 
