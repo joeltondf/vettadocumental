@@ -357,14 +357,14 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
                                             $js_traducao_modalidade = str_replace("'", "\'", htmlspecialchars($processo['traducao_modalidade'] ?? 'N/A'));
                                             $js_envio_cartorio = isset($processo['data_envio_cartorio']) ? date('d/m/Y', strtotime($processo['data_envio_cartorio'])) : 'Pendente';
                                             $tooltip_html_content =
-                                                '<div class="space-y-1 text-left whitespace-nowrap">' .
-                                                '   <p class="font-bold border-b border-gray-600 pb-1 mb-1">Detalhes Rápidos</p>' .
+                                                '<div class="flex flex-col gap-2 text-left whitespace-normal leading-relaxed text-sm">' .
+                                                '   <p class="font-semibold text-xs uppercase tracking-wide text-gray-200 border-b border-gray-600 pb-2">Detalhes Rápidos</p>' .
                                                 '   <p><strong>Tradutor:</strong> ' . $js_nome_tradutor . '</p>' .
                                                 '   <p><strong>Modalidade:</strong> ' . $js_traducao_modalidade . '</p>' .
                                                 '   <p><strong>Status Ass.:</strong> <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ' . $status_assinatura_classe . ' mr-1">' . $status_assinatura_texto . '</span></p>' .
                                                 '   <p><strong>Envio Cartório:</strong> ' . $js_envio_cartorio . '</p>' .
                                                 '</div>' .
-                                                '<div class="absolute w-3 h-3 bg-gray-800 transform rotate-45 -left-1 top-1/2 -translate-y-1/2"></div>';
+                                                '<div class="tooltip-arrow" data-tooltip-arrow></div>';
                                             echo json_encode($tooltip_html_content);
                                         ?>'>
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -412,6 +412,41 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
 .flex.flex-col > .text-sm.font-semibold {
     margin-bottom: 0.5rem; /* Equivalente a mb-2 */
 }
+
+#dynamic-tooltip {
+    color: #f9fafb;
+}
+
+#dynamic-tooltip p {
+    margin: 0;
+    color: #e5e7eb;
+}
+
+#dynamic-tooltip p + p {
+    margin-top: 0.35rem;
+}
+
+#dynamic-tooltip strong {
+    color: #f9fafb;
+}
+
+.tooltip-arrow {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background-color: #111827;
+    border: 1px solid rgba(55, 65, 81, 0.8);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    border-radius: 2px;
+    transform: rotate(45deg);
+}
+
+@media (max-width: 768px) {
+    #dynamic-tooltip {
+        max-width: min(92vw, 22rem);
+        width: min(92vw, 22rem);
+    }
+}
 </style>
 
 <script>
@@ -422,10 +457,57 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Classe CSS para o tooltip dinâmico (Tailwind)
     const TOOLTIP_CLASSES = `
-        absolute p-3 bg-gray-800 text-white text-xs rounded-lg shadow-lg z-50
-        transition-opacity duration-300 ease-in-out
+        absolute px-4 py-3 bg-gray-900 text-white text-sm leading-relaxed rounded-xl shadow-2xl z-50
+        border border-gray-700 backdrop-blur-sm transition-opacity duration-200 ease-out
         max-w-xs sm:max-w-sm lg:max-w-md xl:max-w-lg
     `.trim().split(/\s+/);
+    const TOOLTIP_SAFE_MARGIN = 12;
+    const TOOLTIP_ARROW_OFFSET = 8;
+    const MOBILE_BREAKPOINT = 768;
+
+    function resolveTooltipPlacement(triggerRect, tooltipRect) {
+        const viewportWidth = window.innerWidth;
+
+        if (viewportWidth < MOBILE_BREAKPOINT) {
+            return 'bottom';
+        }
+
+        const fitsOnRight = triggerRect.right + TOOLTIP_SAFE_MARGIN + tooltipRect.width <= viewportWidth - TOOLTIP_SAFE_MARGIN;
+        if (fitsOnRight) {
+            return 'right';
+        }
+
+        const fitsOnLeft = triggerRect.left - TOOLTIP_SAFE_MARGIN - tooltipRect.width >= TOOLTIP_SAFE_MARGIN;
+        if (fitsOnLeft) {
+            return 'left';
+        }
+
+        return 'bottom';
+    }
+
+    function updateArrowPosition(arrowElement, placement) {
+        if (!arrowElement) return;
+
+        arrowElement.style.left = '';
+        arrowElement.style.right = '';
+        arrowElement.style.top = '';
+        arrowElement.style.bottom = '';
+        arrowElement.style.transform = 'rotate(45deg)';
+
+        if (placement === 'right') {
+            arrowElement.style.left = `-${TOOLTIP_ARROW_OFFSET}px`;
+            arrowElement.style.top = '50%';
+            arrowElement.style.transform = 'translateY(-50%) rotate(45deg)';
+        } else if (placement === 'left') {
+            arrowElement.style.right = `-${TOOLTIP_ARROW_OFFSET}px`;
+            arrowElement.style.top = '50%';
+            arrowElement.style.transform = 'translateY(-50%) rotate(45deg)';
+        } else {
+            arrowElement.style.left = '50%';
+            arrowElement.style.top = `-${TOOLTIP_ARROW_OFFSET}px`;
+            arrowElement.style.transform = 'translate(-50%, -50%) rotate(45deg)';
+        }
+    }
 
     /**
      * Cria e anexa o elemento do tooltip ao DOM.
@@ -444,6 +526,13 @@ document.addEventListener('DOMContentLoaded', () => {
         tooltipDiv.classList.add(...TOOLTIP_CLASSES);
         tooltipDiv.id = 'dynamic-tooltip'; // ID para depuração
         tooltipDiv.dataset.originalTriggerId = triggerId; // Guarda o ID do gatilho original
+        tooltipDiv.style.maxWidth = 'min(90vw, 24rem)';
+        tooltipDiv.style.minWidth = 'min(16rem, 90vw)';
+        tooltipDiv.style.width = 'max-content';
+        tooltipDiv.style.boxSizing = 'border-box';
+        tooltipDiv.style.wordBreak = 'break-word';
+        tooltipDiv.style.lineHeight = '1.55';
+        tooltipDiv.style.letterSpacing = '0.01em';
 
         // Estilos para medição: Fora da tela, invisível para o usuário, mas presente no layout
         Object.assign(tooltipDiv.style, {
@@ -476,39 +565,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const tooltipRect = tooltipElement.getBoundingClientRect(); // Medição agora deve ser precisa
 
-        let top = triggerRect.top + (triggerRect.height / 2) - (tooltipRect.height / 2);
-        let left = triggerRect.right + 8; // 8px de margem à direita
+        const placement = resolveTooltipPlacement(triggerRect, tooltipRect);
 
-        let arrow = tooltipElement.querySelector('.absolute.w-3.h-3.bg-gray-800.transform.rotate-45');
+        let top;
+        let left;
 
-        // Lógica de ajuste para não sair da tela (esquerda/direita)
-        if (left + tooltipRect.width > window.innerWidth - 10) {
-            left = triggerRect.left - tooltipRect.width - 8; // Tenta à esquerda
-            if (left < 10) {
-                left = 10; // Se não couber à esquerda, alinha à borda esquerda
+        if (placement === 'right') {
+            left = triggerRect.right + TOOLTIP_SAFE_MARGIN;
+            top = triggerRect.top + (triggerRect.height / 2) - (tooltipRect.height / 2);
+        } else if (placement === 'left') {
+            left = triggerRect.left - tooltipRect.width - TOOLTIP_SAFE_MARGIN;
+            top = triggerRect.top + (triggerRect.height / 2) - (tooltipRect.height / 2);
+        } else {
+            top = triggerRect.bottom + TOOLTIP_SAFE_MARGIN;
+            left = triggerRect.left + (triggerRect.width / 2) - (tooltipRect.width / 2);
+        }
+
+        if (placement !== 'bottom') {
+            if (top < TOOLTIP_SAFE_MARGIN) {
+                top = TOOLTIP_SAFE_MARGIN;
             }
-            if (arrow) { // Ajusta a seta se o tooltip for para a esquerda
-                arrow.style.left = 'auto';
-                arrow.style.right = '-4px'; // Seta aponta para a direita do tooltip
-                arrow.style.transform = 'rotate(45deg)';
+            if (top + tooltipRect.height > window.innerHeight - TOOLTIP_SAFE_MARGIN) {
+                top = window.innerHeight - tooltipRect.height - TOOLTIP_SAFE_MARGIN;
             }
         } else {
-            if (arrow) { // Seta padrão, aponta para a esquerda do tooltip
-                arrow.style.right = 'auto';
-                arrow.style.left = '-4px';
-                arrow.style.transform = 'rotate(45deg)';
+            if (top + tooltipRect.height > window.innerHeight - TOOLTIP_SAFE_MARGIN) {
+                top = Math.max(TOOLTIP_SAFE_MARGIN, window.innerHeight - tooltipRect.height - TOOLTIP_SAFE_MARGIN);
             }
         }
 
-        // Lógica de ajuste para não sair da tela (superior/inferior)
-        if (top < 0) {
-            top = 0;
+        if (left < TOOLTIP_SAFE_MARGIN) {
+            left = TOOLTIP_SAFE_MARGIN;
         }
-        if (top + tooltipRect.height > window.innerHeight) {
-            top = window.innerHeight - tooltipRect.height;
+        if (left + tooltipRect.width > window.innerWidth - TOOLTIP_SAFE_MARGIN) {
+            left = window.innerWidth - tooltipRect.width - TOOLTIP_SAFE_MARGIN;
         }
 
-        // Aplica as posições finais e torna o elemento visível, mas ainda com opacidade 0 (para a transição)
+        const arrow = tooltipElement.querySelector('[data-tooltip-arrow]');
+        updateArrowPosition(arrow, placement);
+        tooltipElement.dataset.placement = placement;
+
         Object.assign(tooltipElement.style, {
             top: `${top + window.scrollY}px`,
             left: `${left + window.scrollX}px`,
@@ -709,14 +805,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         // Conteúdo HTML do tooltip para o data-attribute (JSON.stringify necessário)
                         const tooltip_html_content_for_js = `
-                            <div class="space-y-1 text-left whitespace-nowrap">
-                                <p class="font-bold border-b border-gray-600 pb-1 mb-1">Detalhes Rápidos</p>
+                            <div class="flex flex-col gap-2 text-left whitespace-normal leading-relaxed text-sm">
+                                <p class="font-semibold text-xs uppercase tracking-wide text-gray-200 border-b border-gray-600 pb-2">Detalhes Rápidos</p>
                                 <p><strong>Tradutor:</strong> ${processo.nome_tradutor ?? 'Não definido'}</p>
                                 <p><strong>Modalidade:</strong> ${processo.traducao_modalidade ?? 'N/A'}</p>
                                 <p><strong>Status Ass.:</strong> <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${status_assinatura_classe_js} mr-1">${status_assinatura_texto_js}</span></p>
                                 <p><strong>Envio Cartório:</strong> ${processo.data_envio_cartorio ? new Date(processo.data_envio_cartorio).toLocaleDateString('pt-BR') : 'Pendente'}</p>
                             </div>
-                            <div class="absolute w-3 h-3 bg-gray-800 transform rotate-45 -left-1 top-1/2 -translate-y-1/2"></div>
+                            <div class="tooltip-arrow" data-tooltip-arrow></div>
                         `;
 
                         html += `
