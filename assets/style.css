@@ -1,0 +1,132 @@
+body.crm-layout {
+    background-color: #f1f5f9;
+}
+
+body.crm-layout .container {
+    max-width: 100%;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.crm-shell {
+    width: 95%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem 0 3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+}
+
+.crm-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.crm-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.crm-title {
+    font-size: clamp(1.75rem, 1.6rem + 0.5vw, 2.1rem);
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0;
+}
+
+.crm-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.crm-card-grid {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.crm-card-grid--two {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.crm-card-grid--three {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.crm-card-grid--four {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.crm-card {
+    background-color: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 30px 60px -35px rgba(15, 23, 42, 0.45);
+    padding: 1.75rem;
+}
+
+.crm-card--tight {
+    padding: 1.25rem 1.5rem;
+}
+
+.crm-card-title {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0 0 1.25rem 0;
+}
+
+.crm-card-subtitle {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #4b5563;
+    margin-bottom: 1rem;
+}
+
+.crm-card img,
+.crm-card figure img {
+    width: 100%;
+    border-radius: 12px;
+    object-fit: cover;
+}
+
+.crm-table-wrapper {
+    overflow-x: auto;
+}
+
+.crm-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.crm-table th,
+.crm-table td {
+    padding: 0.85rem 1rem;
+    text-align: left;
+}
+
+.crm-table thead th {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #475569;
+    border-bottom: 1px solid #e2e8f0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.crm-table tbody tr {
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.crm-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.crm-table tbody tr:hover {
+    background-color: #f8fafc;
+}
