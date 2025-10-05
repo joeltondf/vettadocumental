@@ -87,75 +87,81 @@ try {
 
 // 2. HTML DEPOIS
 // =================================================================
-require_once __DIR__ . '/../app/views/layouts/header.php';
+require_once __DIR__ . '/../app/views/layouts/crm_start.php';
 ?>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <section class="crm-section">
+        <div class="crm-card">
+            <div class="crm-section-header">
+                <h1 class="crm-title">Dashboard de Performance</h1>
+            </div>
+            <form method="GET" action="dashboard.php" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label for="start_date" class="text-sm font-medium text-gray-700">Data Início</label>
+                        <input type="date" name="start_date" id="start_date" value="<?php echo htmlspecialchars($filter_start_date); ?>" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                    </div>
+                    <div>
+                        <label for="end_date" class="text-sm font-medium text-gray-700">Data Fim</label>
+                        <input type="date" name="end_date" id="end_date" value="<?php echo htmlspecialchars($filter_end_date); ?>" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                    </div>
+                    <div>
+                        <label for="sdr_id" class="text-sm font-medium text-gray-700">Responsável</label>
+                        <select name="sdr_id" id="sdr_id" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                            <option value="">Todos</option>
+                            <?php foreach ($responsaveis_filtro as $sdr): ?>
+                                <option value="<?php echo $sdr['id']; ?>" <?php echo ($sdr['id'] == $filter_sdr_id) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($sdr['nome_completo']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button type="submit" class="w-full bg-blue-600 text-white font-medium py-2 px-4 rounded-xl hover:bg-blue-700 transition">Filtrar</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </section>
 
-<div class="border-b border-gray-200 pb-5 mb-5">
-    <h1 class="text-3xl font-bold leading-tight text-gray-900">Dashboard de Performance</h1>
-    <form method="GET" action="dashboard.php" class="mt-4 p-4 bg-gray-50 rounded-lg border">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-                <label for="start_date" class="text-sm font-medium text-gray-700">Data Início</label>
-                <input type="date" name="start_date" id="start_date" value="<?php echo htmlspecialchars($filter_start_date); ?>" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+    <section class="crm-section">
+        <div class="crm-card-grid crm-card-grid--four">
+            <div class="crm-card crm-card--tight">
+                <p class="text-sm font-medium text-gray-500">Leads Criados no Período</p>
+                <p class="mt-2 text-3xl font-semibold text-gray-900"><?php echo $total_criados; ?></p>
             </div>
-            <div>
-                <label for="end_date" class="text-sm font-medium text-gray-700">Data Fim</label>
-                <input type="date" name="end_date" id="end_date" value="<?php echo htmlspecialchars($filter_end_date); ?>" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+            <div class="crm-card crm-card--tight">
+                <p class="text-sm font-medium text-gray-500">Taxa de Conversão</p>
+                <p class="mt-2 text-3xl font-semibold text-gray-900"><?php echo number_format($taxa_conversao, 1, ',', '.'); ?>%</p>
             </div>
-            <div>
-                <label for="sdr_id" class="text-sm font-medium text-gray-700">Responsável</label>
-                <select name="sdr_id" id="sdr_id" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
-                    <option value="">Todos</option>
-                    <?php foreach ($responsaveis_filtro as $sdr): ?>
-                        <option value="<?php echo $sdr['id']; ?>" <?php echo ($sdr['id'] == $filter_sdr_id) ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($sdr['nome_completo']); // Correção: 'nome_completo' ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+            <div class="crm-card crm-card--tight">
+                <p class="text-sm font-medium text-gray-500">Leads Convertidos</p>
+                <p class="mt-2 text-3xl font-semibold text-green-600"><?php echo $total_convertidos; ?></p>
             </div>
-            <div class="flex items-end">
-                <button type="submit" class="bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 w-full">Filtrar</button>
+            <div class="crm-card crm-card--tight">
+                <p class="text-sm font-medium text-gray-500">Valor Total Ganho</p>
+                <p class="mt-2 text-3xl font-semibold text-green-600">R$ <?php echo number_format($valor_total_ganho ?? 0, 2, ',', '.'); ?></p>
             </div>
         </div>
-    </form>
-</div>
+    </section>
 
-<div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-    <div class="bg-white overflow-hidden shadow rounded-lg p-5">
-        <dt class="text-sm font-medium text-gray-500 truncate">Leads Criados no Período</dt>
-        <dd class="mt-1 text-3xl font-semibold text-gray-900"><?php echo $total_criados; ?></dd>
-    </div>
-    <div class="bg-white overflow-hidden shadow rounded-lg p-5">
-        <dt class="text-sm font-medium text-gray-500 truncate">Taxa de Conversão</dt>
-        <dd class="mt-1 text-3xl font-semibold text-gray-900"><?php echo number_format($taxa_conversao, 1, ',', '.'); ?>%</dd>
-    </div>
-    <div class="bg-white overflow-hidden shadow rounded-lg p-5">
-        <dt class="text-sm font-medium text-gray-500 truncate">Leads Convertidos</dt>
-        <dd class="mt-1 text-3xl font-semibold text-green-600"><?php echo $total_convertidos; ?></dd>
-    </div>
-    <div class="bg-white overflow-hidden shadow rounded-lg p-5">
-        <dt class="text-sm font-medium text-gray-500 truncate">Valor Total Ganho</dt>
-        <dd class="mt-1 text-3xl font-semibold text-green-600">R$ <?php echo number_format($valor_total_ganho ?? 0, 2, ',', '.'); ?></dd>
-    </div>
-</div>
-
-<div class="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
-    <div class="bg-white overflow-hidden shadow rounded-lg p-6">
-        <h3 class="text-lg font-medium leading-6 text-gray-900">Prospecções por Status</h3>
-        <div class="mt-4" style="height: 300px;"><canvas id="graficoStatus"></canvas></div>
-    </div>
-    <div class="bg-white overflow-hidden shadow rounded-lg p-6">
-        <h3 class="text-lg font-medium leading-6 text-gray-900">Prospecções por Responsável</h3>
-        <div class="mt-4" style="height: 300px;"><canvas id="graficoResponsavel"></canvas></div>
-    </div>
-    <div class="bg-white overflow-hidden shadow rounded-lg p-6 lg:col-span-2">
-        <h3 class="text-lg font-medium leading-6 text-gray-900">Leads por Canal de Origem</h3>
-        <div class="mt-4" style="height: 300px;"><canvas id="graficoCanais"></canvas></div>
-    </div>
-</div>
-
+    <section class="crm-section">
+        <div class="grid grid-cols-1 gap-8 lg:grid-cols-2">
+            <div class="crm-card">
+                <h2 class="crm-card-title">Prospecções por Status</h2>
+                <div style="height: 300px;"><canvas id="graficoStatus"></canvas></div>
+            </div>
+            <div class="crm-card">
+                <h2 class="crm-card-title">Prospecções por Responsável</h2>
+                <div style="height: 300px;"><canvas id="graficoResponsavel"></canvas></div>
+            </div>
+            <div class="crm-card lg:col-span-2">
+                <h2 class="crm-card-title">Leads por Canal de Origem</h2>
+                <div style="height: 300px;"><canvas id="graficoCanais"></canvas></div>
+            </div>
+        </div>
+    </section>
 <script>
 document.addEventListener('DOMContentLoaded', (event) => {
     const chartColors = ['rgba(59, 130, 246, 0.7)', 'rgba(16, 185, 129, 0.7)', 'rgba(239, 68, 68, 0.7)', 'rgba(245, 158, 11, 0.7)', 'rgba(107, 114, 128, 0.7)', 'rgba(139, 92, 246, 0.7)', 'rgba(236, 72, 153, 0.7)', 'rgba(34, 211, 238, 0.7)'];
@@ -174,7 +180,4 @@ document.addEventListener('DOMContentLoaded', (event) => {
 });
 </script>
 
-<?php 
-// 3. Inclui o footer no final
-require_once __DIR__ . '/../app/views/layouts/footer.php'; 
-?>
+<?php require_once __DIR__ . '/../app/views/layouts/crm_end.php'; ?>
