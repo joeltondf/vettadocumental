@@ -285,6 +285,7 @@ $bodyClassList = trim($defaultBodyClass . ' ' . $extraBodyClass);
         <div class="md:hidden hidden" id="mobile-menu"> 
              </div>
     </nav>
+    <?php endif; ?>
 
     <main class="<?php echo htmlspecialchars($mainClass); ?>">
         <div class="<?php echo htmlspecialchars($mainInnerClass); ?>">
