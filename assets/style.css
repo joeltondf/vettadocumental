@@ -17,25 +17,17 @@
     flex-direction: column;
     gap: 1.5rem;
     min-height: calc(100vh - 4rem);
+    max-width: 1600px;
+    margin: 0 auto;
+    width: 100%;
 }
 
-.tv-panel-header {
+.tv-panel-meta-inline {
     display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    color: #f8fafc;
-}
-
-.tv-panel-title h1 {
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.tv-panel-meta {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 0.5rem;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 1rem;
+    align-self: flex-end;
 }
 
 .tv-panel-clock {
@@ -49,29 +41,21 @@
     gap: 0.5rem;
     padding: 0.5rem 1rem;
     border-radius: 9999px;
-    background: rgba(15, 23, 42, 0.4);
-    color: #f8fafc;
     font-weight: 600;
     text-decoration: none;
-    transition: background 0.3s ease;
-}
-
-.tv-panel-config-link:hover {
-    background: rgba(148, 163, 184, 0.4);
+    transition: background 0.3s ease, color 0.3s ease;
 }
 
 .tv-panel-table-wrapper {
     flex: 1;
     overflow: hidden;
     border-radius: 1rem;
-    background: rgba(15, 23, 42, 0.35);
     padding: 1rem;
 }
 
 .tv-panel-table-wrapper table {
     width: 100%;
     font-size: 1.05rem;
-    color: #0f172a;
 }
 
 .tv-panel-table-wrapper th,
@@ -84,7 +68,6 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    color: #cbd5f5;
     font-size: 1rem;
 }
 
@@ -94,17 +77,6 @@
     justify-content: center;
     min-height: 60vh;
     font-size: 2rem;
-    color: #e2e8f0;
-}
-
-.tv-panel-portrait {
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
-.tv-panel-landscape {
-    max-width: 1600px;
-    margin: 0 auto;
 }
 
 .tv-panel-page .min-w-full tbody tr td,
@@ -119,4 +91,73 @@
 
 .tv-panel-page .min-w-full tbody tr td span {
     font-size: 0.95rem;
+}
+
+.tv-panel-theme-dark .tv-panel-config-link {
+    background: rgba(15, 23, 42, 0.6);
+    color: #f8fafc;
+}
+
+.tv-panel-theme-dark .tv-panel-config-link:hover {
+    background: rgba(148, 163, 184, 0.4);
+}
+
+.tv-panel-theme-light .tv-panel-config-link {
+    background: rgba(226, 232, 240, 0.85);
+    color: #0f172a;
+}
+
+.tv-panel-theme-light .tv-panel-config-link:hover {
+    background: rgba(148, 163, 184, 0.6);
+}
+
+.tv-panel-theme-dark .tv-panel-table-wrapper {
+    background: rgba(15, 23, 42, 0.65);
+    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.65);
+}
+
+.tv-panel-theme-light .tv-panel-table-wrapper {
+    background: rgba(241, 245, 249, 0.85);
+    box-shadow: 0 20px 45px -10px rgba(148, 163, 184, 0.35);
+}
+
+.tv-panel-theme-dark .tv-panel-footer {
+    color: #cbd5f5;
+}
+
+.tv-panel-theme-light .tv-panel-footer {
+    color: #0f172a;
+}
+
+.tv-panel-theme-dark .tv-panel-empty {
+    color: #e2e8f0;
+}
+
+.tv-panel-theme-light .tv-panel-empty {
+    color: #475569;
+}
+
+.tv-panel-theme-dark .tv-panel-table th,
+.tv-panel-theme-dark .tv-panel-table td {
+    color: #e2e8f0 !important;
+}
+
+.tv-panel-thead-dark {
+    background-color: rgba(30, 41, 59, 0.85);
+}
+
+.tv-panel-tbody-dark tr:nth-child(odd) {
+    background-color: rgba(15, 23, 42, 0.75);
+}
+
+.tv-panel-tbody-dark tr:nth-child(even) {
+    background-color: rgba(30, 41, 59, 0.75);
+}
+
+.tv-panel-tbody-dark tr:hover {
+    background-color: rgba(51, 65, 85, 0.85);
+}
+
+.tv-panel-theme-dark .tv-panel-table tbody tr td {
+    border-color: rgba(148, 163, 184, 0.2);
 }

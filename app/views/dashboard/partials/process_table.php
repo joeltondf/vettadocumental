@@ -3,9 +3,13 @@ $showActions = $showActions ?? true;
 $showProgress = $showProgress ?? false;
 $highlightAnimations = $highlightAnimations ?? false;
 $deadlineColors = $deadlineColors ?? [];
+$tableThemeClass = $tableThemeClass ?? 'divide-y divide-gray-200';
+$theadThemeClass = trim(($theadThemeClass ?? 'bg-gray-50') . ' sticky top-0 z-10');
+$tbodyThemeClass = $tbodyThemeClass ?? 'bg-white divide-y divide-gray-200';
+$tableClass = trim('min-w-full table-auto ' . $tableThemeClass);
 ?>
-<table class="min-w-full divide-y divide-gray-200 table-auto">
-    <thead class="bg-gray-50 sticky top-0 z-10">
+<table class="<?php echo htmlspecialchars($tableClass); ?>">
+    <thead class="<?php echo htmlspecialchars($theadThemeClass); ?>">
         <tr>
             <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Família</th>
             <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assessoria</th>
@@ -20,7 +24,7 @@ $deadlineColors = $deadlineColors ?? [];
             <?php endif; ?>
         </tr>
     </thead>
-    <tbody class="bg-white divide-y divide-gray-200" id="processes-table-body">
+    <tbody class="<?php echo htmlspecialchars($tbodyThemeClass); ?>" id="processes-table-body">
         <?php
             $processes = $processes ?? [];
             $renderOnlyBody = false;
