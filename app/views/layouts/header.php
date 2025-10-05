@@ -95,15 +95,7 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
     </style>
 
 </head>
-<?php
-$defaultBodyClass = 'bg-slate-100 text-slate-800';
-$extraBodyClass = $bodyClass ?? '';
-if (strpos($_SERVER['PHP_SELF'] ?? '', '/crm/') !== false && strpos($extraBodyClass, 'crm-layout') === false) {
-    $extraBodyClass = trim($extraBodyClass . ' crm-layout');
-}
-$bodyClassList = trim($defaultBodyClass . ' ' . $extraBodyClass);
-?>
-<body class="<?php echo htmlspecialchars($bodyClassList); ?>">
+<body class="<?php echo htmlspecialchars($bodyClass); ?>">
     <nav class="bg-white shadow-md border-b-4 border-theme-color">
         <div class="max-w-[95%] mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
