@@ -44,7 +44,7 @@ require_once __DIR__ . '/../layouts/header.php';
 
 <style>
     .cliente-form-wrapper {
-        width: min(100%, 50vw);
+        width: min(100%, 80vw);
         margin-left: auto;
         margin-right: auto;
     }
