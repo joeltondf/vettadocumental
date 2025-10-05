@@ -94,14 +94,16 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
         .text-theme-color { color: var(--theme-color); }
     </style>
 
-<?php
-$hideHeader = !empty($hideHeader);
-$mainClass = $hideHeader ? 'w-full min-h-screen px-0 py-0' : 'max-w-[95%] mx-auto py-6 sm:px-6 lg:px-8';
-$mainInnerClass = $hideHeader ? 'p-0 h-full' : 'px-4 py-6 sm:px-0';
-?>
 </head>
-<body class="<?php echo htmlspecialchars($bodyClass); ?>">
-    <?php if (!$hideHeader): ?>
+<?php
+$defaultBodyClass = 'bg-slate-100 text-slate-800';
+$extraBodyClass = $bodyClass ?? '';
+if (strpos($_SERVER['PHP_SELF'] ?? '', '/crm/') !== false && strpos($extraBodyClass, 'crm-layout') === false) {
+    $extraBodyClass = trim($extraBodyClass . ' crm-layout');
+}
+$bodyClassList = trim($defaultBodyClass . ' ' . $extraBodyClass);
+?>
+<body class="<?php echo htmlspecialchars($bodyClassList); ?>">
     <nav class="bg-white shadow-md border-b-4 border-theme-color">
         <div class="max-w-[95%] mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
@@ -278,37 +280,34 @@ $mainInnerClass = $hideHeader ? 'p-0 h-full' : 'px-4 py-6 sm:px-0';
         <div class="md:hidden hidden" id="mobile-menu"> 
              </div>
     </nav>
-    <?php endif; ?>
 
-    <main class="<?php echo htmlspecialchars($mainClass); ?>">
-        <div class="<?php echo htmlspecialchars($mainInnerClass); ?>">
-            <?php if (!$hideHeader): ?>
-                <?php if(isset($_SESSION['success_message'])): ?>
-                    <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4" role="alert">
-                        <p><?php echo $_SESSION['success_message']; ?></p>
-                    </div>
-                    <?php unset($_SESSION['success_message']); ?>
-                <?php endif; ?>
-                <?php if(isset($_SESSION['error_message'])): ?>
-                    <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
-                        <p><?php echo $_SESSION['error_message']; ?></p>
-                    </div>
-                    <?php unset($_SESSION['error_message']); ?>
-                <?php endif; ?>
-                <?php if (isset($_SESSION['warning_message'])): ?>
-                    <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4" role="alert">
-                        <p><?php echo htmlspecialchars($_SESSION['warning_message']); ?></p>
-                    </div>
-                    <?php unset($_SESSION['warning_message']); ?>
-                <?php endif; ?>
-
-                <?php if (isset($_SESSION['info_message'])): ?>
-                    <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 mb-4" role="alert">
-                        <p><?php echo htmlspecialchars($_SESSION['info_message']); ?></p>
-                    </div>
-                    <?php unset($_SESSION['info_message']); ?>
-                <?php endif; ?>
+    <main class="max-w-[95%] mx-auto py-6 sm:px-6 lg:px-8">
+        <div class="px-4 py-6 sm:px-0">
+            <?php if(isset($_SESSION['success_message'])): ?>
+                <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4" role="alert">
+                    <p><?php echo $_SESSION['success_message']; ?></p>
+                </div>
+                <?php unset($_SESSION['success_message']); ?>
             <?php endif; ?>
+            <?php if(isset($_SESSION['error_message'])): ?>
+                <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
+                    <p><?php echo $_SESSION['error_message']; ?></p>
+                </div>
+                <?php unset($_SESSION['error_message']); ?>
+            <?php endif; ?>
+  <?php if (isset($_SESSION['warning_message'])): ?>
+      <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4" role="alert">
+          <p><?php echo htmlspecialchars($_SESSION['warning_message']); ?></p>
+      </div>
+      <?php unset($_SESSION['warning_message']); ?>
+  <?php endif; ?>
+
+  <?php if (isset($_SESSION['info_message'])): ?>
+      <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 mb-4" role="alert">
+          <p><?php echo htmlspecialchars($_SESSION['info_message']); ?></p>
+      </div>
+      <?php unset($_SESSION['info_message']); ?>
+  <?php endif; ?>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -317,13 +316,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const hamburgerIcon = document.getElementById('hamburger-icon');
     const closeIcon = document.getElementById('close-icon');
 
-    if (mobileMenuButton && mobileMenu && hamburgerIcon && closeIcon) {
-        mobileMenuButton.addEventListener('click', function () {
-            mobileMenu.classList.toggle('hidden');
-            hamburgerIcon.classList.toggle('hidden');
-            closeIcon.classList.toggle('hidden');
-        });
-    }
+    mobileMenuButton.addEventListener('click', function () {
+        mobileMenu.classList.toggle('hidden');
+        hamburgerIcon.classList.toggle('hidden');
+        closeIcon.classList.toggle('hidden');
+    });
 
     const crmMenuButton = document.getElementById('crm-menu-button');
     const crmMenu = document.getElementById('crm-menu');
@@ -334,7 +331,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function setupDropdown(button, menu) {
         if (!button || !menu) return;
-
+        
         button.addEventListener('click', function (event) {
             event.stopPropagation();
             [crmMenu, financeMenu, notificationMenu].forEach(otherMenu => {
