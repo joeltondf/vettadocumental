@@ -53,6 +53,24 @@
     padding: 1rem;
 }
 
+.tv-panel-progress-wrapper {
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.tv-panel-progress-track {
+    background-color: rgba(148, 163, 184, 0.35);
+    border-radius: 9999px;
+    height: 0.75rem;
+    overflow: hidden;
+    width: min(98vw, 98%);
+}
+
+.tv-panel-progress-fill {
+    height: 100%;
+}
+
 .tv-panel-table-wrapper table {
     width: 100%;
     font-size: 1.05rem;
