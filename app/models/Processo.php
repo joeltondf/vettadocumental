@@ -10,10 +10,12 @@ require_once __DIR__ . '/../../config.php';
 class Processo
 {
     private $pdo;
+    private array $processColumns = [];
 
     public function __construct($pdo)
     {
         $this->pdo = $pdo;
+        $this->loadProcessColumns();
     }
 	
     public function parseCurrency($value) {
@@ -49,6 +51,66 @@ class Processo
 
         // garante 2 casas sem ruído binário de float
         return number_format((float)$value, 2, '.', '');
+    }
+
+    private function loadProcessColumns(): void
+    {
+        if (!empty($this->processColumns)) {
+            return;
+        }
+
+        try {
+            $stmt = $this->pdo->query('SHOW COLUMNS FROM processos');
+            $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $this->processColumns = array_map(static fn($column) => $column['Field'] ?? '', $columns);
+        } catch (PDOException $exception) {
+            $this->processColumns = [];
+            error_log('Erro ao carregar colunas da tabela processos: ' . $exception->getMessage());
+        }
+    }
+
+    private function hasProcessColumn(string $column): bool
+    {
+        return in_array($column, $this->processColumns, true);
+    }
+
+    private function getValorRecebidoExpression(): string
+    {
+        if ($this->hasProcessColumn('valor_recebido')) {
+            return 'COALESCE(p.valor_recebido, 0)';
+        }
+
+        if ($this->hasProcessColumn('orcamento_valor_entrada')) {
+            return 'COALESCE(p.orcamento_valor_entrada, 0)';
+        }
+
+        return '0';
+    }
+
+    private function getValorRestanteExpression(): string
+    {
+        if ($this->hasProcessColumn('valor_restante')) {
+            return 'COALESCE(p.valor_restante, 0)';
+        }
+
+        if ($this->hasProcessColumn('orcamento_valor_restante')) {
+            return 'COALESCE(p.orcamento_valor_restante, 0)';
+        }
+
+        $valorRecebido = $this->getValorRecebidoExpression();
+
+        return "GREATEST(COALESCE(p.valor_total, 0) - {$valorRecebido}, 0)";
+    }
+
+    private function getStatusFinanceiroSelectExpression(): string
+    {
+        if ($this->hasProcessColumn('status_financeiro')) {
+            return 'LOWER(p.status_financeiro) AS status_financeiro';
+        }
+
+        $valorRecebido = $this->getValorRecebidoExpression();
+
+        return "LOWER(CASE\n                WHEN COALESCE(p.valor_total, 0) <= 0 THEN 'pendente'\n                WHEN {$valorRecebido} >= COALESCE(p.valor_total, 0) - 0.01 THEN 'pago'\n                WHEN {$valorRecebido} > 0 THEN 'parcial'\n                ELSE 'pendente'\n            END) AS status_financeiro";
     }
 
 
@@ -785,56 +847,86 @@ public function create($data, $files)
      */
     public function getFinancialData(array $filters = []): array
     {
-        $sql = "SELECT
-                    p.id, p.os_numero_omie, p.os_numero_conta_azul, p.orcamento_numero, p.titulo, p.status_processo,
-                    p.valor_total, p.orcamento_valor_entrada, 
-                    (p.valor_total - p.orcamento_valor_entrada) as orcamento_valor_restante,
-                    p.data_pagamento_1, p.data_pagamento_2, p.data_finalizacao_real,
-                    p.data_entrada, p.data_criacao, p.categorias_servico,
-                    p.forma_pagamento_id, fp.nome as forma_pagamento_nome, p.orcamento_parcelas,
-                    c.nome_cliente, u.nome_completo as nome_vendedor,
-                    (SELECT SUM(d.quantidade) FROM documentos d WHERE d.processo_id = p.id) as total_documentos
-                FROM processos AS p
-                JOIN clientes AS c ON p.cliente_id = c.id
-                LEFT JOIN vendedores AS v ON p.vendedor_id = v.id
-                LEFT JOIN users AS u ON v.user_id = u.id
-                LEFT JOIN formas_pagamento AS fp ON p.forma_pagamento_id = fp.id";
+        $this->loadProcessColumns();
+
+        $selectParts = [
+            'p.id',
+            'p.titulo',
+            'p.valor_total',
+            'p.data_criacao',
+            'p.categorias_servico',
+            'p.forma_pagamento_id',
+            'p.os_numero_omie',
+            'p.os_numero_conta_azul',
+            'p.orcamento_numero',
+            'p.data_finalizacao_real',
+            'c.nome_cliente AS cliente_nome',
+            'u.nome_completo AS nome_vendedor',
+            'fp.nome AS forma_pagamento_nome',
+            '(SELECT COALESCE(SUM(d.quantidade), 0) FROM documentos d WHERE d.processo_id = p.id) AS total_documentos',
+        ];
+
+        $selectParts[] = $this->hasProcessColumn('desconto')
+            ? 'COALESCE(p.desconto, 0) AS desconto'
+            : '0 AS desconto';
+
+        $selectParts[] = $this->hasProcessColumn('valor_recebido')
+            ? 'COALESCE(p.valor_recebido, 0) AS valor_recebido'
+            : 'COALESCE(p.orcamento_valor_entrada, 0) AS valor_recebido';
+
+        if ($this->hasProcessColumn('valor_restante')) {
+            $selectParts[] = 'COALESCE(p.valor_restante, 0) AS valor_restante';
+        } elseif ($this->hasProcessColumn('orcamento_valor_restante')) {
+            $selectParts[] = 'COALESCE(p.orcamento_valor_restante, 0) AS valor_restante';
+        } else {
+            $selectParts[] = 'GREATEST(COALESCE(p.valor_total, 0) - COALESCE(p.orcamento_valor_entrada, 0), 0) AS valor_restante';
+        }
+
+        $selectParts[] = $this->hasProcessColumn('data_pagamento')
+            ? 'p.data_pagamento AS data_pagamento'
+            : 'COALESCE(p.data_pagamento_1, p.data_pagamento_2) AS data_pagamento';
+
+        $selectParts[] = $this->getStatusFinanceiroSelectExpression();
+
+        $sql = 'SELECT ' . implode(",\n               ", $selectParts) . "\n                FROM processos AS p\n                JOIN clientes AS c ON p.cliente_id = c.id\n                LEFT JOIN vendedores AS v ON p.vendedor_id = v.id\n                LEFT JOIN users AS u ON v.user_id = u.id\n                LEFT JOIN formas_pagamento AS fp ON p.forma_pagamento_id = fp.id";
 
         $where = ["p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado')"];
         $params = [];
 
         if (!empty($filters['data_inicio'])) {
-            $where[] = "p.data_criacao >= :data_inicio";
+            $where[] = 'p.data_criacao >= :data_inicio';
             $params[':data_inicio'] = $filters['data_inicio'] . ' 00:00:00';
         }
+
         if (!empty($filters['data_fim'])) {
-            $where[] = "p.data_criacao <= :data_fim";
+            $where[] = 'p.data_criacao <= :data_fim';
             $params[':data_fim'] = $filters['data_fim'] . ' 23:59:59';
         }
+
         if (!empty($filters['vendedor_id'])) {
-            $where[] = "p.vendedor_id = :vendedor_id";
+            $where[] = 'p.vendedor_id = :vendedor_id';
             $params[':vendedor_id'] = $filters['vendedor_id'];
         }
-        if (!empty($filters['forma_pagamento_id']) && $filters['forma_pagamento_id'] !== 'todos') {
-            $where[] = "p.forma_pagamento_id = :forma_pagamento_id";
+
+        if (!empty($filters['forma_pagamento_id'])) {
+            $where[] = 'p.forma_pagamento_id = :forma_pagamento_id';
             $params[':forma_pagamento_id'] = $filters['forma_pagamento_id'];
         }
-        // <<< TRECHO ADICIONADO AQUI
+
         if (!empty($filters['cliente_id'])) {
-            $where[] = "p.cliente_id = :cliente_id";
+            $where[] = 'p.cliente_id = :cliente_id';
             $params[':cliente_id'] = $filters['cliente_id'];
         }
-        // >>> FIM DO TRECHO ADICIONADO
 
-        $sql .= " WHERE " . implode(' AND ', $where);
-        $sql .= " ORDER BY p.data_criacao DESC, p.id DESC";
+        $sql .= ' WHERE ' . implode(' AND ', $where);
+        $sql .= ' ORDER BY p.data_criacao DESC, p.id DESC';
 
         try {
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute($params);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
-            error_log("Erro ao buscar dados financeiros individuais: " . $e->getMessage());
+            error_log('Erro ao buscar dados financeiros individuais: ' . $e->getMessage());
             return [];
         }
     }
@@ -870,10 +962,13 @@ public function create($data, $files)
         }
 
         // --- Monta as queries finais ---
+        $valorRecebidoExpr = $this->getValorRecebidoExpression();
+        $valorRestanteExpr = $this->getValorRestanteExpression();
+
         $sql_totals = "SELECT
-                        SUM(p.valor_total) AS total_valor_total,
-                        SUM(p.orcamento_valor_entrada) AS total_valor_entrada,
-                        SUM(p.valor_total - p.orcamento_valor_entrada) AS total_valor_restante" . $base_where_sql;
+                        SUM(COALESCE(p.valor_total, 0)) AS total_valor_total,
+                        SUM({$valorRecebidoExpr}) AS total_valor_entrada,
+                        SUM({$valorRestanteExpr}) AS total_valor_restante" . $base_where_sql;
 
         $sql_docs_count = "SELECT SUM(d.quantidade)
                            FROM documentos d
@@ -906,6 +1001,108 @@ public function create($data, $files)
         }
     }
 
+    public function getAggregatedFinancialTotals(string $startDate, string $endDate, array $filters = [], string $groupBy = 'month'): array
+    {
+        $this->loadProcessColumns();
+
+        $groupBy = in_array($groupBy, ['day', 'month', 'year'], true) ? $groupBy : 'month';
+
+        switch ($groupBy) {
+            case 'day':
+                $periodExpression = "DATE_FORMAT(p.data_criacao, '%Y-%m-%d')";
+                $orderBy = 'period ASC';
+                break;
+            case 'year':
+                $periodExpression = "DATE_FORMAT(p.data_criacao, '%Y')";
+                $orderBy = 'period DESC';
+                break;
+            default:
+                $periodExpression = "DATE_FORMAT(p.data_criacao, '%Y-%m')";
+                $orderBy = 'period DESC';
+        }
+
+        $valorRecebidoExpr = $this->getValorRecebidoExpression();
+        $valorRestanteExpr = $this->getValorRestanteExpression();
+
+        $sql = "SELECT
+                    {$periodExpression} AS period,
+                    COUNT(*) AS process_count,
+                    SUM(COALESCE(p.valor_total, 0)) AS total_valor_total,
+                    SUM({$valorRecebidoExpr}) AS total_valor_recebido,
+                    SUM({$valorRestanteExpr}) AS total_valor_restante
+                FROM processos p
+                WHERE p.data_criacao BETWEEN :start_date AND :end_date
+                  AND p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado')";
+
+        $params = [
+            ':start_date' => $startDate . ' 00:00:00',
+            ':end_date' => $endDate . ' 23:59:59',
+        ];
+
+        if (!empty($filters['vendedor_id'])) {
+            $sql .= ' AND p.vendedor_id = :vendedor_id';
+            $params[':vendedor_id'] = $filters['vendedor_id'];
+        }
+
+        if (!empty($filters['forma_pagamento_id'])) {
+            $sql .= ' AND p.forma_pagamento_id = :forma_pagamento_id';
+            $params[':forma_pagamento_id'] = $filters['forma_pagamento_id'];
+        }
+
+        if (!empty($filters['cliente_id'])) {
+            $sql .= ' AND p.cliente_id = :cliente_id';
+            $params[':cliente_id'] = $filters['cliente_id'];
+        }
+
+        $sql .= ' GROUP BY period ORDER BY ' . $orderBy;
+
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $exception) {
+            error_log('Erro ao buscar totais financeiros agregados: ' . $exception->getMessage());
+            return [];
+        }
+    }
+
+    public function getStatusFinanceiroOptions(): array
+    {
+        $defaults = [
+            'pendente' => 'Pendente',
+            'parcial' => 'Parcial',
+            'pago' => 'Pago',
+        ];
+
+        if (!$this->hasProcessColumn('status_financeiro')) {
+            return $defaults;
+        }
+
+        try {
+            $stmt = $this->pdo->query("SELECT DISTINCT LOWER(status_financeiro) AS status_financeiro FROM processos WHERE status_financeiro IS NOT NULL AND status_financeiro <> '' ORDER BY status_financeiro");
+            $statuses = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            if (empty($statuses)) {
+                return $defaults;
+            }
+
+            $options = [];
+            foreach ($statuses as $status) {
+                $status = trim((string) $status);
+                if ($status === '') {
+                    continue;
+                }
+
+                $options[$status] = mb_convert_case($status, MB_CASE_TITLE, 'UTF-8');
+            }
+
+            return !empty($options) ? $options : $defaults;
+        } catch (PDOException $exception) {
+            error_log('Erro ao buscar opções de status financeiro: ' . $exception->getMessage());
+            return $defaults;
+        }
+    }
+
     
     /**
      * Atualiza um campo financeiro específico de um processo (para edição inline).
@@ -916,24 +1113,47 @@ public function create($data, $files)
      */
     public function updateProcessFinancialField(int $processId, string $field, $value): bool
     {
-        $allowedFields = ['valor_total', 'orcamento_valor_entrada', 'orcamento_valor_restante', 'data_pagamento_1', 'data_pagamento_2', 'forma_pagamento_id'];
-        if (!in_array($field, $allowedFields)) {
-            error_log("Tentativa de atualizar campo não permitido: " . $field);
+        $this->loadProcessColumns();
+
+        $columnMap = [
+            'valor_total' => 'valor_total',
+            'desconto' => $this->hasProcessColumn('desconto') ? 'desconto' : null,
+            'valor_recebido' => $this->hasProcessColumn('valor_recebido')
+                ? 'valor_recebido'
+                : ($this->hasProcessColumn('orcamento_valor_entrada') ? 'orcamento_valor_entrada' : null),
+            'valor_restante' => $this->hasProcessColumn('valor_restante')
+                ? 'valor_restante'
+                : ($this->hasProcessColumn('orcamento_valor_restante') ? 'orcamento_valor_restante' : null),
+            'data_pagamento' => $this->hasProcessColumn('data_pagamento')
+                ? 'data_pagamento'
+                : ($this->hasProcessColumn('data_pagamento_1') ? 'data_pagamento_1' : null),
+            'forma_pagamento_id' => 'forma_pagamento_id',
+            'status_financeiro' => $this->hasProcessColumn('status_financeiro') ? 'status_financeiro' : null,
+        ];
+
+        if (!isset($columnMap[$field]) || $columnMap[$field] === null) {
+            error_log('Tentativa de atualizar campo financeiro não suportado: ' . $field);
             return false;
         }
 
-        if (in_array($field, ['valor_total', 'orcamento_valor_entrada', 'orcamento_valor_restante'])) {
-            $value = floatval(str_replace(',', '.', $value));
-        } elseif (str_contains($field, 'data_')) {
-            $value = empty($value) ? null : date('Y-m-d', strtotime($value));
-        } elseif ($field === 'forma_pagamento_id') {
-            $value = empty($value) ? null : (int)$value;
-        }
+        $column = $columnMap[$field];
 
-        $sql = "UPDATE processos SET {$field} = :value, data_atualizacao = NOW() WHERE id = :id";
+        $sql = "UPDATE processos SET {$column} = :value, data_atualizacao = NOW() WHERE id = :id";
+
         try {
             $stmt = $this->pdo->prepare($sql);
-            return $stmt->execute([':value' => $value, ':id' => $processId]);
+
+            if ($value === null || $value === '') {
+                $stmt->bindValue(':value', null, PDO::PARAM_NULL);
+            } elseif ($field === 'forma_pagamento_id') {
+                $stmt->bindValue(':value', (int) $value, PDO::PARAM_INT);
+            } else {
+                $stmt->bindValue(':value', $value);
+            }
+
+            $stmt->bindValue(':id', $processId, PDO::PARAM_INT);
+
+            return $stmt->execute();
         } catch (PDOException $e) {
             error_log("Erro ao atualizar campo financeiro {$field} para processo {$processId}: " . $e->getMessage());
             return false;
