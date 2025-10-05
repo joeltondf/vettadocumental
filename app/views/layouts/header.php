@@ -14,6 +14,7 @@ $notificacaoModel = new Notificacao($pdo);
 
 $theme_color = $configModel->get('theme_color');
 $system_logo = $configModel->get('system_logo');
+$bodyClass = isset($bodyClass) ? trim($bodyClass) : 'bg-slate-100 text-slate-800';
 
 // --- LÓGICA DE PERMISSÕES ---
 $user_perfil = $_SESSION['user_perfil'] ?? 'guest';
@@ -94,7 +95,7 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
     </style>
 
 </head>
-<body class="bg-slate-100 text-slate-800">
+<body class="<?php echo htmlspecialchars($bodyClass); ?>">
     <nav class="bg-white shadow-md border-b-4 border-theme-color">
         <div class="max-w-[95%] mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">

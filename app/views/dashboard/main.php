@@ -2,6 +2,8 @@
 
 // app/views/dashboard/main.php
 
+require_once __DIR__ . '/../../utils/DashboardProcessFormatter.php';
+
 // --- Configurações Iniciais ---
 $activeFilters = array_filter($filters ?? []);
 $hasFilters = !empty($activeFilters);
@@ -9,55 +11,7 @@ $hasFilters = !empty($activeFilters);
 // Definir o limite inicial de processos para exibir no dashboard
 $initialProcessLimit = 50; // Altere este valor conforme necessário
 
-if (!function_exists('dashboard_normalize_status_info')) {
-    function dashboard_normalize_status_info(?string $status): array
-    {
-        $normalized = mb_strtolower(trim((string)$status));
-
-        if ($normalized === '') {
-            return ['normalized' => '', 'label' => 'N/A'];
-        }
-
-        $aliases = [
-            'orcamento' => 'orçamento',
-            'orcamento pendente' => 'orçamento pendente',
-            'serviço pendente' => 'serviço pendente',
-            'servico pendente' => 'serviço pendente',
-            'pendente' => 'serviço pendente',
-            'aprovado' => 'serviço pendente',
-            'serviço em andamento' => 'serviço em andamento',
-            'servico em andamento' => 'serviço em andamento',
-            'em andamento' => 'serviço em andamento',
-            'finalizado' => 'concluído',
-            'finalizada' => 'concluído',
-            'concluido' => 'concluído',
-            'concluida' => 'concluído',
-            'arquivado' => 'cancelado',
-            'arquivada' => 'cancelado',
-            'recusado' => 'cancelado',
-            'recusada' => 'cancelado',
-        ];
-
-        if (isset($aliases[$normalized])) {
-            $normalized = $aliases[$normalized];
-        }
-
-        $labels = [
-            'orçamento' => 'Orçamento',
-            'orçamento pendente' => 'Orçamento Pendente',
-            'serviço pendente' => 'Serviço Pendente',
-            'serviço em andamento' => 'Serviço em Andamento',
-            'concluído' => 'Concluído',
-            'cancelado' => 'Cancelado',
-        ];
-
-        $label = $labels[$normalized] ?? ($status === '' ? 'N/A' : $status);
-
-        return ['normalized' => $normalized, 'label' => $label];
-    }
-}
-
-$selectedStatusInfo = dashboard_normalize_status_info($filters['status'] ?? '');
+$selectedStatusInfo = DashboardProcessFormatter::normalizeStatusInfo($filters['status'] ?? '');
 $selectedStatusNormalized = $selectedStatusInfo['normalized'];
 
 ?>
@@ -178,7 +132,7 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
                     <select id="status" name="status" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition duration-200">
                         <option value="">Todos os Status</option>
                         <?php $statusOptions = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Concluído', 'Cancelado']; foreach ($statusOptions as $option): ?>
-                            <?php $optionInfo = dashboard_normalize_status_info($option); ?>
+                            <?php $optionInfo = DashboardProcessFormatter::normalizeStatusInfo($option); ?>
                             <option value="<?php echo $optionInfo['label']; ?>" <?php echo ($selectedStatusNormalized === $optionInfo['normalized']) ? 'selected' : ''; ?>><?php echo $optionInfo['label']; ?></option>
                         <?php endforeach; ?>
                     </select>
@@ -225,156 +179,14 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
         <div class="text-center py-12"><p class="text-gray-500">Nenhum Serviço encontrado.</p></div>
     <?php else: ?>
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 table-auto">
-                <thead class="bg-gray-50 sticky top-0 z-10">
-                    <tr>
-                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Família</th>
-                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assessoria</th>
-                        <th scope="col" class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Doc.</th>
-                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OS Omie</th>
-                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Serviços</th>
-                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entrada</th>
-                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Envio</th>
-                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prazo</th>
-                        <th scope="col" class="relative px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200" id="processes-table-body">
-                    <?php foreach ($processos as $processo): ?>
-                        <?php
-                            $rowClass = 'hover:bg-gray-50';
-                            $statusInfo = dashboard_normalize_status_info($processo['status_processo'] ?? '');
-                            $statusNormalized = $statusInfo['normalized'];
-                            switch ($statusNormalized) {
-                                case 'orçamento':
-                                case 'orçamento pendente':
-                                    $rowClass = 'bg-blue-50 hover:bg-blue-100';
-                                    break;
-                                case 'serviço pendente':
-                                    $rowClass = 'bg-orange-50 hover:bg-orange-100';
-                                    break;
-                                case 'serviço em andamento':
-                                    $rowClass = 'bg-cyan-50 hover:bg-cyan-100';
-                                    break;
-                                case 'concluído':
-                                    $rowClass = 'bg-purple-50 hover:bg-purple-100';
-                                    break;
-                                case 'cancelado':
-                                    $rowClass = 'bg-red-50 hover:bg-red-100';
-                                    break;
-                            }
-                        ?>
-                        <tr class="<?php echo $rowClass; ?>">
-                            <td class="px-3 py-0.5 whitespace-nowrap text-xs font-medium">
-                                <a href="processos.php?action=view&id=<?php echo $processo['id']; ?>" class="text-blue-600 hover:text-blue-800 hover:underline truncate" title="<?php echo htmlspecialchars(mb_strtoupper($processo['titulo'] ?? 'N/A')); ?>">
-                                    <?php echo htmlspecialchars(mb_strtoupper(mb_strimwidth($processo['titulo'] ?? 'N/A', 0, 25, "..."))); ?>
-                                </a>
-                            </td>
-                            <td class="px-3 py-0.5 whitespace-nowrap text-xs text-gray-500 truncate" title="<?php echo htmlspecialchars(mb_strtoupper($processo['nome_cliente'] ?? 'N/A')); ?>">
-                                <?php echo htmlspecialchars(mb_strtoupper(mb_strimwidth($processo['nome_cliente'] ?? 'N/A', 0, 20, "..."))); ?>
-                            </td>
-                            <td class="px-3 py-0.5 whitespace-nowrap text-xs text-gray-500 text-center">
-                                <?php echo $processo['total_documentos_soma']; ?>
-                            </td>
-                            <td class="px-3 py-0.5 whitespace-nowrap text-xs text-gray-500">
-                                <?php 
-                                    $osOmie = $processo['os_numero_omie'] ?? null;
-                                    // Exibe apenas os últimos 5 dígitos para facilitar a leitura
-                                    $osOmieFormatado = $osOmie ? substr((string)$osOmie, -5) : 'Aguardando Omie';
-                                    echo htmlspecialchars($osOmieFormatado);
-                                ?>
-                            </td>
-                            <td class="px-3 py-0.5 whitespace-nowrap text-xs text-gray-500">
-                                <?php
-                                $servicos = explode(',', $processo['categorias_servico'] ?? '');
-                                $mapServicos = ['Tradução' => 'Trad.', 'CRC' => 'CRC', 'Apostilamento' => 'Apost.', 'Postagem' => 'Post.'];
-                                foreach ($servicos as $servico) {
-                                    if(isset($mapServicos[$servico])) {
-                                        echo '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 mr-1">' . $mapServicos[$servico] . '</span>';
-                                    }
-                                }
-                                ?>
-                            </td>
-                            <td class="px-3 py-0.5 whitespace-nowrap text-xs text-gray-500"><?php echo isset($processo['data_criacao']) ? date('d/m/Y', strtotime($processo['data_criacao'])) : 'N/A'; ?></td>
-                            <td class="px-3 py-0.5 whitespace-nowrap text-xs text-gray-500"><?php echo isset($processo['data_inicio_traducao']) ? date('d/m/Y', strtotime($processo['data_inicio_traducao'])) : 'N/A'; ?></td>
-                            <td class="px-3 py-0.5 whitespace-nowrap text-xs font-medium">
-                                <?php
-                                $texto_tempo = 'A definir'; 
-                                $classe_tempo = 'text-gray-500';
-
-                                if ($statusNormalized === 'concluído') {
-                                    $finalizacao_tipo = htmlspecialchars($processo['finalizacao_tipo'] ?? 'Cliente');
-                                    $texto_tempo = "Concluído para " . $finalizacao_tipo;
-                                    $classe_tempo = 'bg-green-100 text-green-800';
-                                } elseif (in_array($statusNormalized, ['cancelado', 'orçamento'], true)) {
-                                    $texto_tempo = 'N/A';
-                                    $classe_tempo = 'text-gray-500';
-                                } else {
-                                    $data_previsao_final = null;
-                                    if (!empty($processo['traducao_prazo_data'])) {
-                                        $data_previsao_final = new DateTime($processo['traducao_prazo_data']);
-                                    } elseif (!empty($processo['traducao_prazo_dias']) && !empty($processo['data_inicio_traducao'])) {
-                                        $data_previsao_final = new DateTime($processo['data_inicio_traducao']);
-                                        $data_previsao_final->modify('+' . $processo['traducao_prazo_dias'] . ' days');
-                                    }
-
-                                    if ($data_previsao_final) {
-                                        $hoje = new DateTime('today');
-                                        $diff = $hoje->diff($data_previsao_final);
-                                        $dias_restantes = (int)$diff->format('%r%a');
-
-                                        if ($dias_restantes < 0) {
-                                            $texto_tempo = abs($dias_restantes) . ' dia(s) vencido(s)';
-                                            $classe_tempo = 'bg-red-200 text-red-800';
-                                        } elseif ($dias_restantes == 0) {
-                                            $texto_tempo = 'Vence hoje';
-                                            $classe_tempo = 'bg-red-200 text-red-800';
-                                        } elseif ($dias_restantes <= 3) {
-                                            $texto_tempo = $dias_restantes . ' dias';
-                                            $classe_tempo = 'bg-yellow-200 text-yellow-800';
-                                        } else {
-                                            $texto_tempo = $dias_restantes . ' dias';
-                                            $classe_tempo = 'text-green-600';
-                                        }
-                                    }
-                                }
-                                echo "<span class='px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full " . $classe_tempo . "'>" . $texto_tempo . "</span>";
-                                ?>
-                            </td>
-                            <td class="px-3 py-0.5 whitespace-nowrap text-center text-xs font-medium">
-                                <div class="relative inline-block p-1">
-                                    <svg id="tooltip-trigger-<?php echo $processo['id']; ?>" class="w-6 h-6 text-gray-500 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                         data-tooltip-trigger
-                                         data-process-id="<?php echo $processo['id']; ?>"
-                                         data-tooltip-content-json='<?php
-                                            $status_assinatura_texto = 'Pendente';
-                                            $status_assinatura_classe = 'bg-yellow-100 text-yellow-800';
-                                            if (!empty($processo['data_devolucao_assinatura'])) {
-                                                $status_assinatura_texto = 'Enviado';
-                                                $status_assinatura_classe = 'bg-green-100 text-green-800';
-                                            }
-                                            $js_nome_tradutor = str_replace("'", "\'", htmlspecialchars($processo['nome_tradutor'] ?? 'Não definido'));
-                                            $js_traducao_modalidade = str_replace("'", "\'", htmlspecialchars($processo['traducao_modalidade'] ?? 'N/A'));
-                                            $js_envio_cartorio = isset($processo['data_envio_cartorio']) ? date('d/m/Y', strtotime($processo['data_envio_cartorio'])) : 'Pendente';
-                                            $tooltip_html_content =
-                                                '<div class="space-y-1 text-left whitespace-nowrap">' .
-                                                '   <p class="font-bold border-b border-gray-600 pb-1 mb-1">Detalhes Rápidos</p>' .
-                                                '   <p><strong>Tradutor:</strong> ' . $js_nome_tradutor . '</p>' .
-                                                '   <p><strong>Modalidade:</strong> ' . $js_traducao_modalidade . '</p>' .
-                                                '   <p><strong>Status Ass.:</strong> <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ' . $status_assinatura_classe . ' mr-1">' . $status_assinatura_texto . '</span></p>' .
-                                                '   <p><strong>Envio Cartório:</strong> ' . $js_envio_cartorio . '</p>' .
-                                                '</div>' .
-                                                '<div class="absolute w-3 h-3 bg-gray-800 transform rotate-45 -left-1 top-1/2 -translate-y-1/2"></div>';
-                                            echo json_encode($tooltip_html_content);
-                                        ?>'>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                </div>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+            <?php
+                $processes = $processos;
+                $showActions = true;
+                $showProgress = false;
+                $highlightAnimations = false;
+                $deadlineColors = [];
+                require __DIR__ . '/partials/process_table.php';
+            ?>
         </div>
         <?php if ($totalProcessesCount > $initialProcessLimit): ?>
             <div class="py-4 text-center flex justify-center">

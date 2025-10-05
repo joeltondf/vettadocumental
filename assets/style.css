@@ -1,0 +1,122 @@
+.tv-panel-page nav {
+    display: none;
+}
+
+.tv-panel-page main {
+    max-width: 100%;
+    padding: 2rem 3rem;
+    min-height: 100vh;
+}
+
+.tv-panel-page main > div {
+    padding: 0;
+}
+
+.tv-panel-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    min-height: calc(100vh - 4rem);
+}
+
+.tv-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    color: #f8fafc;
+}
+
+.tv-panel-title h1 {
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.tv-panel-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+}
+
+.tv-panel-clock {
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.tv-panel-config-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    background: rgba(15, 23, 42, 0.4);
+    color: #f8fafc;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background 0.3s ease;
+}
+
+.tv-panel-config-link:hover {
+    background: rgba(148, 163, 184, 0.4);
+}
+
+.tv-panel-table-wrapper {
+    flex: 1;
+    overflow: hidden;
+    border-radius: 1rem;
+    background: rgba(15, 23, 42, 0.35);
+    padding: 1rem;
+}
+
+.tv-panel-table-wrapper table {
+    width: 100%;
+    font-size: 1.05rem;
+    color: #0f172a;
+}
+
+.tv-panel-table-wrapper th,
+.tv-panel-table-wrapper td {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+}
+
+.tv-panel-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #cbd5f5;
+    font-size: 1rem;
+}
+
+.tv-panel-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    font-size: 2rem;
+    color: #e2e8f0;
+}
+
+.tv-panel-portrait {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.tv-panel-landscape {
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+.tv-panel-page .min-w-full tbody tr td,
+.tv-panel-page .min-w-full thead th {
+    font-size: 1rem;
+}
+
+.tv-panel-page .min-w-full thead th {
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.tv-panel-page .min-w-full tbody tr td span {
+    font-size: 0.95rem;
+}
