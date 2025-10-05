@@ -536,9 +536,9 @@ public function create($data, $files)
      * @param int $offset Offset para paginação.
      * @return array
      */
-public function getFilteredProcesses(array $filters = [], int $limit = 50, int $offset = 0): array
-{
-    $select_part = "SELECT
+    public function getFilteredProcesses(array $filters = [], int $limit = 50, int $offset = 0): array
+    {
+        $select_part = "SELECT
                     p.id, p.titulo, p.status_processo, p.data_criacao, p.data_previsao_entrega,
                     p.valor_total,
                     p.categorias_servico, c.nome_cliente, t.nome_tradutor, p.os_numero_omie, p.os_numero_conta_azul,
@@ -657,19 +657,19 @@ public function getFilteredProcesses(array $filters = [], int $limit = 50, int $
      * @param array $filters Filtros aplicados.
      * @return int
      */
-public function getTotalFilteredProcessesCount(array $filters = []): int
-{
-    $sql = "SELECT COUNT(*) FROM processos p
+    public function getTotalFilteredProcessesCount(array $filters = []): int
+    {
+        $sql = "SELECT COUNT(*) FROM processos p
             JOIN clientes c ON p.cliente_id = c.id";
-    $params = [];
-    $where_clauses = [];
+        $params = [];
+        $where_clauses = [];
 
-    
-    // Garante que a contagem também exclua os orçamentos por padrão.
-    if (empty($filters['status'])) {
-        $where_clauses[] = "p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado', 'Serviço Pendente', 'Serviço pendente')";
 
-    }
+        // Garante que a contagem também exclua os orçamentos por padrão.
+        if (empty($filters['status'])) {
+            $where_clauses[] = "p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado', 'Serviço Pendente', 'Serviço pendente')";
+
+        }
 
     // Lógica de Filtros (deve ser idêntica à de getFilteredProcesses)
     if (!empty($filters['vendedor_id'])) {
@@ -733,6 +733,45 @@ public function getTotalFilteredProcessesCount(array $filters = []): int
         return 0;
     }
 }
+
+    public function getProcessesForTvPanel(): array
+    {
+        $sql = "SELECT
+                    p.id, p.titulo, p.status_processo, p.data_criacao, p.data_previsao_entrega,
+                    p.categorias_servico, c.nome_cliente, t.nome_tradutor, p.os_numero_omie,
+                    p.data_inicio_traducao, p.traducao_prazo_data, p.traducao_prazo_dias,
+                    p.traducao_modalidade, p.finalizacao_tipo, p.data_envio_cartorio,
+                    p.data_envio_assinatura, p.data_devolucao_assinatura,
+                    (SELECT COALESCE(SUM(d.quantidade), 0) FROM documentos d WHERE d.processo_id = p.id) AS total_documentos_soma,
+                    COALESCE(
+                        p.traducao_prazo_data,
+                        CASE
+                            WHEN p.traducao_prazo_dias IS NOT NULL AND p.data_inicio_traducao IS NOT NULL
+                                THEN DATE_ADD(p.data_inicio_traducao, INTERVAL p.traducao_prazo_dias DAY)
+                            ELSE p.data_previsao_entrega
+                        END
+                    ) AS prazo_estimado
+                FROM processos AS p
+                JOIN clientes AS c ON p.cliente_id = c.id
+                LEFT JOIN tradutores AS t ON p.tradutor_id = t.id
+                LEFT JOIN vendedores AS vend ON p.vendedor_id = vend.id
+                LEFT JOIN users AS u ON vend.user_id = u.id
+                ORDER BY
+                    CASE
+                        WHEN p.status_processo IN ('Concluído', 'Finalizado', 'Cancelado', 'Recusado') THEN 1
+                        ELSE 0
+                    END,
+                    CASE WHEN prazo_estimado IS NULL THEN 1 ELSE 0 END,
+                    prazo_estimado ASC";
+
+        try {
+            $stmt = $this->pdo->query($sql);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $exception) {
+            error_log('Erro ao buscar processos para o painel de TV: ' . $exception->getMessage());
+            return [];
+        }
+    }
 
 
     // =======================================================================
