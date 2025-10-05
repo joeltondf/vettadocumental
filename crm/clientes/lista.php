@@ -29,7 +29,7 @@ require_once __DIR__ . '/../../app/views/layouts/crm_start.php';
                 Novo Lead
             </a>
         </div>
-    </div>
+    </section>
 
     <?php if (isset($_SESSION['success_message'])): ?>
         <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4" role="alert">
@@ -65,21 +65,16 @@ require_once __DIR__ . '/../../app/views/layouts/crm_start.php';
         </div>
     <?php endif; ?>
 
-    <div class="bg-white shadow-lg rounded-lg overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="min-w-full leading-normal">
-                <thead>
-                    <tr>
-                        <th class="px-6 py-3 border-b-2 border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Nome / Empresa</th>
-                        <th class="px-6 py-3 border-b-2 border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Lead</th>
-                        <th class="px-6 py-3 border-b-2 border-gray-200 bg-gray-50 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                        <th class="px-6 py-3 border-b-2 border-gray-200 bg-gray-50 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($clientes)): ?>
+    <section class="crm-section">
+        <div class="crm-card">
+            <div class="crm-table-wrapper">
+                <table class="crm-table">
+                    <thead>
                         <tr>
-                            <td colspan="4" class="px-6 py-5 border-b border-gray-200 bg-white text-sm text-center text-gray-500">Nenhuma prospecção encontrada.</td>
+                            <th>Nome / Empresa</th>
+                            <th>Lead</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-center">Ações</th>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($clientes as $cliente): ?>
@@ -117,10 +112,47 @@ require_once __DIR__ . '/../../app/views/layouts/crm_start.php';
                                     </div>
                                 </td>
                             </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
+                        <?php else: ?>
+                            <?php foreach ($clientes as $cliente): ?>
+                                <?php
+                                    $totalProspeccoes = (int) ($cliente['totalProspeccoes'] ?? 0);
+                                    $hasProspection = $totalProspeccoes > 0;
+                                ?>
+                                <tr>
+                                    <td>
+                                        <p class="font-semibold text-gray-900"><?php echo htmlspecialchars($cliente['nome_cliente']); ?></p>
+                                    </td>
+                                    <td>
+                                        <p class="text-gray-900"><?php echo htmlspecialchars($cliente['email']); ?></p>
+                                        <p class="text-gray-600 mt-1"><?php echo htmlspecialchars($cliente['telefone']); ?></p>
+                                    </td>
+                                    <td class="text-center">
+                                        <?php
+                                            $statusClass = $hasProspection
+                                                ? 'inline-flex px-3 py-1 text-xs font-semibold text-emerald-700 bg-emerald-100 rounded-full'
+                                                : 'inline-flex px-3 py-1 text-xs font-semibold text-red-700 bg-red-100 rounded-full';
+                                            $statusLabel = $hasProspection ? 'Prospecção' : 'Sem prospecção';
+                                        ?>
+                                        <span class="<?php echo $statusClass; ?>"><?php echo $statusLabel; ?></span>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="flex justify-center items-center gap-4">
+                                            <?php if (!$hasProspection): ?>
+                                                <a href="<?php echo APP_URL; ?>/crm/prospeccoes/nova.php?cliente_id=<?php echo $cliente['id']; ?>" class="text-emerald-600 hover:text-emerald-800 font-semibold">Criar prospecção</a>
+                                            <?php endif; ?>
+                                            <a href="<?php echo APP_URL; ?>/crm/clientes/editar_cliente.php?id=<?php echo $cliente['id']; ?>" class="text-blue-600 hover:text-blue-800 font-semibold">Editar</a>
+                                            <form action="<?php echo APP_URL; ?>/crm/clientes/excluir_cliente.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este lead?');">
+                                                <input type="hidden" name="id" value="<?php echo $cliente['id']; ?>">
+                                                <button type="submit" class="text-red-600 hover:text-red-800 font-semibold">Excluir</button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
