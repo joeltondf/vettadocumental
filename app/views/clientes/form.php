@@ -231,6 +231,12 @@ require_once __DIR__ . '/../layouts/header.php';
             </div>
         </div>
 
+        <?php
+            $userPerfil = $_SESSION['user_perfil'] ?? '';
+            $perfisPrazoVisivel = ['admin', 'gerencia', 'supervisor', 'colaborador'];
+            $mostrarPrazo = in_array($userPerfil, $perfisPrazoVisivel, true);
+        ?>
+
         <div class="cliente-form-row">
             <div class="cliente-form-col <?php echo $mostrarPrazo ? 'cliente-col-50' : 'cliente-col-full'; ?>">
                 <label for="tipo_assessoria" class="block text-sm font-semibold text-gray-700">Tipo de Assessoria</label>
