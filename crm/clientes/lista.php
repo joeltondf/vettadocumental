@@ -17,7 +17,7 @@ $pageTitle = "CRM - Lista de Leads";
 require_once __DIR__ . '/../../app/views/layouts/header.php';
 ?>
 
-<div class="w-full max-w-9/10 px-4 sm:px-6 lg:px-8 py-8">
+<div class="flex justify-between items-center mb-6">
 
     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
         <h1 class="text-3xl font-bold text-gray-800"><?php echo $pageTitle; ?></h1>
