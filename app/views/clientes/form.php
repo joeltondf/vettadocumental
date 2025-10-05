@@ -49,67 +49,65 @@ require_once __DIR__ . '/../layouts/header.php';
         margin-right: auto;
     }
 
+    .cliente-form-row {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .cliente-grid-1 {
+        grid-template-columns: 1fr;
+    }
+
+    .cliente-grid-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cliente-grid-3 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .cliente-grid-60-30-10 {
+        grid-template-columns: 6fr 3fr 1fr;
+    }
+
+    .cliente-grid-45-45-10 {
+        grid-template-columns: 9fr 9fr 2fr;
+    }
+
+    .cliente-form-card {
+        background-color: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+        box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.1), 0 4px 6px -4px rgba(15, 23, 42, 0.1);
+    }
+
+    .cliente-form-col {
+        width: 100%;
+    }
+
+    .cliente-col-full {
+        grid-column: 1 / -1;
+    }
+
     @media (max-width: 768px) {
         .cliente-form-wrapper {
             width: 100%;
         }
-    }
 
-    .cliente-form-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1.5rem;
-    }
-
-    .cliente-form-col {
-        flex: 1 1 100%;
-        max-width: 100%;
-    }
-
-    @media (min-width: 768px) {
-        .cliente-col-50 {
-            flex: 1 1 50%;
-            max-width: 50%;
-        }
-
-        .cliente-col-33 {
-            flex: 1 1 33.333%;
-            max-width: 33.333%;
-        }
-
-        .cliente-col-60 {
-            flex: 1 1 60%;
-            max-width: 60%;
-        }
-
-        .cliente-col-45 {
-            flex: 1 1 45%;
-            max-width: 45%;
-        }
-
-        .cliente-col-30 {
-            flex: 1 1 30%;
-            max-width: 30%;
-        }
-
-        .cliente-col-10 {
-            flex: 1 1 10%;
-            max-width: 10%;
-        }
-
-        .cliente-col-full {
-            flex: 1 1 100%;
-            max-width: 100%;
+        .cliente-form-row {
+            grid-template-columns: 1fr !important;
         }
     }
 </style>
 
-<div class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-bold text-gray-800"><?php echo $isEdit ? 'Editar Cliente' : 'Cadastrar Novo Cliente'; ?></h1>
-    <a href="<?php echo htmlspecialchars($return_url); ?>" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200 ease-in-out">
-        &larr; Voltar
-    </a>
-</div>
+<div class="cliente-form-wrapper">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-800"><?php echo $isEdit ? 'Editar Cliente' : 'Cadastrar Novo Cliente'; ?></h1>
+        <a href="<?php echo htmlspecialchars($return_url); ?>" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200 ease-in-out">
+            &larr; Voltar
+        </a>
+    </div>
 
 <?php if (isset($_SESSION['error_message'])): ?>
     <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
@@ -119,7 +117,7 @@ require_once __DIR__ . '/../layouts/header.php';
     <?php unset($_SESSION['error_message']); ?>
 <?php endif; ?>
 
-<form action="clientes.php" method="POST" class="cliente-form-wrapper bg-white p-6 rounded-lg shadow-lg border border-gray-200" autocomplete="off">
+<form action="clientes.php" method="POST" class="cliente-form-card" autocomplete="off">
     <!-- Campo invisível para enganar o autocomplete -->
     <input type="text" name="fake_username" style="position: absolute; top: -5000px;" tabindex="-1" autocomplete="username">
     <input type="password" name="fake_password" style="position: absolute; top: -5000px;" tabindex="-1" autocomplete="new-password">
@@ -149,7 +147,7 @@ require_once __DIR__ . '/../layouts/header.php';
         </div>
     </div>
     <div class="space-y-6">
-        <div class="cliente-form-row">
+        <div class="cliente-form-row cliente-grid-2">
             <div id="container_nome_cliente" class="cliente-form-col cliente-col-50">
                 <label for="nome_cliente" id="label_nome_cliente" class="block text-sm font-semibold text-gray-700">Nome da Empresa *</label>
                 <input type="text" id="nome_cliente" name="nome_cliente" autocomplete="nope" value="<?php echo htmlspecialchars($nome_cliente); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
@@ -161,7 +159,7 @@ require_once __DIR__ . '/../layouts/header.php';
             </div>
         </div>
 
-        <div class="cliente-form-row">
+        <div class="cliente-form-row cliente-grid-3">
             <div class="cliente-form-col cliente-col-33">
                 <label for="cpf_cnpj" id="label_cpf_cnpj" class="block text-sm font-semibold text-gray-700">CPF/CNPJ *</label>
                 <input type="text" id="cpf_cnpj" name="cpf_cnpj" autocomplete="nope" value="<?php echo htmlspecialchars($cpf_cnpj); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
@@ -178,7 +176,7 @@ require_once __DIR__ . '/../layouts/header.php';
             </div>
         </div>
 
-        <div class="cliente-form-row">
+        <div class="cliente-form-row cliente-grid-60-30-10">
             <div class="cliente-form-col cliente-col-60">
                 <label for="endereco" class="block text-sm font-semibold text-gray-700">Endereço *</label>
                 <input type="text" id="endereco" name="endereco" autocomplete="nope" value="<?php echo htmlspecialchars($endereco); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
@@ -195,7 +193,7 @@ require_once __DIR__ . '/../layouts/header.php';
             </div>
         </div>
 
-        <div class="cliente-form-row">
+        <div class="cliente-form-row cliente-grid-45-45-10">
             <div class="cliente-form-col cliente-col-45">
                 <label for="cep" class="block text-sm font-semibold text-gray-700">CEP *</label>
                 <input type="text" id="cep" name="cep" autocomplete="nope" value="<?php echo htmlspecialchars($cep); ?>" readonly onfocus="this.removeAttribute('readonly');" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" maxlength="9" required>
@@ -235,7 +233,7 @@ require_once __DIR__ . '/../layouts/header.php';
             $mostrarPrazo = in_array($userPerfil, $perfisPrazoVisivel, true);
         ?>
 
-        <div class="cliente-form-row">
+        <div class="cliente-form-row <?php echo $mostrarPrazo ? 'cliente-grid-2' : 'cliente-grid-1'; ?>">
             <div class="cliente-form-col <?php echo $mostrarPrazo ? 'cliente-col-50' : 'cliente-col-full'; ?>">
                 <label for="tipo_assessoria" class="block text-sm font-semibold text-gray-700">Tipo de Assessoria</label>
                 <select id="tipo_assessoria" name="tipo_assessoria" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
@@ -350,6 +348,7 @@ require_once __DIR__ . '/../layouts/header.php';
         </button>
     </div>
 </form>
+</div>
 
 <script src="assets/js/city-autocomplete.js"></script>
 
