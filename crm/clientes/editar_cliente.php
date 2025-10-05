@@ -89,17 +89,6 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                     <option value="Outro" <?php echo ($cliente['canal_origem'] == 'Outro') ? 'selected' : ''; ?>>Outro</option>
                 </select>
             </div>
-            <div>
-                <label for="categoria" class="block text-sm font-medium text-gray-700">Categoria</label>
-                <select name="categoria" id="categoria" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
-                    <option value="Entrada" <?php echo ($cliente['categoria'] == 'Entrada') ? 'selected' : ''; ?>>Entrada</option>
-                    <option value="Qualificado" <?php echo ($cliente['categoria'] == 'Qualificado') ? 'selected' : ''; ?>>Qualificado</option>
-                    <option value="Com Orçamento" <?php echo ($cliente['categoria'] == 'Com Orçamento') ? 'selected' : ''; ?>>Com Orçamento</option>
-                    <option value="Em Negociação" <?php echo ($cliente['categoria'] == 'Em Negociação') ? 'selected' : ''; ?>>Em Negociação</option>
-                    <option value="Cliente Ativo" <?php echo ($cliente['categoria'] == 'Cliente Ativo') ? 'selected' : ''; ?>>Lead Ativo</option>
-                    <option value="Sem Interesse" <?php echo ($cliente['categoria'] == 'Sem Interesse') ? 'selected' : ''; ?>>Sem Interesse</option>
-                </select>
-            </div>
         </div>
 
         <div class="pt-5 flex justify-between items-center border-t border-gray-200 mt-6">

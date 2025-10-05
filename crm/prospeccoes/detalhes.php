@@ -66,6 +66,12 @@ try {
     die("Erro ao carregar dados da prospecção: " . $e->getMessage());
 }
 
+$leadCategories = ['Entrada', 'Qualificado', 'Com Orçamento', 'Em Negociação', 'Cliente Ativo', 'Sem Interesse'];
+$currentLeadCategory = $prospect['leadCategory'] ?? 'Entrada';
+if (!in_array($currentLeadCategory, $leadCategories, true)) {
+    $currentLeadCategory = 'Entrada';
+}
+
 require_once __DIR__ . '/../../app/views/layouts/header.php';
 ?>
 
@@ -94,8 +100,13 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                     <div>
                         <h2 class="text-2xl font-bold text-gray-900"><?php echo htmlspecialchars($leadNome); ?></h2>
                         <p class="text-sm text-gray-500">Responsável: <span class="font-medium text-indigo-600"><?php echo htmlspecialchars($leadResponsavelNome); ?></span></p>
-                        <?php if (!empty($statusAtual)): ?>
-                            <span class="inline-flex mt-2 items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800 uppercase tracking-wide"><?php echo htmlspecialchars($statusAtual); ?></span>
+                        <?php if (!empty($statusAtual) || !empty($currentLeadCategory)): ?>
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                <?php if (!empty($statusAtual)): ?>
+                                    <span class="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800 uppercase tracking-wide"><?php echo htmlspecialchars($statusAtual); ?></span>
+                                <?php endif; ?>
+                                <span class="inline-flex items-center rounded-full bg-gray-200 px-3 py-1 text-xs font-semibold text-gray-700 uppercase tracking-wide">Categoria: <?php echo htmlspecialchars($currentLeadCategory); ?></span>
+                            </div>
                         <?php endif; ?>
                     </div>
 
@@ -151,6 +162,14 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                         <div>
                             <label for="data_reuniao_agendada" class="block text-sm font-medium text-gray-700">Data da Reunião</label>
                             <input type="datetime-local" name="data_reuniao_agendada" id="data_reuniao_agendada" value="<?php echo !empty($prospect['data_reuniao_agendada']) ? htmlspecialchars(formatSaoPauloDate($prospect['data_reuniao_agendada'], 'Y-m-d\TH:i')) : ''; ?>" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        </div>
+                        <div>
+                            <label for="lead_category" class="block text-sm font-medium text-gray-700">Categoria do Lead</label>
+                            <select name="lead_category" id="lead_category" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                                <?php foreach ($leadCategories as $category): ?>
+                                    <option value="<?php echo htmlspecialchars($category); ?>" <?php echo ($currentLeadCategory === $category) ? 'selected' : ''; ?>><?php echo htmlspecialchars($category); ?></option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
                         <div class="sm:col-span-1 flex items-center pt-4">
                             <input type="checkbox" name="reuniao_compareceu" id="reuniao_compareceu" value="1" <?php echo (!empty($prospect['reuniao_compareceu'])) ? 'checked' : ''; ?> class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
