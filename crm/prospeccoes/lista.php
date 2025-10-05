@@ -93,7 +93,7 @@ $status_list = ['prospecção', 'qualificação', 'apresentação', 'negociaçã
 require_once __DIR__ . '/../../app/views/layouts/header.php';
 ?>
 
-<div class="container mx-auto px-4 py-8">
+<div class="w-full max-w-9/10 px-4 py-8">
     <div class="flex items-center justify-between mb-6">
         <h1 class="text-2xl font-bold text-gray-800">Lista de Prospecções</h1>
         <div>
