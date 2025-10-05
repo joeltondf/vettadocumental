@@ -94,9 +94,17 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
     </style>
 
 </head>
-<body class="bg-slate-100 text-slate-800">
+<?php
+$defaultBodyClass = 'bg-slate-100 text-slate-800';
+$extraBodyClass = $bodyClass ?? '';
+if (strpos($_SERVER['PHP_SELF'] ?? '', '/crm/') !== false && strpos($extraBodyClass, 'crm-layout') === false) {
+    $extraBodyClass = trim($extraBodyClass . ' crm-layout');
+}
+$bodyClassList = trim($defaultBodyClass . ' ' . $extraBodyClass);
+?>
+<body class="<?php echo htmlspecialchars($bodyClassList); ?>">
     <nav class="bg-white shadow-md border-b-4 border-theme-color">
-        <div class="max-w-[80%] mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="max-w-[95%] mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
                 <div class="flex items-center">
                     <a href="<?php echo $is_vendedor ? APP_URL.'/dashboard_vendedor.php' : APP_URL.'/dashboard.php'; ?>" class="flex-shrink-0">
@@ -272,7 +280,7 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
              </div>
     </nav>
 
-    <main class="max-w-[80%] mx-auto py-6 sm:px-6 lg:px-8">
+    <main class="max-w-[95%] mx-auto py-6 sm:px-6 lg:px-8">
         <div class="px-4 py-6 sm:px-0">
             <?php if(isset($_SESSION['success_message'])): ?>
                 <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4" role="alert">
