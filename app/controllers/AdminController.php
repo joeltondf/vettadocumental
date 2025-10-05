@@ -125,8 +125,9 @@ class AdminController
             'on_track' => $settings['on_track_color'],
         ];
         $processes = $this->processoModel->getProcessesForTvPanel();
-        $bodyClass = 'tv-panel-page bg-slate-900 text-white';
+        $bodyClass = 'tv-panel-page bg-black text-slate-100';
         $orientationClass = $settings['orientation'] === 'landscape' ? 'tv-panel-landscape' : 'tv-panel-portrait';
+        $hideHeader = true;
 
         require_once __DIR__ . '/../views/layouts/header.php';
         require_once __DIR__ . '/../views/admin/tv_painel.php';

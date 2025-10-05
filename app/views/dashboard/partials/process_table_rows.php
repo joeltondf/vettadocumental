@@ -6,7 +6,6 @@ $showActions = $showActions ?? true;
 $showProgress = $showProgress ?? false;
 $highlightAnimations = $highlightAnimations ?? false;
 $allowLinks = $allowLinks ?? true;
-
 foreach ($processes as $processo):
     $statusInfo = DashboardProcessFormatter::normalizeStatusInfo($processo['status_processo'] ?? '');
     $statusNormalized = $statusInfo['normalized'];
@@ -16,6 +15,7 @@ foreach ($processes as $processo):
     $deadlineClass = $deadlineDescriptor['class'];
     $deadlineLabel = $deadlineDescriptor['label'];
     $progressValue = $deadlineDescriptor['progress'];
+    $textColorClass = $deadlineDescriptor['text_class'] ?: 'text-slate-200';
     $rowHighlight = '';
 
     if ($highlightAnimations && in_array($deadlineDescriptor['state'], ['overdue', 'due_today'], true)) {
@@ -61,14 +61,16 @@ foreach ($processes as $processo):
         <?php echo !empty($processo['data_inicio_traducao']) ? date('d/m/Y', strtotime($processo['data_inicio_traducao'])) : 'N/A'; ?>
     </td>
     <td class="px-3 py-1 whitespace-nowrap text-xs font-medium">
-        <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $deadlineClass; ?>">
-            <?php echo htmlspecialchars($deadlineLabel); ?>
-        </span>
-        <?php if ($showProgress && $progressValue !== null): ?>
-            <div class="mt-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-                <div class="h-2 bg-slate-500" style="width: <?php echo $progressValue; ?>%"></div>
-            </div>
-        <?php endif; ?>
+        <div class="<?php echo trim('tv-deadline-wrapper ' . $textColorClass); ?>">
+            <span class="tv-deadline-badge px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $deadlineClass; ?>">
+                <?php echo htmlspecialchars($deadlineLabel); ?>
+            </span>
+            <?php if ($showProgress && $progressValue !== null): ?>
+                <div class="tv-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?php echo (int) $progressValue; ?>">
+                    <div class="tv-progress-fill" style="width: <?php echo $progressValue; ?>%"></div>
+                </div>
+            <?php endif; ?>
+        </div>
     </td>
     <?php if ($showActions): ?>
     <td class="px-3 py-1 whitespace-nowrap text-center text-xs font-medium">
