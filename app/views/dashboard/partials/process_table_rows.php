@@ -40,9 +40,7 @@ foreach ($processes as $processo):
         <?php endif; ?>
     </td>
     <td class="px-3 py-1 whitespace-nowrap text-xs text-gray-500 truncate" title="<?php echo htmlspecialchars(mb_strtoupper($processo['nome_cliente'] ?? 'N/A')); ?>">
-        <span class="block truncate" title="<?php echo htmlspecialchars(mb_strtoupper($processo['nome_cliente'] ?? 'N/A')); ?>">
-            <?php echo htmlspecialchars(mb_strtoupper(mb_strimwidth($processo['nome_cliente'] ?? 'N/A', 0, 20, '...'))); ?>
-        </span>
+        <?php echo htmlspecialchars(mb_strtoupper(mb_strimwidth($processo['nome_cliente'] ?? 'N/A', 0, 20, '...'))); ?>
     </td>
     <td class="px-3 py-1 whitespace-nowrap text-xs text-gray-500 text-center">
         <?php echo (int) ($processo['total_documentos_soma'] ?? 0); ?>
