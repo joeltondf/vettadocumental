@@ -61,7 +61,7 @@ $formatPeriod = static function (string $period, string $mode): string {
 };
 ?>
 
-<div id="financial-report" class="mx-auto w-full max-w-none px-4 py-8 space-y-6 md:w-[85%]" data-csrf-token="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8'); ?>">
+<div id="financial-report" class="mx-auto w-full max-w-none px-4 py-8 space-y-6 " data-csrf-token="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8'); ?>">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
         <h1 class="text-3xl font-bold text-gray-800">Relatório Financeiro</h1>
         <div class="flex flex-wrap gap-2">
