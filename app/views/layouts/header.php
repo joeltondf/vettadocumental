@@ -311,18 +311,33 @@ $bodyClassList = trim($defaultBodyClass . ' ' . $extraBodyClass);
 
     <main class="max-w-[95%] mx-auto py-6 sm:px-6 lg:px-8">
         <div class="px-4 py-6 sm:px-0">
-            <?php if(isset($_SESSION['success_message'])): ?>
+            <?php if (!empty($_SESSION['success_message'])) { ?>
                 <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4" role="alert">
                     <p><?php echo $_SESSION['success_message']; ?></p>
                 </div>
                 <?php unset($_SESSION['success_message']); ?>
-            <?php endif; ?>
-            <?php if(isset($_SESSION['error_message'])): ?>
+            <?php } ?>
+
+            <?php if (!empty($_SESSION['error_message'])) { ?>
                 <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
                     <p><?php echo $_SESSION['error_message']; ?></p>
                 </div>
                 <?php unset($_SESSION['error_message']); ?>
-            <?php endif; ?>
+            <?php } ?>
+
+            <?php if (!empty($_SESSION['warning_message'])) { ?>
+                <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4" role="alert">
+                    <p><?php echo htmlspecialchars($_SESSION['warning_message']); ?></p>
+                </div>
+                <?php unset($_SESSION['warning_message']); ?>
+            <?php } ?>
+
+            <?php if (!empty($_SESSION['info_message'])) { ?>
+                <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 mb-4" role="alert">
+                    <p><?php echo htmlspecialchars($_SESSION['info_message']); ?></p>
+                </div>
+                <?php unset($_SESSION['info_message']); ?>
+            <?php } ?>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
