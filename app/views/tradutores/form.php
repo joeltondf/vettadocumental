@@ -68,6 +68,9 @@ function aplicarMascaraTelefone(value) {
 document.addEventListener('DOMContentLoaded', function () {
     const telefoneInput = document.getElementById('telefone');
     if (telefoneInput) {
+        if (telefoneInput.value) {
+            telefoneInput.value = aplicarMascaraTelefone(telefoneInput.value);
+        }
         telefoneInput.addEventListener('input', function (e) {
             e.target.value = aplicarMascaraTelefone(e.target.value);
         });
