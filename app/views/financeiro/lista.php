@@ -61,7 +61,7 @@ $formatPeriod = static function (string $period, string $mode): string {
 };
 ?>
 
-<div id="financial-report" class="max-w-7xl mx-auto px-4 py-8 space-y-6" data-csrf-token="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8'); ?>">
+<div id="financial-report" class="mx-auto w-full max-w-none px-4 py-8 space-y-6 md:w-[85%]" data-csrf-token="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8'); ?>">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
         <h1 class="text-3xl font-bold text-gray-800">Relatório Financeiro</h1>
         <div class="flex flex-wrap gap-2">
@@ -195,8 +195,8 @@ $formatPeriod = static function (string $period, string $mode): string {
         <div class="space-y-3">
             <h2 class="text-lg font-semibold text-gray-700">Totais agregados por período</h2>
             <div class="overflow-x-auto rounded-lg bg-white shadow">
-                <table class="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-600">
+                <table class="min-w-full divide-y divide-gray-200 text-xs">
+                    <thead class="bg-gray-50 text-[0.65rem] uppercase tracking-wide text-gray-600">
                         <tr>
                             <th class="px-4 py-3 text-left">Período</th>
                             <th class="px-4 py-3 text-right">Processos</th>
@@ -233,10 +233,10 @@ $formatPeriod = static function (string $period, string $mode): string {
 
     <div class="rounded-lg bg-white shadow">
         <div class="overflow-x-auto">
-            <table id="processos-table" class="min-w-full divide-y divide-gray-200 text-sm">
-                <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-600">
+            <table id="processos-table" class="min-w-full divide-y divide-gray-200 text-xs">
+                <thead class="bg-gray-50 text-[0.65rem] uppercase tracking-wide text-gray-600">
                     <tr>
-                        <th class="px-3 py-3 text-left">ID</th>
+                        <th class="px-3 py-3 text-left">OS Omie</th>
                         <th class="px-3 py-3 text-left">Cliente</th>
                         <th class="px-3 py-3 text-left">Serviço</th>
                         <th class="px-3 py-3 text-left">Vendedor</th>
@@ -245,6 +245,7 @@ $formatPeriod = static function (string $period, string $mode): string {
                         <th class="px-3 py-3 text-right">Desconto</th>
                         <th class="px-3 py-3 text-right">Valor recebido</th>
                         <th class="px-3 py-3 text-right">Valor restante</th>
+                        <th class="px-3 py-3 text-left">Parcelas</th>
                         <th class="px-3 py-3 text-left">Status financeiro</th>
                         <th class="px-3 py-3 text-left">Data pagamento</th>
                         <th class="px-3 py-3 text-left">Data criação</th>
@@ -253,21 +254,42 @@ $formatPeriod = static function (string $period, string $mode): string {
                 <tbody class="divide-y divide-gray-100 bg-white text-gray-700">
                     <?php if (empty($processos)): ?>
                         <tr>
-                            <td colspan="12" class="px-4 py-6 text-center text-sm text-gray-500">Nenhum processo encontrado para os filtros selecionados.</td>
+                            <td colspan="13" class="px-4 py-6 text-center text-xs text-gray-500">Nenhum processo encontrado para os filtros selecionados.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($processos as $processo):
                             $processId = (int) ($processo['id'] ?? 0);
+                            $omieNumberRaw = $processo['os_numero_omie'] ?? '';
+                            $omieDigits = preg_replace('/\D/', '', (string) $omieNumberRaw);
+                            $omieShort = $omieDigits !== '' ? substr($omieDigits, -5) : '—';
+                            if ($omieShort === '—') {
+                                $omieDisplay = '—';
+                            } else {
+                                $omieTrimmed = ltrim($omieShort, '0');
+                                $omieDisplay = $omieTrimmed !== '' ? $omieTrimmed : '0';
+                            }
                             $valorTotal = $formatCurrency($processo['valor_total'] ?? 0);
                             $desconto = $formatCurrency($processo['desconto'] ?? 0);
                             $valorRecebido = $formatCurrency($processo['valor_recebido'] ?? 0);
                             $valorRestante = $formatCurrency($processo['valor_restante'] ?? 0);
+                            $rawValorRestanteNumeric = (float) ($processo['valor_restante'] ?? 0);
                             $rawPaymentDate = $processo['data_pagamento'] ?? null;
                             $statusFinanceiro = strtolower((string) ($processo['status_financeiro'] ?? 'pendente'));
+                            $parcelCount = max(1, (int) ($processo['orcamento_parcelas'] ?? 1));
+                            $hasSecondParcel = $parcelCount >= 2;
+                            $secondPaymentRaw = $processo['data_pagamento_2'] ?? null;
+                            $secondPaymentDate = $formatDate($secondPaymentRaw);
+                            $needsSecondParcel = $hasSecondParcel && $rawValorRestanteNumeric > 0.01;
+                            $parcelLabel = $parcelCount === 1 ? 'Pagamento único' : sprintf('%d parcelas', $parcelCount);
                             ?>
                             <tr data-process-id="<?= htmlspecialchars((string) $processId, ENT_QUOTES, 'UTF-8'); ?>">
                                 <td class="px-3 py-3 font-medium text-gray-900">
-                                    <?= htmlspecialchars((string) $processId, ENT_QUOTES, 'UTF-8'); ?>
+                                    <?php
+                                    $omieTitle = ((string) $omieNumberRaw !== '') ? (string) $omieNumberRaw : 'Sem número Omie';
+                                    ?>
+                                    <span title="<?= htmlspecialchars($omieTitle, ENT_QUOTES, 'UTF-8'); ?>">
+                                        <?= htmlspecialchars((string) $omieDisplay, ENT_QUOTES, 'UTF-8'); ?>
+                                    </span>
                                 </td>
                                 <td class="px-3 py-3">
                                     <?= htmlspecialchars($processo['cliente_nome'] ?? '', ENT_QUOTES, 'UTF-8'); ?>
@@ -279,7 +301,7 @@ $formatPeriod = static function (string $period, string $mode): string {
                                     <?= htmlspecialchars($processo['nome_vendedor'] ?? '—', ENT_QUOTES, 'UTF-8'); ?>
                                 </td>
                                 <td class="px-3 py-3">
-                                    <select class="editable-select w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                    <select class="editable-select w-full rounded-md border border-gray-300 px-2 py-1 text-[0.75rem] focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                                         data-field="forma_pagamento_id" data-id="<?= htmlspecialchars((string) $processId, ENT_QUOTES, 'UTF-8'); ?>" aria-label="Selecionar forma de pagamento">
                                         <option value="">Não informado</option>
                                         <?php foreach ($formas_pagamento as $forma):
@@ -293,35 +315,51 @@ $formatPeriod = static function (string $period, string $mode): string {
                                     </select>
                                 </td>
                                 <td class="px-3 py-3 text-right">
-                                    <span class="editable-content inline-flex min-w-[6rem] justify-end rounded px-2 py-1 text-sm" contenteditable="true"
+                                    <span class="editable-content inline-flex min-w-[6rem] justify-end rounded px-2 py-1" contenteditable="true"
                                         data-field="valor_total" data-id="<?= htmlspecialchars((string) $processId, ENT_QUOTES, 'UTF-8'); ?>" data-value-type="currency"
                                         data-original-value="<?= htmlspecialchars($valorTotal, ENT_QUOTES, 'UTF-8'); ?>">
                                         <?= htmlspecialchars($valorTotal, ENT_QUOTES, 'UTF-8'); ?>
                                     </span>
                                 </td>
                                 <td class="px-3 py-3 text-right">
-                                    <span class="editable-content inline-flex min-w-[6rem] justify-end rounded px-2 py-1 text-sm" contenteditable="true"
+                                    <span class="editable-content inline-flex min-w-[6rem] justify-end rounded px-2 py-1" contenteditable="true"
                                         data-field="desconto" data-id="<?= htmlspecialchars((string) $processId, ENT_QUOTES, 'UTF-8'); ?>" data-value-type="currency"
                                         data-original-value="<?= htmlspecialchars($desconto, ENT_QUOTES, 'UTF-8'); ?>">
                                         <?= htmlspecialchars($desconto, ENT_QUOTES, 'UTF-8'); ?>
                                     </span>
                                 </td>
                                 <td class="px-3 py-3 text-right">
-                                    <span class="editable-content inline-flex min-w-[6rem] justify-end rounded px-2 py-1 text-sm" contenteditable="true"
+                                    <span class="editable-content inline-flex min-w-[6rem] justify-end rounded px-2 py-1" contenteditable="true"
                                         data-field="valor_recebido" data-id="<?= htmlspecialchars((string) $processId, ENT_QUOTES, 'UTF-8'); ?>" data-value-type="currency"
                                         data-original-value="<?= htmlspecialchars($valorRecebido, ENT_QUOTES, 'UTF-8'); ?>">
                                         <?= htmlspecialchars($valorRecebido, ENT_QUOTES, 'UTF-8'); ?>
                                     </span>
                                 </td>
                                 <td class="px-3 py-3 text-right">
-                                    <span class="editable-content inline-flex min-w-[6rem] justify-end rounded px-2 py-1 text-sm" contenteditable="true"
+                                    <span class="editable-content inline-flex min-w-[6rem] justify-end rounded px-2 py-1" contenteditable="true"
                                         data-field="valor_restante" data-id="<?= htmlspecialchars((string) $processId, ENT_QUOTES, 'UTF-8'); ?>" data-value-type="currency"
                                         data-original-value="<?= htmlspecialchars($valorRestante, ENT_QUOTES, 'UTF-8'); ?>">
                                         <?= htmlspecialchars($valorRestante, ENT_QUOTES, 'UTF-8'); ?>
                                     </span>
                                 </td>
                                 <td class="px-3 py-3">
-                                    <select class="editable-select w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                    <div class="flex flex-col gap-1 text-[0.7rem] leading-4 text-gray-700">
+                                        <span class="font-medium text-gray-900"><?= htmlspecialchars($parcelLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+                                        <?php if ($hasSecondParcel): ?>
+                                            <span class="inline-flex w-fit items-center gap-1 rounded border px-2 py-0.5 text-[0.65rem] font-semibold <?= $needsSecondParcel ? 'border-amber-200 bg-amber-100 text-amber-800' : 'border-emerald-200 bg-emerald-100 text-emerald-700'; ?>">
+                                                <?= $needsSecondParcel ? '2ª parcela pendente' : '2ª parcela quitada'; ?>
+                                            </span>
+                                            <?php if (!empty($secondPaymentRaw) && $secondPaymentDate !== '—'): ?>
+                                                <span class="text-[0.65rem] text-gray-500">Prevista: <?= htmlspecialchars($secondPaymentDate, ENT_QUOTES, 'UTF-8'); ?></span>
+                                            <?php endif; ?>
+                                            <?php if ($needsSecondParcel): ?>
+                                                <span class="text-[0.65rem] font-semibold text-rose-600">Cobrar a 2ª parcela.</span>
+                                            <?php endif; ?>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                                <td class="px-3 py-3">
+                                    <select class="editable-select w-full rounded-md border border-gray-300 px-2 py-1 text-[0.75rem] focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                                         data-field="status_financeiro" data-id="<?= htmlspecialchars((string) $processId, ENT_QUOTES, 'UTF-8'); ?>" aria-label="Selecionar status financeiro">
                                         <?php foreach ($statusFinanceiroOptions as $value => $label):
                                             $isSelected = ($statusFinanceiro === strtolower((string) $value));
@@ -334,7 +372,7 @@ $formatPeriod = static function (string $period, string $mode): string {
                                 </td>
                                 <td class="px-3 py-3">
                                     <?php $displayDate = $formatDate($rawPaymentDate); ?>
-                                    <span class="editable-content inline-flex min-w-[6rem] rounded px-2 py-1 text-sm" contenteditable="true"
+                                    <span class="editable-content inline-flex min-w-[6rem] rounded px-2 py-1" contenteditable="true"
                                         data-field="data_pagamento" data-id="<?= htmlspecialchars((string) $processId, ENT_QUOTES, 'UTF-8'); ?>" data-value-type="date"
                                         data-original-value="<?= htmlspecialchars($displayDate, ENT_QUOTES, 'UTF-8'); ?>"
                                         data-raw-value="<?= htmlspecialchars((string) $rawPaymentDate, ENT_QUOTES, 'UTF-8'); ?>">
@@ -363,6 +401,12 @@ $formatPeriod = static function (string $period, string $mode): string {
     #financial-report .editable-content[contenteditable="true"] {
         cursor: text;
         min-height: 1.75rem;
+    }
+    #financial-report table {
+        font-size: 0.75rem;
+    }
+    #financial-report thead th {
+        font-size: 0.65rem;
     }
 </style>
 

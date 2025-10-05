@@ -866,6 +866,20 @@ public function create($data, $files)
             '(SELECT COALESCE(SUM(d.quantidade), 0) FROM documentos d WHERE d.processo_id = p.id) AS total_documentos',
         ];
 
+        if ($this->hasProcessColumn('orcamento_parcelas')) {
+            $selectParts[] = 'COALESCE(p.orcamento_parcelas, 1) AS orcamento_parcelas';
+        } else {
+            $selectParts[] = '1 AS orcamento_parcelas';
+        }
+
+        $selectParts[] = $this->hasProcessColumn('data_pagamento_1')
+            ? 'p.data_pagamento_1'
+            : 'NULL AS data_pagamento_1';
+
+        $selectParts[] = $this->hasProcessColumn('data_pagamento_2')
+            ? 'p.data_pagamento_2'
+            : 'NULL AS data_pagamento_2';
+
         $selectParts[] = $this->hasProcessColumn('desconto')
             ? 'COALESCE(p.desconto, 0) AS desconto'
             : '0 AS desconto';
