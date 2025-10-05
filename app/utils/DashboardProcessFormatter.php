@@ -84,8 +84,6 @@ class DashboardProcessFormatter
             'days' => null,
             'progress' => null,
             'deadlineDate' => null,
-            'text_class' => '',
-            'background_class' => '',
         ];
 
         if ($statusNormalized === 'concluído') {
@@ -93,19 +91,19 @@ class DashboardProcessFormatter
             $descriptor['label'] = 'Concluído para ' . $finalizacaoTipo;
             $descriptor['class'] = $colors['completed'];
             $descriptor['state'] = 'completed';
-            return self::finalizeDescriptor($descriptor);
+            return $descriptor;
         }
 
         if (in_array($statusNormalized, ['cancelado', 'orçamento', 'orçamento pendente'], true)) {
             $descriptor['label'] = 'N/A';
             $descriptor['class'] = $colors['inactive'];
             $descriptor['state'] = 'inactive';
-            return self::finalizeDescriptor($descriptor);
+            return $descriptor;
         }
 
         $deadlineDate = self::extractDeadlineDate($process);
         if ($deadlineDate === null) {
-            return self::finalizeDescriptor($descriptor);
+            return $descriptor;
         }
 
         $descriptor['deadlineDate'] = $deadlineDate;
@@ -136,7 +134,7 @@ class DashboardProcessFormatter
         $progress = self::calculateProgressPercentage($process, $deadlineDate);
         $descriptor['progress'] = $progress;
 
-        return self::finalizeDescriptor($descriptor);
+        return $descriptor;
     }
 
     public static function getServiceBadges(?string $services): array
@@ -214,36 +212,5 @@ class DashboardProcessFormatter
         } catch (Exception $exception) {
             return null;
         }
-    }
-
-    private static function finalizeDescriptor(array $descriptor): array
-    {
-        $tokens = self::parseColorClasses($descriptor['class'] ?? '');
-        $descriptor['text_class'] = $tokens['text'];
-        $descriptor['background_class'] = $tokens['background'];
-
-        return $descriptor;
-    }
-
-    private static function parseColorClasses(string $classList): array
-    {
-        $tokens = preg_split('/\s+/', trim($classList)) ?: [];
-        $result = ['text' => '', 'background' => ''];
-
-        foreach ($tokens as $token) {
-            if ($token === '') {
-                continue;
-            }
-
-            if ($result['background'] === '' && strpos($token, 'bg-') === 0) {
-                $result['background'] = $token;
-            }
-
-            if ($result['text'] === '' && strpos($token, 'text-') === 0) {
-                $result['text'] = $token;
-            }
-        }
-
-        return $result;
     }
 }

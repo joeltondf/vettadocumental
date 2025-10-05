@@ -18,6 +18,10 @@ $colorConfig = [
      data-progress-enabled="<?php echo $progressEnabled ? '1' : '0'; ?>"
      data-alert-enabled="<?php echo $alertEnabled ? '1' : '0'; ?>">
     <header class="tv-panel-header">
+        <div class="tv-panel-title">
+            <h1 class="text-4xl font-extrabold tracking-wide">Painel Operacional</h1>
+            <p class="text-lg opacity-80">Monitoramento em tempo real dos processos ativos</p>
+        </div>
         <div class="tv-panel-meta">
             <div class="tv-panel-clock" data-tv-clock></div>
             <a href="<?php echo APP_URL; ?>/admin.php?action=tv_panel_config" class="tv-panel-config-link">
