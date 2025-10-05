@@ -214,14 +214,12 @@ $defaultKanbanDestination = $kanbanColumns[0] ?? '';
     }
 </style>
 
-<section class="crm-section">
-    <div class="crm-section-header">
-        <h1 class="crm-title">Funil de Vendas (Kanban)</h1>
-        <div class="crm-actions">
-            <a href="<?php echo APP_URL; ?>/crm/prospeccoes/lista.php" class="bg-slate-600 text-white font-semibold py-2.5 px-4 rounded-xl hover:bg-slate-700 transition">Ver em Lista</a>
-        </div>
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 class="text-2xl font-bold text-gray-800">Funil de Vendas (Kanban)</h1>
+        <a href="<?php echo APP_URL; ?>/crm/prospeccoes/lista.php" class="bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-gray-700 transition">Ver em Lista</a>
     </div>
-    <div class="crm-card space-y-4">
+
+    <div class="bg-white rounded-lg shadow-md p-6 space-y-4">
         <?php if ($isVendor): ?>
             <div class="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
                 <span class="font-semibold">Filtro ativo:</span>
@@ -265,18 +263,14 @@ $defaultKanbanDestination = $kanbanColumns[0] ?? '';
             </div>
         </div>
     </div>
-</section>
 
 <?php if ($errorMessage): ?>
-    <section class="crm-section">
-        <div class="crm-card crm-card--tight bg-red-50 border border-red-200 text-red-700">
-            <?php echo htmlspecialchars($errorMessage); ?>
-        </div>
-    </section>
+    <div class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3">
+        <?php echo htmlspecialchars($errorMessage); ?>
+    </div>
 <?php endif; ?>
 
-<section class="crm-section">
-    <div class="crm-card overflow-hidden">
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
         <div class="kanban-board" id="kanbanBoard">
     <?php foreach ($kanbanColumns as $column): ?>
         <div class="kanban-column">
@@ -318,7 +312,6 @@ $defaultKanbanDestination = $kanbanColumns[0] ?? '';
     <?php endforeach; ?>
         </div>
     </div>
-</section>
 
 <div id="addLeadsModal" class="hidden fixed inset-0 z-40">
     <div class="flex items-center justify-center min-h-screen">

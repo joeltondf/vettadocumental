@@ -35,7 +35,6 @@ if (!empty($search_data_fim)) {
     $params[':data_fim'] = $data_fim_ajustada;
 }
 
-
 // Controle de Acesso por Perfil
 $user_perfil = $_SESSION['user_perfil'] ?? '';
 $user_id = $_SESSION['user_id'] ?? 0;
@@ -63,14 +62,13 @@ if ($user_perfil !== 'vendedor') {
     }
 }
 
-
 // Construção da consulta SQL final
 $sql_where = !empty($where_clauses) ? 'WHERE ' . implode(' AND ', $where_clauses) : '';
 
-$sql = "SELECT 
-            p.*, 
-            c.nome_cliente, 
-            u.nome_completo as nome_responsavel 
+$sql = "SELECT
+            p.*,
+            c.nome_cliente,
+            u.nome_completo as nome_responsavel
         FROM prospeccoes p
         LEFT JOIN clientes c ON p.cliente_id = c.id
         LEFT JOIN users u ON p.responsavel_id = u.id
@@ -88,39 +86,41 @@ try {
 // Lista de status para o dropdown
 $status_list = ['prospecção', 'qualificação', 'apresentação', 'negociação', 'fechamento', 'pós-venda', 'perdido'];
 
-
 // --- FIM DA LÓGICA DE CONSULTA ---
 
 require_once __DIR__ . '/../../app/views/layouts/crm_start.php';
 ?>
-    <section class="crm-section">
-        <div class="crm-section-header">
-            <h1 class="crm-title">Lista de Prospecções</h1>
-            <div class="crm-actions">
-                <a href="nova.php" class="bg-blue-600 text-white font-semibold py-2.5 px-4 rounded-xl hover:bg-blue-700 transition">+ Nova Prospecção</a>
-                <a href="kanban.php" class="bg-slate-600 text-white font-semibold py-2.5 px-4 rounded-xl hover:bg-slate-700 transition">Ver Kanban</a>
-            </div>
+
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 class="text-2xl font-bold text-gray-800">Lista de Prospecções</h1>
+        <div class="flex flex-wrap gap-3">
+            <a href="nova.php" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 shadow-sm">+ Nova Prospecção</a>
+            <a href="kanban.php" class="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 shadow-sm">Ver Kanban</a>
         </div>
-        <div class="crm-card">
-            <h2 class="crm-card-title">Filtros</h2>
-            <form action="" method="GET" class="space-y-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div>
-                        <label for="search" class="block text-sm font-medium text-gray-600 mb-2">Buscar</label>
-                        <input type="text" name="search" id="search" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="<?php echo htmlspecialchars($search_term); ?>" placeholder="Nome do prospecto ou lead...">
-                    </div>
-                    <div>
-                        <label for="status" class="block text-sm font-medium text-gray-600 mb-2">Status</label>
-                        <select name="status" id="status" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                            <option value="">Todos</option>
-                            <?php foreach ($status_list as $status_item): ?>
-                                <option value="<?php echo $status_item; ?>" <?php echo ($search_status === $status_item) ? 'selected' : ''; ?>>
-                                    <?php echo ucfirst($status_item); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <?php if ($user_perfil !== 'vendedor'): ?>
+    </div>
+
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-lg font-semibold text-gray-700 mb-4">Filtros</h2>
+        <form action="" method="GET" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div>
+                    <label for="search" class="block text-sm font-medium text-gray-600 mb-2">Buscar</label>
+                    <input type="text" name="search" id="search" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="<?php echo htmlspecialchars($search_term); ?>" placeholder="Nome do prospecto ou lead...">
+                </div>
+
+                <div>
+                    <label for="status" class="block text-sm font-medium text-gray-600 mb-2">Status</label>
+                    <select name="status" id="status" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Todos</option>
+                        <?php foreach ($status_list as $status_item): ?>
+                            <option value="<?php echo $status_item; ?>" <?php echo ($search_status === $status_item) ? 'selected' : ''; ?>>
+                                <?php echo ucfirst($status_item); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <?php if ($user_perfil !== 'vendedor'): ?>
                     <div>
                         <label for="responsavel_id" class="block text-sm font-medium text-gray-600 mb-2">Responsável</label>
                         <select name="responsavel_id" id="responsavel_id" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
@@ -132,71 +132,99 @@ require_once __DIR__ . '/../../app/views/layouts/crm_start.php';
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <?php endif; ?>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label for="data_inicio" class="block text-sm font-medium text-gray-600 mb-2">De</label>
-                            <input type="date" name="data_inicio" id="data_inicio" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="<?php echo htmlspecialchars($search_data_inicio); ?>">
-                        </div>
-                        <div>
-                            <label for="data_fim" class="block text-sm font-medium text-gray-600 mb-2">Até</label>
-                            <input type="date" name="data_fim" id="data_fim" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="<?php echo htmlspecialchars($search_data_fim); ?>">
-                        </div>
+                <?php endif; ?>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="data_inicio" class="block text-sm font-medium text-gray-600 mb-2">De</label>
+                        <input type="date" name="data_inicio" id="data_inicio" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="<?php echo htmlspecialchars($search_data_inicio); ?>">
+                    </div>
+                    <div>
+                        <label for="data_fim" class="block text-sm font-medium text-gray-600 mb-2">Até</label>
+                        <input type="date" name="data_fim" id="data_fim" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="<?php echo htmlspecialchars($search_data_fim); ?>">
                     </div>
                 </div>
-                <div class="flex flex-col sm:flex-row justify-end gap-3">
-                    <a href="lista.php" class="inline-flex justify-center items-center bg-slate-200 text-slate-800 font-medium px-6 py-2 rounded-xl hover:bg-slate-300 transition">Limpar</a>
-                    <button type="submit" class="inline-flex justify-center items-center bg-blue-600 text-white font-medium px-6 py-2 rounded-xl hover:bg-blue-700 transition">Filtrar</button>
-                </div>
-            </form>
-        </div>
-    </section>
-    <section class="crm-section">
-        <div class="crm-card crm-card--tight">
-            <h2 class="crm-card-title">Resultado</h2>
-            <div class="crm-table-wrapper">
-                <table class="crm-table">
-                    <thead>
-                        <tr>
-                            <th>Prospecto</th>
-                            <th>Lead</th>
-                            <th>Status</th>
-                            <th class="text-right">Valor</th>
-                            <th>Responsável</th>
-                            <th>Data</th>
-                            <th class="text-center">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($prospeccoes)): ?>
-                            <tr>
-                                <td colspan="7" class="py-6 text-center text-gray-500">Nenhuma prospecção encontrada com os filtros aplicados.</td>
-                            </tr>
-                        <?php else: ?>
-                            <?php foreach ($prospeccoes as $prospeccao): ?>
-                                <tr>
-                                    <td>
-                                        <div class="font-semibold text-gray-900"><?php echo htmlspecialchars($prospeccao['nome_prospecto']); ?></div>
-                                        <div class="text-sm text-gray-500">Origem: <?php echo htmlspecialchars($prospeccao['origem'] ?? 'Não informado'); ?></div>
-                                    </td>
-                                    <td><?php echo htmlspecialchars($prospeccao['nome_cliente'] ?? 'Lead não vinculado'); ?></td>
-                                    <td>
-                                        <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-600">
-                                            <?php echo htmlspecialchars(ucfirst($prospeccao['status'])); ?>
-                                        </span>
-                                    </td>
-                                    <td class="text-right">R$ <?php echo number_format($prospeccao['valor_proposto'] ?? 0, 2, ',', '.'); ?></td>
-                                    <td><?php echo htmlspecialchars($prospeccao['nome_responsavel'] ?? 'N/A'); ?></td>
-                                    <td><?php echo date('d/m/Y', strtotime($prospeccao['data_prospeccao'])); ?></td>
-                                    <td class="text-center">
-                                        <a href="detalhes.php?id=<?php echo $prospeccao['id']; ?>" class="text-blue-600 hover:text-blue-800 font-semibold">Detalhes</a>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
             </div>
-        </div>
-    </section>
+
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                <a href="lista.php" class="bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-400 transition duration-200">Limpar</a>
+                <button type="submit" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-200">Filtrar</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="bg-white overflow-x-auto shadow-md rounded-lg">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prospecto</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lead</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Responsável</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Ações</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                <?php if (empty($prospeccoes)): ?>
+                    <tr>
+                        <td colspan="7" class="px-6 py-4 text-center text-gray-500">Nenhuma prospecção encontrada com os filtros aplicados.</td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($prospeccoes as $prospeccao): ?>
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($prospeccao['nome_prospecto']); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars($prospeccao['nome_cliente'] ?? 'Lead não vinculado'); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                <span class="<?php
+                                    $status = strtolower($prospeccao['status']);
+                                    switch ($status) {
+                                        case 'cliente ativo':
+                                        case 'fechamento':
+                                            echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800';
+                                            break;
+                                        case 'negociação':
+                                        case 'apresentação':
+                                        case 'qualificação':
+                                            echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800';
+                                            break;
+                                        case 'pós-venda':
+                                            echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-slate-100 text-slate-800';
+                                            break;
+                                        case 'perdido':
+                                        case 'descartado':
+                                            echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800';
+                                            break;
+                                        case 'pausar':
+                                            echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800';
+                                            break;
+                                        default:
+                                            echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800';
+                                    }
+                                ?>">
+                                    <?php echo ucfirst($status); ?>
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-600">
+                                <?php echo $prospeccao['valor_previsto'] ? 'R$ ' . number_format($prospeccao['valor_previsto'], 2, ',', '.') : '—'; ?>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars($prospeccao['nome_responsavel'] ?? 'Não atribuído'); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo date('d/m/Y', strtotime($prospeccao['data_prospeccao'])); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-600">
+                                <div class="flex justify-center items-center space-x-3">
+                                    <a href="detalhes.php?id=<?php echo $prospeccao['id']; ?>" class="text-blue-600 hover:text-blue-800 font-semibold">Detalhes</a>
+                                    <a href="editar.php?id=<?php echo $prospeccao['id']; ?>" class="text-green-600 hover:text-green-800 font-semibold">Editar</a>
+                                    <?php if ($user_perfil !== 'vendedor'): ?>
+                                        <a href="excluir.php?id=<?php echo $prospeccao['id']; ?>" class="text-red-600 hover:text-red-800 font-semibold" onclick="return confirm('Tem certeza que deseja excluir esta prospecção?');">Excluir</a>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+
 <?php require_once __DIR__ . '/../../app/views/layouts/crm_end.php'; ?>
