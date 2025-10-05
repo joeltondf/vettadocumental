@@ -3,10 +3,18 @@
 
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
+require_once __DIR__ . '/../../app/utils/LeadCategory.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $cliente_id = filter_input(INPUT_POST, 'cliente_id', FILTER_VALIDATE_INT);
+    $lead_category = $_POST['lead_category'] ?? LeadCategory::DEFAULT;
+    if (!LeadCategory::isValid(is_string($lead_category) ? trim($lead_category) : null)) {
+        $lead_category = LeadCategory::DEFAULT;
+    } else {
+        $lead_category = trim($lead_category);
+    }
+
     $responsavel_id = $_SESSION['user_id'];
     $userPerfil = $_SESSION['user_perfil'] ?? '';
     $data_prospeccao = date('Y-m-d H:i:s');
@@ -52,13 +60,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $pdo->beginTransaction();
     try {
-        $sql = "INSERT INTO prospeccoes (cliente_id, nome_prospecto, data_prospeccao, responsavel_id, feedback_inicial, valor_proposto, status) VALUES (:cliente_id, :nome_prospecto, :data_prospeccao, :responsavel_id, :feedback_inicial, :valor_proposto, :status)";
+        $sql = "INSERT INTO prospeccoes (cliente_id, nome_prospecto, data_prospeccao, responsavel_id, feedback_inicial, valor_proposto, status, leadCategory) VALUES (:cliente_id, :nome_prospecto, :data_prospeccao, :responsavel_id, :feedback_inicial, :valor_proposto, :status, :lead_category)";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
             ':cliente_id' => $cliente_id, ':nome_prospecto' => $nome_prospecto,
             ':data_prospeccao' => $data_prospeccao, ':responsavel_id' => $responsavel_id,
             ':feedback_inicial' => '', ':valor_proposto' => 0,
-            ':status' => 'Cliente ativo'
+            ':status' => 'Cliente ativo', ':lead_category' => $lead_category
         ]);
         $prospeccao_id = $pdo->lastInsertId();
 

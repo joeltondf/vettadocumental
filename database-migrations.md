@@ -79,6 +79,17 @@ UPDATE `processos`
  WHERE `status_processo` IN ('Arquivado','Arquivada','Recusado','Recusada');
 ```
 
+## 6. Ajustes na tabela `prospeccoes`
+
+```sql
+ALTER TABLE `prospeccoes`
+  ADD COLUMN `leadCategory` VARCHAR(60) NOT NULL DEFAULT 'Entrada' AFTER `status`;
+
+UPDATE `prospeccoes`
+   SET `leadCategory` = 'Entrada'
+ WHERE `leadCategory` IS NULL OR `leadCategory` = '';
+```
+
 ## Exemplos de uso
 
 A tabela abaixo demonstra comandos básicos utilizando os novos campos.

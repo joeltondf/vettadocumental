@@ -3,8 +3,10 @@
 
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
+require_once __DIR__ . '/../../app/utils/LeadCategory.php';
 
 try {
+    $leadCategories = LeadCategory::all();
     $userPerfil = $_SESSION['user_perfil'] ?? '';
     $userId = (int)($_SESSION['user_id'] ?? 0);
 
@@ -86,6 +88,17 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                         Novo Lead
                     </a>
                 </div>
+            </div>
+
+            <div>
+                <label for="lead_category" class="block text-sm font-medium text-gray-700">Categoria do Lead</label>
+                <select name="lead_category" id="lead_category" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                    <?php foreach ($leadCategories as $category): ?>
+                        <option value="<?php echo htmlspecialchars($category); ?>" <?php echo $category === LeadCategory::DEFAULT ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($category); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
 
             <div class="flex justify-end pt-4">

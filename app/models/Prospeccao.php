@@ -189,6 +189,7 @@ class Prospeccao
                     p.nome_prospecto,
                     p.valor_proposto,
                     p.status,
+                    p.leadCategory,
                     p.responsavel_id,
                     p.data_ultima_atualizacao,
                     c.nome_cliente,
@@ -273,6 +274,7 @@ class Prospeccao
         $sql = "SELECT
                     p.id,
                     p.nome_prospecto,
+                    p.leadCategory,
                     p.responsavel_id,
                     p.status,
                     p.data_ultima_atualizacao,

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
+require_once __DIR__ . '/../../app/utils/LeadCategory.php';
 
 $pageTitle = "Lista de Prospecções";
 
@@ -173,6 +174,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prospecto</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lead</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoria</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Responsável</th>
@@ -190,6 +192,12 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                         <tr>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($prospeccao['nome_prospecto']); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars($prospeccao['nome_cliente'] ?? 'Lead não vinculado'); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <?php $leadCategory = $prospeccao['leadCategory'] ?? LeadCategory::DEFAULT; ?>
+                                <span class="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+                                    <?php echo htmlspecialchars($leadCategory); ?>
+                                </span>
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                                 <span class="
                                     <?php 

@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
 require_once __DIR__ . '/../../app/models/User.php';
+require_once __DIR__ . '/../../app/utils/LeadCategory.php';
 
 $userModel = new User($pdo);
 
@@ -21,17 +22,7 @@ $channelOptions = [
     'Outro'
 ];
 
-$categoryOptions = [
-    'Entrada',
-    'Qualificado',
-    'Com Orçamento',
-    'Em Negociação',
-    'Cliente Ativo',
-    'Sem Interesse'
-];
-
 $defaultChannel = 'Outro';
-$defaultCategory = 'Entrada';
 
 $assignedOwnerId = $currentUserPerfil === 'vendedor' ? $currentUserId : null;
 $vendors = $currentUserPerfil === 'vendedor' ? [] : $userModel->getActiveVendors();
@@ -61,15 +52,6 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                 </div>
 
                 <div>
-                    <label for="default_category" class="block text-sm font-medium text-gray-700">Categoria padrão</label>
-                    <select id="default_category" name="default_category" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
-                        <?php foreach ($categoryOptions as $category): ?>
-                            <option value="<?php echo htmlspecialchars($category); ?>" <?php echo $category === $defaultCategory ? 'selected' : ''; ?>><?php echo htmlspecialchars($category); ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div>
                     <label for="delimiter" class="block text-sm font-medium text-gray-700">Delimitador</label>
                     <select id="delimiter" name="delimiter" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
                         <option value=";">Ponto e vírgula (;)</option>
@@ -82,6 +64,8 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                     <label for="has_header" class="ml-2 block text-sm text-gray-700">Primeira linha contém cabeçalho</label>
                 </div>
             </div>
+
+            <p class="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-md px-3 py-2">Todos os leads importados serão criados com a categoria padrão "<?php echo htmlspecialchars(LeadCategory::DEFAULT); ?>" e poderão ser atualizados nas prospecções.</p>
 
             <?php if ($currentUserPerfil === 'vendedor'): ?>
                 <input type="hidden" name="assigned_owner" value="<?php echo (int) $assignedOwnerId; ?>" />

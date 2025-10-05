@@ -4,6 +4,7 @@
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
 require_once __DIR__ . '/../../app/utils/PhoneUtils.php';
+require_once __DIR__ . '/../../app/utils/LeadCategory.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -17,7 +18,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email']);
     $telefone = trim($_POST['telefone']);
     $canal_origem = trim($_POST['canal_origem']);
-    $categoria = trim($_POST['categoria']);
     $redirectUrl = $id ? APP_URL . "/crm/clientes/editar_cliente.php?id=$id" : APP_URL . "/crm/clientes/novo.php";
 
     // Validação
@@ -62,14 +62,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit();
             }
 
-            $sql = "UPDATE clientes SET nome_cliente = :nome_cliente, nome_responsavel = :nome_responsavel, email = :email, telefone = :telefone, canal_origem = :canal_origem, categoria = :categoria, is_prospect = :is_prospect WHERE id = :id";
+            $sql = "UPDATE clientes SET nome_cliente = :nome_cliente, nome_responsavel = :nome_responsavel, email = :email, telefone = :telefone, canal_origem = :canal_origem, is_prospect = :is_prospect WHERE id = :id";
             $params = [
                 ':nome_cliente' => $nome_cliente,
                 ':nome_responsavel' => $nome_responsavel,
                 ':email' => $email,
                 ':telefone' => $telefone,
                 ':canal_origem' => $canal_origem,
-                ':categoria' => $categoria,
                 ':is_prospect' => 1,
                 ':id' => $id
             ];
@@ -88,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':email' => $email,
                 ':telefone' => $telefone,
                 ':canal_origem' => $canal_origem,
-                ':categoria' => $categoria,
+                ':categoria' => LeadCategory::DEFAULT,
                 ':is_prospect' => 1,
                 ':crm_owner_id' => $currentUserId
             ];
