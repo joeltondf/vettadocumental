@@ -104,11 +104,13 @@ require_once __DIR__ . '/../layouts/header.php';
     }
 </style>
 
-<div class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-bold text-gray-800"><?php echo $isEdit ? 'Editar Cliente' : 'Cadastrar Novo Cliente'; ?></h1>
-    <a href="<?php echo htmlspecialchars($return_url); ?>" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200 ease-in-out">
-        &larr; Voltar
-    </a>
+<div class="cliente-form-wrapper">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-800"><?php echo $isEdit ? 'Editar Cliente' : 'Cadastrar Novo Cliente'; ?></h1>
+        <a href="<?php echo htmlspecialchars($return_url); ?>" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200 ease-in-out">
+            &larr; Voltar
+        </a>
+    </div>
 </div>
 
 <?php if (isset($_SESSION['error_message'])): ?>
