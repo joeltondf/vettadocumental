@@ -37,6 +37,18 @@ switch ($action) {
     case 'saveSettings':
         $adminController->saveSettings();
         break;
+    case 'tv_panel':
+        $adminController->showTvPanel();
+        break;
+    case 'tv_panel_config':
+        $adminController->showTvPanelConfig();
+        break;
+    case 'save_tv_panel_config':
+        $adminController->saveTvPanelConfig();
+        break;
+    case 'tv_panel_data':
+        $adminController->getTvPanelData();
+        break;
 
     // Rota para a nova página de configurações da Omie
     case 'omie_settings':

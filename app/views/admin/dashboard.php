@@ -68,6 +68,15 @@ require_once __DIR__ . '/../layouts/header.php';
             <i class="fas fa-boxes text-sky-200 text-5xl"></i>
         </div>
     </a>
+    <a href="admin.php?action=tv_panel" class="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow flex flex-col justify-between">
+        <div>
+            <h3 class="text-xl font-bold text-rose-600">Painel de TV</h3>
+            <p class="text-gray-600 mt-2">Visualize todos os processos em tela cheia para monitores corporativos.</p>
+        </div>
+        <div class="text-right mt-4">
+            <i class="fas fa-tv text-rose-200 text-5xl"></i>
+        </div>
+    </a>
     <a href="admin.php?action=smtp_settings" class="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow flex flex-col justify-between">
         <div>
             <h3 class="text-xl font-bold text-red-500">E-mails de Notificação</h3>
