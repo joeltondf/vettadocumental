@@ -28,21 +28,10 @@ foreach ($processes as $processo):
             $fullTitle = htmlspecialchars(mb_strtoupper($processo['titulo'] ?? 'N/A'));
             $shortTitle = htmlspecialchars(mb_strtoupper(mb_strimwidth($processo['titulo'] ?? 'N/A', 0, 25, '...')));
         ?>
-<td class="px-3 py-1 whitespace-nowrap text-xs text-gray-500 truncate">
-    <?php if (!empty($allowLinks) && $allowLinks): ?>
-        <a href="processos.php?action=view&id=<?php echo (int) ($processo['id'] ?? 0); ?>"
-           class="text-blue-600 hover:text-blue-800 hover:underline truncate block"
-           title="<?php echo htmlspecialchars($fullTitle); ?>">
-            <?php echo htmlspecialchars($shortTitle); ?>
-        </a>
-    <?php else: ?>
-        <span class="block truncate text-gray-800"
-              title="<?php echo htmlspecialchars($fullTitle); ?>">
-            <?php echo htmlspecialchars($shortTitle); ?>
+        <span class="block truncate" title="<?php echo $fullTitle; ?>">
+            <?php echo $shortTitle; ?>
         </span>
-    <?php endif; ?>
-</td>
-
+    </td>
     <td class="px-3 py-1 whitespace-nowrap text-xs text-gray-500 truncate" title="<?php echo htmlspecialchars(mb_strtoupper($processo['nome_cliente'] ?? 'N/A')); ?>">
         <?php echo htmlspecialchars(mb_strtoupper(mb_strimwidth($processo['nome_cliente'] ?? 'N/A', 0, 20, '...'))); ?>
     </td>
