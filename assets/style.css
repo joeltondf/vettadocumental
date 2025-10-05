@@ -1,122 +1,132 @@
-.tv-panel-page nav {
-    display: none;
+body.crm-layout {
+    background-color: #f1f5f9;
 }
 
-.tv-panel-page main {
+body.crm-layout .container {
     max-width: 100%;
-    padding: 2rem 3rem;
-    min-height: 100vh;
+    padding-left: 0;
+    padding-right: 0;
 }
 
-.tv-panel-page main > div {
-    padding: 0;
+.crm-shell {
+    width: 95%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem 0 3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
 }
 
-.tv-panel-container {
+.crm-section {
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
-    min-height: calc(100vh - 4rem);
 }
 
-.tv-panel-header {
+.crm-section-header {
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    align-items: flex-start;
-    color: #f8fafc;
+    flex-wrap: wrap;
+    gap: 1rem;
 }
 
-.tv-panel-title h1 {
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.tv-panel-meta {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 0.5rem;
-}
-
-.tv-panel-clock {
-    font-size: 2rem;
+.crm-title {
+    font-size: clamp(1.75rem, 1.6rem + 0.5vw, 2.1rem);
     font-weight: 700;
+    color: #1f2937;
+    margin: 0;
 }
 
-.tv-panel-config-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    border-radius: 9999px;
-    background: rgba(15, 23, 42, 0.4);
-    color: #f8fafc;
+.crm-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.crm-card-grid {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.crm-card-grid--two {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.crm-card-grid--three {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.crm-card-grid--four {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.crm-card {
+    background-color: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 30px 60px -35px rgba(15, 23, 42, 0.45);
+    padding: 1.75rem;
+}
+
+.crm-card--tight {
+    padding: 1.25rem 1.5rem;
+}
+
+.crm-card-title {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
     font-weight: 600;
-    text-decoration: none;
-    transition: background 0.3s ease;
+    color: #1f2937;
+    margin: 0 0 1.25rem 0;
 }
 
-.tv-panel-config-link:hover {
-    background: rgba(148, 163, 184, 0.4);
+.crm-card-subtitle {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #4b5563;
+    margin-bottom: 1rem;
 }
 
-.tv-panel-table-wrapper {
-    flex: 1;
-    overflow: hidden;
-    border-radius: 1rem;
-    background: rgba(15, 23, 42, 0.35);
-    padding: 1rem;
-}
-
-.tv-panel-table-wrapper table {
+.crm-card img,
+.crm-card figure img {
     width: 100%;
-    font-size: 1.05rem;
-    color: #0f172a;
+    border-radius: 12px;
+    object-fit: cover;
 }
 
-.tv-panel-table-wrapper th,
-.tv-panel-table-wrapper td {
-    padding-top: 0.75rem;
-    padding-bottom: 0.75rem;
+.crm-table-wrapper {
+    overflow-x: auto;
 }
 
-.tv-panel-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    color: #cbd5f5;
-    font-size: 1rem;
+.crm-table {
+    width: 100%;
+    border-collapse: collapse;
 }
 
-.tv-panel-empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 60vh;
-    font-size: 2rem;
-    color: #e2e8f0;
+.crm-table th,
+.crm-table td {
+    padding: 0.85rem 1rem;
+    text-align: left;
 }
 
-.tv-panel-portrait {
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
-.tv-panel-landscape {
-    max-width: 1600px;
-    margin: 0 auto;
-}
-
-.tv-panel-page .min-w-full tbody tr td,
-.tv-panel-page .min-w-full thead th {
-    font-size: 1rem;
-}
-
-.tv-panel-page .min-w-full thead th {
-    letter-spacing: 0.08em;
+.crm-table thead th {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #475569;
+    border-bottom: 1px solid #e2e8f0;
     text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
-.tv-panel-page .min-w-full tbody tr td span {
-    font-size: 0.95rem;
+.crm-table tbody tr {
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.crm-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.crm-table tbody tr:hover {
+    background-color: #f8fafc;
 }
