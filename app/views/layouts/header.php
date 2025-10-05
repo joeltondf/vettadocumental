@@ -14,6 +14,7 @@ $notificacaoModel = new Notificacao($pdo);
 
 $theme_color = $configModel->get('theme_color');
 $system_logo = $configModel->get('system_logo');
+$bodyClass = isset($bodyClass) ? trim($bodyClass) : 'bg-slate-100 text-slate-800';
 
 // --- LÓGICA DE PERMISSÕES ---
 $user_perfil = $_SESSION['user_perfil'] ?? 'guest';
