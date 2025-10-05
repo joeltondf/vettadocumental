@@ -1,5 +1,4 @@
 <?php
-$orientationClass = $orientationClass ?? 'tv-panel-portrait';
 $refreshInterval = $settings['refresh_interval'] ?? 60;
 $progressEnabled = !empty($settings['enable_progress_bar']);
 $alertEnabled = !empty($settings['enable_alert_pulse']);
@@ -11,24 +10,25 @@ $colorConfig = [
     'due_soon' => $settings['due_soon_color'] ?? 'bg-yellow-200 text-yellow-800',
     'on_track' => $settings['on_track_color'] ?? 'text-green-600',
 ];
+$theme = $theme ?? ($settings['color_scheme'] ?? 'dark');
+$themeClass = $theme === 'light' ? 'tv-panel-theme-light' : 'tv-panel-theme-dark';
+$tableThemeClass = $theme === 'light' ? 'divide-y divide-gray-200 tv-panel-table' : 'divide-y divide-slate-800 tv-panel-table';
+$theadThemeClass = $theme === 'light' ? 'bg-gray-50 text-gray-600' : 'tv-panel-thead-dark text-slate-200';
+$tbodyThemeClass = $theme === 'light' ? 'bg-white divide-y divide-gray-200' : 'divide-y divide-slate-800 tv-panel-tbody-dark';
+$progressTrackClass = $theme === 'light' ? 'bg-slate-200' : 'bg-slate-800';
+$showRowStatusColors = $theme === 'light';
 ?>
-<div class="tv-panel-container <?php echo htmlspecialchars($orientationClass); ?>" data-tv-panel
+<div class="tv-panel-container <?php echo htmlspecialchars($themeClass); ?>" data-tv-panel
      data-endpoint="<?php echo htmlspecialchars($tvEndpoint); ?>"
      data-refresh-interval="<?php echo (int) $refreshInterval; ?>"
      data-progress-enabled="<?php echo $progressEnabled ? '1' : '0'; ?>"
      data-alert-enabled="<?php echo $alertEnabled ? '1' : '0'; ?>">
-    <header class="tv-panel-header">
-        <div class="tv-panel-title">
-            <h1 class="text-4xl font-extrabold tracking-wide">Painel Operacional</h1>
-            <p class="text-lg opacity-80">Monitoramento em tempo real dos processos ativos</p>
-        </div>
-        <div class="tv-panel-meta">
-            <div class="tv-panel-clock" data-tv-clock></div>
-            <a href="<?php echo APP_URL; ?>/admin.php?action=tv_panel_config" class="tv-panel-config-link">
-                <i class="fas fa-sliders-h mr-2"></i>Configurações
-            </a>
-        </div>
-    </header>
+    <div class="tv-panel-meta-inline">
+        <div class="tv-panel-clock" data-tv-clock></div>
+        <a href="<?php echo APP_URL; ?>/admin.php?action=tv_panel_config" class="tv-panel-config-link">
+            <i class="fas fa-sliders-h mr-2"></i>Configurações
+        </a>
+    </div>
 
     <section class="tv-panel-table-wrapper">
         <?php if (empty($processesForPartial)): ?>

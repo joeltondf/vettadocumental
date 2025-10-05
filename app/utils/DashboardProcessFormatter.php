@@ -13,6 +13,16 @@ class DashboardProcessFormatter
         'no_deadline' => 'text-gray-500',
     ];
 
+    private const DEFAULT_PROGRESS_COLORS = [
+        'overdue' => 'bg-red-500',
+        'due_today' => 'bg-orange-500',
+        'due_soon' => 'bg-yellow-500',
+        'on_track' => 'bg-emerald-500',
+        'completed' => 'bg-emerald-500',
+        'inactive' => 'bg-slate-500',
+        'no_deadline' => 'bg-slate-500',
+    ];
+
     public static function normalizeStatusInfo(?string $status): array
     {
         $normalized = mb_strtolower(trim((string) $status));
@@ -84,6 +94,7 @@ class DashboardProcessFormatter
             'days' => null,
             'progress' => null,
             'deadlineDate' => null,
+            'progress_class' => self::DEFAULT_PROGRESS_COLORS['no_deadline'],
         ];
 
         if ($statusNormalized === 'concluído') {
@@ -91,6 +102,7 @@ class DashboardProcessFormatter
             $descriptor['label'] = 'Concluído para ' . $finalizacaoTipo;
             $descriptor['class'] = $colors['completed'];
             $descriptor['state'] = 'completed';
+            $descriptor['progress_class'] = self::resolveProgressClass($descriptor['class'], $descriptor['state']);
             return $descriptor;
         }
 
@@ -98,6 +110,7 @@ class DashboardProcessFormatter
             $descriptor['label'] = 'N/A';
             $descriptor['class'] = $colors['inactive'];
             $descriptor['state'] = 'inactive';
+            $descriptor['progress_class'] = self::resolveProgressClass($descriptor['class'], $descriptor['state']);
             return $descriptor;
         }
 
@@ -131,6 +144,7 @@ class DashboardProcessFormatter
             $descriptor['state'] = 'on_track';
         }
 
+        $descriptor['progress_class'] = self::resolveProgressClass($descriptor['class'], $descriptor['state']);
         $progress = self::calculateProgressPercentage($process, $deadlineDate);
         $descriptor['progress'] = $progress;
 
@@ -203,6 +217,15 @@ class DashboardProcessFormatter
         $elapsed = $now->getTimestamp() - $start->getTimestamp();
         $progress = (int) round(($elapsed / $total) * 100);
         return max(0, min(100, $progress));
+    }
+
+    private static function resolveProgressClass(string $classList, string $state): string
+    {
+        if (preg_match('/\bbg-[\w-]+\b/u', $classList, $matches) === 1) {
+            return $matches[0];
+        }
+
+        return self::DEFAULT_PROGRESS_COLORS[$state] ?? self::DEFAULT_PROGRESS_COLORS['no_deadline'];
     }
 
     private static function createImmutableDate(string $value): ?DateTimeImmutable

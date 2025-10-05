@@ -40,10 +40,10 @@
                     </select>
                 </div>
                 <div>
-                    <label for="orientation" class="block text-sm font-medium text-gray-700 mb-1">Orientação do monitor</label>
-                    <select id="orientation" name="orientation" class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        <option value="portrait" <?php echo ($settings['orientation'] === 'portrait') ? 'selected' : ''; ?>>Retrato (9×16)</option>
-                        <option value="landscape" <?php echo ($settings['orientation'] === 'landscape') ? 'selected' : ''; ?>>Paisagem (16×9)</option>
+                    <label for="color_scheme" class="block text-sm font-medium text-gray-700 mb-1">Tema do painel</label>
+                    <select id="color_scheme" name="color_scheme" class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="dark" <?php echo ($settings['color_scheme'] === 'dark') ? 'selected' : ''; ?>>Preto (tema escuro)</option>
+                        <option value="light" <?php echo ($settings['color_scheme'] === 'light') ? 'selected' : ''; ?>>Branco (tema claro)</option>
                     </select>
                 </div>
             </div>
