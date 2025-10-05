@@ -96,7 +96,25 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                     $statusAtual = $prospect['status'] ?? '';
                 ?>
                 <div class="flex justify-between items-start mb-6">
-                    <?php $leadResponsavelNome = $prospect['lead_responsavel_nome'] ?? $prospect['nome_prospecto'] ?? ''; ?>
+                    <?php
+                        $leadResponsavelNome = $prospect['lead_responsavel_nome'] ?? $prospect['nome_prospecto'] ?? '';
+                        $budgetParams = [
+                            'prospeccao_id' => $prospect['id'],
+                            'return_to' => 'crm/prospeccoes/detalhes.php?id=' . $prospect['id'],
+                        ];
+
+                        $prospectClientId = $prospect['cliente_id'] ?? null;
+                        if (!empty($prospectClientId)) {
+                            $budgetParams['cliente_id'] = (int) $prospectClientId;
+                        }
+
+                        $prospectTitle = trim((string) ($prospect['nome_prospecto'] ?? ''));
+                        if ($prospectTitle !== '') {
+                            $budgetParams['titulo'] = $prospectTitle;
+                        }
+
+                        $budgetUrl = APP_URL . '/processos.php?action=create&' . http_build_query($budgetParams);
+                    ?>
                     <div>
                         <h2 class="text-2xl font-bold text-gray-900"><?php echo htmlspecialchars($leadNome); ?></h2>
                         <p class="text-sm text-gray-500">Responsável: <span class="font-medium text-indigo-600"><?php echo htmlspecialchars($leadResponsavelNome); ?></span></p>
@@ -111,11 +129,11 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                     </div>
 
                     <div class="flex items-center space-x-2">
-                    <a href="<?php echo APP_URL; ?>/crm/prospeccoes/aprovar.php?id=<?php echo $prospect['id']; ?>" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 shadow-sm">
-                        Aprovar
-                    </a>
+                        <a href="<?php echo htmlspecialchars($budgetUrl); ?>" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 shadow-sm">
+                            Orçamento
+                        </a>
 
-                    <a href="<?php echo APP_URL; ?>/crm/agendamentos/novo_agendamento.php?prospeccao_id=<?php echo $prospect['id']; ?>" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 shadow-sm">
+                        <a href="<?php echo APP_URL; ?>/crm/agendamentos/novo_agendamento.php?prospeccao_id=<?php echo $prospect['id']; ?>" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 shadow-sm">
                             Agendar
                         </a>
                         <?php if (in_array($user_perfil, ['admin', 'gerencia', 'supervisor'])): ?>
