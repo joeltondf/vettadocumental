@@ -2,6 +2,19 @@
 
 As instruções abaixo atualizam o banco de dados para suportar o fluxo de conversão de leads em serviços pendentes.
 
+## 0. Ajustes na tabela `prospeccoes`
+
+```sql
+ALTER TABLE `prospeccoes`
+  ADD COLUMN `leadCategory` VARCHAR(50) NOT NULL DEFAULT 'Entrada' AFTER `status`;
+
+UPDATE `prospeccoes` p
+LEFT JOIN `clientes` c ON c.`id` = p.`cliente_id`
+   SET p.`leadCategory` = COALESCE(c.`categoria`, 'Entrada')
+ WHERE p.`leadCategory` = 'Entrada';
+```
+
+
 ## 1. Ajustes na tabela `clientes`
 
 ```sql
@@ -109,6 +122,11 @@ UPDATE `processos`
        `orcamento_valor_entrada` = 1500.00,
        `comprovante_pagamento_1` = 'uploads/comprovantes/comprovante_1.pdf'
  WHERE `id` = 42;
+
+-- UPDATE: ajuste da categoria da prospecção conforme evolução do lead
+UPDATE `prospeccoes`
+   SET `leadCategory` = 'Em Negociação'
+ WHERE `id` = 25;
 
 -- DELETE: desativação lógica de serviço mensalista
 UPDATE `cliente_servicos_mensalistas`

@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email']);
     $telefone = trim($_POST['telefone']);
     $canal_origem = trim($_POST['canal_origem']);
-    $categoria = trim($_POST['categoria']);
+    $leadCategory = 'Entrada';
     $redirectUrl = $id ? APP_URL . "/crm/clientes/editar_cliente.php?id=$id" : APP_URL . "/crm/clientes/novo.php";
 
     // Validação
@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         if ($id) {
-            $stmtCheckProspect = $pdo->prepare("SELECT is_prospect, crmOwnerId FROM clientes WHERE id = :id");
+            $stmtCheckProspect = $pdo->prepare("SELECT is_prospect, crmOwnerId, categoria FROM clientes WHERE id = :id");
             $stmtCheckProspect->execute([':id' => $id]);
             $clienteExistente = $stmtCheckProspect->fetch(PDO::FETCH_ASSOC);
 
@@ -56,6 +56,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit();
             }
 
+            if (!empty($clienteExistente['categoria'])) {
+                $leadCategory = $clienteExistente['categoria'];
+            }
+
             if ((int) ($clienteExistente['is_prospect'] ?? 0) !== 1) {
                 $_SESSION['error_message'] = "Este lead já foi convertido em cliente e deve ser gerenciado pelo sistema principal.";
                 header('Location: ' . APP_URL . '/crm/clientes/lista.php');
@@ -69,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':email' => $email,
                 ':telefone' => $telefone,
                 ':canal_origem' => $canal_origem,
-                ':categoria' => $categoria,
+                ':categoria' => $leadCategory,
                 ':is_prospect' => 1,
                 ':id' => $id
             ];
@@ -88,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':email' => $email,
                 ':telefone' => $telefone,
                 ':canal_origem' => $canal_origem,
-                ':categoria' => $categoria,
+                ':categoria' => $leadCategory,
                 ':is_prospect' => 1,
                 ':crm_owner_id' => $currentUserId
             ];

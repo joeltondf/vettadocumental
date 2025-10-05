@@ -21,17 +21,7 @@ $channelOptions = [
     'Outro'
 ];
 
-$categoryOptions = [
-    'Entrada',
-    'Qualificado',
-    'Com Orçamento',
-    'Em Negociação',
-    'Cliente Ativo',
-    'Sem Interesse'
-];
-
 $defaultChannel = 'Outro';
-$defaultCategory = 'Entrada';
 
 $assignedOwnerId = $currentUserPerfil === 'vendedor' ? $currentUserId : null;
 $vendors = $currentUserPerfil === 'vendedor' ? [] : $userModel->getActiveVendors();
@@ -59,15 +49,6 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                     <select id="default_channel" name="default_channel" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
                         <?php foreach ($channelOptions as $channel): ?>
                             <option value="<?php echo htmlspecialchars($channel); ?>" <?php echo $channel === $defaultChannel ? 'selected' : ''; ?>><?php echo htmlspecialchars($channel); ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div>
-                    <label for="default_category" class="block text-sm font-medium text-gray-700">Categoria padrão</label>
-                    <select id="default_category" name="default_category" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
-                        <?php foreach ($categoryOptions as $category): ?>
-                            <option value="<?php echo htmlspecialchars($category); ?>" <?php echo $category === $defaultCategory ? 'selected' : ''; ?>><?php echo htmlspecialchars($category); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>

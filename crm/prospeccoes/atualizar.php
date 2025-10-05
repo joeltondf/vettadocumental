@@ -38,14 +38,22 @@ try {
 
     } elseif ($action === 'update_prospect') {
 
+        $allowedLeadCategories = ['Entrada', 'Qualificado', 'Com Orçamento', 'Em Negociação', 'Cliente Ativo', 'Sem Interesse'];
+        $leadCategory = $_POST['lead_category'] ?? 'Entrada';
+        if (!in_array($leadCategory, $allowedLeadCategories, true)) {
+            $leadCategory = 'Entrada';
+        }
+
         $new_data = [
             'data_reuniao_agendada' => !empty($_POST['data_reuniao_agendada']) ? $_POST['data_reuniao_agendada'] : null,
-            'reuniao_compareceu' => isset($_POST['reuniao_compareceu']) ? 1 : 0
+            'reuniao_compareceu' => isset($_POST['reuniao_compareceu']) ? 1 : 0,
+            'lead_category' => $leadCategory
         ];
 
         $sql_update = "UPDATE prospeccoes SET
                             data_reuniao_agendada = :data_reuniao_agendada,
-                            reuniao_compareceu = :reuniao_compareceu
+                            reuniao_compareceu = :reuniao_compareceu,
+                            leadCategory = :lead_category
                         WHERE id = :id";
         $stmt_update = $pdo->prepare($sql_update);
         $stmt_update->execute(array_merge($new_data, ['id' => $prospeccao_id]));

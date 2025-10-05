@@ -35,23 +35,9 @@ $channelOptions = [
     'Outro'
 ];
 
-$categoryOptions = [
-    'Entrada',
-    'Qualificado',
-    'Com Orçamento',
-    'Em Negociação',
-    'Cliente Ativo',
-    'Sem Interesse'
-];
-
 $defaultChannel = $_POST['default_channel'] ?? 'Outro';
 if (!in_array($defaultChannel, $channelOptions, true)) {
     $defaultChannel = 'Outro';
-}
-
-$defaultCategory = $_POST['default_category'] ?? 'Entrada';
-if (!in_array($defaultCategory, $categoryOptions, true)) {
-    $defaultCategory = 'Entrada';
 }
 
 $delimiter = $_POST['delimiter'] ?? ';';
@@ -160,7 +146,7 @@ try {
             ':email' => $email !== '' ? $email : null,
             ':telefone' => $telefoneRaw !== '' ? $telefoneRaw : null,
             ':canal_origem' => $defaultChannel,
-            ':categoria' => $defaultCategory,
+            ':categoria' => 'Entrada',
             ':crm_owner_id' => $assignedOwnerId,
         ]);
 

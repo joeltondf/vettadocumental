@@ -173,6 +173,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prospecto</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lead</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoria do Lead</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Responsável</th>
@@ -183,13 +184,14 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
             <tbody class="bg-white divide-y divide-gray-200">
                 <?php if (empty($prospeccoes)): ?>
                     <tr>
-                        <td colspan="7" class="px-6 py-4 text-center text-gray-500">Nenhuma prospecção encontrada com os filtros aplicados.</td>
+                        <td colspan="8" class="px-6 py-4 text-center text-gray-500">Nenhuma prospecção encontrada com os filtros aplicados.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($prospeccoes as $prospeccao): ?>
                         <tr>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($prospeccao['nome_prospecto']); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars($prospeccao['nome_cliente'] ?? 'Lead não vinculado'); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars($prospeccao['leadCategory'] ?? 'Entrada'); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                                 <span class="
                                     <?php 

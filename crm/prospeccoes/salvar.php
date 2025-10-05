@@ -52,13 +52,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $pdo->beginTransaction();
     try {
-        $sql = "INSERT INTO prospeccoes (cliente_id, nome_prospecto, data_prospeccao, responsavel_id, feedback_inicial, valor_proposto, status) VALUES (:cliente_id, :nome_prospecto, :data_prospeccao, :responsavel_id, :feedback_inicial, :valor_proposto, :status)";
+        $sql = "INSERT INTO prospeccoes (cliente_id, nome_prospecto, data_prospeccao, responsavel_id, feedback_inicial, valor_proposto, status, leadCategory) VALUES (:cliente_id, :nome_prospecto, :data_prospeccao, :responsavel_id, :feedback_inicial, :valor_proposto, :status, :lead_category)";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
             ':cliente_id' => $cliente_id, ':nome_prospecto' => $nome_prospecto,
             ':data_prospeccao' => $data_prospeccao, ':responsavel_id' => $responsavel_id,
             ':feedback_inicial' => '', ':valor_proposto' => 0,
-            ':status' => 'Cliente ativo'
+            ':status' => 'Cliente ativo', ':lead_category' => 'Entrada'
         ]);
         $prospeccao_id = $pdo->lastInsertId();
 
