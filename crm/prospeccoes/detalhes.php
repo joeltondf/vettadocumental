@@ -3,6 +3,7 @@
 
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
+require_once __DIR__ . '/../../app/utils/LeadCategory.php';
 
 $user_perfil = $_SESSION['user_perfil'];
 $prospeccao_id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
@@ -51,6 +52,9 @@ try {
         exit;
     }
 
+    $leadCategories = LeadCategory::all();
+    $currentLeadCategory = $prospect['leadCategory'] ?? LeadCategory::DEFAULT;
+
     // A busca de interações também está correta
     $stmt_interacoes = $pdo->prepare("
         SELECT i.observacao, i.data_interacao, i.tipo, u.nome_completo AS usuario_nome 
@@ -88,15 +92,16 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                     $clienteTelefone = $prospect['cliente_telefone'] ?? '';
                     $canalOrigem = $prospect['cliente_canal_origem'] ?? '';
                     $statusAtual = $prospect['status'] ?? '';
+                    $leadCategory = $currentLeadCategory;
                 ?>
                 <div class="flex justify-between items-start mb-6">
-                    <?php $leadResponsavelNome = $prospect['lead_responsavel_nome'] ?? $prospect['nome_prospecto'] ?? ''; ?>
                     <div>
                         <h2 class="text-2xl font-bold text-gray-900"><?php echo htmlspecialchars($leadNome); ?></h2>
                         <p class="text-sm text-gray-500">Responsável: <span class="font-medium text-indigo-600"><?php echo htmlspecialchars($leadResponsavelNome); ?></span></p>
                         <?php if (!empty($statusAtual)): ?>
                             <span class="inline-flex mt-2 items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800 uppercase tracking-wide"><?php echo htmlspecialchars($statusAtual); ?></span>
                         <?php endif; ?>
+                        <span class="inline-flex mt-2 items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700"><?php echo htmlspecialchars($leadCategory); ?></span>
                     </div>
 
                     <div class="flex items-center space-x-2">
@@ -141,6 +146,10 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Origem da Chamada</label>
                             <input type="text" value="<?php echo htmlspecialchars($canalOrigem); ?>" class="mt-1 block w-full border border-gray-200 rounded-md shadow-sm py-2 px-3 bg-white text-gray-700" disabled>
                         </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Categoria do Lead</label>
+                            <input type="text" value="<?php echo htmlspecialchars($leadCategory); ?>" class="mt-1 block w-full border border-gray-200 rounded-md shadow-sm py-2 px-3 bg-white text-gray-700" disabled>
+                        </div>
                     </div>
                 </div>
 
@@ -148,6 +157,16 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                     <input type="hidden" name="prospeccao_id" value="<?php echo $prospect['id']; ?>">
                     <input type="hidden" name="action" value="update_prospect">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="lead_category" class="block text-sm font-medium text-gray-700">Categoria do Lead</label>
+                            <select name="lead_category" id="lead_category" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                                <?php foreach ($leadCategories as $category): ?>
+                                    <option value="<?php echo htmlspecialchars($category); ?>" <?php echo $category === $leadCategory ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($category); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
                         <div>
                             <label for="data_reuniao_agendada" class="block text-sm font-medium text-gray-700">Data da Reunião</label>
                             <input type="datetime-local" name="data_reuniao_agendada" id="data_reuniao_agendada" value="<?php echo !empty($prospect['data_reuniao_agendada']) ? htmlspecialchars(formatSaoPauloDate($prospect['data_reuniao_agendada'], 'Y-m-d\TH:i')) : ''; ?>" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">

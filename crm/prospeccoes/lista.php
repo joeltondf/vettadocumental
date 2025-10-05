@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
+require_once __DIR__ . '/../../app/utils/LeadCategory.php';
 
 $pageTitle = "Lista de Prospecções";
 $bodyClass = 'crm-layout';
@@ -150,21 +151,87 @@ require_once __DIR__ . '/../../app/views/layouts/crm_start.php';
                 </div>
             </form>
         </div>
-    </section>
-    <section class="crm-section">
-        <div class="crm-card crm-card--tight">
-            <h2 class="crm-card-title">Resultado</h2>
-            <div class="crm-table-wrapper">
-                <table class="crm-table">
-                    <thead>
+    </form>
+</div>
+
+
+
+    <div class="bg-white overflow-x-auto shadow-md rounded-lg">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prospecto</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lead</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoria</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Responsável</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Ações</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                <?php if (empty($prospeccoes)): ?>
+                    <tr>
+                        <td colspan="7" class="px-6 py-4 text-center text-gray-500">Nenhuma prospecção encontrada com os filtros aplicados.</td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($prospeccoes as $prospeccao): ?>
                         <tr>
-                            <th>Prospecto</th>
-                            <th>Lead</th>
-                            <th>Status</th>
-                            <th class="text-right">Valor</th>
-                            <th>Responsável</th>
-                            <th>Data</th>
-                            <th class="text-center">Ações</th>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($prospeccao['nome_prospecto']); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars($prospeccao['nome_cliente'] ?? 'Lead não vinculado'); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <?php $leadCategory = $prospeccao['leadCategory'] ?? LeadCategory::DEFAULT; ?>
+                                <span class="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+                                    <?php echo htmlspecialchars($leadCategory); ?>
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                <span class="
+                                    <?php 
+                                        $status = strtolower($prospeccao['status']); // Converte para minúsculo para garantir que a comparação seja feita de forma insensível ao caso
+
+                                        switch ($status) {
+                                            case 'cliente ativo':
+                                                echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800';
+                                                break;
+                                            case 'primeiro contato':
+                                                echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800';
+                                                break;
+                                            case 'segundo contato':
+                                                echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800';
+                                                break;
+                                            case 'terceiro contato':
+                                                echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-indigo-100 text-indigo-800';
+                                                break;
+                                            case 'reunião agendada':
+                                                echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800';
+                                                break;
+                                            case 'proposta enviada':
+                                                echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-teal-100 text-teal-800';
+                                                break;
+                                            case 'fechamento':
+                                                echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800';
+                                                break;
+                                            case 'pausar':
+                                                echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800';
+                                                break;
+                                            default:
+                                                echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800';
+                                                break;
+                                        }
+                                    ?>
+                                ">
+                                    <?php echo htmlspecialchars(ucfirst($prospeccao['status'])); ?>
+                                </span>
+                            </td>
+
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-600">R$ <?php echo number_format($prospeccao['valor_proposto'] ?? 0, 2, ',', '.'); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars($prospeccao['nome_responsavel'] ?? 'N/A'); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo date('d/m/Y', strtotime($prospeccao['data_prospeccao'])); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
+                                <a href="detalhes.php?id=<?php echo $prospeccao['id']; ?>" class="text-indigo-600 hover:text-indigo-900">Detalhes</a>
+                            </td>
                         </tr>
                     </thead>
                     <tbody>

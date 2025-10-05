@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
+require_once __DIR__ . '/../../app/utils/LeadCategory.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: ' . APP_URL . '/crm/clientes/lista.php');
@@ -35,24 +36,12 @@ $channelOptions = [
     'Outro'
 ];
 
-$categoryOptions = [
-    'Entrada',
-    'Qualificado',
-    'Com Orçamento',
-    'Em Negociação',
-    'Cliente Ativo',
-    'Sem Interesse'
-];
-
 $defaultChannel = $_POST['default_channel'] ?? 'Outro';
 if (!in_array($defaultChannel, $channelOptions, true)) {
     $defaultChannel = 'Outro';
 }
 
-$defaultCategory = $_POST['default_category'] ?? 'Entrada';
-if (!in_array($defaultCategory, $categoryOptions, true)) {
-    $defaultCategory = 'Entrada';
-}
+$defaultCategory = LeadCategory::DEFAULT;
 
 $delimiter = $_POST['delimiter'] ?? ';';
 $allowedDelimiters = [';', ',', '\t'];

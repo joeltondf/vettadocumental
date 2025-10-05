@@ -3,8 +3,10 @@
 
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
+require_once __DIR__ . '/../../app/utils/LeadCategory.php';
 
 try {
+    $leadCategories = LeadCategory::all();
     $userPerfil = $_SESSION['user_perfil'] ?? '';
     $userId = (int)($_SESSION['user_id'] ?? 0);
 
@@ -64,10 +66,20 @@ require_once __DIR__ . '/../../app/views/layouts/crm_start.php';
             </div>
         <?php endif; ?>
 
-        <?php if (empty($clientes)): ?>
-            <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-700">
-                <p class="font-semibold">Nenhum lead encontrado!</p>
-                <p>Você precisa cadastrar um lead antes. <a href="<?php echo APP_URL; ?>/crm/clientes/novo.php" class="font-semibold underline hover:text-amber-800">Clique aqui para cadastrar.</a></p>
+            <div>
+                <label for="lead_category" class="block text-sm font-medium text-gray-700">Categoria do Lead</label>
+                <select name="lead_category" id="lead_category" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                    <?php foreach ($leadCategories as $category): ?>
+                        <option value="<?php echo htmlspecialchars($category); ?>" <?php echo $category === LeadCategory::DEFAULT ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($category); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="flex justify-end pt-4">
+                <a href="<?php echo APP_URL; ?>/crm/prospeccoes/lista.php" class="bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded hover:bg-gray-300 mr-3">Cancelar</a>
+                <button type="submit" class="bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700">Salvar Prospecção</button>
             </div>
         <?php else: ?>
             <form action="<?php echo APP_URL; ?>/crm/prospeccoes/salvar.php" method="POST" id="form-nova-prospeccao" class="space-y-6 mt-6">
