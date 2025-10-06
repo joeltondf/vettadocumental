@@ -143,7 +143,7 @@ class ClientesController
                 $data['nome_responsavel'] = $data['nome_cliente'];
             }
 
-            $validationErrors = $this->validateClientData($data);
+            $validationErrors = $this->validateClientData($data, true);
             if (!empty($validationErrors)) {
                 $_SESSION['error_message'] = implode('<br>', $validationErrors);
                 $this->rememberClientFormInput($_POST);
@@ -276,7 +276,7 @@ class ClientesController
         }
     }
 
-    private function validateClientData(array $data): array
+    private function validateClientData(array $data, bool $requirePhone = false): array
     {
         $errors = [];
         $tipoPessoa = $data['tipo_pessoa'] ?? 'Jurídica';
@@ -338,6 +338,13 @@ class ClientesController
         if ($cidade !== '' && preg_match('/^[A-Z]{2}$/', $estado)) {
             if (!$this->isValidCityFromApi($cidade, $estado, $allowCityValidationFallback)) {
                 $errors[] = 'Selecione uma cidade válida da lista.';
+            }
+        }
+
+        if ($requirePhone) {
+            $telefone = trim((string) ($data['telefone'] ?? ''));
+            if ($telefone === '') {
+                $errors[] = 'Informe o telefone.';
             }
         }
 
