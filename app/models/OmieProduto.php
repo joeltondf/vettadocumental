@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 class OmieProduto
 {
-    private const TABLE_NAME = 'omie_produtos';
-
     private PDO $pdo;
-    private array $columnExistsCache = [];
 
     public function __construct(PDO $pdo)
     {
@@ -54,73 +51,84 @@ class OmieProduto
             $unidade = $unidade ?? $this->normalizeString($existing['unidade'] ?? null);
             $valorUnitario = $valorUnitario ?? $this->normalizeDecimal($existing['valor_unitario'] ?? null);
             $ativo = $hasAtivo ? ($ativo ?? 0) : (int)($existing['ativo'] ?? 1);
-            $columnsToUpdate = $this->filterAvailableColumns([
-                'descricao' => $descricao,
-                'codigo' => $codigo,
-                'codigo_produto' => $codigoProduto,
-                'codigo_integracao' => $codigoIntegracao,
-                'cfop' => $cfop,
-                'codigo_servico_municipal' => $codigoServicoMunicipal,
-                'ncm' => $ncm,
-                'unidade' => $unidade,
-                'valor_unitario' => $valorUnitario,
-                'local_produto_id' => $localProductId,
-                'ativo' => $ativo ?? 1,
-            ]);
 
-            $setClauses = [];
-            $params = [];
-
-            foreach ($columnsToUpdate as $column => $value) {
-                $placeholder = ':' . $column;
-                $setClauses[] = $column . ' = ' . $placeholder;
-                $params[$placeholder] = $value;
-            }
-
-            if (!$setClauses) {
-                return;
-            }
-
-            $params[':id'] = (int)$existing['id'];
-
-            $updateSql = 'UPDATE ' . self::TABLE_NAME . ' SET ' . implode(', ', $setClauses) . ' WHERE id = :id';
+            $updateSql = <<<SQL
+                UPDATE omie_produtos
+                SET descricao = :descricao,
+                    codigo = :codigo,
+                    codigo_produto = :codigo_produto,
+                    codigo_integracao = :codigo_integracao,
+                    cfop = :cfop,
+                    codigo_servico_municipal = :codigo_servico_municipal,
+                    ncm = :ncm,
+                    unidade = :unidade,
+                    valor_unitario = :valor_unitario,
+                    local_produto_id = :local_produto_id,
+                    ativo = :ativo
+                WHERE id = :id
+            SQL;
 
             $stmt = $this->pdo->prepare($updateSql);
-            $stmt->execute($params);
+            $stmt->execute([
+                ':descricao' => $descricao,
+                ':codigo' => $codigo,
+                ':codigo_produto' => $codigoProduto,
+                ':codigo_integracao' => $codigoIntegracao,
+                ':cfop' => $cfop,
+                ':codigo_servico_municipal' => $codigoServicoMunicipal,
+                ':ncm' => $ncm,
+                ':unidade' => $unidade,
+                ':valor_unitario' => $valorUnitario,
+                ':local_produto_id' => $localProductId,
+                ':ativo' => $ativo ?? 1,
+                ':id' => (int)$existing['id'],
+            ]);
 
             return;
         }
 
-        $columnsToInsert = $this->filterAvailableColumns([
-            'descricao' => $descricao,
-            'codigo' => $codigo,
-            'codigo_produto' => $codigoProduto,
-            'codigo_integracao' => $codigoIntegracao,
-            'cfop' => $cfop,
-            'codigo_servico_municipal' => $codigoServicoMunicipal,
-            'ncm' => $ncm,
-            'unidade' => $unidade,
-            'valor_unitario' => $valorUnitario,
-            'local_produto_id' => $localProductId,
-            'ativo' => $hasAtivo ? ($ativo ?? 0) : 1,
-        ]);
-
-        $columns = array_keys($columnsToInsert);
-        if (!$columns) {
-            throw new RuntimeException('Nenhuma coluna disponível para inserir em omie_produtos.');
-        }
-        $placeholders = array_map(static fn(string $column): string => ':' . $column, $columns);
-
-        $insertSql = 'INSERT INTO ' . self::TABLE_NAME
-            . ' (' . implode(', ', $columns) . ') VALUES (' . implode(', ', $placeholders) . ')';
-
-        $params = [];
-        foreach ($columns as $index => $column) {
-            $params[$placeholders[$index]] = $columnsToInsert[$column];
-        }
+        $insertSql = <<<SQL
+            INSERT INTO omie_produtos (
+                descricao,
+                codigo,
+                codigo_produto,
+                codigo_integracao,
+                cfop,
+                codigo_servico_municipal,
+                ncm,
+                unidade,
+                valor_unitario,
+                local_produto_id,
+                ativo
+            ) VALUES (
+                :descricao,
+                :codigo,
+                :codigo_produto,
+                :codigo_integracao,
+                :cfop,
+                :codigo_servico_municipal,
+                :ncm,
+                :unidade,
+                :valor_unitario,
+                :local_produto_id,
+                :ativo
+            )
+        SQL;
 
         $stmt = $this->pdo->prepare($insertSql);
-        $stmt->execute($params);
+        $stmt->execute([
+            ':descricao' => $descricao,
+            ':codigo' => $codigo,
+            ':codigo_produto' => $codigoProduto,
+            ':codigo_integracao' => $codigoIntegracao,
+            ':cfop' => $cfop,
+            ':codigo_servico_municipal' => $codigoServicoMunicipal,
+            ':ncm' => $ncm,
+            ':unidade' => $unidade,
+            ':valor_unitario' => $valorUnitario,
+            ':local_produto_id' => $localProductId,
+            ':ativo' => $hasAtivo ? ($ativo ?? 0) : 1,
+        ]);
     }
 
     public function findByLocalProductId(int $localProductId): ?array
@@ -165,10 +173,6 @@ class OmieProduto
 
     public function findByCodigo(string $codigo): ?array
     {
-        if (!$this->hasColumn('codigo')) {
-            return null;
-        }
-
         $stmt = $this->pdo->prepare('SELECT * FROM omie_produtos WHERE codigo = :codigo LIMIT 1');
         $stmt->execute([':codigo' => $codigo]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -192,39 +196,36 @@ class OmieProduto
 
     public function updateById(int $id, array $data): bool
     {
-        $columnsToUpdate = $this->filterAvailableColumns([
-            'descricao' => $this->normalizeString($data['descricao'] ?? ''),
-            'codigo' => $this->normalizeProductCode($data['codigo'] ?? null),
-            'codigo_produto' => $this->normalizeString($data['codigo_produto'] ?? null),
-            'codigo_integracao' => $this->normalizeString($data['codigo_integracao'] ?? null),
-            'cfop' => $this->normalizeString($data['cfop'] ?? null),
-            'codigo_servico_municipal' => $this->normalizeMunicipalCode($data['codigo_servico_municipal'] ?? null),
-            'ncm' => $this->normalizeNcm($data['ncm'] ?? null),
-            'unidade' => $this->normalizeString($data['unidade'] ?? null),
-            'valor_unitario' => $this->normalizeDecimal($data['valor_unitario'] ?? null),
-            'ativo' => isset($data['ativo']) ? (int)$data['ativo'] : 0,
-        ]);
-
-        $setClauses = [];
-        $params = [];
-
-        foreach ($columnsToUpdate as $column => $value) {
-            $placeholder = ':' . $column;
-            $setClauses[] = $column . ' = ' . $placeholder;
-            $params[$placeholder] = $value;
-        }
-
-        if (!$setClauses) {
-            return false;
-        }
-
-        $params[':id'] = $id;
-
-        $sql = 'UPDATE ' . self::TABLE_NAME . ' SET ' . implode(', ', $setClauses) . ' WHERE id = :id';
+        $sql = <<<SQL
+            UPDATE omie_produtos
+            SET descricao = :descricao,
+                codigo = :codigo,
+                codigo_produto = :codigo_produto,
+                codigo_integracao = :codigo_integracao,
+                cfop = :cfop,
+                codigo_servico_municipal = :codigo_servico_municipal,
+                ncm = :ncm,
+                unidade = :unidade,
+                valor_unitario = :valor_unitario,
+                ativo = :ativo
+            WHERE id = :id
+        SQL;
 
         $stmt = $this->pdo->prepare($sql);
 
-        return $stmt->execute($params);
+        return $stmt->execute([
+            ':descricao' => $this->normalizeString($data['descricao'] ?? ''),
+            ':codigo' => $this->normalizeProductCode($data['codigo'] ?? null),
+            ':codigo_produto' => $this->normalizeString($data['codigo_produto'] ?? null),
+            ':codigo_integracao' => $this->normalizeString($data['codigo_integracao'] ?? null),
+            ':cfop' => $this->normalizeString($data['cfop'] ?? null),
+            ':codigo_servico_municipal' => $this->normalizeMunicipalCode($data['codigo_servico_municipal'] ?? null),
+            ':ncm' => $this->normalizeNcm($data['ncm'] ?? null),
+            ':unidade' => $this->normalizeString($data['unidade'] ?? null),
+            ':valor_unitario' => $this->normalizeDecimal($data['valor_unitario'] ?? null),
+            ':ativo' => isset($data['ativo']) ? (int)$data['ativo'] : 0,
+            ':id' => $id,
+        ]);
     }
 
     private function resolveExistingProduct(
@@ -354,33 +355,5 @@ class OmieProduto
         }
 
         return $id > 0 ? $id : null;
-    }
-
-    private function hasColumn(string $column): bool
-    {
-        if (array_key_exists($column, $this->columnExistsCache)) {
-            return $this->columnExistsCache[$column];
-        }
-
-        $safeTable = str_replace('`', '``', self::TABLE_NAME);
-        $stmt = $this->pdo->prepare("SHOW COLUMNS FROM `{$safeTable}` LIKE :column");
-        $stmt->execute(['column' => $column]);
-
-        $this->columnExistsCache[$column] = (bool)$stmt->fetch(PDO::FETCH_ASSOC);
-
-        return $this->columnExistsCache[$column];
-    }
-
-    private function filterAvailableColumns(array $values): array
-    {
-        $available = [];
-
-        foreach ($values as $column => $value) {
-            if ($this->hasColumn($column)) {
-                $available[$column] = $value;
-            }
-        }
-
-        return $available;
     }
 }
