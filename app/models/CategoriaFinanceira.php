@@ -161,23 +161,18 @@ class CategoriaFinanceira
 
         $where = implode(' AND ', $whereClauses);
 
-        $latestOmieMetadata = <<<SQL
-            SELECT op_inner.*
-            FROM omie_produtos op_inner
-            INNER JOIN (
-                SELECT local_produto_id, MAX(id) AS latest_id
-                FROM omie_produtos
-                GROUP BY local_produto_id
-            ) latest ON latest.latest_id = op_inner.id
-        SQL;
-
         $sql = <<<SQL
             SELECT
                 {$selectColumns}
             FROM categorias_financeiras cf
-            LEFT JOIN (
-                {$latestOmieMetadata}
-            ) op ON op.local_produto_id = cf.id
+            LEFT JOIN omie_produtos op
+                ON op.id = (
+                    SELECT op_inner.id
+                    FROM omie_produtos op_inner
+                    WHERE op_inner.local_produto_id = cf.id
+                    ORDER BY op_inner.id DESC
+                    LIMIT 1
+                )
             WHERE {$where}
             ORDER BY cf.nome_categoria
         SQL;

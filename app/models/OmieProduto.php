@@ -37,97 +37,53 @@ class OmieProduto
             : null;
         $ativo = $hasAtivo ? (int)$data['ativo'] : null;
 
-        $existing = $this->resolveExistingProduct($localProductId, $codigoProduto, $codigoIntegracao, $codigo);
+        $existing = null;
+        if ($localProductId !== null) {
+            $existing = $this->findByLocalProductId($localProductId);
+        }
 
-        if ($existing) {
-            $localProductId = $localProductId ?? $this->normalizeLocalProductId($existing['local_produto_id'] ?? null);
-            $codigo = $codigo ?? $this->normalizeProductCode($existing['codigo'] ?? null);
-            $codigoProduto = $codigoProduto ?? $this->normalizeString($existing['codigo_produto'] ?? null);
-            $codigoIntegracao = $codigoIntegracao ?? $this->normalizeString($existing['codigo_integracao'] ?? null);
-            $cfop = $cfop ?? $this->normalizeString($existing['cfop'] ?? null);
-            $codigoServicoMunicipal = $codigoServicoMunicipal
-                ?? $this->normalizeMunicipalCode($existing['codigo_servico_municipal'] ?? null);
-            $ncm = $ncm ?? $this->normalizeNcm($existing['ncm'] ?? null);
-            $unidade = $unidade ?? $this->normalizeString($existing['unidade'] ?? null);
-            $valorUnitario = $valorUnitario ?? $this->normalizeDecimal($existing['valor_unitario'] ?? null);
-            $ativo = $hasAtivo ? ($ativo ?? 0) : (int)($existing['ativo'] ?? 1);
+        if ($existing === null) {
+            $existing = $this->resolveExistingProduct($localProductId, $codigoProduto, $codigoIntegracao, $codigo);
+        }
 
-            $updateSql = <<<SQL
-                UPDATE omie_produtos
-                SET descricao = :descricao,
-                    codigo = :codigo,
-                    codigo_produto = :codigo_produto,
-                    codigo_integracao = :codigo_integracao,
-                    cfop = :cfop,
-                    codigo_servico_municipal = :codigo_servico_municipal,
-                    ncm = :ncm,
-                    unidade = :unidade,
-                    valor_unitario = :valor_unitario,
-                    local_produto_id = :local_produto_id,
-                    ativo = :ativo
-                WHERE id = :id
-            SQL;
+        $persistenceData = $this->buildPersistencePayload([
+            'descricao' => $descricao,
+            'codigo' => $codigo,
+            'codigo_produto' => $codigoProduto,
+            'codigo_integracao' => $codigoIntegracao,
+            'cfop' => $cfop,
+            'codigo_servico_municipal' => $codigoServicoMunicipal,
+            'ncm' => $ncm,
+            'unidade' => $unidade,
+            'valor_unitario' => $valorUnitario,
+            'local_produto_id' => $localProductId,
+            'ativo' => $ativo,
+        ], $existing);
 
-            $stmt = $this->pdo->prepare($updateSql);
-            $stmt->execute([
-                ':descricao' => $descricao,
-                ':codigo' => $codigo,
-                ':codigo_produto' => $codigoProduto,
-                ':codigo_integracao' => $codigoIntegracao,
-                ':cfop' => $cfop,
-                ':codigo_servico_municipal' => $codigoServicoMunicipal,
-                ':ncm' => $ncm,
-                ':unidade' => $unidade,
-                ':valor_unitario' => $valorUnitario,
-                ':local_produto_id' => $localProductId,
-                ':ativo' => $ativo ?? 1,
-                ':id' => (int)$existing['id'],
-            ]);
+        if ($localProductId !== null) {
+            $this->updateOrCreate(
+                ['local_produto_id' => $localProductId],
+                $persistenceData,
+                $existing
+            );
 
             return;
         }
 
-        $insertSql = <<<SQL
-            INSERT INTO omie_produtos (
-                descricao,
-                codigo,
-                codigo_produto,
-                codigo_integracao,
-                cfop,
-                codigo_servico_municipal,
-                ncm,
-                unidade,
-                valor_unitario,
-                local_produto_id,
-                ativo
-            ) VALUES (
-                :descricao,
-                :codigo,
-                :codigo_produto,
-                :codigo_integracao,
-                :cfop,
-                :codigo_servico_municipal,
-                :ncm,
-                :unidade,
-                :valor_unitario,
-                :local_produto_id,
-                :ativo
-            )
-        SQL;
+        $this->persistRecord($persistenceData, $existing ? (int)$existing['id'] : null);
+    }
 
-        $stmt = $this->pdo->prepare($insertSql);
-        $stmt->execute([
-            ':descricao' => $descricao,
-            ':codigo' => $codigo,
-            ':codigo_produto' => $codigoProduto,
-            ':codigo_integracao' => $codigoIntegracao,
-            ':cfop' => $cfop,
-            ':codigo_servico_municipal' => $codigoServicoMunicipal,
-            ':ncm' => $ncm,
-            ':unidade' => $unidade,
-            ':valor_unitario' => $valorUnitario,
-            ':local_produto_id' => $localProductId,
-            ':ativo' => $hasAtivo ? ($ativo ?? 0) : 1,
+    public function upsertFromOmieResponse(int $categoriaId, object $omieResponse): void
+    {
+        $this->upsert([
+            'local_produto_id' => $categoriaId,
+            'descricao' => $omieResponse->descricao ?? '',
+            'codigo_produto' => $omieResponse->codigo ?? null,
+            'codigo_integracao' => $omieResponse->codigoIntegracao ?? null,
+            'unidade' => 'UN',
+            'ncm' => $omieResponse->ncm ?? '00000000',
+            'valor_unitario' => $omieResponse->valorUnitario ?? 0,
+            'ativo' => true,
         ]);
     }
 
@@ -196,36 +152,35 @@ class OmieProduto
 
     public function updateById(int $id, array $data): bool
     {
-        $sql = <<<SQL
-            UPDATE omie_produtos
-            SET descricao = :descricao,
-                codigo = :codigo,
-                codigo_produto = :codigo_produto,
-                codigo_integracao = :codigo_integracao,
-                cfop = :cfop,
-                codigo_servico_municipal = :codigo_servico_municipal,
-                ncm = :ncm,
-                unidade = :unidade,
-                valor_unitario = :valor_unitario,
-                ativo = :ativo
-            WHERE id = :id
-        SQL;
+        $existing = $this->findById($id);
+        if (!$existing) {
+            return false;
+        }
 
-        $stmt = $this->pdo->prepare($sql);
+        $descricao = $this->normalizeString($data['descricao'] ?? ($existing['descricao'] ?? ''));
+        if ($descricao === null) {
+            throw new InvalidArgumentException('A descrição do produto é obrigatória para o cadastro na tabela omie_produtos.');
+        }
 
-        return $stmt->execute([
-            ':descricao' => $this->normalizeString($data['descricao'] ?? ''),
-            ':codigo' => $this->normalizeProductCode($data['codigo'] ?? null),
-            ':codigo_produto' => $this->normalizeString($data['codigo_produto'] ?? null),
-            ':codigo_integracao' => $this->normalizeString($data['codigo_integracao'] ?? null),
-            ':cfop' => $this->normalizeString($data['cfop'] ?? null),
-            ':codigo_servico_municipal' => $this->normalizeMunicipalCode($data['codigo_servico_municipal'] ?? null),
-            ':ncm' => $this->normalizeNcm($data['ncm'] ?? null),
-            ':unidade' => $this->normalizeString($data['unidade'] ?? null),
-            ':valor_unitario' => $this->normalizeDecimal($data['valor_unitario'] ?? null),
-            ':ativo' => isset($data['ativo']) ? (int)$data['ativo'] : 0,
-            ':id' => $id,
-        ]);
+        $payload = $this->buildPersistencePayload([
+            'descricao' => $descricao,
+            'codigo' => $this->normalizeProductCode($data['codigo'] ?? null),
+            'codigo_produto' => $this->normalizeString($data['codigo_produto'] ?? null),
+            'codigo_integracao' => $this->normalizeString($data['codigo_integracao'] ?? null),
+            'cfop' => $this->normalizeString($data['cfop'] ?? null),
+            'codigo_servico_municipal' => $this->normalizeMunicipalCode($data['codigo_servico_municipal'] ?? null),
+            'ncm' => $this->normalizeNcm($data['ncm'] ?? null),
+            'unidade' => $this->normalizeString($data['unidade'] ?? null),
+            'valor_unitario' => array_key_exists('valor_unitario', $data)
+                ? $this->normalizeDecimal($data['valor_unitario'])
+                : null,
+            'local_produto_id' => $this->normalizeLocalProductId($data['local_produto_id'] ?? $existing['local_produto_id'] ?? null),
+            'ativo' => isset($data['ativo']) ? (int)$data['ativo'] : null,
+        ], $existing);
+
+        $this->persistRecord($payload, $id);
+
+        return true;
     }
 
     private function resolveExistingProduct(
@@ -355,5 +310,145 @@ class OmieProduto
         }
 
         return $id > 0 ? $id : null;
+    }
+
+    private function buildPersistencePayload(array $normalizedData, ?array $existing): array
+    {
+        $descricao = $normalizedData['descricao'] ?? null;
+        if ($descricao === null) {
+            throw new InvalidArgumentException('A descrição do produto é obrigatória para o cadastro na tabela omie_produtos.');
+        }
+
+        $payload = [
+            'descricao' => $descricao,
+            'codigo' => $normalizedData['codigo'] ?? null,
+            'codigo_produto' => $normalizedData['codigo_produto'] ?? null,
+            'codigo_integracao' => $normalizedData['codigo_integracao'] ?? null,
+            'cfop' => $normalizedData['cfop'] ?? null,
+            'codigo_servico_municipal' => $normalizedData['codigo_servico_municipal'] ?? null,
+            'ncm' => $normalizedData['ncm'] ?? null,
+            'unidade' => $normalizedData['unidade'] ?? null,
+            'valor_unitario' => $normalizedData['valor_unitario'] ?? null,
+            'local_produto_id' => $normalizedData['local_produto_id'] ?? null,
+            'ativo' => $normalizedData['ativo'],
+        ];
+
+        if ($existing !== null) {
+            $payload['local_produto_id'] = $payload['local_produto_id']
+                ?? $this->normalizeLocalProductId($existing['local_produto_id'] ?? null);
+            $payload['codigo'] = $payload['codigo'] ?? $this->normalizeProductCode($existing['codigo'] ?? null);
+            $payload['codigo_produto'] = $payload['codigo_produto']
+                ?? $this->normalizeString($existing['codigo_produto'] ?? null);
+            $payload['codigo_integracao'] = $payload['codigo_integracao']
+                ?? $this->normalizeString($existing['codigo_integracao'] ?? null);
+            $payload['cfop'] = $payload['cfop'] ?? $this->normalizeString($existing['cfop'] ?? null);
+            $payload['codigo_servico_municipal'] = $payload['codigo_servico_municipal']
+                ?? $this->normalizeMunicipalCode($existing['codigo_servico_municipal'] ?? null);
+            $payload['ncm'] = $payload['ncm'] ?? $this->normalizeNcm($existing['ncm'] ?? null);
+            $payload['unidade'] = $payload['unidade'] ?? $this->normalizeString($existing['unidade'] ?? null);
+
+            if ($payload['valor_unitario'] === null && array_key_exists('valor_unitario', $existing)) {
+                $payload['valor_unitario'] = $this->normalizeDecimal($existing['valor_unitario']);
+            }
+
+            if ($payload['ativo'] === null && array_key_exists('ativo', $existing)) {
+                $payload['ativo'] = (int)$existing['ativo'];
+            }
+        }
+
+        if ($payload['ativo'] === null) {
+            $payload['ativo'] = 1;
+        }
+
+        return $payload;
+    }
+
+    private function updateOrCreate(array $criteria, array $values, ?array $existing): void
+    {
+        if (!array_key_exists('local_produto_id', $criteria)) {
+            throw new InvalidArgumentException('O campo local_produto_id é obrigatório para updateOrCreate.');
+        }
+
+        $localProductId = $this->normalizeLocalProductId($criteria['local_produto_id']);
+        if ($localProductId === null) {
+            throw new InvalidArgumentException('O campo local_produto_id é obrigatório para updateOrCreate.');
+        }
+
+        $currentRecord = $existing;
+        if ($currentRecord === null || (int)($currentRecord['local_produto_id'] ?? 0) !== $localProductId) {
+            $currentRecord = $this->findByLocalProductId($localProductId);
+        }
+
+        $values['local_produto_id'] = $localProductId;
+
+        $this->persistRecord($values, $currentRecord ? (int)$currentRecord['id'] : null);
+    }
+
+    private function persistRecord(array $values, ?int $id): void
+    {
+        $sql = $id === null
+            ? <<<SQL
+                INSERT INTO omie_produtos (
+                    descricao,
+                    codigo,
+                    codigo_produto,
+                    codigo_integracao,
+                    cfop,
+                    codigo_servico_municipal,
+                    ncm,
+                    unidade,
+                    valor_unitario,
+                    local_produto_id,
+                    ativo
+                ) VALUES (
+                    :descricao,
+                    :codigo,
+                    :codigo_produto,
+                    :codigo_integracao,
+                    :cfop,
+                    :codigo_servico_municipal,
+                    :ncm,
+                    :unidade,
+                    :valor_unitario,
+                    :local_produto_id,
+                    :ativo
+                )
+            SQL
+            : <<<SQL
+                UPDATE omie_produtos
+                SET descricao = :descricao,
+                    codigo = :codigo,
+                    codigo_produto = :codigo_produto,
+                    codigo_integracao = :codigo_integracao,
+                    cfop = :cfop,
+                    codigo_servico_municipal = :codigo_servico_municipal,
+                    ncm = :ncm,
+                    unidade = :unidade,
+                    valor_unitario = :valor_unitario,
+                    local_produto_id = :local_produto_id,
+                    ativo = :ativo
+                WHERE id = :id
+            SQL;
+
+        $stmt = $this->pdo->prepare($sql);
+        $params = [
+            ':descricao' => $values['descricao'],
+            ':codigo' => $values['codigo'],
+            ':codigo_produto' => $values['codigo_produto'],
+            ':codigo_integracao' => $values['codigo_integracao'],
+            ':cfop' => $values['cfop'],
+            ':codigo_servico_municipal' => $values['codigo_servico_municipal'],
+            ':ncm' => $values['ncm'],
+            ':unidade' => $values['unidade'],
+            ':valor_unitario' => $values['valor_unitario'],
+            ':local_produto_id' => $values['local_produto_id'],
+            ':ativo' => $values['ativo'],
+        ];
+
+        if ($id !== null) {
+            $params[':id'] = $id;
+        }
+
+        $stmt->execute($params);
     }
 }
