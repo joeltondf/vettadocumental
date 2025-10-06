@@ -297,15 +297,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 interactive: true,
                 placement: 'top',
                 animation: 'scale-subtle',
-                appendTo: () => document.body,
-                onShown(instance) {
+                appendTo: document.body,
+                onMount(instance) {
                     const deleteButton = instance.popper.querySelector('[data-action="delete-agendamento"]');
-                    if (!deleteButton || deleteButton.dataset.bound === '1') {
-                        return;
-                    }
-
-                    deleteButton.dataset.bound = '1';
-
                     deleteButton.addEventListener('click', function(event) {
                         event.preventDefault();
 
@@ -363,7 +357,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 onClickOutside(instance, event) {
                     instance.hide();
                 },
-            }).show();
+            }).show(); // O método .show() ativa o tooltip manualmente
         },
         eventDidMount: function(info) {
              info.el.style.cursor = 'pointer';
