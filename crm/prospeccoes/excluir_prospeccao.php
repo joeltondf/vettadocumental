@@ -3,6 +3,7 @@
 
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
+require_once __DIR__ . '/../../app/models/Notificacao.php';
 
 // 1. Segurança: Verifica se o usuário tem o perfil correto
 if (!isset($_SESSION['user_perfil']) || !in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'supervisor'])) {
@@ -21,15 +22,21 @@ if (!$prospeccao_id) {
 }
 
 try {
-    // 3. Exclui a prospecção.
-    // O banco de dados já está configurado com "ON DELETE CASCADE" para a tabela 'interacoes',
-    // então o histórico de interações será apagado automaticamente.
+    $notificationLink = '/crm/prospeccoes/detalhes.php?id=' . $prospeccao_id;
+    $notificacaoModel = new Notificacao($pdo);
+
     $stmt = $pdo->prepare("DELETE FROM prospeccoes WHERE id = ?");
     $stmt->execute([$prospeccao_id]);
 
-    // 4. Redireciona para a lista com mensagem de sucesso
-    $_SESSION['success_message'] = "Prospecção excluída com sucesso!";
-    header("Location: " . APP_URL . "/crm/prospeccoes/lista.php");
+    $notificacaoModel->deleteByLink($notificationLink);
+
+    if ($stmt->rowCount() === 0) {
+        $_SESSION['success_message'] = 'Os alertas desta prospecção foram removidos. Ela já havia sido excluída.';
+    } else {
+        $_SESSION['success_message'] = 'Prospecção excluída com sucesso e alertas removidos.';
+    }
+
+    header('Location: ' . APP_URL . '/crm/prospeccoes/lista.php');
     exit;
 
 } catch (PDOException $e) {

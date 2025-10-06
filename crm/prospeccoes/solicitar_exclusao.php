@@ -40,7 +40,10 @@ if (!$prospeccao_id || empty($motivo)) {
 }
 
 try {
-    // Correção 2: Usa 'nome_cliente' na consulta
+    $notificationLink = '/crm/prospeccoes/detalhes.php?id=' . $prospeccao_id;
+
+    $notificacaoModel = new Notificacao($pdo);
+
     $stmt = $pdo->prepare("
         SELECT p.id_texto, p.nome_prospecto, c.nome_cliente
         FROM prospeccoes p
@@ -51,12 +54,14 @@ try {
     $prospect = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$prospect) {
-        die("Prospecção não encontrada.");
+        $notificacaoModel->deleteByLink($notificationLink);
+        $_SESSION['error_message'] = 'Esta prospecção já foi excluída e os alertas foram removidos.';
+        header('Location: ' . APP_URL . '/crm/prospeccoes/lista.php');
+        exit;
     }
 
     $configModel = new Configuracao($pdo);
     $userModel = new User($pdo);
-    $notificacaoModel = new Notificacao($pdo);
 
     $managerProfiles = ['admin', 'gerencia', 'supervisor'];
     $managerContacts = $userModel->getActiveContactsByProfiles($managerProfiles);
@@ -76,7 +81,7 @@ try {
     $prospectCode = $prospect['id_texto'] ?? ('ID #' . $prospeccao_id);
     $prospectTitle = $prospect['nome_prospecto'] ?? '';
     $prospectLead = $prospect['nome_cliente'] ?? '';
-    $prospectLink = APP_URL . '/crm/prospeccoes/detalhes.php?id=' . $prospeccao_id;
+    $prospectLink = APP_URL . $notificationLink;
 
     $assunto = sprintf('Solicitação de exclusão da prospecção: %s', $prospectCode);
 
@@ -121,7 +126,6 @@ try {
         $prospectCode,
         $solicitante_nome
     );
-    $notificationLink = '/crm/prospeccoes/detalhes.php?id=' . $prospeccao_id;
 
     foreach ($managerContacts as $contact) {
         $notificacaoModel->criar((int) $contact['id'], $solicitante_id, $notificationMessage, $notificationLink);
@@ -137,7 +141,7 @@ try {
         $_SESSION['success_message'] = 'Solicitação de exclusão enviada para a gerência.';
     }
 
-    header('Location: ' . APP_URL . '/crm/prospeccoes/detalhes.php?id=' . $prospeccao_id);
+    header('Location: ' . APP_URL . $notificationLink);
     exit;
 
 } catch (Exception $e) {
