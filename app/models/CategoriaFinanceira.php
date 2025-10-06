@@ -161,18 +161,30 @@ class CategoriaFinanceira
 
         $where = implode(' AND ', $whereClauses);
 
+        $latestOmieMetadata = <<<SQL
+            SELECT op_inner.*
+            FROM omie_produtos op_inner
+            INNER JOIN (
+                SELECT local_produto_id, MAX(id) AS latest_id
+                FROM omie_produtos
+                GROUP BY local_produto_id
+            ) latest ON latest.latest_id = op_inner.id
+        SQL;
+
         $sql = <<<SQL
             SELECT
                 {$selectColumns}
             FROM categorias_financeiras cf
-            LEFT JOIN omie_produtos op ON op.local_produto_id = cf.id
+            LEFT JOIN (
+                {$latestOmieMetadata}
+            ) op ON op.local_produto_id = cf.id
             WHERE {$where}
             ORDER BY cf.nome_categoria
         SQL;
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute();
-        return $stmt->fetchAll();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     // NOVO MÉTODO: Cria um produto de orçamento com campos específicos.
