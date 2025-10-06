@@ -344,141 +344,194 @@ class OmieSyncService
         return null;
     }
 
-private function fetchMunicipalServiceCode(string $codigoProduto): ?string
-{
-    $codigo = $this->normalizeString($codigoProduto);
-    if ($codigo === null) {
+    private function fetchMunicipalServiceCode(string $codigoProduto): ?string
+    {
+        $codigo = $this->normalizeString($codigoProduto);
+        if ($codigo === null) {
+            return null;
+        }
+
+        try {
+            $serviceDetails = $this->omieService->consultarServicoPorCodigo($codigo);
+            $code = $this->extractMunicipalServiceCode($serviceDetails);
+            if ($code !== null) {
+                return $code;
+            }
+        } catch (Exception $exception) {
+            error_log('Omie Sync: falha ao consultar serviço ' . $codigo . ': ' . $exception->getMessage());
+        }
+
+        try {
+            $response = $this->omieService->listarCadastroServico([
+                'pagina' => 1,
+                'registros_por_pagina' => 1,
+                'codigo_servico' => $codigo,
+            ]);
+            $code = $this->extractMunicipalServiceCode($response);
+            if ($code !== null) {
+                return $code;
+            }
+        } catch (Exception $exception) {
+            error_log('Omie Sync: falha ao listar cadastro do serviço ' . $codigo . ': ' . $exception->getMessage());
+        }
+
+        try {
+            $details = $this->omieService->consultarProdutoPorCodigo($codigo);
+            $code = $this->extractMunicipalServiceCode($details);
+            if ($code !== null) {
+                return $code;
+            }
+        } catch (Exception $exception) {
+            error_log('Omie Sync: falha ao consultar detalhes do serviço ' . $codigo . ': ' . $exception->getMessage());
+        }
+
+        error_log('Omie Sync: serviço ' . $codigo . ' não retornou código municipal (cCodServMun).');
+
         return null;
     }
 
-    try {
-        $serviceDetails = $this->omieService->consultarServicoPorCodigo($codigo);
-        $code = $this->extractMunicipalServiceCode($serviceDetails);
-        if ($code !== null) {
-            return $code;
-        }
-    } catch (Exception $exception) {
-        error_log('Omie Sync: falha ao consultar serviço ' . $codigo . ': ' . $exception->getMessage());
-    }
+    public function deleteProduct(int $localProductId): void
+    {
+        $metadata = $this->omieProdutoModel->findByLocalProductId($localProductId);
+        if ($metadata) {
+            $codigoProduto = $this->normalizeString($metadata['codigo_produto'] ?? null);
+            $codigoIntegracao = $this->normalizeString($metadata['codigo_integracao'] ?? null);
 
-    try {
-        $response = $this->omieService->listarCadastroServico([
-            'pagina' => 1,
-            'registros_por_pagina' => 1,
-            'filtrar_por_codigo' => $codigo,
-        ]);
-        $code = $this->extractMunicipalServiceCode($response);
-        if ($code !== null) {
-            return $code;
-        }
-    } catch (Exception $exception) {
-        error_log('Omie Sync: falha ao listar cadastro do serviço ' . $codigo . ': ' . $exception->getMessage());
-    }
+            if ($codigoProduto !== null || $codigoIntegracao !== null) {
+                $payload = $codigoProduto !== null
+                    ? ['codigo_produto' => $codigoProduto]
+                    : ['codigo_produto_integracao' => $codigoIntegracao];
 
-    try {
-        $details = $this->omieService->consultarProdutoPorCodigo($codigo);
-        $code = $this->extractMunicipalServiceCode($details);
-        if ($code !== null) {
-            return $code;
-        }
-    } catch (Exception $exception) {
-        error_log('Omie Sync: falha ao consultar detalhes do serviço ' . $codigo . ': ' . $exception->getMessage());
-    }
+                $caughtException = null;
 
-    error_log('Omie Sync: serviço ' . $codigo . ' não retornou código municipal (cCodServMun).');
+                try {
+                    $this->omieService->excluirProduto($payload);
+                } catch (Exception $exception) {
+                    if (!$this->isNotFoundError($exception->getMessage())) {
+                        $caughtException = new Exception(
+                            'Falha ao excluir o produto na Omie (código: ' . ($codigoProduto ?? $codigoIntegracao ?? 'indefinido') . '): ' . $exception->getMessage(),
+                            0,
+                            $exception
+                        );
+                    }
+                } finally {
+                    $this->removeLocalProduct($localProductId);
+                }
 
-    return null;
-}
+                if ($caughtException !== null) {
+                    throw $caughtException;
+                }
 
-private function wrapOmieSyncException(Exception $exception, ?string $ncm = null): Exception
-{
-    $message = $exception->getMessage();
-
-    if ($this->isNcmNotRegisteredError($message)) {
-        if ($ncm !== null) {
-            $formattedNcm = $this->formatNcmForMessage($ncm);
-            $ncmPhrase = 'o NCM "' . $formattedNcm . '"';
-        } else {
-            $ncmPhrase = 'o NCM informado';
+                return;
+            }
         }
 
-        return new Exception(
-            'A Omie recusou ' . $ncmPhrase . '. Cadastre esse NCM na Omie ou deixe o campo em branco e tente novamente.',
-            0,
-            $exception
-        );
+        $this->removeLocalProduct($localProductId);
     }
 
-    return new Exception('Falha ao sincronizar o produto com a Omie: ' . $message, 0, $exception);
-}
+    private function wrapOmieSyncException(Exception $exception, ?string $ncm = null): Exception
+    {
+        $message = $exception->getMessage();
 
-private function isNcmNotRegisteredError(string $message): bool
-{
-    $normalized = mb_strtolower($message);
+        if ($this->isNcmNotRegisteredError($message)) {
+            if ($ncm !== null) {
+                $formattedNcm = $this->formatNcmForMessage($ncm);
+                $ncmPhrase = 'o NCM "' . $formattedNcm . '"';
+            } else {
+                $ncmPhrase = 'o NCM informado';
+            }
 
-    return strpos($normalized, 'ncm') !== false
-        && (strpos($normalized, 'não cadas') !== false || strpos($normalized, 'nao cadas') !== false);
-}
+            return new Exception(
+                'A Omie recusou ' . $ncmPhrase . '. Cadastre esse NCM na Omie ou deixe o campo em branco e tente novamente.',
+                0,
+                $exception
+            );
+        }
 
-private function normalizeNcm($value): ?string
-{
-    if ($value === null) {
+        return new Exception('Falha ao sincronizar o produto com a Omie: ' . $message, 0, $exception);
+    }
+
+    private function isNotFoundError(string $message): bool
+    {
+        $normalized = mb_strtolower($message);
+
+        return strpos($normalized, 'não encontrado') !== false
+            || strpos($normalized, 'nao encontrado') !== false
+            || strpos($normalized, 'não foi localizado') !== false
+            || strpos($normalized, 'nao foi localizado') !== false
+            || strpos($normalized, 'não foi encontrada') !== false
+            || strpos($normalized, 'registro inexistente') !== false
+            || strpos($normalized, 'registro nao localizado') !== false;
+    }
+
+    private function isNcmNotRegisteredError(string $message): bool
+    {
+        $normalized = mb_strtolower($message);
+
+        return strpos($normalized, 'ncm') !== false
+            && (strpos($normalized, 'não cadas') !== false || strpos($normalized, 'nao cadas') !== false);
+    }
+
+    private function normalizeNcm($value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (is_int($value)) {
+            $value = (string)$value;
+        } elseif (is_float($value)) {
+            $value = (string)(int)$value;
+        } elseif (!is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        $digits = preg_replace('/\D+/', '', $trimmed);
+        if ($digits === '') {
+            return null;
+        }
+
+        return substr($digits, 0, 8);
+    }
+
+    private function formatNcmForMessage(string $ncm): string
+    {
+        $digits = preg_replace('/\D+/', '', $ncm);
+        if (strlen($digits) === 8) {
+            return substr($digits, 0, 4) . '.' . substr($digits, 4, 2) . '.' . substr($digits, 6, 2);
+        }
+
+        return $ncm;
+    }
+
+    private function extractMunicipalServiceCode($payload): ?string
+    {
+        if (!is_array($payload)) {
+            return null;
+        }
+
+        if (array_key_exists('cCodServMun', $payload)) {
+            $code = $this->normalizeMunicipalServiceCode($payload['cCodServMun']);
+            if ($code !== null) {
+                return $code;
+            }
+        }
+
+        foreach ($payload as $value) {
+            $code = $this->extractMunicipalServiceCode($value);
+            if ($code !== null) {
+                return $code;
+            }
+        }
+
         return null;
     }
 
-    if (is_int($value)) {
-        $value = (string)$value;
-    } elseif (is_float($value)) {
-        $value = (string)(int)$value;
-    } elseif (!is_string($value)) {
-        return null;
-    }
-
-    $trimmed = trim($value);
-    if ($trimmed === '') {
-        return null;
-    }
-
-    $digits = preg_replace('/\D+/', '', $trimmed);
-    if ($digits === '') {
-        return null;
-    }
-
-    return substr($digits, 0, 8);
-}
-
-private function formatNcmForMessage(string $ncm): string
-{
-    $digits = preg_replace('/\D+/', '', $ncm);
-    if (strlen($digits) === 8) {
-        return substr($digits, 0, 4) . '.' . substr($digits, 4, 2) . '.' . substr($digits, 6, 2);
-    }
-
-    return $ncm;
-}
-
-private function extractMunicipalServiceCode($payload): ?string
-{
-    if (!is_array($payload)) {
-        return null;
-    }
-
-    if (array_key_exists('cCodServMun', $payload)) {
-        $code = $this->normalizeMunicipalServiceCode($payload['cCodServMun']);
-        if ($code !== null) {
-            return $code;
-        }
-    }
-
-    foreach ($payload as $value) {
-        $code = $this->extractMunicipalServiceCode($value);
-        if ($code !== null) {
-            return $code;
-        }
-    }
-
-    return null;
-}
     private function generateIntegrationCode(int $localProductId): string
     {
         return 'LP-' . str_pad((string)$localProductId, 6, '0', STR_PAD_LEFT);
