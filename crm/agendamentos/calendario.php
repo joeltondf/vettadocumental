@@ -113,6 +113,10 @@ if ($prefillTitle !== '') {
                         </select>
                     </div>
                 </div>
+                <div>
+                    <label for="data_dia" class="block text-sm font-medium text-gray-700">Data do Agendamento</label>
+                    <input type="date" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm" id="data_dia" name="data_dia" required>
+                </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label for="data_inicio_hora" class="block text-sm font-medium text-gray-700">Hora de Início</label>
@@ -175,6 +179,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var btnCloseModal = document.getElementById('btnCloseModal');
     var btnCancelarAgendamento = document.getElementById('btnCancelarAgendamento');
     
+    var dataDiaInput = document.getElementById('data_dia');
     var dataInicioHoraInput = document.getElementById('data_inicio_hora');
     var dataFimHoraInput = document.getElementById('data_fim_hora');
     
@@ -224,8 +229,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const day = String(selectedCalendarDate.getDate()).padStart(2, '0');
             selectedDateStr = `${year}-${month}-${day}`;
 
+            dataDiaInput.value = selectedDateStr;
+
             dataInicioHoraInput.value = selectedCalendarDate.toTimeString().slice(0, 5); // HH:MM
-            
+
             var dataFimPadrao = new Date(selectedCalendarDate.getTime() + 60 * 60 * 1000); // Adiciona 1 hora
             dataFimHoraInput.value = dataFimPadrao.toTimeString().slice(0, 5); // HH:MM
 
@@ -294,11 +301,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Lógica dos Campos de Hora para preencher os campos hidden de datetime ---
     function updateHiddenDateTime() {
+        if (dataDiaInput.value) {
+            selectedDateStr = dataDiaInput.value;
+        }
+
         if (selectedDateStr && dataInicioHoraInput.value && dataFimHoraInput.value) {
             dataInicioHiddenInput.value = `${selectedDateStr} ${dataInicioHoraInput.value}:00`;
             dataFimHiddenInput.value = `${selectedDateStr} ${dataFimHoraInput.value}:00`;
         }
     }
+
+    dataDiaInput.addEventListener('change', function() {
+        if (this.value) {
+            selectedDateStr = this.value;
+
+            var parts = this.value.split('-');
+            if (parts.length === 3) {
+                var year = parseInt(parts[0], 10);
+                var month = parseInt(parts[1], 10) - 1;
+                var day = parseInt(parts[2], 10);
+                selectedCalendarDate = new Date(year, month, day);
+            }
+
+            updateHiddenDateTime();
+        }
+    });
 
     dataInicioHoraInput.addEventListener('change', updateHiddenDateTime);
     dataFimHoraInput.addEventListener('change', updateHiddenDateTime);
@@ -474,6 +501,8 @@ document.addEventListener('DOMContentLoaded', function() {
         var month = String(selectedCalendarDate.getMonth() + 1).padStart(2, '0');
         var day = String(selectedCalendarDate.getDate()).padStart(2, '0');
         selectedDateStr = `${year}-${month}-${day}`;
+
+        dataDiaInput.value = selectedDateStr;
 
         var startHours = String(now.getHours()).padStart(2, '0');
         var startMinutes = String(now.getMinutes()).padStart(2, '0');
