@@ -2,6 +2,16 @@
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
 
+function formatUppercase(?string $value, string $fallback = 'N/A'): string
+{
+    $text = $value ?? $fallback;
+    if (function_exists('mb_strtoupper')) {
+        return mb_strtoupper($text, 'UTF-8');
+    }
+
+    return strtoupper($text);
+}
+
 $pageTitle = "Lista de Prospecções";
 
 // --- INÍCIO DA LÓGICA DE FILTRO E CONTROLE DE ACESSO ---
@@ -188,9 +198,9 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                 <?php else: ?>
                     <?php foreach ($prospeccoes as $prospeccao): ?>
                         <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($prospeccao['nome_prospecto']); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars($prospeccao['nome_cliente'] ?? 'Lead não vinculado'); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars($prospeccao['leadCategory'] ?? 'Entrada'); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars(formatUppercase($prospeccao['nome_prospecto'])); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars(formatUppercase($prospeccao['nome_cliente'] ?? null, 'Lead não vinculado')); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars(formatUppercase($prospeccao['leadCategory'] ?? null, 'Entrada')); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                                 <span class="
                                     <?php 
@@ -227,11 +237,11 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                                         }
                                     ?>
                                 ">
-                                    <?php echo htmlspecialchars(ucfirst($prospeccao['status'])); ?>
+                                    <?php echo htmlspecialchars(formatUppercase($prospeccao['status'] ?? null)); ?>
                                 </span>
                             </td>
 
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars($prospeccao['nome_responsavel'] ?? 'N/A'); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars(formatUppercase($prospeccao['nome_responsavel'] ?? null)); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo date('d/m/Y', strtotime($prospeccao['data_prospeccao'])); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
                                 <a href="detalhes.php?id=<?php echo $prospeccao['id']; ?>" class="text-indigo-600 hover:text-indigo-900">Detalhes</a>
