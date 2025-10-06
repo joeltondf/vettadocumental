@@ -171,8 +171,8 @@ require_once __DIR__ . '/../layouts/header.php';
             </div>
 
             <div class="cliente-form-col cliente-col-33">
-                <label for="telefone" class="block text-sm font-semibold text-gray-700">Telefone</label>
-                <input type="text" id="telefone" name="telefone" autocomplete="nope" value="<?php echo htmlspecialchars($telefone); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" maxlength="15">
+                <label for="telefone" class="block text-sm font-semibold text-gray-700">Telefone<?php echo $isEdit ? '' : ' *'; ?></label>
+                <input type="text" id="telefone" name="telefone" autocomplete="nope" value="<?php echo htmlspecialchars($telefone); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" maxlength="15"<?php echo $isEdit ? '' : ' required'; ?>>
             </div>
         </div>
 
