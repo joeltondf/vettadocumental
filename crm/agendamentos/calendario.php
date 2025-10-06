@@ -113,6 +113,10 @@ if ($prefillTitle !== '') {
                         </select>
                     </div>
                 </div>
+                <div>
+                    <label for="data_dia" class="block text-sm font-medium text-gray-700">Data do Agendamento</label>
+                    <input type="date" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm" id="data_dia" name="data_dia" required>
+                </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label for="data_inicio_hora" class="block text-sm font-medium text-gray-700">Hora de Início</label>
@@ -175,6 +179,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var btnCloseModal = document.getElementById('btnCloseModal');
     var btnCancelarAgendamento = document.getElementById('btnCancelarAgendamento');
     
+    var dataDiaInput = document.getElementById('data_dia');
     var dataInicioHoraInput = document.getElementById('data_inicio_hora');
     var dataFimHoraInput = document.getElementById('data_fim_hora');
     
@@ -196,9 +201,24 @@ document.addEventListener('DOMContentLoaded', function() {
     var btnSalvarNovaProspeccao = document.getElementById('btnSalvarNovaProspeccao');
     var novaProspeccaoClienteIdInput = document.getElementById('nova_prospeccao_cliente_id');
     
-    // Define as URLs base para as chamadas de API
-    const API_BASE_URL = '<?php echo APP_URL; ?>/crm/agendamentos';
-    const API_PROSPECCAO_URL = '<?php echo APP_URL; ?>/crm/prospeccoes';
+    // Define URLs relativas para evitar problemas de origem ao consumir a API
+    const agendamentosBaseUrl = new URL('./', window.location.href);
+    const prospeccoesBaseUrl = new URL('../prospeccoes/', window.location.href);
+
+    function buildAgendamentoUrl(path, params = {}) {
+        const url = new URL(path, agendamentosBaseUrl);
+        Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+                url.searchParams.set(key, value);
+            }
+        });
+        return url.toString();
+    }
+
+    const calendarEventsUrl = buildAgendamentoUrl('api_eventos.php', <?php echo json_encode(
+        $responsavel_filtrado ? ['responsavel_id' => (int) $responsavel_filtrado] : new stdClass(),
+        JSON_UNESCAPED_UNICODE
+    ); ?>);
 
     var calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
@@ -208,7 +228,7 @@ document.addEventListener('DOMContentLoaded', function() {
             center: 'title',
             right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
         },
-        events: `${API_BASE_URL}/api_eventos.php` + '<?php echo $responsavel_filtrado ? "?responsavel_id=$responsavel_filtrado" : ""; ?>',
+        events: calendarEventsUrl,
         
         selectable: true,
         dateClick: function(info) {
@@ -224,8 +244,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const day = String(selectedCalendarDate.getDate()).padStart(2, '0');
             selectedDateStr = `${year}-${month}-${day}`;
 
+            dataDiaInput.value = selectedDateStr;
+
             dataInicioHoraInput.value = selectedCalendarDate.toTimeString().slice(0, 5); // HH:MM
-            
+
             var dataFimPadrao = new Date(selectedCalendarDate.getTime() + 60 * 60 * 1000); // Adiciona 1 hora
             dataFimHoraInput.value = dataFimPadrao.toTimeString().slice(0, 5); // HH:MM
 
@@ -237,14 +259,24 @@ document.addEventListener('DOMContentLoaded', function() {
         },
 
         eventClick: function(info) {
-            info.jsEvent.preventDefault(); 
+            info.jsEvent.preventDefault();
 
             if (info.el._tippy) {
                 info.el._tippy.destroy();
             }
 
             const props = info.event.extendedProps;
-            let link_prospeccao = props.prospeccao_id ? `<a href="${API_PROSPECCAO_URL}/detalhes.php?id=${props.prospeccao_id}" class="block mt-3 text-center bg-blue-500 text-white py-2 px-4 rounded-md text-sm hover:bg-blue-600 transition-colors">Ver Prospecção</a>` : '';
+            const canDelete = Boolean(props.canDelete);
+
+            let link_prospeccao = '';
+            if (props.prospeccao_id) {
+                const prospeccaoUrl = new URL('../prospeccoes/detalhes.php', window.location.href);
+                prospeccaoUrl.searchParams.set('id', props.prospeccao_id);
+                link_prospeccao = `<a href="${prospeccaoUrl.toString()}" class="block mt-3 text-center bg-blue-500 text-white py-2 px-4 rounded-md text-sm hover:bg-blue-600 transition-colors">Ver Prospecção</a>`;
+            }
+            const deleteButtonHtml = canDelete
+                ? `<button type="button" data-action="delete-agendamento" data-id="${info.event.id}" class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1">Excluir agendamento</button>`
+                : '';
 
             let content = `
                 <div class="text-left text-sm">
@@ -254,17 +286,80 @@ document.addEventListener('DOMContentLoaded', function() {
                     ${props.local_link ? `<p class="mb-1"><strong>Link:</strong> <a href="${props.local_link}" target="_blank" class="text-blue-400 hover:underline">Acessar Reunião</a></p>` : ''}
                     ${props.observacoes ? `<p class="mt-3 border-t border-gray-500 pt-2 text-gray-200"><strong>Obs:</strong> ${props.observacoes}</p>` : ''}
                     ${link_prospeccao}
+                    ${deleteButtonHtml}
                 </div>
             `;
-            
+
             tippy(info.el, {
                 content: content,
                 allowHTML: true,
-                trigger: 'manual', 
-                interactive: true, 
+                trigger: 'manual',
+                interactive: true,
                 placement: 'top',
                 animation: 'scale-subtle',
                 appendTo: () => document.body,
+                onShown(instance) {
+                    const deleteButton = instance.popper.querySelector('[data-action="delete-agendamento"]');
+                    if (!deleteButton || deleteButton.dataset.bound === '1') {
+                        return;
+                    }
+
+                    deleteButton.dataset.bound = '1';
+
+                    deleteButton.addEventListener('click', function(event) {
+                        event.preventDefault();
+
+                        if (!confirm('Tem certeza de que deseja excluir este agendamento?')) {
+                            return;
+                        }
+
+                        const eventId = info.event.id;
+
+                        deleteButton.disabled = true;
+                        deleteButton.textContent = 'Excluindo...';
+
+                        fetch(buildAgendamentoUrl('excluir_agendamento.php'), {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded'
+                            },
+                            credentials: 'same-origin',
+                            body: new URLSearchParams({ agendamento_id: eventId }).toString()
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Resposta inválida do servidor');
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            if (data.success) {
+                                alert(data.message || 'Agendamento excluído com sucesso.');
+
+                                const calendarEvent = calendar.getEventById(eventId);
+                                if (calendarEvent) {
+                                    calendarEvent.remove();
+                                }
+
+                                if (info.el._tippy) {
+                                    info.el._tippy.hide();
+                                }
+
+                                calendar.refetchEvents();
+                            } else {
+                                throw new Error(data.message || 'Tente novamente.');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Erro ao excluir agendamento:', error);
+                            alert('Erro ao excluir agendamento: ' + error.message);
+                        })
+                        .finally(() => {
+                            deleteButton.disabled = false;
+                            deleteButton.textContent = 'Excluir agendamento';
+                        });
+                    });
+                },
                 onClickOutside(instance, event) {
                     instance.hide();
                 },
@@ -294,11 +389,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Lógica dos Campos de Hora para preencher os campos hidden de datetime ---
     function updateHiddenDateTime() {
+        if (dataDiaInput.value) {
+            selectedDateStr = dataDiaInput.value;
+        }
+
         if (selectedDateStr && dataInicioHoraInput.value && dataFimHoraInput.value) {
             dataInicioHiddenInput.value = `${selectedDateStr} ${dataInicioHoraInput.value}:00`;
             dataFimHiddenInput.value = `${selectedDateStr} ${dataFimHoraInput.value}:00`;
         }
     }
+
+    dataDiaInput.addEventListener('change', function() {
+        if (this.value) {
+            selectedDateStr = this.value;
+
+            var parts = this.value.split('-');
+            if (parts.length === 3) {
+                var year = parseInt(parts[0], 10);
+                var month = parseInt(parts[1], 10) - 1;
+                var day = parseInt(parts[2], 10);
+                selectedCalendarDate = new Date(year, month, day);
+            }
+
+            updateHiddenDateTime();
+        }
+    });
 
     dataInicioHoraInput.addEventListener('change', updateHiddenDateTime);
     dataFimHoraInput.addEventListener('change', updateHiddenDateTime);
@@ -312,7 +427,12 @@ document.addEventListener('DOMContentLoaded', function() {
         prospeccaoSelect.innerHTML = '<option value="">Nenhuma</option>'; 
 
         if (clienteId) {
-            fetch(`${API_BASE_URL}/api_dados_relacionados.php?action=get_prospeccoes_by_cliente&cliente_id=${clienteId}`)
+            const prospeccoesUrl = buildAgendamentoUrl('api_dados_relacionados.php', {
+                action: 'get_prospeccoes_by_cliente',
+                cliente_id: clienteId
+            });
+
+            fetch(prospeccoesUrl)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('Network response was not ok: ' + response.statusText);
@@ -347,7 +467,12 @@ document.addEventListener('DOMContentLoaded', function() {
         var clienteSelect = document.getElementById('cliente_id');
         
         if (prospeccaoId) {
-            fetch(`${API_BASE_URL}/api_dados_relacionados.php?action=get_prospeccao_details&prospeccao_id=${prospeccaoId}`)
+            const prospeccaoDetailsUrl = buildAgendamentoUrl('api_dados_relacionados.php', {
+                action: 'get_prospeccao_details',
+                prospeccao_id: prospeccaoId
+            });
+
+            fetch(prospeccaoDetailsUrl)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('Network response was not ok: ' + response.statusText);
@@ -377,7 +502,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         var formData = new FormData(formNovoAgendamento);
 
-        fetch(`${API_BASE_URL}/salvar_agendamento.php`, {
+        fetch(buildAgendamentoUrl('salvar_agendamento.php'), {
             method: 'POST',
             body: formData
         })
@@ -427,7 +552,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        fetch(`${API_PROSPECCAO_URL}/salvar_prospeccao_simulado.php`, {
+        const salvarProspeccaoUrl = new URL('salvar_prospeccao_simulado.php', prospeccoesBaseUrl);
+
+        fetch(salvarProspeccaoUrl.toString(), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -448,9 +575,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     clienteSelect.dispatchEvent(event);
 
                     if (data.new_prospeccao_id) {
-                            setTimeout(() => {
-                                document.getElementById('prospeccao_id').value = data.new_prospeccao_id;
-                            }, 200);
+                        setTimeout(() => {
+                            document.getElementById('prospeccao_id').value = data.new_prospeccao_id;
+                        }, 200);
                     }
                 }
 
@@ -474,6 +601,8 @@ document.addEventListener('DOMContentLoaded', function() {
         var month = String(selectedCalendarDate.getMonth() + 1).padStart(2, '0');
         var day = String(selectedCalendarDate.getDate()).padStart(2, '0');
         selectedDateStr = `${year}-${month}-${day}`;
+
+        dataDiaInput.value = selectedDateStr;
 
         var startHours = String(now.getHours()).padStart(2, '0');
         var startMinutes = String(now.getMinutes()).padStart(2, '0');

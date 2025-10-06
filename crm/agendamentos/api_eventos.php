@@ -9,14 +9,15 @@ require_once __DIR__ . '/../../app/core/auth_check.php';
 // 1. JOIN com 'users' e usa 'nome_completo'
 // 2. JOIN com 'clientes' e usa 'nome_cliente'
 // 3. O JOIN com clientes agora é feito a partir do agendamento, não da prospecção
-$sql = "SELECT 
-            a.id, 
-            a.titulo, 
-            a.data_inicio as start, 
+$sql = "SELECT
+            a.id,
+            a.titulo,
+            a.data_inicio as start,
             a.data_fim as end,
             a.status,
             a.local_link,
             a.observacoes,
+            a.usuario_id,
             u.nome_completo as responsavel,
             a.prospeccao_id,
             c.nome_cliente
@@ -52,13 +53,16 @@ try {
     $eventos_formatados = array_map(function($evento) {
         $colors = ['Confirmado' => '#3788d8', 'Pendente' => '#f0ad4e', 'Realizado' => '#5cb85c', 'Cancelado' => '#d9534f'];
         $evento['color'] = $colors[$evento['status']] ?? '#777';
-        
+
         $evento['extendedProps'] = [
             'responsavel' => $evento['responsavel'],
             'cliente' => $evento['nome_cliente'], // Usa a coluna correta
             'prospeccao_id' => $evento['prospeccao_id'],
             'local_link' => $evento['local_link'],
-            'observacoes' => $evento['observacoes']
+            'observacoes' => $evento['observacoes'],
+            'usuario_id' => (int) $evento['usuario_id'],
+            'canDelete' => $evento['usuario_id'] == ($_SESSION['user_id'] ?? null)
+                || in_array($_SESSION['user_perfil'] ?? '', ['admin', 'gerencia', 'supervisor'], true)
         ];
         return $evento;
     }, $eventos);
