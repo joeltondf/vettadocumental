@@ -130,6 +130,8 @@ try {
         $status = 'Confirmado';
     }
 
+    $pdo->beginTransaction();
+
     $sql = 'INSERT INTO agendamentos (
                 titulo,
                 cliente_id,
@@ -181,10 +183,36 @@ try {
 
     $stmt->execute();
 
+    if ($prospeccaoId !== null) {
+        $descricaoInteracao = sprintf(
+            'Agendamento criado: %s em %s.',
+            $titulo,
+            $inicioDateTime->format('d/m/Y H:i')
+        );
+
+        $stmtInteracao = $pdo->prepare(
+            'INSERT INTO interacoes (prospeccao_id, usuario_id, observacao, tipo) VALUES (:prospeccao_id, :usuario_id, :observacao, :tipo)'
+        );
+        $stmtInteracao->execute([
+            ':prospeccao_id' => $prospeccaoId,
+            ':usuario_id' => $usuarioId,
+            ':observacao' => $descricaoInteracao,
+            ':tipo' => 'reuniao'
+        ]);
+    }
+
+    $pdo->commit();
+
     respondWithSuccess($redirectTo);
 } catch (InvalidArgumentException $exception) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
     respondWithError($exception->getMessage(), $redirectTo);
 } catch (PDOException $exception) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
     error_log('Erro em salvar_agendamento.php: ' . $exception->getMessage());
     respondWithError('Ocorreu um erro interno ao salvar o agendamento.', $redirectTo);
 }

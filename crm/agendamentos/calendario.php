@@ -244,14 +244,18 @@ document.addEventListener('DOMContentLoaded', function() {
         },
 
         eventClick: function(info) {
-            info.jsEvent.preventDefault(); 
+            info.jsEvent.preventDefault();
 
             if (info.el._tippy) {
                 info.el._tippy.destroy();
             }
 
             const props = info.event.extendedProps;
+            const canDelete = Boolean(props.canDelete);
             let link_prospeccao = props.prospeccao_id ? `<a href="${API_PROSPECCAO_URL}/detalhes.php?id=${props.prospeccao_id}" class="block mt-3 text-center bg-blue-500 text-white py-2 px-4 rounded-md text-sm hover:bg-blue-600 transition-colors">Ver Prospecção</a>` : '';
+            const deleteButtonHtml = canDelete
+                ? `<button type="button" data-action="delete-agendamento" data-id="${info.event.id}" class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1">Excluir agendamento</button>`
+                : '';
 
             let content = `
                 <div class="text-left text-sm">
@@ -261,17 +265,65 @@ document.addEventListener('DOMContentLoaded', function() {
                     ${props.local_link ? `<p class="mb-1"><strong>Link:</strong> <a href="${props.local_link}" target="_blank" class="text-blue-400 hover:underline">Acessar Reunião</a></p>` : ''}
                     ${props.observacoes ? `<p class="mt-3 border-t border-gray-500 pt-2 text-gray-200"><strong>Obs:</strong> ${props.observacoes}</p>` : ''}
                     ${link_prospeccao}
+                    ${deleteButtonHtml}
                 </div>
             `;
-            
+
             tippy(info.el, {
                 content: content,
                 allowHTML: true,
-                trigger: 'manual', 
-                interactive: true, 
+                trigger: 'manual',
+                interactive: true,
                 placement: 'top',
                 animation: 'scale-subtle',
                 appendTo: () => document.body,
+                onShown(instance) {
+                    const deleteButton = instance.popper.querySelector('[data-action="delete-agendamento"]');
+                    if (!deleteButton || deleteButton.dataset.bound === '1') {
+                        return;
+                    }
+
+                    deleteButton.dataset.bound = '1';
+
+                    deleteButton.addEventListener('click', function(event) {
+                        event.preventDefault();
+
+                        if (!confirm('Tem certeza de que deseja excluir este agendamento?')) {
+                            return;
+                        }
+
+                        deleteButton.disabled = true;
+                        deleteButton.textContent = 'Excluindo...';
+
+                        fetch(`${API_BASE_URL}/excluir_agendamento.php`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded'
+                            },
+                            body: new URLSearchParams({ agendamento_id: info.event.id }).toString()
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                alert(data.message || 'Agendamento excluído com sucesso.');
+                                if (info.el._tippy) {
+                                    info.el._tippy.hide();
+                                }
+                                calendar.refetchEvents();
+                            } else {
+                                alert('Erro ao excluir agendamento: ' + (data.message || 'Tente novamente.'));
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Erro ao excluir agendamento:', error);
+                            alert('Ocorreu um erro de comunicação. Tente novamente.');
+                        })
+                        .finally(() => {
+                            deleteButton.disabled = false;
+                            deleteButton.textContent = 'Excluir agendamento';
+                        });
+                    });
+                },
                 onClickOutside(instance, event) {
                     instance.hide();
                 },
