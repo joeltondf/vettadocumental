@@ -201,9 +201,24 @@ document.addEventListener('DOMContentLoaded', function() {
     var btnSalvarNovaProspeccao = document.getElementById('btnSalvarNovaProspeccao');
     var novaProspeccaoClienteIdInput = document.getElementById('nova_prospeccao_cliente_id');
     
-    // Define as URLs base para as chamadas de API
-    const API_BASE_URL = '<?php echo APP_URL; ?>/crm/agendamentos';
-    const API_PROSPECCAO_URL = '<?php echo APP_URL; ?>/crm/prospeccoes';
+    // Define URLs relativas para evitar problemas de origem ao consumir a API
+    const agendamentosBaseUrl = new URL('./', window.location.href);
+    const prospeccoesBaseUrl = new URL('../prospeccoes/', window.location.href);
+
+    function buildAgendamentoUrl(path, params = {}) {
+        const url = new URL(path, agendamentosBaseUrl);
+        Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+                url.searchParams.set(key, value);
+            }
+        });
+        return url.toString();
+    }
+
+    const calendarEventsUrl = buildAgendamentoUrl('api_eventos.php', <?php echo json_encode(
+        $responsavel_filtrado ? ['responsavel_id' => (int) $responsavel_filtrado] : new stdClass(),
+        JSON_UNESCAPED_UNICODE
+    ); ?>);
 
     var calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
@@ -213,7 +228,7 @@ document.addEventListener('DOMContentLoaded', function() {
             center: 'title',
             right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
         },
-        events: `${API_BASE_URL}/api_eventos.php` + '<?php echo $responsavel_filtrado ? "?responsavel_id=$responsavel_filtrado" : ""; ?>',
+        events: calendarEventsUrl,
         
         selectable: true,
         dateClick: function(info) {
@@ -252,7 +267,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const props = info.event.extendedProps;
             const canDelete = Boolean(props.canDelete);
-            let link_prospeccao = props.prospeccao_id ? `<a href="${API_PROSPECCAO_URL}/detalhes.php?id=${props.prospeccao_id}" class="block mt-3 text-center bg-blue-500 text-white py-2 px-4 rounded-md text-sm hover:bg-blue-600 transition-colors">Ver Prospecção</a>` : '';
+
+            let link_prospeccao = '';
+            if (props.prospeccao_id) {
+                const prospeccaoUrl = new URL('../prospeccoes/detalhes.php', window.location.href);
+                prospeccaoUrl.searchParams.set('id', props.prospeccao_id);
+                link_prospeccao = `<a href="${prospeccaoUrl.toString()}" class="block mt-3 text-center bg-blue-500 text-white py-2 px-4 rounded-md text-sm hover:bg-blue-600 transition-colors">Ver Prospecção</a>`;
+            }
             const deleteButtonHtml = canDelete
                 ? `<button type="button" data-action="delete-agendamento" data-id="${info.event.id}" class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1">Excluir agendamento</button>`
                 : '';
@@ -297,7 +318,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         deleteButton.disabled = true;
                         deleteButton.textContent = 'Excluindo...';
 
-                        fetch(`${API_BASE_URL}/excluir_agendamento.php`, {
+                        fetch(buildAgendamentoUrl('excluir_agendamento.php'), {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/x-www-form-urlencoded'
@@ -406,7 +427,12 @@ document.addEventListener('DOMContentLoaded', function() {
         prospeccaoSelect.innerHTML = '<option value="">Nenhuma</option>'; 
 
         if (clienteId) {
-            fetch(`${API_BASE_URL}/api_dados_relacionados.php?action=get_prospeccoes_by_cliente&cliente_id=${clienteId}`)
+            const prospeccoesUrl = buildAgendamentoUrl('api_dados_relacionados.php', {
+                action: 'get_prospeccoes_by_cliente',
+                cliente_id: clienteId
+            });
+
+            fetch(prospeccoesUrl)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('Network response was not ok: ' + response.statusText);
@@ -441,7 +467,12 @@ document.addEventListener('DOMContentLoaded', function() {
         var clienteSelect = document.getElementById('cliente_id');
         
         if (prospeccaoId) {
-            fetch(`${API_BASE_URL}/api_dados_relacionados.php?action=get_prospeccao_details&prospeccao_id=${prospeccaoId}`)
+            const prospeccaoDetailsUrl = buildAgendamentoUrl('api_dados_relacionados.php', {
+                action: 'get_prospeccao_details',
+                prospeccao_id: prospeccaoId
+            });
+
+            fetch(prospeccaoDetailsUrl)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('Network response was not ok: ' + response.statusText);
@@ -471,7 +502,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         var formData = new FormData(formNovoAgendamento);
 
-        fetch(`${API_BASE_URL}/salvar_agendamento.php`, {
+        fetch(buildAgendamentoUrl('salvar_agendamento.php'), {
             method: 'POST',
             body: formData
         })
@@ -521,7 +552,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        fetch(`${API_PROSPECCAO_URL}/salvar_prospeccao_simulado.php`, {
+        const salvarProspeccaoUrl = new URL('salvar_prospeccao_simulado.php', prospeccoesBaseUrl);
+
+        fetch(salvarProspeccaoUrl.toString(), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -542,9 +575,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     clienteSelect.dispatchEvent(event);
 
                     if (data.new_prospeccao_id) {
-                            setTimeout(() => {
-                                document.getElementById('prospeccao_id').value = data.new_prospeccao_id;
-                            }, 200);
+                        setTimeout(() => {
+                            document.getElementById('prospeccao_id').value = data.new_prospeccao_id;
+                        }, 200);
                     }
                 }
 
