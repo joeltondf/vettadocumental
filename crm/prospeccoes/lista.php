@@ -175,7 +175,6 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lead</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoria do Lead</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Responsável</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
                     <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Ações</th>
@@ -184,7 +183,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
             <tbody class="bg-white divide-y divide-gray-200">
                 <?php if (empty($prospeccoes)): ?>
                     <tr>
-                        <td colspan="8" class="px-6 py-4 text-center text-gray-500">Nenhuma prospecção encontrada com os filtros aplicados.</td>
+                        <td colspan="7" class="px-6 py-4 text-center text-gray-500">Nenhuma prospecção encontrada com os filtros aplicados.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($prospeccoes as $prospeccao): ?>
@@ -232,7 +231,6 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                                 </span>
                             </td>
 
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-600">R$ <?php echo number_format($prospeccao['valor_proposto'] ?? 0, 2, ',', '.'); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars($prospeccao['nome_responsavel'] ?? 'N/A'); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo date('d/m/Y', strtotime($prospeccao['data_prospeccao'])); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
