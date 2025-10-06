@@ -278,6 +278,11 @@ class OmieService {
         return $this->makeRequest('/geral/produtos/', 'AlterarProduto', $payload);
     }
 
+    public function excluirProduto(array $payload): array
+    {
+        return $this->makeRequest('/geral/produtos/', 'ExcluirProduto', $payload);
+    }
+
     public function consultarProduto(array $payload): array
     {
         return $this->makeRequest('/geral/produtos/', 'ConsultarProduto', $payload);
@@ -301,6 +306,26 @@ class OmieService {
         }
 
         return $this->consultarProduto(['codigo_produto_integracao' => $codigoNormalizado]);
+    }
+
+    public function excluirProdutoPorCodigo(string $codigoProduto): array
+    {
+        $codigoNormalizado = trim($codigoProduto);
+        if ($codigoNormalizado === '') {
+            throw new InvalidArgumentException('O código do produto não pode ser vazio para exclusão na Omie.');
+        }
+
+        return $this->excluirProduto(['codigo_produto' => $codigoNormalizado]);
+    }
+
+    public function excluirProdutoPorIntegracao(string $codigoIntegracao): array
+    {
+        $codigoNormalizado = trim($codigoIntegracao);
+        if ($codigoNormalizado === '') {
+            throw new InvalidArgumentException('O código de integração do produto não pode ser vazio para exclusão na Omie.');
+        }
+
+        return $this->excluirProduto(['codigo_produto_integracao' => $codigoNormalizado]);
     }
 
     public function createProduct(array $payload): array {

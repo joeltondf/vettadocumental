@@ -151,23 +151,23 @@ class ProdutosOrcamentoController {
             exit();
         }
 
-        $metadataWarning = null;
+        $warningMessages = [];
 
         try {
-            $this->getOmieSyncService()->removeLocalProduct($id);
+            $this->getOmieSyncService()->deleteProduct($id);
         } catch (Exception $exception) {
-            $metadataWarning = 'Produto excluído, mas não foi possível remover os metadados locais: ' . $exception->getMessage();
+            $warningMessages[] = 'Falha ao excluir o produto na Omie: ' . $exception->getMessage();
         }
 
         if ($this->categoriaModel->deleteProdutoOrcamento($id)) {
-            if ($metadataWarning !== null) {
-                $_SESSION['warning_message'] = $metadataWarning;
-            }
             $_SESSION['success_message'] = 'Produto de Orçamento excluído com sucesso!';
+            if (!empty($warningMessages)) {
+                $_SESSION['warning_message'] = implode(' ', $warningMessages);
+            }
         } else {
             $_SESSION['error_message'] = 'Erro ao excluir o produto.';
-            if ($metadataWarning !== null) {
-                $_SESSION['warning_message'] = $metadataWarning;
+            if (!empty($warningMessages)) {
+                $_SESSION['warning_message'] = implode(' ', $warningMessages);
             }
         }
         header('Location: produtos_orcamento.php');
