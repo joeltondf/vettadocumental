@@ -292,6 +292,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             return;
                         }
 
+                        const eventId = info.event.id;
+
                         deleteButton.disabled = true;
                         deleteButton.textContent = 'Excluindo...';
 
@@ -300,23 +302,36 @@ document.addEventListener('DOMContentLoaded', function() {
                             headers: {
                                 'Content-Type': 'application/x-www-form-urlencoded'
                             },
-                            body: new URLSearchParams({ agendamento_id: info.event.id }).toString()
+                            credentials: 'same-origin',
+                            body: new URLSearchParams({ agendamento_id: eventId }).toString()
                         })
-                        .then(response => response.json())
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Resposta inválida do servidor');
+                            }
+                            return response.json();
+                        })
                         .then(data => {
                             if (data.success) {
                                 alert(data.message || 'Agendamento excluído com sucesso.');
+
+                                const calendarEvent = calendar.getEventById(eventId);
+                                if (calendarEvent) {
+                                    calendarEvent.remove();
+                                }
+
                                 if (info.el._tippy) {
                                     info.el._tippy.hide();
                                 }
+
                                 calendar.refetchEvents();
                             } else {
-                                alert('Erro ao excluir agendamento: ' + (data.message || 'Tente novamente.'));
+                                throw new Error(data.message || 'Tente novamente.');
                             }
                         })
                         .catch(error => {
                             console.error('Erro ao excluir agendamento:', error);
-                            alert('Ocorreu um erro de comunicação. Tente novamente.');
+                            alert('Erro ao excluir agendamento: ' + error.message);
                         })
                         .finally(() => {
                             deleteButton.disabled = false;
