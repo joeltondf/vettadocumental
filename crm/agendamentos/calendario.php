@@ -25,6 +25,17 @@ try {
 } catch (PDOException $e) {
     die("Ocorreu um erro ao carregar os dados da agenda: " . $e->getMessage());
 }
+
+$shouldOpenModal = filter_var($_GET['openModal'] ?? false, FILTER_VALIDATE_BOOLEAN);
+$prefillProspectionId = filter_input(INPUT_GET, 'prospeccaoId', FILTER_VALIDATE_INT);
+$prefillClientId = filter_input(INPUT_GET, 'clienteId', FILTER_VALIDATE_INT);
+$prefillTitle = isset($_GET['title']) ? trim((string) $_GET['title']) : '';
+
+if ($prefillTitle !== '') {
+    $prefillTitle = function_exists('mb_substr')
+        ? mb_substr($prefillTitle, 0, 120)
+        : substr($prefillTitle, 0, 120);
+}
 ?>
 <link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css' rel='stylesheet' />
 <style>
@@ -172,6 +183,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     var selectedCalendarDate = null; // Armazena a data clicada no calendário
     var selectedDateStr = null; // Armazena a data clicada no calendário como string 'YYYY-MM-DD'
+
+    var shouldOpenModal = <?php echo $shouldOpenModal ? 'true' : 'false'; ?>;
+    var prefillProspeccaoId = <?php echo $prefillProspectionId !== null ? (int) $prefillProspectionId : 'null'; ?>;
+    var prefillClienteId = <?php echo $prefillClientId !== null ? (int) $prefillClientId : 'null'; ?>;
+    var prefillTitle = <?php echo json_encode($prefillTitle, JSON_UNESCAPED_UNICODE); ?>;
 
     // Referências para o modal de nova prospecção
     var modalNovaProspeccao = document.getElementById('modalNovaProspeccao');
@@ -447,6 +463,77 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Ocorreu um erro de comunicação ao cadastrar a nova prospecção.');
         });
     });
+
+    function openScheduleModalWithPrefill() {
+        formNovoAgendamento.reset();
+
+        var now = new Date();
+        selectedCalendarDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        var year = selectedCalendarDate.getFullYear();
+        var month = String(selectedCalendarDate.getMonth() + 1).padStart(2, '0');
+        var day = String(selectedCalendarDate.getDate()).padStart(2, '0');
+        selectedDateStr = `${year}-${month}-${day}`;
+
+        var startHours = String(now.getHours()).padStart(2, '0');
+        var startMinutes = String(now.getMinutes()).padStart(2, '0');
+        dataInicioHoraInput.value = `${startHours}:${startMinutes}`;
+
+        var endDate = new Date(now.getTime() + 60 * 60 * 1000);
+        var endHours = String(endDate.getHours()).padStart(2, '0');
+        var endMinutes = String(endDate.getMinutes()).padStart(2, '0');
+        dataFimHoraInput.value = `${endHours}:${endMinutes}`;
+
+        if (prefillTitle) {
+            document.getElementById('titulo').value = prefillTitle;
+        }
+
+        var prospeccaoSelect = document.getElementById('prospeccao_id');
+        var clienteSelect = document.getElementById('cliente_id');
+        var prospeccaoSelecionada = false;
+
+        if (prefillProspeccaoId !== null) {
+            var hasProspeccaoOption = Array.from(prospeccaoSelect.options).some(function(option) {
+                return Number(option.value) === Number(prefillProspeccaoId);
+            });
+
+            if (hasProspeccaoOption) {
+                prospeccaoSelect.value = String(prefillProspeccaoId);
+                prospeccaoSelect.dispatchEvent(new Event('change'));
+                prospeccaoSelecionada = true;
+            }
+        }
+
+        if (!prospeccaoSelecionada && prefillClienteId !== null) {
+            var hasClienteOption = Array.from(clienteSelect.options).some(function(option) {
+                return Number(option.value) === Number(prefillClienteId);
+            });
+
+            if (hasClienteOption) {
+                clienteSelect.value = String(prefillClienteId);
+                clienteSelect.dispatchEvent(new Event('change'));
+            }
+        }
+
+        modalNovoAgendamento.classList.remove('hidden');
+        updateHiddenDateTime();
+
+        if (window.history && typeof window.history.replaceState === 'function') {
+            try {
+                var cleanUrl = new URL(window.location.href);
+                ['openModal', 'prospeccaoId', 'clienteId', 'title'].forEach(function(param) {
+                    cleanUrl.searchParams.delete(param);
+                });
+                window.history.replaceState({}, document.title, cleanUrl.toString());
+            } catch (error) {
+                console.warn('Não foi possível limpar os parâmetros da URL:', error);
+            }
+        }
+    }
+
+    if (shouldOpenModal) {
+        openScheduleModalWithPrefill();
+    }
 
 });
 </script>

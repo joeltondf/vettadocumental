@@ -114,6 +114,26 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                         }
 
                         $budgetUrl = APP_URL . '/processos.php?action=create&' . http_build_query($budgetParams);
+
+                        $calendarParams = [
+                            'openModal' => '1',
+                            'prospeccaoId' => $prospect['id'],
+                        ];
+
+                        if (!empty($prospectClientId)) {
+                            $calendarParams['clienteId'] = (int) $prospectClientId;
+                        }
+
+                        $appointmentTitleSource = trim((string) ($prospect['nome_prospecto'] ?? ''));
+                        if ($appointmentTitleSource === '') {
+                            $appointmentTitleSource = trim((string) $leadNome);
+                        }
+
+                        if ($appointmentTitleSource !== '') {
+                            $calendarParams['title'] = 'Reunião com ' . $appointmentTitleSource;
+                        }
+
+                        $calendarUrl = APP_URL . '/crm/agendamentos/calendario.php?' . http_build_query($calendarParams);
                     ?>
                     <div>
                         <h2 class="text-2xl font-bold text-gray-900"><?php echo htmlspecialchars($leadNome); ?></h2>
@@ -133,7 +153,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                             Orçamento
                         </a>
 
-                        <a href="<?php echo APP_URL; ?>/crm/agendamentos/novo_agendamento.php?prospeccao_id=<?php echo $prospect['id']; ?>" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 shadow-sm">
+                        <a href="<?php echo htmlspecialchars($calendarUrl); ?>" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 shadow-sm">
                             Agendar
                         </a>
                         <?php if (in_array($user_perfil, ['admin', 'gerencia', 'supervisor'])): ?>
