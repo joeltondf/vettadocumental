@@ -9,20 +9,17 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/assets/style.css">
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-100 text-gray-900">
     <header class="bg-white shadow-md">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-            <h1 class="text-xl font-bold text-gray-800"><?php echo APP_NAME; ?></h1>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-                <span>Olá, <?php echo htmlspecialchars($_SESSION['user_nome']); ?></span>
-                <a href="login.php?action=logout" class="ml-4 text-sm font-medium text-red-600 hover:text-red-800">Sair</a>
+                <p class="text-sm uppercase tracking-wide text-gray-400">Portal do Cliente</p>
+                <h1 class="text-2xl font-bold text-gray-800"><?php echo APP_NAME; ?></h1>
+            </div>
+            <div class="flex items-center gap-4 text-sm">
+                <span class="font-medium text-gray-700">Olá, <?php echo htmlspecialchars($_SESSION['user_nome']); ?></span>
+                <a href="login.php?action=logout" class="inline-flex items-center gap-2 rounded-md border border-red-600 px-3 py-2 font-semibold text-red-600 transition hover:bg-red-50">Sair</a>
             </div>
         </div>
     </header>
-    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        </main>
-    </div>
-</div>
-
-</body>
-</html>
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
