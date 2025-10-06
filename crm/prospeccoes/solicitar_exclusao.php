@@ -3,7 +3,25 @@
 
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
-require_once __DIR__ . '/../../app/services/EmailService.php'; // Usa o serviço de e-mail
+require_once __DIR__ . '/../../app/models/Configuracao.php';
+require_once __DIR__ . '/../../app/models/User.php';
+require_once __DIR__ . '/../../app/models/Notificacao.php';
+require_once __DIR__ . '/../../app/services/EmailService.php';
+
+function parseEmailList(?string $rawList): array
+{
+    if (empty($rawList)) {
+        return [];
+    }
+
+    $emails = preg_split('/[\n,;]+/', $rawList);
+
+    $filtered = array_filter(array_map('trim', $emails), static function ($email) {
+        return filter_var($email, FILTER_VALIDATE_EMAIL);
+    });
+
+    return array_values(array_unique($filtered));
+}
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: ' . APP_URL . '/crm/prospeccoes/lista.php');
@@ -22,7 +40,10 @@ if (!$prospeccao_id || empty($motivo)) {
 }
 
 try {
-    // Correção 2: Usa 'nome_cliente' na consulta
+    $notificationLink = '/crm/prospeccoes/detalhes.php?id=' . $prospeccao_id;
+
+    $notificacaoModel = new Notificacao($pdo);
+
     $stmt = $pdo->prepare("
         SELECT p.id_texto, p.nome_prospecto, c.nome_cliente
         FROM prospeccoes p
@@ -33,37 +54,94 @@ try {
     $prospect = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$prospect) {
-        die("Prospecção não encontrada.");
+        $notificacaoModel->deleteByLink($notificationLink);
+        $_SESSION['error_message'] = 'Esta prospecção já foi excluída e os alertas foram removidos.';
+        header('Location: ' . APP_URL . '/crm/prospeccoes/lista.php');
+        exit;
     }
 
-    // Monta o corpo do e-mail
-    $assunto = "Solicitação de Exclusão de Prospecção: " . $prospect['id_texto'];
-    $corpo_email = "
-        <p>Olá Gerência/Supervisão,</p>
-        <p>O colaborador <strong>" . htmlspecialchars($solicitante_nome) . "</strong> solicitou a exclusão da seguinte prospecção:</p>
+    $configModel = new Configuracao($pdo);
+    $userModel = new User($pdo);
+
+    $managerProfiles = ['admin', 'gerencia', 'supervisor'];
+    $managerContacts = $userModel->getActiveContactsByProfiles($managerProfiles);
+
+    $recipientMap = [];
+    foreach ($managerContacts as $contact) {
+        $recipientMap[$contact['email']] = true;
+    }
+
+    $configuredEmails = parseEmailList($configModel->get('alert_emails'));
+    foreach ($configuredEmails as $email) {
+        $recipientMap[$email] = true;
+    }
+
+    $recipientEmails = array_keys($recipientMap);
+
+    $prospectCode = $prospect['id_texto'] ?? ('ID #' . $prospeccao_id);
+    $prospectTitle = $prospect['nome_prospecto'] ?? '';
+    $prospectLead = $prospect['nome_cliente'] ?? '';
+    $prospectLink = APP_URL . $notificationLink;
+
+    $assunto = sprintf('Solicitação de exclusão da prospecção: %s', $prospectCode);
+
+    $solicitanteNomeHtml = htmlspecialchars($solicitante_nome, ENT_QUOTES, 'UTF-8');
+    $prospectCodeHtml = htmlspecialchars($prospectCode, ENT_QUOTES, 'UTF-8');
+    $prospectTitleHtml = htmlspecialchars($prospectTitle, ENT_QUOTES, 'UTF-8');
+    $prospectLeadHtml = htmlspecialchars($prospectLead, ENT_QUOTES, 'UTF-8');
+    $prospectLinkHtml = htmlspecialchars($prospectLink, ENT_QUOTES, 'UTF-8');
+    $motivoHtml = nl2br(htmlspecialchars($motivo, ENT_QUOTES, 'UTF-8'));
+
+    $corpoEmail = <<<HTML
+        <p>Olá,</p>
+        <p>O colaborador <strong>{$solicitanteNomeHtml}</strong> solicitou a exclusão da prospecção abaixo.</p>
         <ul>
-            <li><strong>ID:</strong> " . htmlspecialchars($prospect['id_texto']) . "</li>
-            <li><strong>Oportunidade:</strong> " . htmlspecialchars($prospect['nome_prospecto']) . "</li>
-            <li><strong>Lead:</strong> " . htmlspecialchars($prospect['nome_cliente']) . "</li>
+            <li><strong>ID:</strong> {$prospectCodeHtml}</li>
+            <li><strong>Título:</strong> {$prospectTitleHtml}</li>
+            <li><strong>Lead:</strong> {$prospectLeadHtml}</li>
         </ul>
-        <p><strong>Motivo da solicitação:</strong></p>
-        <p style='padding: 10px; border: 1px solid #eee; background-color: #f9f9f9;'>" . nl2br(htmlspecialchars($motivo)) . "</p>
-        <p>Por favor, analise e, se aprovado, realize a exclusão no sistema.</p>
-        <p>Obrigado.</p>
-    ";
+        <p><strong>Mensagem enviada:</strong></p>
+        <p style="padding: 10px; border: 1px solid #eee; background-color: #f9f9f9;">{$motivoHtml}</p>
+        <p><a href="{$prospectLinkHtml}" style="display: inline-block; padding: 10px 16px; background-color: #2563eb; color: #fff; text-decoration: none; border-radius: 4px;">Abrir prospecção</a></p>
+        <p>Por favor, analisem e concluam a solicitação diretamente no CRM.</p>
+    HTML;
 
-    // Envia o e-mail usando o EmailService
     $emailService = new EmailService($pdo);
-    $enviado = $emailService->sendEmail(EMAIL_FROM_ADDRESS, $assunto, $corpo_email);
+    $emailsEnviados = 0;
+    $emailsComFalha = [];
 
-    // Correção 3: Redirecionamentos absolutos
-    if ($enviado) {
-        $_SESSION['success_message'] = "Solicitação de exclusão enviada com sucesso!";
-        header("Location: " . APP_URL . "/crm/prospeccoes/detalhes.php?id=" . $prospeccao_id);
-    } else {
-        $_SESSION['error_message'] = "Falha ao enviar o e-mail de solicitação.";
-        header("Location: " . APP_URL . "/crm/prospeccoes/detalhes.php?id=" . $prospeccao_id);
+    foreach ($recipientEmails as $email) {
+        try {
+            if ($emailService->sendEmail($email, $assunto, $corpoEmail)) {
+                $emailsEnviados++;
+            }
+        } catch (Exception $exception) {
+            $emailsComFalha[] = $email;
+            error_log('Erro ao enviar solicitação de exclusão: ' . $exception->getMessage());
+        }
     }
+
+    $notificationMessage = sprintf(
+        'Solicitação de exclusão da prospecção %s enviada por %s.',
+        $prospectCode,
+        $solicitante_nome
+    );
+
+    foreach ($managerContacts as $contact) {
+        $notificacaoModel->criar((int) $contact['id'], $solicitante_id, $notificationMessage, $notificationLink);
+    }
+
+    if ($emailsEnviados === 0 && empty($emailsComFalha)) {
+        $_SESSION['error_message'] = 'Nenhum destinatário configurado para receber a solicitação. Informe a gerência.';
+    } elseif ($emailsEnviados === 0) {
+        $_SESSION['error_message'] = 'Não foi possível enviar o e-mail de solicitação. Tente novamente ou contate o administrador.';
+    } elseif (!empty($emailsComFalha)) {
+        $_SESSION['error_message'] = 'Solicitação registrada, mas alguns e-mails não foram entregues: ' . implode(', ', $emailsComFalha);
+    } else {
+        $_SESSION['success_message'] = 'Solicitação de exclusão enviada para a gerência.';
+    }
+
+    header('Location: ' . APP_URL . $notificationLink);
     exit;
 
 } catch (Exception $e) {

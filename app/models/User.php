@@ -179,4 +179,25 @@ class User
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    public function getActiveContactsByProfiles(array $profiles): array
+    {
+        if (empty($profiles)) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($profiles), '?'));
+
+        $sql = "SELECT id, nome_completo, email
+                FROM users
+                WHERE perfil IN ($placeholders)
+                  AND (ativo = 1 OR ativo IS NULL)
+                  AND email IS NOT NULL
+                  AND email <> ''";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($profiles);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }
