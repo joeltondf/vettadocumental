@@ -12,6 +12,23 @@ function formatUppercase(?string $value, string $fallback = 'N/A'): string
     return strtoupper($text);
 }
 
+function getStatusBadgeClasses(?string $status): string
+{
+    $normalizedStatus = strtolower(trim($status ?? ''));
+
+    return match ($normalizedStatus) {
+        'cliente ativo' => 'bg-green-100 text-green-800',
+        'primeiro contato' => 'bg-blue-100 text-blue-800',
+        'segundo contato' => 'bg-yellow-100 text-yellow-800',
+        'terceiro contato' => 'bg-indigo-100 text-indigo-800',
+        'reunião agendada' => 'bg-purple-100 text-purple-800',
+        'proposta enviada' => 'bg-teal-100 text-teal-800',
+        'fechamento' => 'bg-red-100 text-red-800',
+        'pausar' => 'bg-gray-100 text-gray-800',
+        default => 'bg-gray-100 text-gray-800',
+    };
+}
+
 $pageTitle = "Lista de Prospecções";
 
 // --- INÍCIO DA LÓGICA DE FILTRO E CONTROLE DE ACESSO ---
@@ -184,7 +201,6 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prospecto</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lead</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoria do Lead</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Responsável</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
                     <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Ações</th>
@@ -193,54 +209,21 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
             <tbody class="bg-white divide-y divide-gray-200">
                 <?php if (empty($prospeccoes)): ?>
                     <tr>
-                        <td colspan="7" class="px-6 py-4 text-center text-gray-500">Nenhuma prospecção encontrada com os filtros aplicados.</td>
+                        <td colspan="6" class="px-6 py-4 text-center text-gray-500">Nenhuma prospecção encontrada com os filtros aplicados.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($prospeccoes as $prospeccao): ?>
                         <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars(formatUppercase($prospeccao['nome_prospecto'])); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                <div class="flex items-center space-x-2">
+                                    <span><?php echo htmlspecialchars(formatUppercase($prospeccao['nome_prospecto'])); ?></span>
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo getStatusBadgeClasses($prospeccao['status'] ?? null); ?>">
+                                        <?php echo htmlspecialchars(formatUppercase($prospeccao['status'] ?? null)); ?>
+                                    </span>
+                                </div>
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars(formatUppercase($prospeccao['nome_cliente'] ?? null, 'Lead não vinculado')); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars(formatUppercase($prospeccao['leadCategory'] ?? null, 'Entrada')); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                                <span class="
-                                    <?php 
-                                        $status = strtolower($prospeccao['status']); // Converte para minúsculo para garantir que a comparação seja feita de forma insensível ao caso
-
-                                        switch ($status) {
-                                            case 'cliente ativo':
-                                                echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800';
-                                                break;
-                                            case 'primeiro contato':
-                                                echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800';
-                                                break;
-                                            case 'segundo contato':
-                                                echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800';
-                                                break;
-                                            case 'terceiro contato':
-                                                echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-indigo-100 text-indigo-800';
-                                                break;
-                                            case 'reunião agendada':
-                                                echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800';
-                                                break;
-                                            case 'proposta enviada':
-                                                echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-teal-100 text-teal-800';
-                                                break;
-                                            case 'fechamento':
-                                                echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800';
-                                                break;
-                                            case 'pausar':
-                                                echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800';
-                                                break;
-                                            default:
-                                                echo 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800';
-                                                break;
-                                        }
-                                    ?>
-                                ">
-                                    <?php echo htmlspecialchars(formatUppercase($prospeccao['status'] ?? null)); ?>
-                                </span>
-                            </td>
-
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars(formatUppercase($prospeccao['nome_responsavel'] ?? null)); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo date('d/m/Y', strtotime($prospeccao['data_prospeccao'])); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
