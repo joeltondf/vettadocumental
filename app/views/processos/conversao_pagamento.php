@@ -155,9 +155,9 @@ $parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balan
                                 id="payment_unique_receipt"
                                 accept=".pdf,.png,.jpg,.jpeg,.webp"
                                 class="hidden"
-                                data-field-name="payment_proof_entry"
+                                data-field-name="comprovante_pagamento_unico"
                                 data-upload-display="payment_unique_receipt"
-                                <?php echo $paymentMethod === 'Pagamento único' ? 'name="payment_proof_entry"' : 'disabled'; ?>
+                                <?php echo $paymentMethod === 'Pagamento único' ? 'name="comprovante_pagamento_unico"' : 'disabled'; ?>
                             >
                         </div>
                     </div>
@@ -203,9 +203,9 @@ $parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balan
                                 id="payment_installment_receipt_1"
                                 accept=".pdf,.png,.jpg,.jpeg,.webp"
                                 class="hidden"
-                                data-field-name="payment_proof_entry"
+                                data-field-name="comprovante_pagamento_entrada"
                                 data-upload-display="payment_installment_receipt_1"
-                                <?php echo $paymentMethod === 'Pagamento parcelado' ? 'name="payment_proof_entry"' : 'disabled'; ?>
+                                <?php echo $paymentMethod === 'Pagamento parcelado' ? 'name="comprovante_pagamento_entrada"' : 'disabled'; ?>
                             >
                         </div>
                     </div>
@@ -246,9 +246,9 @@ $parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balan
                                 id="payment_installment_receipt_2"
                                 accept=".pdf,.png,.jpg,.jpeg,.webp"
                                 class="hidden"
-                                data-field-name="payment_proof_balance"
+                                data-field-name="comprovante_pagamento_saldo"
                                 data-upload-display="payment_installment_receipt_2"
-                                <?php echo $paymentMethod === 'Pagamento parcelado' ? 'name="payment_proof_balance"' : 'disabled'; ?>
+                                <?php echo $paymentMethod === 'Pagamento parcelado' ? 'name="comprovante_pagamento_saldo"' : 'disabled'; ?>
                             >
                         </div>
                     </div>
@@ -256,7 +256,7 @@ $parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balan
 
                 <div class="space-y-6 <?php echo $paymentMethod === 'Pagamento mensal' ? '' : 'hidden'; ?>" data-payment-section="Pagamento mensal">
                     <h3 class="text-md font-semibold text-gray-800">Pagamento mensal</h3>
-                    <p class="text-sm text-gray-600">A primeira cobrança será igual ao valor total calculado para o período.</p>
+                    <p class="text-sm text-gray-600">Informe apenas a data prevista para o pagamento mensal.</p>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div>
                             <label class="block text-sm font-semibold text-gray-700" for="payment_monthly_date">Data do pagamento</label>
@@ -267,24 +267,6 @@ $parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balan
                                 class="mt-2 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
                                 data-field-name="data_pagamento_1"
                                 <?php echo $paymentMethod === 'Pagamento mensal' ? 'name="data_pagamento_1"' : 'disabled'; ?>
-                            >
-                        </div>
-                        <div>
-                            <label for="payment_monthly_receipt" class="mt-4 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-indigo-300 bg-indigo-50 px-5 py-6 text-center text-indigo-600 transition hover:border-indigo-400 hover:bg-indigo-100 cursor-pointer" role="button">
-                                <svg class="mb-2 h-6 w-6 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-3-3v6m8 4a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h7.586a2 2 0 011.414.586l4.414 4.414A2 2 0 0120 9.414V19z" />
-                                </svg>
-                                <span class="text-sm font-semibold">Anexar comprovante mensal</span>
-                                <span class="mt-1 text-xs text-indigo-600" data-upload-filename="payment_monthly_receipt" data-placeholder="Nenhum arquivo selecionado">Nenhum arquivo selecionado</span>
-                            </label>
-                            <input
-                                type="file"
-                                id="payment_monthly_receipt"
-                                accept=".pdf,.png,.jpg,.jpeg,.webp"
-                                class="hidden"
-                                data-field-name="payment_proof_entry"
-                                data-upload-display="payment_monthly_receipt"
-                                <?php echo $paymentMethod === 'Pagamento mensal' ? 'name="payment_proof_entry"' : 'disabled'; ?>
                             >
                         </div>
                     </div>
