@@ -7,19 +7,22 @@ require_once __DIR__ . '/config.php';
 // 2. Executa o verificador de segurança. Se não estiver autenticado, redireciona para o login.
 require_once __DIR__ . '/app/core/auth_check.php';
 
-// Lógica para excluir notificação
-if (isset($_GET['action']) && $_GET['action'] === 'delete_notification' && isset($_GET['id'])) {
+// Lógica para marcar notificação como lida
+if (
+    isset($_GET['action'], $_GET['id'])
+    && in_array($_GET['action'], ['mark_notification_read', 'delete_notification'], true)
+) {
     require_once __DIR__ . '/app/models/Notificacao.php';
     $notificacaoModel = new Notificacao($pdo);
-    
+
     $notification_id = (int)$_GET['id'];
-    
-    if ($notificacaoModel->delete($notification_id)) {
-        $_SESSION['success_message'] = "Notificação removida com sucesso.";
+
+    if ($notificacaoModel->marcarComoLida($notification_id, (int)($_SESSION['user_id'] ?? 0))) {
+        $_SESSION['success_message'] = "Notificação marcada como lida.";
     } else {
-        $_SESSION['error_message'] = "Erro ao remover notificação.";
+        $_SESSION['error_message'] = "Não foi possível atualizar a notificação.";
     }
-    
+
     $redirect_url = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : 'dashboard.php';
     header("Location: " . $redirect_url);
     exit;

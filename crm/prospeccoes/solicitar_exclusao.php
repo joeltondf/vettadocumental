@@ -54,7 +54,7 @@ try {
     $prospect = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$prospect) {
-        $notificacaoModel->deleteByLink($notificationLink);
+        $notificacaoModel->resolverPorReferencia('prospeccao_exclusao', (int)$prospeccao_id);
         $_SESSION['error_message'] = 'Esta prospecção já foi excluída e os alertas foram removidos.';
         header('Location: ' . APP_URL . '/crm/prospeccoes/lista.php');
         exit;
@@ -128,7 +128,15 @@ try {
     );
 
     foreach ($managerContacts as $contact) {
-        $notificacaoModel->criar((int) $contact['id'], $solicitante_id, $notificationMessage, $notificationLink);
+        $notificacaoModel->criar(
+            (int)$contact['id'],
+            $solicitante_id,
+            $notificationMessage,
+            $notificationLink,
+            'prospeccao_exclusao',
+            (int)$prospeccao_id,
+            'gerencia'
+        );
     }
 
     if ($emailsEnviados === 0 && empty($emailsComFalha)) {

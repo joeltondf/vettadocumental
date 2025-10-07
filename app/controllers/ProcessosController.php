@@ -339,7 +339,7 @@ class ProcessosController
 
         if ($processoOriginal['status_processo'] === 'Serviço Pendente' && in_array($perfilUsuario, ['admin', 'gerencia', 'supervisor'])) {
             $dadosParaAtualizar['status_processo'] = 'Serviço em Andamento';
-            $this->notificacaoModel->deleteByLink("/processos.php?action=view&id=" . $id_existente);
+            $this->resolveNotifications('processo_pendente_servico', $id_existente);
             $_SESSION['message'] = "Serviço aprovado e status atualizado!";
         } elseif ($valorAlterado) {
             if ($this->isBudgetStatus($processoOriginal['status_processo'])) {
@@ -376,7 +376,8 @@ class ProcessosController
             }
 
             if ($leftPending) {
-                $this->notificacaoModel->deleteByLink($link);
+                $pendingType = $previousStatusNormalized === 'orçamento pendente' ? 'processo_pendente_orcamento' : 'processo_pendente_servico';
+                $this->resolveNotifications($pendingType, $id_existente);
             }
 
             if ($this->shouldGenerateOmieOs($novoStatus)) {
@@ -998,7 +999,8 @@ class ProcessosController
         }
 
         if ($leftPending) {
-            $this->notificacaoModel->deleteByLink($link);
+            $pendingType = $previousStatusNormalized === 'orçamento pendente' ? 'processo_pendente_orcamento' : 'processo_pendente_servico';
+            $this->resolveNotifications($pendingType, $processId);
         }
 
         if ($newStatusNormalized === 'serviço pendente') {
@@ -1046,32 +1048,32 @@ class ProcessosController
             case 'orçamento pendente':
                 if ($sellerUserId && $senderId !== $sellerUserId && $previousStatusNormalized === 'pendente') {
                     $message = "O serviço do orçamento #{$process['orcamento_numero']} foi recusado pela gerência. Ajuste os dados.";
-                    $this->notificacaoModel->criar($sellerUserId, $senderId, $message, $link);
+                    $this->notifyUser($sellerUserId, $senderId, $message, $link, 'processo_orcamento_recusado', $processId, 'vendedor');
                 }
                 break;
             case 'orçamento':
                 $this->queueBudgetEmails($processId, $senderId);
                 if ($sellerUserId && $senderId !== $sellerUserId) {
                     $message = "Seu orçamento #{$process['orcamento_numero']} foi enviado ao cliente.";
-                    $this->notificacaoModel->criar($sellerUserId, $senderId, $message, $link);
+                    $this->notifyUser($sellerUserId, $senderId, $message, $link, 'processo_orcamento_enviado', $processId, 'vendedor');
                 }
                 break;
             case 'serviço pendente':
                 if ($sellerUserId && $senderId !== $sellerUserId) {
                     $message = "Seu orçamento #{$process['orcamento_numero']} foi aprovado e aguarda execução.";
-                    $this->notificacaoModel->criar($sellerUserId, $senderId, $message, $link);
+                    $this->notifyUser($sellerUserId, $senderId, $message, $link, 'processo_servico_pendente', $processId, 'vendedor');
                 }
                 break;
             case 'cancelado':
                 if ($sellerUserId) {
                     $message = "Seu orçamento #{$process['orcamento_numero']} foi cancelado.";
-                    $this->notificacaoModel->criar($sellerUserId, $senderId, $message, $link);
+                    $this->notifyUser($sellerUserId, $senderId, $message, $link, 'processo_cancelado', $processId, 'vendedor');
                 }
                 break;
             case 'serviço em andamento':
                 if ($sellerUserId && $senderId !== $sellerUserId) {
                     $message = "Seu serviço #{$process['orcamento_numero']} foi aprovado e está em andamento.";
-                    $this->notificacaoModel->criar($sellerUserId, $senderId, $message, $link);
+                    $this->notifyUser($sellerUserId, $senderId, $message, $link, 'processo_servico_aprovado', $processId, 'vendedor');
                 }
                 break;
             default:
@@ -1121,10 +1123,18 @@ class ProcessosController
     public function painelNotificacoes()
     {
         $pageTitle = "Painel de Notificações";
-        $status_para_buscar = ['Orçamento Pendente', 'Serviço Pendente'];
-        $processos_pendentes = $this->processoModel->getByMultipleStatus(array_unique(array_merge($status_para_buscar, ['Serviço pendente', 'Serviço Pendente'])));
+        $usuarioId = (int)($_SESSION['user_id'] ?? 0);
+        if ($usuarioId <= 0) {
+            header('Location: ' . APP_URL . '/login.php');
+            exit();
+        }
+
+        $grupoDestino = Notificacao::resolveGroupForProfile($_SESSION['user_perfil'] ?? '');
+        $alertFeed = $this->notificacaoModel->getAlertFeed($usuarioId, $grupoDestino, 100, true, 'UTC');
+
         $this->render('painel_notificacoes', [
-            'processos_pendentes' => $processos_pendentes,
+            'alertFeed' => $alertFeed,
+            'grupoDestino' => $grupoDestino,
             'pageTitle' => $pageTitle,
         ]);
     }
@@ -1143,14 +1153,14 @@ class ProcessosController
         if ($this->processoModel->updateStatus($id, $data)) {
             $processo = $this->processoModel->getById($id)['processo'];
             $link = "/processos.php?action=view&id={$id}";
-            $this->notificacaoModel->deleteByLink($link);
+            $this->resolveNotifications('processo_pendente_orcamento', (int)$id);
             $this->sendBudgetEmails($id, $_SESSION['user_id'] ?? null);
 
             if ($processo && !empty($processo['vendedor_id'])) {
                 $vendedor_user_id = $this->vendedorModel->getUserIdByVendedorId($processo['vendedor_id']);
                 if ($vendedor_user_id) {
                     $mensagem = "Seu orçamento #{$processo['orcamento_numero']} foi liberado pela gerência.";
-                    $this->notificacaoModel->criar($vendedor_user_id, $_SESSION['user_id'], $mensagem, $link);
+                    $this->notifyUser($vendedor_user_id, $_SESSION['user_id'] ?? null, $mensagem, $link, 'processo_orcamento_aprovado', (int)$id, 'vendedor');
                 }
             }
             $_SESSION['success_message'] = "Orçamento aprovado pela gerência e enviado ao cliente.";
@@ -1185,8 +1195,8 @@ class ProcessosController
                 if ($vendedor_user_id) {
                     $mensagem = "Orçamento #{$processo['orcamento_numero']} cancelado. Por favor, revise-o.";
                     $link = "/processos.php?action=view&id={$id}";
-                    $this->notificacaoModel->deleteByLink($link);
-                    $this->notificacaoModel->criar($vendedor_user_id, $_SESSION['user_id'], $mensagem, $link);
+                    $this->resolveNotifications('processo_pendente_orcamento', (int)$id);
+                    $this->notifyUser($vendedor_user_id, $_SESSION['user_id'] ?? null, $mensagem, $link, 'processo_orcamento_cancelado', (int)$id, 'vendedor');
                 }
             }
             $_SESSION['success_message'] = "Orçamento cancelado e vendedor notificado.";
@@ -1554,6 +1564,31 @@ class ProcessosController
         require_once __DIR__ . '/../views/layouts/footer.php';
     }
 
+    private function notifyUser(
+        int $usuarioId,
+        ?int $remetenteId,
+        string $mensagem,
+        string $link,
+        string $tipoAlerta,
+        int $referenciaId,
+        string $grupoDestino
+    ): void {
+        $this->notificacaoModel->criar(
+            $usuarioId,
+            $remetenteId,
+            $mensagem,
+            $link,
+            $tipoAlerta,
+            $referenciaId,
+            $grupoDestino
+        );
+    }
+
+    private function resolveNotifications(string $tipoAlerta, int $referenciaId): void
+    {
+        $this->notificacaoModel->resolverPorReferencia($tipoAlerta, $referenciaId);
+    }
+
     /**
      * Notifica perfis de gestão quando há serviço pendente.
      */
@@ -1563,11 +1598,12 @@ class ProcessosController
         $nomeCliente = $cliente['nome_cliente'] ?? 'Cliente';
         $linkPath = '/processos.php?action=view&id=' . $processoId;
         $pendingLabel = $tipoPendencia === 'orcamento' ? 'Orçamento' : 'Serviço';
+        $tipoAlerta = $tipoPendencia === 'orcamento' ? 'processo_pendente_orcamento' : 'processo_pendente_servico';
         $gerentesIds = $this->userModel->getIdsByPerfil(['admin', 'gerencia', 'supervisor']);
 
         foreach ($gerentesIds as $gerenteId) {
             $mensagem = "{$pendingLabel} pendente para o cliente {$nomeCliente}.";
-            $this->notificacaoModel->criar($gerenteId, $remetenteId, $mensagem, $linkPath);
+            $this->notifyUser($gerenteId, $remetenteId, $mensagem, $linkPath, $tipoAlerta, $processoId, 'gerencia');
         }
     }
 
