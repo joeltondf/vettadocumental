@@ -2137,56 +2137,91 @@ class ProcessosController
 
     private function processPaymentProofUploads(int $processoId): array
     {
-        $mapaCampos = [
-            'payment_proof_entry' => 'comprovante_pagamento_1',
-            'payment_proof_balance' => 'comprovante_pagamento_2',
+        $comprovanteMap = [
+            'comprovante_pagamento_unico' => ['categoria' => 'comprovante_unico', 'dataField' => 'data_pagamento_1'],
+            'comprovante_pagamento_entrada' => ['categoria' => 'comprovante_entrada', 'dataField' => 'data_pagamento_1'],
+            'comprovante_pagamento_saldo' => ['categoria' => 'comprovante_saldo', 'dataField' => 'data_pagamento_2'],
+        ];
+
+        $columnMapping = [
+            'comprovante_pagamento_unico' => 'comprovante_pagamento_1',
+            'comprovante_pagamento_entrada' => 'comprovante_pagamento_1',
+            'comprovante_pagamento_saldo' => 'comprovante_pagamento_2',
         ];
 
         $resultado = [];
 
-        foreach ($mapaCampos as $inputName => $column) {
-            if (!isset($_FILES[$inputName]) || !is_array($_FILES[$inputName])) {
+        foreach ($comprovanteMap as $input => $config) {
+            if (!isset($_FILES[$input]) || !is_array($_FILES[$input])) {
                 continue;
             }
 
-            $file = $_FILES[$inputName];
-            if ($file['error'] === UPLOAD_ERR_NO_FILE) {
+            $file = $_FILES[$input];
+            $errorCode = $file['error'] ?? UPLOAD_ERR_NO_FILE;
+
+            if ($errorCode === UPLOAD_ERR_NO_FILE) {
                 continue;
             }
 
-            if ($file['error'] !== UPLOAD_ERR_OK) {
-                throw new RuntimeException('Falha ao enviar o arquivo de comprovante.');
+            if ($errorCode !== UPLOAD_ERR_OK) {
+                throw new RuntimeException('Falha ao enviar o comprovante de pagamento.');
             }
 
-            $resultado[$column] = $this->uploadPaymentProof($file, $processoId, $column);
+            $categoria = $config['categoria'];
+            $relativePath = $this->storePaymentProofAttachment($processoId, $file, $categoria);
+
+            if (isset($columnMapping[$input])) {
+                $resultado[$columnMapping[$input]] = $relativePath;
+            }
         }
 
         return $resultado;
     }
 
-    private function uploadPaymentProof(array $file, int $processoId, string $column): string
+    private function storePaymentProofAttachment(int $processoId, array $file, string $categoria): string
     {
         $allowedExtensions = ['pdf', 'png', 'jpg', 'jpeg', 'webp'];
         $originalName = $file['name'] ?? 'comprovante';
         $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
 
         if ($extension === '' || !in_array($extension, $allowedExtensions, true)) {
-            throw new InvalidArgumentException('Formato de arquivo não suportado para comprovantes.');
+            throw new InvalidArgumentException('Formato de arquivo não suportado para comprovantes de pagamento.');
         }
 
-        $baseDir = dirname(__DIR__, 2) . '/uploads/comprovantes/';
-        if (!is_dir($baseDir) && !mkdir($baseDir, 0755, true) && !is_dir($baseDir)) {
-            throw new RuntimeException('Não foi possível preparar o diretório de comprovantes.');
+        $dateSegment = date('m/d');
+        $relativeDirectory = sprintf('uploads/%s/comprovantes/processo-%d/', $dateSegment, $processoId);
+        $absoluteDirectory = rtrim(dirname(__DIR__, 2), '/') . '/' . $relativeDirectory;
+
+        if (!is_dir($absoluteDirectory) && !mkdir($absoluteDirectory, 0755, true) && !is_dir($absoluteDirectory)) {
+            throw new RuntimeException('Não foi possível criar o diretório de comprovantes de pagamento.');
         }
 
-        $filename = sprintf('%s_%d_%s.%s', $column, $processoId, uniqid('', true), $extension);
-        $destino = $baseDir . $filename;
+        $novoNome = uniqid($categoria . '_', true) . '.' . $extension;
+        $destino = $absoluteDirectory . $novoNome;
 
         if (!move_uploaded_file($file['tmp_name'], $destino)) {
-            throw new RuntimeException('Erro ao salvar o comprovante de pagamento.');
+            throw new RuntimeException('Não foi possível mover o arquivo de comprovante de pagamento.');
         }
 
-        return 'uploads/comprovantes/' . $filename;
+        $relativePath = $relativeDirectory . $novoNome;
+
+        $sql = 'INSERT INTO processo_anexos (processo_id, categoria, nome_arquivo_sistema, nome_arquivo_original, caminho_arquivo, data_upload) VALUES (:processoId, :categoria, :nomeSistema, :nomeOriginal, :caminhoArquivo, :dataUpload)';
+        $stmt = $this->pdo->prepare($sql);
+        $params = [
+            ':processoId' => $processoId,
+            ':categoria' => $categoria,
+            ':nomeSistema' => $novoNome,
+            ':nomeOriginal' => $originalName,
+            ':caminhoArquivo' => $relativePath,
+            ':dataUpload' => date('Y-m-d H:i:s'),
+        ];
+
+        if (!$stmt->execute($params)) {
+            $this->removeUploadedFile($relativePath);
+            throw new RuntimeException('Não foi possível registrar o comprovante de pagamento no banco de dados.');
+        }
+
+        return $relativePath;
     }
 
     private function removeUploadedFile(string $relativePath): void
