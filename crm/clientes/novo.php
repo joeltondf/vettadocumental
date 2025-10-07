@@ -39,14 +39,16 @@ if (strpos($redirectUrl, APP_URL) !== 0) {
                     <label for="canal_origem" class="block text-sm font-medium text-gray-700">Canal de Origem</label>
                     <select name="canal_origem" id="canal_origem" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
                         <option value="">Selecione um canal</option>
-                        <option value="Call">Call</option>
-                        <option value="LinkedIn">LinkedIn</option>
-                        <option value="Instagram">Instagram</option>
-                        <option value="Whatsapp">Whatsapp</option>
-                        <option value="Indicação Cliente">Indicação Cliente</option>
-                        <option value="Indicação Cartório">Indicação Cartório</option>
+                        <option value="Google (Anúncios/SEO)">Google (Anúncios/SEO)</option>
                         <option value="Website">Website</option>
+                        <option value="Indicação Cliente">Indicação Cliente</option>
+                        <option value="Instagram">Instagram</option>
+                        <option value="LinkedIn">LinkedIn</option>
+                        <option value="Facebook">Facebook</option>
+                        <option value="Whatsapp">Whatsapp</option>
                         <option value="Bitrix">Bitrix</option>
+                        <option value="Call">Call</option>
+                        <option value="Indicação Cartório">Indicação Cartório</option>
                         <option value="Evento">Evento</option>
                         <option value="Outro">Outro</option>
                     </select>
