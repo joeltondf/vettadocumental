@@ -53,10 +53,6 @@
             <h2 class="text-xl font-semibold text-gray-700 mb-4">Recursos visuais</h2>
             <div class="space-y-4">
                 <label class="inline-flex items-center">
-                    <input type="checkbox" name="enable_progress_bar" class="h-5 w-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" <?php echo !empty($settings['enable_progress_bar']) ? 'checked' : ''; ?>>
-                    <span class="ml-3 text-sm text-gray-700">Exibir barra de progresso por prazo</span>
-                </label>
-                <label class="inline-flex items-center">
                     <input type="checkbox" name="enable_alert_pulse" class="h-5 w-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" <?php echo !empty($settings['enable_alert_pulse']) ? 'checked' : ''; ?>>
                     <span class="ml-3 text-sm text-gray-700">Ativar destaque animado para prazos críticos</span>
                 </label>
