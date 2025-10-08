@@ -391,11 +391,22 @@ $isServicePending = $statusNormalized === 'serviço pendente';
                     <ul class="mt-2 space-y-2">
                         <?php foreach ($paymentProofAttachments as $anexo): ?>
                             <li class="flex items-center justify-between text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
-                                <a href="visualizar_anexo.php?id=<?= $anexo['id'] ?>" target="_blank" class="text-gray-700 hover:underline">
+                                <a
+                                    href="<?= '/' . htmlspecialchars($anexo['caminho_arquivo']); ?>"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="text-blue-600 hover:underline"
+                                >
                                     <?= htmlspecialchars($anexo['nome_arquivo_original']); ?>
                                 </a>
                                 <?php if (!empty($processo['id'])): ?>
-                                    <a href="processos.php?action=excluir_anexo&id=<?= $processo['id'] ?>&anexo_id=<?= $anexo['id'] ?>" class="text-red-500 hover:text-red-700 text-xs font-semibold" onclick="return confirm('Tem certeza que deseja excluir este anexo?');">Remover</a>
+                                    <a
+                                        href="processos.php?action=excluir_anexo&id=<?= $processo['id'] ?>&anexo_id=<?= $anexo['id'] ?>"
+                                        class="text-red-500 hover:text-red-700 text-xs font-semibold"
+                                        onclick="return confirm('Tem certeza que deseja excluir este anexo?');"
+                                    >
+                                        Remover
+                                    </a>
                                 <?php endif; ?>
                             </li>
                         <?php endforeach; ?>
