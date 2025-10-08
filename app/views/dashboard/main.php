@@ -307,8 +307,7 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
                                 $classe_tempo = 'text-gray-500';
 
                                 if ($statusNormalized === 'concluído') {
-                                    $finalizacao_tipo = htmlspecialchars($processo['finalizacao_tipo'] ?? 'Cliente');
-                                    $texto_tempo = "Concluído para " . $finalizacao_tipo;
+                                    $texto_tempo = 'Concluído';
                                     $classe_tempo = 'bg-green-100 text-green-800';
                                 } elseif (in_array($statusNormalized, ['cancelado', 'orçamento'], true)) {
                                     $texto_tempo = 'N/A';
@@ -771,8 +770,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const normalizedStatus = normalizeStatus(processo.status_processo);
 
                         if (normalizedStatus === 'concluído') {
-                            const finalizacao_tipo = processo.finalizacao_tipo || 'Cliente';
-                            texto_prazo_js = `Concluído para ${finalizacao_tipo}`;
+                            texto_prazo_js = 'Concluído';
                             classe_prazo_js = 'bg-green-100 text-green-800';
                         } else if (['cancelado', 'orçamento'].includes(normalizedStatus)) {
                             texto_prazo_js = 'N/A';

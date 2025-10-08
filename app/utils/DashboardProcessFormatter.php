@@ -98,8 +98,7 @@ class DashboardProcessFormatter
         ];
 
         if ($statusNormalized === 'concluído') {
-            $finalizacaoTipo = $process['finalizacao_tipo'] ?? 'Cliente';
-            $descriptor['label'] = 'Concluído para ' . $finalizacaoTipo;
+            $descriptor['label'] = 'Concluído';
             $descriptor['class'] = $colors['completed'];
             $descriptor['state'] = 'completed';
             $descriptor['progress_class'] = self::resolveProgressClass($descriptor['class'], $descriptor['state']);
