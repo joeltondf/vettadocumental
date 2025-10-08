@@ -1174,38 +1174,6 @@ public function create($data, $files)
         }
     }
 
-    /**
-     * Atualiza colunas de anexo específicas de um processo.
-     * @param int $processId ID do processo.
-     * @param array $anexos Array associativo ['nome_coluna' => 'caminho_arquivo'].
-     * @return bool
-     */
-    public function updateAnexos(int $processId, array $anexos): bool
-    {
-        if (empty($anexos)) {
-            return true;
-        }
-
-        $allowedColumns = ['comprovante_pagamento_1', 'comprovante_pagamento_2'];
-        $setParts = [];
-        $params = [':id' => $processId];
-
-        foreach ($anexos as $column => $path) {
-            if (in_array($column, $allowedColumns, true)) {
-                $setParts[] = "`{$column}` = :{$column}";
-                $params[":{$column}"] = $path;
-            }
-        }
-
-        if (empty($setParts)) {
-            return false;
-        }
-
-        $sql = 'UPDATE processos SET ' . implode(', ', $setParts) . ' WHERE id = :id';
-        $stmt = $this->pdo->prepare($sql);
-        return $stmt->execute($params);
-    }
-
 
     // =======================================================================
     // MÉTODOS DO DASHBOARD

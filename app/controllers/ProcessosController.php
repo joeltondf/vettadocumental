@@ -961,10 +961,6 @@ class ProcessosController
                 throw new RuntimeException('Falha ao atualizar o processo.');
             }
 
-            if (!empty($paymentProofs)) {
-                $this->processoModel->updateAnexos($processId, $paymentProofs);
-            }
-
             $this->pdo->commit();
         } catch (Throwable $exception) {
             $this->pdo->rollBack();
@@ -2141,10 +2137,10 @@ class ProcessosController
 
     private function processPaymentProofUploads(int $processoId): array
     {
-        $comprovanteMap = [ // Mapeia o nome do input do arquivo para a categoria no banco
-            'comprovante_pagamento_unico'   => 'comprovante_unico',
-            'comprovante_pagamento_entrada' => 'comprovante_entrada',
-            'comprovante_pagamento_saldo'   => 'comprovante_saldo',
+        $comprovanteMap = [
+            'comprovante_pagamento_unico' => ['categoria' => 'comprovante_unico', 'dataField' => 'data_pagamento_1'],
+            'comprovante_pagamento_entrada' => ['categoria' => 'comprovante_entrada', 'dataField' => 'data_pagamento_1'],
+            'comprovante_pagamento_saldo' => ['categoria' => 'comprovante_saldo', 'dataField' => 'data_pagamento_2'],
         ];
 
         $columnMapping = [
@@ -2156,20 +2152,22 @@ class ProcessosController
         $resultado = [];
 
         foreach ($comprovanteMap as $input => $config) {
-            if (!isset($_FILES[$input])) {
+            if (!isset($_FILES[$input]) || !is_array($_FILES[$input])) {
                 continue;
             }
 
             $file = $_FILES[$input];
             $errorCode = $file['error'] ?? UPLOAD_ERR_NO_FILE;
+
             if ($errorCode === UPLOAD_ERR_NO_FILE) {
                 continue;
             }
+
             if ($errorCode !== UPLOAD_ERR_OK) {
                 throw new RuntimeException('Falha ao enviar o comprovante de pagamento.');
             }
-            
-            $categoria = $config;
+
+            $categoria = $config['categoria'];
             $relativePath = $this->storePaymentProofAttachment($processoId, $file, $categoria);
 
             if (isset($columnMapping[$input])) {
