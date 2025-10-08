@@ -1255,15 +1255,44 @@ document.addEventListener('DOMContentLoaded', function() {
   //-----------------------------------------------------
   const commentForm = $id('comment-form');
   if (commentForm) {
+    const commentTextarea = commentForm.querySelector('textarea');
+    const commentSubmitButton = commentForm.querySelector('button[type="submit"]');
+    let isCommentSubmitting = false;
+
+    if (commentTextarea) {
+      commentTextarea.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault();
+          if (typeof commentForm.requestSubmit === 'function') {
+            commentForm.requestSubmit();
+          } else {
+            commentForm.dispatchEvent(new Event('submit', { cancelable: true }));
+          }
+        }
+      });
+    }
+
     commentForm.addEventListener('submit', function(e) {
       e.preventDefault();
+      if (isCommentSubmitting) {
+        return;
+      }
+
       const formData = new FormData(this);
       const url = 'processos.php?action=store_comment_ajax';
+      isCommentSubmitting = true;
+      if (commentSubmitButton) {
+        commentSubmitButton.disabled = true;
+        commentSubmitButton.classList.add('opacity-60', 'cursor-not-allowed');
+      }
+
       fetch(url, { method: 'POST', body: formData })
         .then(response => response.json())
         .then(data => {
           if (data.success && data.comment) {
-            this.querySelector('textarea').value = '';
+            if (commentTextarea) {
+              commentTextarea.value = '';
+            }
             const commentsList = $id('comments-list');
             const noCommentsMessage = $id('no-comments');
             if (noCommentsMessage) noCommentsMessage.remove();
@@ -1275,7 +1304,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
                 <p class="text-sm text-gray-600">${data.comment.text}</p>
               </div>`;
-            commentsList.insertAdjacentHTML('afterbegin', newCommentHtml);
+            if (commentsList) {
+              commentsList.insertAdjacentHTML('afterbegin', newCommentHtml);
+              commentsList.scrollTop = 0;
+            }
             showFeedback('Comentário publicado!', 'success');
           } else {
             showFeedback(data.message || 'Não foi possível publicar.', 'error');
@@ -1284,6 +1316,13 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(error => {
           console.error('Fetch error:', error);
           showFeedback('Erro de conexão.', 'error');
+        })
+        .finally(() => {
+          isCommentSubmitting = false;
+          if (commentSubmitButton) {
+            commentSubmitButton.disabled = false;
+            commentSubmitButton.classList.remove('opacity-60', 'cursor-not-allowed');
+          }
         });
     });
   }

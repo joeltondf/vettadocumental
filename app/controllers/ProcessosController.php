@@ -105,25 +105,9 @@ class ProcessosController
             exit();
         }
 
-        $translationAttachments = $this->processoModel->getAnexosPorCategoria($id, ['traducao']);
-        $crcAttachments = $this->processoModel->getAnexosPorCategoria($id, ['crc']);
-        $paymentProofAttachments = $this->processoModel->getAnexosPorCategoria($id, ['comprovante']);
-        $cliente = null;
-        if (!empty($processoData['processo']['cliente_id'])) {
-            $cliente = $this->clienteModel->getById((int)$processoData['processo']['cliente_id']);
-        }
-        $leadConversionContext = $this->buildLeadConversionContext($processoData['processo'], $cliente);
         $pageTitle = "Detalhes: " . htmlspecialchars($processoData['processo']['titulo']);
-        $this->render('detalhe', [
-            'processo' => $processoData['processo'],
-            'documentos' => $processoData['documentos'],
-            'translationAttachments' => $translationAttachments,
-            'crcAttachments' => $crcAttachments,
-            'paymentProofAttachments' => $paymentProofAttachments,
-            'cliente' => $cliente,
-            'leadConversionContext' => $leadConversionContext,
-            'pageTitle' => $pageTitle,
-        ]);
+        $viewData = $this->prepareProcessDetailViewData($processoData, (int)$id, $pageTitle);
+        $this->render('detalhe', $viewData);
     }
 
     /**
@@ -1219,20 +1203,40 @@ class ProcessosController
     public function detalhe($id)
     {
         $this->auth_check();
-        $processo_info = $this->processoModel->getById($id);
-        $translationAttachments = $this->processoModel->getAnexosPorCategoria($id, ['traducao']);
-        $crcAttachments = $this->processoModel->getAnexosPorCategoria($id, ['crc']);
-        $paymentProofAttachments = $this->processoModel->getAnexosPorCategoria($id, ['comprovante']);
-        $comments = $this->processoModel->getComentariosByProcessoId($id);
-        $this->render('processos/detalhe', [
-            'processo' => $processo_info['processo'],
-            'documentos' => $processo_info['documentos'],
-            'translationAttachments' => $translationAttachments,
-            'crcAttachments' => $crcAttachments,
-            'paymentProofAttachments' => $paymentProofAttachments,
-            'comentarios' => $comments,
-            'pageTitle' => 'Detalhes do Processo',
-        ]);
+        if (!$id) {
+            header('Location: dashboard.php');
+            exit();
+        }
+
+        $processoData = $this->processoModel->getById($id);
+        if (!$processoData) {
+            $_SESSION['error_message'] = "Processo não encontrado!";
+            header('Location: dashboard.php');
+            exit();
+        }
+
+        $viewData = $this->prepareProcessDetailViewData($processoData, (int)$id, 'Detalhes do Processo');
+        $this->render('detalhe', $viewData);
+    }
+
+    private function prepareProcessDetailViewData(array $processoData, int $id, string $pageTitle): array
+    {
+        $cliente = null;
+        if (!empty($processoData['processo']['cliente_id'])) {
+            $cliente = $this->clienteModel->getById((int)$processoData['processo']['cliente_id']);
+        }
+
+        return [
+            'processo' => $processoData['processo'],
+            'documentos' => $processoData['documentos'],
+            'translationAttachments' => $this->processoModel->getAnexosPorCategoria($id, ['traducao']),
+            'crcAttachments' => $this->processoModel->getAnexosPorCategoria($id, ['crc']),
+            'paymentProofAttachments' => $this->processoModel->getAnexosPorCategoria($id, ['comprovante']),
+            'cliente' => $cliente,
+            'leadConversionContext' => $this->buildLeadConversionContext($processoData['processo'], $cliente),
+            'comentarios' => $this->processoModel->getComentariosByProcessoId($id),
+            'pageTitle' => $pageTitle,
+        ];
     }
 
     /**
