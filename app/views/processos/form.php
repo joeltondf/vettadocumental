@@ -201,7 +201,20 @@ $paymentDateTwo = $processo['data_pagamento_2'] ?? $formData['data_pagamento_2']
                 <select name="orcamento_origem" id="orcamento_origem" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                     <option value="">Selecione a origem</option>
                     <?php
-                    $origens = ['Bitrix', 'Facebook', 'Instagram', 'Google', 'Indicação Cartório', 'Indicação Cliente', 'Website', 'LinkedIn', 'Whatsapp'];
+                    $origens = [
+                        'Google (Anúncios/SEO)',
+                        'Website',
+                        'Indicação Cliente',
+                        'Instagram',
+                        'LinkedIn',
+                        'Facebook',
+                        'Whatsapp',
+                        'Bitrix',
+                        'Call',
+                        'Indicação Cartório',
+                        'Evento',
+                        'Outro',
+                    ];
                     foreach ($origens as $origem) {
                         $selected = (($processo['orcamento_origem'] ?? '') == $origem) ? 'selected' : '';
                         echo "<option value='{$origem}' {$selected}>{$origem}</option>";
