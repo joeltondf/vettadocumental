@@ -23,13 +23,6 @@ $showRowStatusColors = $theme === 'light';
      data-refresh-interval="<?php echo (int) $refreshInterval; ?>"
      data-progress-enabled="<?php echo $progressEnabled ? '1' : '0'; ?>"
      data-alert-enabled="<?php echo $alertEnabled ? '1' : '0'; ?>">
-    <div class="tv-panel-meta-inline">
-        <div class="tv-panel-clock" data-tv-clock></div>
-        <a href="<?php echo APP_URL; ?>/admin.php?action=tv_panel_config" class="tv-panel-config-link">
-            <i class="fas fa-sliders-h mr-2"></i>Configurações
-        </a>
-    </div>
-
     <section class="tv-panel-table-wrapper">
         <?php if (empty($processesForPartial)): ?>
             <div class="tv-panel-empty">Nenhum processo disponível no momento.</div>
@@ -47,14 +40,22 @@ $showRowStatusColors = $theme === 'light';
     </section>
 
     <footer class="tv-panel-footer">
-        <div>
-            <span class="font-semibold">Atualização automática:</span> a cada <span data-tv-interval><?php echo (int) ($refreshInterval / 60); ?></span> minuto(s)
+        <div class="tv-panel-footer-info">
+            <div>
+                <span class="font-semibold">Atualização automática:</span> a cada <span data-tv-interval><?php echo (int) ($refreshInterval / 60); ?></span> minuto(s)
+            </div>
+            <div>
+                <span class="font-semibold">Última atualização:</span> <span data-tv-last-update>Carregando...</span>
+            </div>
+            <div>
+                <span class="font-semibold">Total de processos:</span> <span data-tv-total><?php echo count($processesForPartial ?? []); ?></span>
+            </div>
         </div>
-        <div>
-            <span class="font-semibold">Última atualização:</span> <span data-tv-last-update>Carregando...</span>
-        </div>
-        <div>
-            <span class="font-semibold">Total de processos:</span> <span data-tv-total><?php echo count($processesForPartial ?? []); ?></span>
+        <div class="tv-panel-meta-inline">
+            <div class="tv-panel-clock" data-tv-clock></div>
+            <a href="<?php echo APP_URL; ?>/admin.php?action=tv_panel_config" class="tv-panel-config-link">
+                <i class="fas fa-sliders-h mr-2"></i>Configurações
+            </a>
         </div>
     </footer>
 </div>
