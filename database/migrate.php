@@ -12,6 +12,7 @@ try {
 
     $clienteMigration = new EnsureClienteIntegrationCodeMigration($pdo);
     $clienteMigration->up();
+
     if (PHP_SAPI === 'cli') {
         echo "Omie integration migrations executed successfully." . PHP_EOL;
     }

@@ -6,16 +6,44 @@
  */
 
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/Configuracao.php';
 
 class Processo
 {
     private $pdo;
     private array $processColumns = [];
+    private ?int $defaultVendorId = null;
 
     public function __construct($pdo)
     {
         $this->pdo = $pdo;
         $this->loadProcessColumns();
+    }
+
+    private function getDefaultVendorId(): ?int
+    {
+        if ($this->defaultVendorId !== null) {
+            return $this->defaultVendorId;
+        }
+
+        $configuracao = new Configuracao($this->pdo);
+        $value = $configuracao->get('default_vendedor_id');
+        $this->defaultVendorId = $value !== null && $value !== '' ? (int)$value : null;
+
+        return $this->defaultVendorId;
+    }
+
+    /**
+     * Garante que processos sem seleção de vendedor usem o vendedor padrão definido em configurações.
+     */
+    private function resolveVendorId(array $data): ?int
+    {
+        $vendorId = $data['vendedor_id'] ?? $data['id_vendedor'] ?? null;
+        if (empty($vendorId)) {
+            return $this->getDefaultVendorId();
+        }
+
+        return (int)$vendorId;
     }
 	
     public function parseCurrency($value) {
@@ -173,7 +201,7 @@ public function create($data, $files)
         $params = [
             'cliente_id' => $data['id_cliente'] ?? $data['cliente_id'] ?? null,
             'colaborador_id' => $_SESSION['user_id'],
-            'vendedor_id' => $data['id_vendedor'] ?? $data['vendedor_id'] ?? null,
+            'vendedor_id' => $this->resolveVendorId($data),
             'titulo' => $data['titulo'] ?? 'Orçamento #' . $orcamento_numero,
             'status_processo' => $data['status_processo'] ?? $data['status'] ?? 'Orçamento',
             'orcamento_numero' => $orcamento_numero,
@@ -336,7 +364,7 @@ public function create($data, $files)
             $params = [
                 'id' => $id,
                 'cliente_id' => $data['cliente_id'],
-                'vendedor_id' => empty($data['vendedor_id']) ? null : $data['vendedor_id'],
+                'vendedor_id' => $this->resolveVendorId($data),
                 'titulo' => $data['titulo'],
                 'status_processo' => $data['status_processo'] ?? 'Orçamento',
                 'orcamento_origem' => $data['orcamento_origem'] ?? null,
