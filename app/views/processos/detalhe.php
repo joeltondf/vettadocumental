@@ -453,10 +453,10 @@ $isServicePending = $statusNormalized === 'serviço pendente';
                 <form id="status-change-form" action="processos.php?action=change_status" method="POST" class="space-y-4">
                     <input type="hidden" name="id" value="<?php echo $processo['id']; ?>">
 
-                    <input type="hidden" name="data_inicio_traducao" id="hidden_data_inicio_traducao">
-                    <input type="hidden" name="traducao_prazo_tipo" id="hidden_traducao_prazo_tipo">
-                    <input type="hidden" name="traducao_prazo_dias" id="hidden_traducao_prazo_dias">
-                    <input type="hidden" name="traducao_prazo_data" id="hidden_traducao_prazo_data">
+                    <input type="hidden" name="data_inicio_traducao" id="hidden_data_inicio_traducao" data-original-name="data_inicio_traducao">
+                    <input type="hidden" name="traducao_prazo_tipo" id="hidden_traducao_prazo_tipo" data-original-name="traducao_prazo_tipo">
+                    <input type="hidden" name="traducao_prazo_dias" id="hidden_traducao_prazo_dias" data-original-name="traducao_prazo_dias">
+                    <input type="hidden" name="traducao_prazo_data" id="hidden_traducao_prazo_data" data-original-name="traducao_prazo_data">
                     <div>
                         <label for="status_processo" class="block text-sm font-medium text-gray-700">Mudar Status para:</label>
                         <select id="status_processo" name="status_processo" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
@@ -999,7 +999,7 @@ document.addEventListener('DOMContentLoaded', function() {
   };
 
   //-----------------------------------------------------
-  // Lógica 1: Validação de Mudança de Status para "Serviço Pendente" / "Serviço em Andamento"
+  // Lógica 1: Validação de Mudança de Status para "Serviço Pendente"
   //-----------------------------------------------------
   const statusSelect = $id('status_processo');
   const statusForm = $id('status-change-form'); // O formulário principal
@@ -1012,6 +1012,40 @@ document.addEventListener('DOMContentLoaded', function() {
   const hTipo  = $id('hidden_traducao_prazo_tipo');
   const hDias  = $id('hidden_traducao_prazo_dias');
   const hData  = $id('hidden_traducao_prazo_data');
+  const hiddenDeadlineFields = [hEnvio, hTipo, hDias, hData];
+
+  const registerOriginalName = (field) => {
+    if (!field) return;
+    if (field.dataset.originalName) return;
+    const original = field.getAttribute('data-original-name') || field.getAttribute('name');
+    if (original) {
+      field.dataset.originalName = original;
+    }
+  };
+
+  const disableHiddenDeadlineFields = () => {
+    hiddenDeadlineFields.forEach(field => {
+      if (!field) return;
+      registerOriginalName(field);
+      if (field.dataset.originalName) {
+        field.removeAttribute('name');
+      }
+      field.value = '';
+    });
+  };
+
+  const enableHiddenDeadlineFields = (fieldsToEnable = []) => {
+    const uniqueFields = Array.from(new Set(fieldsToEnable.filter(Boolean)));
+    uniqueFields.forEach(field => {
+      registerOriginalName(field);
+      const original = field.dataset.originalName;
+      if (original) {
+        field.setAttribute('name', original);
+      }
+    });
+  };
+
+  disableHiddenDeadlineFields();
 
   // valor vindo do PHP no template
   let originalStatus = (typeof <?php echo json_encode($statusLabel ?? null); ?> !== 'undefined')
@@ -1022,11 +1056,13 @@ document.addEventListener('DOMContentLoaded', function() {
   if (statusForm && statusSelect && requirementsModal) {
     statusForm.addEventListener('submit', function(e) {
       const newStatus = statusSelect.value;
-      const requiresModal = (originalStatus === 'Orçamento' && (newStatus === 'Serviço Pendente' || newStatus === 'Serviço em Andamento'));
+      const requiresModal = (originalStatus === 'Orçamento' && newStatus === 'Serviço Pendente');
 
       if (requiresModal) {
         e.preventDefault(); // Impede o envio direto do formulário
         requirementsModal.classList.remove('hidden'); // Mostra o modal
+      } else {
+        disableHiddenDeadlineFields();
       }
     });
   }
@@ -1035,6 +1071,7 @@ document.addEventListener('DOMContentLoaded', function() {
     cancelStatusChangeBtn.addEventListener('click', () => {
       statusSelect.value = originalStatus; // Restaura o valor original do select
       requirementsModal.classList.add('hidden'); // Esconde o modal
+      disableHiddenDeadlineFields();
     });
   }
 
@@ -1060,11 +1097,38 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
 
+      disableHiddenDeadlineFields();
+
       // Preenche os campos ocultos do formulário principal e o submete
-      if (hEnvio) hEnvio.value = envio;
-      if (hTipo)  hTipo.value = tipo;
-      if (hDias)  hDias.value = (tipo === 'dias') ? dias : '';
-      if (hData)  hData.value = (tipo === 'data') ? data : '';
+      const fieldsToEnable = [];
+      if (hEnvio) {
+        hEnvio.value = envio;
+        fieldsToEnable.push(hEnvio);
+      }
+      if (hTipo) {
+        hTipo.value = tipo;
+        fieldsToEnable.push(hTipo);
+      }
+
+      if (tipo === 'dias') {
+        if (hDias) {
+          hDias.value = dias;
+          fieldsToEnable.push(hDias);
+        }
+        if (hData) {
+          hData.value = '';
+        }
+      } else {
+        if (hData) {
+          hData.value = data;
+          fieldsToEnable.push(hData);
+        }
+        if (hDias) {
+          hDias.value = '';
+        }
+      }
+
+      enableHiddenDeadlineFields(fieldsToEnable);
 
       statusForm?.submit();
     });
