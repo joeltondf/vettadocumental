@@ -35,11 +35,13 @@ $lista_notificacoes_dropdown = [];
 $count_retornos = 0;
 $lista_retornos_dropdown = [];
 $total_alertas = 0;
+$notificationGroup = Notificacao::resolveGroupForProfile($user_perfil);
 
 if (isset($_SESSION['user_id'])) {
     // 1. Conta e busca notificações padrão
-    $count_notificacoes = $notificacaoModel->countNaoLidas($_SESSION['user_id']);
-    $lista_notificacoes_dropdown = $notificacaoModel->getDropdownNotifications($_SESSION['user_id']);
+    $notificationFeed = $notificacaoModel->getAlertFeed((int)$_SESSION['user_id'], $notificationGroup, 15, true, 'UTC');
+    $count_notificacoes = $notificationFeed['total'] ?? 0;
+    $lista_notificacoes_dropdown = $notificationFeed['notifications'] ?? [];
 
     // 2. Conta e busca retornos de prospecção (LÓGICA AJUSTADA)
     // Apenas para perfis de gestão e vendedores
@@ -204,10 +206,10 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
                                                     <?php echo htmlspecialchars($notificacao['display_date'] ?? ''); ?>
                                                 </p>
                                             </a>
-                                            <a href="<?php echo APP_URL; ?>/dashboard.php?action=delete_notification&id=<?php echo $notificacao['id']; ?>" 
+                                            <a href="<?php echo APP_URL; ?>/dashboard.php?action=mark_notification_read&id=<?php echo $notificacao['id']; ?>"
                                                class="ml-4 flex-shrink-0 p-2 rounded-full text-gray-400 hover:bg-red-100 hover:text-red-600"
-                                               onclick="return confirm('Tem certeza que deseja excluir esta notificação?');"
-                                               title="Excluir notificação">
+                                               onclick="return confirm('Deseja marcar esta notificação como lida?');"
+                                               title="Marcar como lida">
                                                 <i class="fas fa-times fa-sm"></i>
                                             </a>
                                         </div>

@@ -37,3 +37,22 @@ DELETE FROM process_notifications
 WHERE processId = 42
   AND alertStatus IN ('Approved', 'Rejected');
 ```
+
+```sql
+ALTER TABLE notificacoes
+ADD COLUMN tipo_alerta VARCHAR(60) NOT NULL DEFAULT 'processo_generico';
+```
+
+```sql
+UPDATE notificacoes
+SET resolvido = 1,
+    lida = 1
+WHERE tipo_alerta = 'processo_pendente_servico'
+  AND referencia_id = 42;
+```
+
+```sql
+DELETE FROM notificacoes
+WHERE resolvido = 1
+  AND data_criacao < DATE_SUB(NOW(), INTERVAL 45 DAY);
+```
