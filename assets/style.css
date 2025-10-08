@@ -4,7 +4,7 @@
 
 .tv-panel-page main {
     max-width: 100%;
-    padding: 1.5rem;
+    padding: 2rem 3rem;
     min-height: 100vh;
 }
 
@@ -17,7 +17,7 @@
     flex-direction: column;
     gap: 1.5rem;
     min-height: calc(100vh - 4rem);
-    max-width: none;
+    max-width: 1600px;
     margin: 0 auto;
     width: 100%;
 }
@@ -78,8 +78,8 @@
 
 .tv-panel-table-wrapper th,
 .tv-panel-table-wrapper td {
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
 }
 
 .tv-panel-footer {
