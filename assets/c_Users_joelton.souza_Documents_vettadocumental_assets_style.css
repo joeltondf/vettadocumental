@@ -1,0 +1,180 @@
+.tv-panel-page nav {
+    display: none;
+}
+
+.tv-panel-page main {
+    max-width: 100%;
+    padding: 2rem 3rem;
+    min-height: 100vh;
+}
+
+.tv-panel-page main > div {
+    padding: 0;
+}
+
+.tv-panel-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    min-height: calc(100vh - 3rem);
+    max-width: 98%;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.tv-panel-meta-inline {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 1rem;
+    align-self: flex-end;
+}
+
+.tv-panel-clock {
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.tv-panel-config-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background 0.3s ease, color 0.3s ease;
+}
+
+.tv-panel-table-wrapper {
+    flex: 1;
+    overflow: hidden;
+    border-radius: 1rem;
+    padding: 1rem;
+}
+
+.tv-panel-progress-wrapper {
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.tv-panel-progress-track {
+    background-color: rgba(148, 163, 184, 0.35);
+    border-radius: 9999px;
+    height: 0.75rem;
+    overflow: hidden;
+    width: min(98vw, 98%);
+}
+
+.tv-panel-progress-fill {
+    height: 100%;
+}
+
+.tv-panel-table-wrapper table {
+    width: 100%;
+    font-size: 1.05rem;
+}
+
+.tv-panel-table-wrapper th,
+.tv-panel-table-wrapper td {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+}
+
+.tv-panel-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1rem;
+}
+
+.tv-panel-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    font-size: 2rem;
+}
+
+.tv-panel-page .min-w-full tbody tr td,
+.tv-panel-page .min-w-full thead th {
+    font-size: 0.9rem;
+}
+
+.tv-panel-page .min-w-full thead th {
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.tv-panel-page .min-w-full tbody tr td span {
+    font-size: 0.85rem;
+}
+
+.tv-panel-theme-dark .tv-panel-config-link {
+    background: rgba(15, 23, 42, 0.6);
+    color: #f8fafc;
+}
+
+.tv-panel-theme-dark .tv-panel-config-link:hover {
+    background: rgba(148, 163, 184, 0.4);
+}
+
+.tv-panel-theme-light .tv-panel-config-link {
+    background: rgba(226, 232, 240, 0.85);
+    color: #0f172a;
+}
+
+.tv-panel-theme-light .tv-panel-config-link:hover {
+    background: rgba(148, 163, 184, 0.6);
+}
+
+.tv-panel-theme-dark .tv-panel-table-wrapper {
+    background: rgba(15, 23, 42, 0.65);
+    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.65);
+}
+
+.tv-panel-theme-light .tv-panel-table-wrapper {
+    background: rgba(241, 245, 249, 0.85);
+    box-shadow: 0 20px 45px -10px rgba(148, 163, 184, 0.35);
+}
+
+.tv-panel-theme-dark .tv-panel-footer {
+    color: #cbd5f5;
+}
+
+.tv-panel-theme-light .tv-panel-footer {
+    color: #0f172a;
+}
+
+.tv-panel-theme-dark .tv-panel-empty {
+    color: #e2e8f0;
+}
+
+.tv-panel-theme-light .tv-panel-empty {
+    color: #475569;
+}
+
+.tv-panel-theme-dark .tv-panel-table th,
+.tv-panel-theme-dark .tv-panel-table td {
+    color: #e2e8f0 !important;
+}
+
+.tv-panel-thead-dark {
+    background-color: rgba(30, 41, 59, 0.85);
+}
+
+.tv-panel-tbody-dark tr:nth-child(odd) {
+    background-color: rgba(15, 23, 42, 0.75);
+}
+
+.tv-panel-tbody-dark tr:nth-child(even) {
+    background-color: rgba(30, 41, 59, 0.75);
+}
+
+.tv-panel-tbody-dark tr:hover {
+    background-color: rgba(51, 65, 85, 0.85);
+}
+
+.tv-panel-theme-dark .tv-panel-table tbody tr td {
+    border-color: rgba(148, 163, 184, 0.2);
+}
