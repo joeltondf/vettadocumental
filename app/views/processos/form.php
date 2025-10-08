@@ -13,6 +13,7 @@ $processStatus = isset($processo['status_processo']) ? $processo['status_process
 $isVendedor = (isset($_SESSION['user_perfil']) && $_SESSION['user_perfil'] === 'vendedor');
 $loggedInVendedorId = $loggedInVendedorId ?? null;
 $loggedInVendedorName = $loggedInVendedorName ?? ($_SESSION['user_nome'] ?? '');
+$defaultVendorId = $defaultVendorId ?? null;
 
 $resolveVendedorNome = static function (array $vendedor): string {
     foreach (['nome_vendedor', 'nome_completo', 'nome'] as $campoNome) {
@@ -52,6 +53,12 @@ if ($isVendedor && $loggedInVendedorId) {
         : $loggedInVendedorId;
 } else {
     $vendedor_id_selecionado = $fromProspeccao ? $loggedInVendedorId : ($processo['vendedor_id'] ?? null);
+    if (!$isEditMode && empty($vendedor_id_selecionado) && $defaultVendorId) {
+        $profilesWithDefaultVendor = ['admin', 'gerencia', 'gerente', 'supervisor', 'colaborador'];
+        if (in_array($_SESSION['user_perfil'] ?? '', $profilesWithDefaultVendor, true)) {
+            $vendedor_id_selecionado = $defaultVendorId;
+        }
+    }
 }
 
 // 4. Define se os campos devem ser desabilitados

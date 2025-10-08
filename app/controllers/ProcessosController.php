@@ -45,6 +45,8 @@ class ProcessosController
     private $omieService;
     private $notificacaoModel;
     private $emailService;
+    private ?int $defaultVendorIdCache = null;
+    private bool $defaultVendorResolved = false;
 
     /**
      * Construtor da classe. Inicializa modelos e serviços necessários.
@@ -192,6 +194,7 @@ class ProcessosController
             'paymentProofAttachments' => [],
             'loggedInVendedorId' => $loggedInVendedor['id'],
             'loggedInVendedorName' => $loggedInVendedor['name'],
+            'defaultVendorId' => $this->getDefaultVendorId(),
         ]);
     }
 
@@ -214,6 +217,7 @@ class ProcessosController
             // Fluxo de serviço rápido
             if (isset($_POST['status_proposto'])) {
                 $dadosParaSalvar = $_POST;
+                $dadosParaSalvar = $this->ensureDefaultVendor($dadosParaSalvar);
                 $perfilUsuario = $_SESSION['user_perfil'] ?? '';
                 $clienteId = $dadosParaSalvar['cliente_id'] ?? null;
                 $documentos = $dadosParaSalvar['documentos'] ?? ($dadosParaSalvar['docs'] ?? []);
@@ -264,7 +268,8 @@ class ProcessosController
             }
 
             // Fluxo de orçamento normal
-            $dadosProcesso = $this->prepareOmieSelectionData($_POST);
+            $dadosProcesso = $this->ensureDefaultVendor($_POST);
+            $dadosProcesso = $this->prepareOmieSelectionData($dadosProcesso);
             $dadosProcesso = $this->applyPaymentDefaults($dadosProcesso);
             $perfilCriador = $_SESSION['user_perfil'] ?? '';
             if ($perfilCriador === 'vendedor') {
@@ -308,6 +313,7 @@ class ProcessosController
         // Atualização de processo existente
         // ------------------------------------------------------------------
         $dadosParaAtualizar = $_POST;
+        $dadosParaAtualizar = $this->ensureDefaultVendor($dadosParaAtualizar);
         $dadosParaAtualizar = $this->prepareOmieSelectionData($dadosParaAtualizar);
         $dadosParaAtualizar = $this->applyPaymentDefaults($dadosParaAtualizar);
         $perfilUsuario = $_SESSION['user_perfil'] ?? '';
@@ -442,6 +448,7 @@ class ProcessosController
             'formData' => $formData,
             'loggedInVendedorId' => $loggedInVendedor['id'],
             'loggedInVendedorName' => $loggedInVendedor['name'],
+            'defaultVendorId' => $this->getDefaultVendorId(),
         ]);
 
         $_SESSION['redirect_after_oauth'] = $_SERVER['REQUEST_URI'];
@@ -519,6 +526,7 @@ class ProcessosController
         }
 
         $dadosParaSalvar = $_POST;
+        $dadosParaSalvar = $this->ensureDefaultVendor($dadosParaSalvar);
         $perfilUsuario = $_SESSION['user_perfil'] ?? '';
         $clienteId = $dadosParaSalvar['cliente_id'] ?? null;
         $documentos = $dadosParaSalvar['documentos'] ?? ($dadosParaSalvar['docs'] ?? []);
@@ -2673,8 +2681,7 @@ class ProcessosController
                 continue;
             }
 
-            $nome = $vendedor['nome_vendedor'] ?? ($vendedor['nome_completo'] ?? $defaultName);
-
+            $nome = $this->extractVendorName($vendedor, $defaultName);
             $id = isset($vendedor['id']) ? (int) $vendedor['id'] : null;
 
             return [
@@ -2683,7 +2690,136 @@ class ProcessosController
             ];
         }
 
+        if ($this->shouldUseDefaultVendor()) {
+            $defaultVendorId = $this->getDefaultVendorId();
+
+            if ($defaultVendorId !== null) {
+                foreach ($vendedores as $vendedor) {
+                    if ((int) ($vendedor['id'] ?? 0) === $defaultVendorId) {
+                        return [
+                            'id' => $defaultVendorId,
+                            'name' => $this->extractVendorName($vendedor, $defaultName),
+                        ];
+                    }
+                }
+
+                $defaultVendor = $this->vendedorModel->getById($defaultVendorId);
+                if ($defaultVendor) {
+                    return [
+                        'id' => $defaultVendorId,
+                        'name' => $this->extractVendorName($defaultVendor, $defaultName),
+                    ];
+                }
+            }
+        }
+
         return ['id' => null, 'name' => $defaultName];
+    }
+
+    private function shouldUseDefaultVendor(): bool
+    {
+        $perfil = $_SESSION['user_perfil'] ?? '';
+        $perfisGestao = ['admin', 'gerencia', 'gerente', 'supervisor', 'colaborador'];
+
+        return in_array($perfil, $perfisGestao, true);
+    }
+
+    private function getDefaultVendorId(): ?int
+    {
+        if ($this->defaultVendorResolved) {
+            return $this->defaultVendorIdCache;
+        }
+
+        $this->defaultVendorResolved = true;
+
+        $configValue = $this->configModel->get('default_vendedor_id');
+        if ($configValue !== null && $configValue !== '') {
+            $candidate = (int) $configValue;
+            if ($candidate > 0 && $this->vendedorModel->getById($candidate)) {
+                $this->defaultVendorIdCache = $candidate;
+                return $this->defaultVendorIdCache;
+            }
+        }
+
+        $fallbackId = 17;
+        if ($this->vendedorModel->getById($fallbackId)) {
+            $this->defaultVendorIdCache = $fallbackId;
+            return $this->defaultVendorIdCache;
+        }
+
+        $this->defaultVendorIdCache = null;
+        return null;
+    }
+
+    private function extractVendorName(array $vendedor, ?string $fallback = null): string
+    {
+        foreach (['nome_vendedor', 'nome_completo', 'nome'] as $campoNome) {
+            if (!empty($vendedor[$campoNome])) {
+                return (string) $vendedor[$campoNome];
+            }
+        }
+
+        return $fallback ?? '';
+    }
+
+    private function normalizeVendorId($value): ?int
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (is_string($value)) {
+            $trimmed = trim($value);
+
+            if ($trimmed === '' || $trimmed === '0') {
+                return null;
+            }
+
+            if (!ctype_digit($trimmed) && !is_numeric($trimmed)) {
+                return null;
+            }
+
+            $value = $trimmed;
+        }
+
+        if (is_numeric($value)) {
+            $intValue = (int) $value;
+            return $intValue > 0 ? $intValue : null;
+        }
+
+        return null;
+    }
+
+    private function ensureDefaultVendor(array $data): array
+    {
+        $vendorId = $this->normalizeVendorId($data['vendedor_id'] ?? $data['id_vendedor'] ?? null);
+
+        if ($vendorId !== null) {
+            $data['vendedor_id'] = $vendorId;
+            return $data;
+        }
+
+        $perfil = $_SESSION['user_perfil'] ?? '';
+
+        if ($perfil === 'vendedor') {
+            $userId = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
+            if ($userId) {
+                $loggedVendor = $this->vendedorModel->getByUserId($userId);
+                if ($loggedVendor && !empty($loggedVendor['id'])) {
+                    $data['vendedor_id'] = (int) $loggedVendor['id'];
+                    return $data;
+                }
+            }
+        }
+
+        if ($this->shouldUseDefaultVendor()) {
+            $defaultVendorId = $this->getDefaultVendorId();
+            if ($defaultVendorId !== null) {
+                $data['vendedor_id'] = $defaultVendorId;
+            }
+        }
+
+        return $data;
     }
 
     private function getClientesForOrcamentoForm(?array $processo = null): array
