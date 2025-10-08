@@ -4,7 +4,7 @@
 
 .tv-panel-page main {
     max-width: 100%;
-    padding: 2rem 3rem;
+    padding: 0;
     min-height: 100vh;
 }
 
@@ -15,19 +15,18 @@
 .tv-panel-container {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
-    min-height: calc(100vh - 4rem);
-    max-width: 1600px;
-    margin: 0 auto;
+    gap: 1rem;
+    min-height: 100vh;
+    margin: 0;
     width: 100%;
+    padding: 0.5rem 1rem;
 }
 
 .tv-panel-meta-inline {
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    gap: 1rem;
-    align-self: flex-end;
+    gap: 0.75rem;
 }
 
 .tv-panel-clock {
@@ -49,8 +48,8 @@
 .tv-panel-table-wrapper {
     flex: 1;
     overflow: hidden;
-    border-radius: 1rem;
-    padding: 1rem;
+    border-radius: 0.75rem;
+    padding: 0.5rem;
 }
 
 .tv-panel-progress-wrapper {
@@ -73,20 +72,28 @@
 
 .tv-panel-table-wrapper table {
     width: 100%;
-    font-size: 1.05rem;
+    font-size: 0.95rem;
 }
 
 .tv-panel-table-wrapper th,
 .tv-panel-table-wrapper td {
-    padding-top: 0.75rem;
-    padding-bottom: 0.75rem;
+    padding: 0.4rem 0.5rem;
+    line-height: 1.2;
 }
 
 .tv-panel-footer {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    font-size: 1rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.5rem;
+    font-size: 0.95rem;
+}
+
+.tv-panel-footer-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
 }
 
 .tv-panel-empty {
@@ -99,16 +106,16 @@
 
 .tv-panel-page .min-w-full tbody tr td,
 .tv-panel-page .min-w-full thead th {
-    font-size: 1rem;
+    font-size: 0.9rem;
 }
 
 .tv-panel-page .min-w-full thead th {
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
 }
 
 .tv-panel-page .min-w-full tbody tr td span {
-    font-size: 0.95rem;
+    font-size: 0.85rem;
 }
 
 .tv-panel-theme-dark .tv-panel-config-link {
