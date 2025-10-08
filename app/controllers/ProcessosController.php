@@ -1223,12 +1223,14 @@ class ProcessosController
         $translationAttachments = $this->processoModel->getAnexosPorCategoria($id, ['traducao']);
         $crcAttachments = $this->processoModel->getAnexosPorCategoria($id, ['crc']);
         $paymentProofAttachments = $this->processoModel->getAnexosPorCategoria($id, ['comprovante']);
+        $comments = $this->processoModel->getComentariosByProcessoId($id);
         $this->render('processos/detalhe', [
             'processo' => $processo_info['processo'],
             'documentos' => $processo_info['documentos'],
             'translationAttachments' => $translationAttachments,
             'crcAttachments' => $crcAttachments,
             'paymentProofAttachments' => $paymentProofAttachments,
+            'comentarios' => $comments,
             'pageTitle' => 'Detalhes do Processo',
         ]);
     }
