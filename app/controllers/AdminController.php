@@ -88,7 +88,6 @@ class AdminController
             'on_track_color' => 'text-green-600',
             'refresh_interval' => 60,
             'color_scheme' => 'dark',
-            'enable_progress_bar' => true,
             'enable_alert_pulse' => true,
         ];
 
@@ -103,7 +102,6 @@ class AdminController
         $validIntervals = [60, 180, 300];
         $defaults['refresh_interval'] = in_array((int) $defaults['refresh_interval'], $validIntervals, true) ? (int) $defaults['refresh_interval'] : 60;
         $defaults['color_scheme'] = in_array($defaults['color_scheme'], ['dark', 'light'], true) ? $defaults['color_scheme'] : 'dark';
-        $defaults['enable_progress_bar'] = (bool) $defaults['enable_progress_bar'];
         $defaults['enable_alert_pulse'] = (bool) $defaults['enable_alert_pulse'];
 
         return $defaults;
@@ -161,7 +159,6 @@ class AdminController
             'on_track_color' => trim($_POST['on_track_color'] ?? $current['on_track_color']),
             'refresh_interval' => (int) ($_POST['refresh_interval'] ?? $current['refresh_interval']),
             'color_scheme' => $_POST['color_scheme'] ?? $current['color_scheme'],
-            'enable_progress_bar' => isset($_POST['enable_progress_bar']),
             'enable_alert_pulse' => isset($_POST['enable_alert_pulse']),
         ];
 
@@ -198,10 +195,8 @@ class AdminController
             ob_start();
             $processes = $processesForView;
             $showActions = false;
-            $showProgress = $settings['enable_progress_bar'];
             $highlightAnimations = $settings['enable_alert_pulse'];
             $showRowStatusColors = $settings['color_scheme'] === 'light';
-            $progressTrackClass = $settings['color_scheme'] === 'light' ? 'bg-slate-200' : 'bg-slate-800';
             require __DIR__ . '/../views/dashboard/partials/process_table_rows.php';
             $htmlRows = ob_get_clean();
         } else {

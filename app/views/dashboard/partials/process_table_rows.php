@@ -3,7 +3,6 @@ require_once __DIR__ . '/../../../utils/DashboardProcessFormatter.php';
 
 $deadlineColors = $deadlineColors ?? [];
 $showActions = $showActions ?? true;
-$showProgress = $showProgress ?? false;
 $highlightAnimations = $highlightAnimations ?? false;
 $allowLinks = $allowLinks ?? true;
 
@@ -15,18 +14,7 @@ foreach ($processes as $processo):
     $serviceBadges = DashboardProcessFormatter::getServiceBadges($processo['categorias_servico'] ?? '');
     $deadlineClass = $deadlineDescriptor['class'];
     $deadlineLabel = $deadlineDescriptor['label'];
-    $progressValue = $deadlineDescriptor['progress'];
     $rowHighlight = '';
-
-    $deadlineClassParts = preg_split('/\s+/', trim((string) $deadlineClass));
-    $deadlineBgClass = null;
-
-    foreach ($deadlineClassParts as $classPart) {
-        if (strpos($classPart, 'bg-') === 0) {
-            $deadlineBgClass = $classPart;
-            break;
-        }
-    }
 
     if ($highlightAnimations && in_array($deadlineDescriptor['state'], ['overdue', 'due_today'], true)) {
         $rowHighlight = 'animate-pulse';
@@ -71,19 +59,6 @@ foreach ($processes as $processo):
             <?php echo htmlspecialchars($deadlineLabel); ?>
         </span>
     </td>
-    <?php if ($showProgress): ?>
-        <td class="px-3 py-1 text-xs font-medium">
-            <?php if ($progressValue !== null): ?>
-                <div class="tv-panel-progress-wrapper">
-                    <div class="tv-panel-progress-track">
-                        <div class="tv-panel-progress-fill <?php echo htmlspecialchars($deadlineBgClass ?? 'bg-slate-500'); ?>" style="width: <?php echo $progressValue; ?>%"></div>
-                    </div>
-                </div>
-            <?php else: ?>
-                <span class="text-gray-400">N/A</span>
-            <?php endif; ?>
-        </td>
-    <?php endif; ?>
     <?php if ($showActions): ?>
     <td class="px-3 py-1 whitespace-nowrap text-center text-xs font-medium">
         <div class="relative inline-block p-1">
