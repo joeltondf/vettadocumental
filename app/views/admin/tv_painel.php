@@ -23,7 +23,14 @@ $showRowStatusColors = $theme === 'light';
      data-refresh-interval="<?php echo (int) $refreshInterval; ?>"
      data-progress-enabled="<?php echo $progressEnabled ? '1' : '0'; ?>"
      data-alert-enabled="<?php echo $alertEnabled ? '1' : '0'; ?>">
-    <section class="tv-panel-table-wrapper" style="height: 90vh;">
+    <div class="tv-panel-meta-inline">
+        <div class="tv-panel-clock" data-tv-clock></div>
+        <a href="<?php echo APP_URL; ?>/admin.php?action=tv_panel_config" class="tv-panel-config-link">
+            <i class="fas fa-sliders-h mr-2"></i>Configurações
+        </a>
+    </div>
+
+    <section class="tv-panel-table-wrapper">
         <?php if (empty($processesForPartial)): ?>
             <div class="tv-panel-empty">Nenhum processo disponível no momento.</div>
         <?php else: ?>
@@ -49,30 +56,7 @@ $showRowStatusColors = $theme === 'light';
         <div>
             <span class="font-semibold">Total de processos:</span> <span data-tv-total><?php echo count($processesForPartial ?? []); ?></span>
         </div>
-        <div class="tv-panel-clock" data-tv-clock></div>
-        <a href="<?php echo APP_URL; ?>/admin.php?action=tv_panel_config" class="tv-panel-config-link">
-            <i class="fas fa-sliders-h mr-2"></i>Configurações
-        </a>
     </footer>
 </div>
-
-<style>
-    .tv-panel-container {
-        width: 98%;
-        margin: 1rem auto;
-    }
-    .tv-panel-table th,
-    .tv-panel-table td {
-        padding: 0.35rem 0.5rem; /* Reduz o padding vertical e horizontal */
-        font-size: 0.9rem; /* Reduz um pouco o tamanho da fonte */
-    }
-    .tv-panel-footer {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 1.5rem;
-        flex-wrap: wrap;
-    }
-</style>
 
 <script src="<?php echo APP_URL; ?>/assets/js/tv-panel.js"></script>
