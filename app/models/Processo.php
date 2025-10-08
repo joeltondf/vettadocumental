@@ -1214,7 +1214,8 @@ public function create($data, $files)
     public function getDashboardStats()
     {
         $sql = "SELECT
-            COUNT(CASE WHEN status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento') THEN 1 END) as processos_ativos,
+            COUNT(CASE WHEN status_processo IN ('Serviço em Andamento', 'Serviço em andamento') THEN 1 END) as processos_ativos,
+            COUNT(CASE WHEN status_processo IN ('Serviço Pendente', 'Serviço pendente') THEN 1 END) as servicos_pendentes,
             COUNT(CASE WHEN status_processo IN ('Orçamento', 'Orçamento Pendente') THEN 1 END) as orcamentos_pendentes,
             COUNT(CASE WHEN status_processo IN ('Concluído', 'Finalizado') AND MONTH(data_finalizacao_real) = MONTH(CURDATE()) AND YEAR(data_finalizacao_real) = YEAR(CURDATE()) THEN 1 END) as finalizados_mes,
             COUNT(CASE WHEN traducao_prazo_data < CURDATE() AND status_processo NOT IN ('Concluído', 'Finalizado', 'Arquivado', 'Cancelado', 'Recusado') THEN 1 END) as processos_atrasados
@@ -1225,7 +1226,13 @@ public function create($data, $files)
             return $stmt->fetch(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             error_log("Erro ao buscar estatísticas do dashboard: " . $e->getMessage());
-            return ['processos_ativos' => 0, 'orcamentos_pendentes' => 0, 'finalizados_mes' => 0, 'processos_atrasados' => 0];
+            return [
+                'processos_ativos' => 0,
+                'servicos_pendentes' => 0,
+                'orcamentos_pendentes' => 0,
+                'finalizados_mes' => 0,
+                'processos_atrasados' => 0,
+            ];
         }
     }
 
