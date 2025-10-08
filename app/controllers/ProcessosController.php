@@ -318,28 +318,42 @@ class ProcessosController
         $dadosParaAtualizar = $this->applyPaymentDefaults($dadosParaAtualizar);
         $perfilUsuario = $_SESSION['user_perfil'] ?? '';
         $processoOriginal = $this->processoModel->getById($id_existente)['processo'];
+        $statusInformadoNoFormulario = array_key_exists('status_processo', $dadosParaAtualizar)
+            && trim((string)$dadosParaAtualizar['status_processo']) !== '';
+        $perfisQuePreservamStatus = ['admin', 'gerencia', 'gerente', 'supervisor'];
+        $devePreservarStatus = !$statusInformadoNoFormulario
+            && in_array($perfilUsuario, $perfisQuePreservamStatus, true);
 
-        $valorAlterado = false;
-        if (in_array($perfilUsuario, ['colaborador', 'vendedor'])) {
-            $valorAlterado = $this->verificarAlteracaoValorMinimo(
-                $dadosParaAtualizar['cliente_id'],
-                $dadosParaAtualizar['docs'] ?? []
-            );
+        if ($devePreservarStatus || !$statusInformadoNoFormulario) {
+            $dadosParaAtualizar['status_processo'] = $processoOriginal['status_processo'];
         }
 
-        if ($processoOriginal['status_processo'] === 'Serviço Pendente' && in_array($perfilUsuario, ['admin', 'gerencia', 'supervisor'])) {
-            $dadosParaAtualizar['status_processo'] = 'Serviço em Andamento';
-            $this->resolveNotifications('processo_pendente_servico', $id_existente);
-            $_SESSION['message'] = "Serviço aprovado e status atualizado!";
-        } elseif ($valorAlterado) {
-            if ($this->isBudgetStatus($processoOriginal['status_processo'])) {
-                $dadosParaAtualizar['status_processo'] = 'Orçamento';
-                $_SESSION['message'] = 'Orçamento atualizado e enviado para o cliente.';
-                $_SESSION['success_message'] = 'Orçamento atualizado e enviado para o cliente.';
-            } else {
-                $dadosParaAtualizar['status_processo'] = 'Serviço Pendente';
-                $_SESSION['message'] = "Alteração salva. O serviço aguarda aprovação da gerência/supervisão.";
-                $_SESSION['success_message'] = $_SESSION['message'];
+        if (!$devePreservarStatus) {
+            $valorAlterado = false;
+            if (in_array($perfilUsuario, ['colaborador', 'vendedor'])) {
+                $valorAlterado = $this->verificarAlteracaoValorMinimo(
+                    $dadosParaAtualizar['cliente_id'],
+                    $dadosParaAtualizar['docs'] ?? []
+                );
+            }
+
+            if (!$statusInformadoNoFormulario
+                && $processoOriginal['status_processo'] === 'Serviço Pendente'
+                && in_array($perfilUsuario, ['admin', 'gerencia', 'supervisor'], true)
+            ) {
+                $dadosParaAtualizar['status_processo'] = 'Serviço em Andamento';
+                $this->resolveNotifications('processo_pendente_servico', $id_existente);
+                $_SESSION['message'] = "Serviço aprovado e status atualizado!";
+            } elseif (!$statusInformadoNoFormulario && $valorAlterado) {
+                if ($this->isBudgetStatus($processoOriginal['status_processo'])) {
+                    $dadosParaAtualizar['status_processo'] = 'Orçamento';
+                    $_SESSION['message'] = 'Orçamento atualizado e enviado para o cliente.';
+                    $_SESSION['success_message'] = 'Orçamento atualizado e enviado para o cliente.';
+                } else {
+                    $dadosParaAtualizar['status_processo'] = 'Serviço Pendente';
+                    $_SESSION['message'] = "Alteração salva. O serviço aguarda aprovação da gerência/supervisão.";
+                    $_SESSION['success_message'] = $_SESSION['message'];
+                }
             }
         }
 
