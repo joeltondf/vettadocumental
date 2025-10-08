@@ -1,6 +1,7 @@
 <?php
 $notifications = $alertFeed['notifications'] ?? [];
 $totalAlerts = (int)($alertFeed['total'] ?? 0);
+$isManager = in_array($_SESSION['user_perfil'] ?? '', ['admin', 'gerencia', 'supervisor'], true);
 
 if (!function_exists('format_alert_type_label')) {
     function format_alert_type_label(string $alertType): string
@@ -87,6 +88,49 @@ if (!function_exists('format_notification_group_label')) {
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <div class="flex flex-wrap items-center justify-end gap-2">
+                                        <?php $referenceId = (int)($notification['referencia_id'] ?? 0); ?>
+                                        <?php if ($isManager && $referenceId > 0 && $alertType === 'processo_pendente_orcamento'): ?>
+                                            <div class="flex flex-col gap-2 w-full">
+                                                <div class="flex flex-wrap items-center justify-end gap-2">
+                                                    <a href="<?php echo APP_URL; ?>/processos.php?action=aprovar_orcamento&id=<?php echo $referenceId; ?>" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-green-600 text-white shadow hover:bg-green-700">
+                                                        Aprovar orçamento
+                                                    </a>
+                                                    <form action="<?php echo APP_URL; ?>/processos.php?action=recusar_orcamento" method="POST" class="flex flex-wrap items-center justify-end gap-2">
+                                                        <input type="hidden" name="id" value="<?php echo $referenceId; ?>">
+                                                        <label for="motivo_recusa_<?php echo $referenceId; ?>" class="sr-only">Motivo do cancelamento</label>
+                                                        <input
+                                                            id="motivo_recusa_<?php echo $referenceId; ?>"
+                                                            type="text"
+                                                            name="motivo_recusa"
+                                                            class="w-full sm:w-56 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                                                            placeholder="Motivo do cancelamento"
+                                                            required
+                                                        >
+                                                        <button type="submit" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-red-600 text-white shadow hover:bg-red-700">
+                                                            Cancelar orçamento
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        <?php elseif ($isManager && $referenceId > 0 && $alertType === 'processo_pendente_servico'): ?>
+                                            <div class="flex flex-wrap justify-end gap-2 w-full">
+                                                <form action="<?php echo APP_URL; ?>/processos.php?action=change_status" method="POST" class="inline-flex">
+                                                    <input type="hidden" name="id" value="<?php echo $referenceId; ?>">
+                                                    <input type="hidden" name="status_processo" value="Serviço em Andamento">
+                                                    <button type="submit" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-green-600 text-white shadow hover:bg-green-700">
+                                                        Aprovar serviço
+                                                    </button>
+                                                </form>
+                                                <form action="<?php echo APP_URL; ?>/processos.php?action=change_status" method="POST" class="inline-flex">
+                                                    <input type="hidden" name="id" value="<?php echo $referenceId; ?>">
+                                                    <input type="hidden" name="status_processo" value="Orçamento Pendente">
+                                                    <button type="submit" class="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-md bg-yellow-600 text-white shadow hover:bg-yellow-700">
+                                                        Solicitar ajustes
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        <?php endif; ?>
+
                                         <?php if (!empty($link) && $link !== '#'): ?>
                                             <a href="<?php echo htmlspecialchars(APP_URL . $link); ?>" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">
                                                 Abrir

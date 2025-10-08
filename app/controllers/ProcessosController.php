@@ -378,6 +378,9 @@ class ProcessosController
             if ($leftPending) {
                 $pendingType = $previousStatusNormalized === 'orçamento pendente' ? 'processo_pendente_orcamento' : 'processo_pendente_servico';
                 $this->resolveNotifications($pendingType, $id_existente);
+                if ($previousStatusNormalized === 'serviço pendente') {
+                    $this->resolveNotifications('processo_servico_pendente', $id_existente);
+                }
             }
 
             if ($this->shouldGenerateOmieOs($novoStatus)) {
@@ -1001,6 +1004,9 @@ class ProcessosController
         if ($leftPending) {
             $pendingType = $previousStatusNormalized === 'orçamento pendente' ? 'processo_pendente_orcamento' : 'processo_pendente_servico';
             $this->resolveNotifications($pendingType, $processId);
+            if ($previousStatusNormalized === 'serviço pendente') {
+                $this->resolveNotifications('processo_servico_pendente', $processId);
+            }
         }
 
         if ($newStatusNormalized === 'serviço pendente') {
@@ -1046,7 +1052,7 @@ class ProcessosController
 
         switch ($newStatusNormalized) {
             case 'orçamento pendente':
-                if ($sellerUserId && $senderId !== $sellerUserId && $previousStatusNormalized === 'pendente') {
+                if ($sellerUserId && $senderId !== $sellerUserId && $previousStatusNormalized === 'serviço pendente') {
                     $message = "O serviço do orçamento #{$process['orcamento_numero']} foi recusado pela gerência. Ajuste os dados.";
                     $this->notifyUser($sellerUserId, $senderId, $message, $link, 'processo_orcamento_recusado', $processId, 'vendedor');
                 }
@@ -1678,7 +1684,7 @@ class ProcessosController
         }
 
         $normalizedStatus = $this->normalizeStatusName($novoStatus);
-        if ($normalizedStatus === 'pendente') {
+        if ($normalizedStatus === 'serviço pendente') {
             return true;
         }
 
