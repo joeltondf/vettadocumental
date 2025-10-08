@@ -78,8 +78,8 @@
 
 .tv-panel-table-wrapper th,
 .tv-panel-table-wrapper td {
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
 }
 
 .tv-panel-footer {
@@ -99,7 +99,7 @@
 
 .tv-panel-page .min-w-full tbody tr td,
 .tv-panel-page .min-w-full thead th {
-    font-size: 0.9rem;
+    font-size: 0.875rem; /* 14px */
 }
 
 .tv-panel-page .min-w-full thead th {
@@ -107,7 +107,7 @@
     text-transform: uppercase;
 }
 .tv-panel-page .min-w-full tbody tr td span {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
 }
 
 .tv-panel-theme-dark .tv-panel-config-link {
