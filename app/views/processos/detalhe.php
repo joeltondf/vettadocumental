@@ -142,7 +142,7 @@ $isServicePending = $statusNormalized === 'serviço pendente';
 
         <div class="bg-white shadow-lg rounded-lg p-6">
             <h2 class="text-xl font-semibold text-gray-700 border-b pb-3 mb-4">Informações Gerais</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Nº Orçamento</p>
                     <p class="text-lg text-gray-800"><?php echo htmlspecialchars($processo['orcamento_numero'] ?? 'N/A'); ?></p>
@@ -154,6 +154,10 @@ $isServicePending = $statusNormalized === 'serviço pendente';
                 <div>
                     <p class="text-sm font-medium text-gray-500">Data de Entrada</p>
                     <p class="text-lg text-gray-800"><?php echo isset($processo['data_criacao']) ? date('d/m/Y', strtotime($processo['data_criacao'])) : 'N/A'; ?></p>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-500">Vendedor Responsável</p>
+                    <p class="text-lg text-gray-800"><?php echo htmlspecialchars($processo['nome_vendedor'] ?? 'N/A'); ?></p>
                 </div>
             </div>
         </div>
