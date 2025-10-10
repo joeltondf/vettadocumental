@@ -1712,15 +1712,16 @@ class ProcessosController
         }
 
         $normalizedStatus = $this->normalizeStatusName($novoStatus);
-        if ($normalizedStatus === 'serviço pendente') {
-            return true;
-        }
+        $statusPermitidos = [
+            'orçamento pendente',
+            'orçamento',
+            'serviço pendente',
+            'serviço em andamento',
+            'concluído',
+            'cancelado',
+        ];
 
-        if (in_array($normalizedStatus, ['serviço em andamento', 'orçamento pendente', 'concluído', 'cancelado'], true)) {
-            return true;
-        }
-
-        return false;
+        return in_array($normalizedStatus, $statusPermitidos, true);
     }
 
     private function isLeadConversionRequest(array $input): bool

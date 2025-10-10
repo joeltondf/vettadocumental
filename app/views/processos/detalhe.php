@@ -99,6 +99,7 @@ $leadConversionContext = $leadConversionContext ?? ['shouldRender' => false];
 $isAprovadoOuSuperior = in_array($statusNormalized, ['serviço pendente', 'serviço em andamento', 'concluído'], true);
 $isManager = in_array($_SESSION['user_perfil'] ?? '', ['admin', 'gerencia', 'supervisor'], true);
 $isBudgetPending = $statusNormalized === 'orçamento pendente';
+$shouldHideStatusPanel = $isManager && $isBudgetPending;
 $isServicePending = $statusNormalized === 'serviço pendente';
 ?>
 
@@ -461,7 +462,7 @@ $isServicePending = $statusNormalized === 'serviço pendente';
 
         <?php if (isset($_SESSION['user_perfil']) && in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'supervisor', 'financeiro'])): ?>
         <?php endif; ?>
-        <?php if (isset($_SESSION['user_perfil']) && in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'supervisor'])): ?>
+        <?php if (!$shouldHideStatusPanel && isset($_SESSION['user_perfil']) && in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'supervisor'])): ?>
             <div class="bg-white shadow-lg rounded-lg p-6">
                 <h2 class="text-xl font-semibold text-gray-700 border-b pb-3 mb-4">Painel de Ações</h2>
 
