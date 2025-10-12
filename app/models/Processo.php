@@ -10,6 +10,7 @@ require_once __DIR__ . '/Configuracao.php';
 
 class Processo
 {
+    public const TV_PANEL_EXCLUDED_STATUSES = ['Concluído', 'Finalizado', 'Cancelado', 'Recusado'];
     private $pdo;
     private array $processColumns = [];
     private ?int $defaultVendorId = null;
@@ -824,9 +825,9 @@ public function create($data, $files)
     }
 }
 
-    public function getProcessesForTvPanel(): array
+    public function getProcessesForTvPanel(array $filters = []): array
     {
-        $sql = "SELECT
+        $baseSql = "SELECT
                     p.id, p.titulo, p.status_processo, p.data_criacao, p.data_previsao_entrega,
                     p.categorias_servico, c.nome_cliente, t.nome_tradutor, p.os_numero_omie,
                     p.data_inicio_traducao, p.traducao_prazo_data, p.traducao_prazo_dias,
@@ -845,22 +846,90 @@ public function create($data, $files)
                 JOIN clientes AS c ON p.cliente_id = c.id
                 LEFT JOIN tradutores AS t ON p.tradutor_id = t.id
                 LEFT JOIN vendedores AS vend ON p.vendedor_id = vend.id
-                LEFT JOIN users AS u ON vend.user_id = u.id
-                ORDER BY
-                    CASE
-                        WHEN p.status_processo IN ('Concluído', 'Finalizado', 'Cancelado', 'Recusado') THEN 1
-                        ELSE 0
-                    END,
+                LEFT JOIN users AS u ON vend.user_id = u.id";
+
+        $params = [];
+        $excludedPlaceholders = [];
+        foreach (self::TV_PANEL_EXCLUDED_STATUSES as $index => $status) {
+            $placeholder = ":excluded_status_{$index}";
+            $excludedPlaceholders[] = $placeholder;
+            $params[$placeholder] = $status;
+        }
+
+        $whereParts = [];
+        if (!empty($excludedPlaceholders)) {
+            $whereParts[] = 'p.status_processo NOT IN (' . implode(', ', $excludedPlaceholders) . ')';
+        }
+
+        if (!empty($filters['statuses']) && is_array($filters['statuses'])) {
+            $statuses = array_values(array_filter($filters['statuses'], static function ($status) {
+                return is_string($status) && $status !== '';
+            }));
+
+            if (!empty($statuses)) {
+                $placeholders = [];
+                foreach ($statuses as $index => $status) {
+                    $placeholder = ":status_tv_{$index}";
+                    $placeholders[] = $placeholder;
+                    $params[$placeholder] = $status;
+                }
+
+                $whereParts[] = 'p.status_processo IN (' . implode(', ', $placeholders) . ')';
+            }
+        }
+
+        $sql = $baseSql;
+        if (!empty($whereParts)) {
+            $sql .= ' WHERE ' . implode(' AND ', $whereParts);
+        }
+
+        $sql .= " ORDER BY
                     CASE WHEN prazo_estimado IS NULL THEN 1 ELSE 0 END,
                     prazo_estimado ASC";
 
         try {
-            $stmt = $this->pdo->query($sql);
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $exception) {
             error_log('Erro ao buscar processos para o painel de TV: ' . $exception->getMessage());
             return [];
         }
+    }
+
+    public function getAvailableStatuses(): array
+    {
+        $sql = "SELECT DISTINCT status_processo FROM processos WHERE status_processo IS NOT NULL AND status_processo <> '' ORDER BY status_processo";
+
+        try {
+            $stmt = $this->pdo->query($sql);
+            $statuses = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            if (!is_array($statuses) || empty($statuses)) {
+                return $this->getDefaultStatuses();
+            }
+
+            return array_values(array_unique(array_map('strval', $statuses)));
+        } catch (PDOException $exception) {
+            error_log('Erro ao buscar status disponíveis dos processos: ' . $exception->getMessage());
+            return $this->getDefaultStatuses();
+        }
+    }
+
+    private function getDefaultStatuses(): array
+    {
+        return [
+            'Orçamento',
+            'Orçamento Pendente',
+            'Serviço Pendente',
+            'Serviço em Andamento',
+            'Serviço',
+            'Serviço Pendente com Serviço',
+            'Serviço em andamento',
+            'Concluído',
+            'Finalizado',
+            'Cancelado',
+            'Recusado',
+        ];
     }
 
 
