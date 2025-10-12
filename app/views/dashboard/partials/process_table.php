@@ -6,6 +6,7 @@ $tableThemeClass = $tableThemeClass ?? 'divide-y divide-gray-200';
 $theadThemeClass = trim(($theadThemeClass ?? 'bg-gray-50') . ' sticky top-0 z-10');
 $tbodyThemeClass = $tbodyThemeClass ?? 'bg-white divide-y divide-gray-200';
 $tableClass = trim('min-w-full table-auto ' . $tableThemeClass);
+$tableBodyId = $tableBodyId ?? 'processes-table-body';
 ?>
 <table class="<?php echo htmlspecialchars($tableClass); ?>">
     <thead class="<?php echo htmlspecialchars($theadThemeClass); ?>">
@@ -23,7 +24,7 @@ $tableClass = trim('min-w-full table-auto ' . $tableThemeClass);
             <?php endif; ?>
         </tr>
     </thead>
-    <tbody class="<?php echo htmlspecialchars($tbodyThemeClass); ?>" id="processes-table-body">
+    <tbody class="<?php echo htmlspecialchars($tbodyThemeClass); ?>" id="<?php echo htmlspecialchars($tableBodyId); ?>" data-tv-table-body>
         <?php
             $processes = $processes ?? [];
             $renderOnlyBody = false;

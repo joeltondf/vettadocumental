@@ -31,6 +31,7 @@ class AdminController
     private $omieProdutoModel;
     private KanbanConfigService $kanbanConfigService;
     private $processoModel;
+    private ?array $availableProcessStatusesCache = null;
 
     private const TV_PANEL_SETTINGS_KEY = 'tv_panel_settings';
 
@@ -89,6 +90,13 @@ class AdminController
             'refresh_interval' => 60,
             'color_scheme' => 'dark',
             'enable_alert_pulse' => true,
+            'boards' => [
+                [
+                    'id' => 'panel_processes',
+                    'title' => 'Processos Ativos',
+                    'statuses' => [],
+                ],
+            ],
         ];
 
         $stored = $this->configModel->get(self::TV_PANEL_SETTINGS_KEY);
@@ -122,7 +130,19 @@ class AdminController
             'due_soon' => $settings['due_soon_color'],
             'on_track' => $settings['on_track_color'],
         ];
-        $processes = $this->processoModel->getProcessesForTvPanel();
+        $boards = $this->normalizeTvPanelBoards($settings['boards'] ?? []);
+        $panels = [];
+
+        foreach ($boards as $board) {
+            $panels[] = [
+                'id' => $board['id'],
+                'title' => $board['title'],
+                'statuses' => $board['statuses'],
+                'processes' => $this->processoModel->getProcessesForTvPanel([
+                    'statuses' => $board['statuses'],
+                ]),
+            ];
+        }
         $bodyClass = $settings['color_scheme'] === 'light'
             ? 'tv-panel-page bg-white text-slate-900'
             : 'tv-panel-page bg-slate-900 text-white';
@@ -137,6 +157,8 @@ class AdminController
     {
         $pageTitle = 'Configurações do Painel de TV';
         $settings = $this->getTvPanelSettings();
+        $availableStatuses = $this->getAvailableProcessStatuses();
+        $panels = $this->normalizeTvPanelBoards($settings['boards'] ?? []);
 
         require_once __DIR__ . '/../views/layouts/header.php';
         require_once __DIR__ . '/../views/admin/tv_painel_config.php';
@@ -162,6 +184,14 @@ class AdminController
             'enable_alert_pulse' => isset($_POST['enable_alert_pulse']),
         ];
 
+        $panelConfig = $_POST['panels'] ?? [];
+        if (is_string($panelConfig)) {
+            $decodedPanels = json_decode($panelConfig, true);
+            $panelConfig = is_array($decodedPanels) ? $decodedPanels : [];
+        }
+
+        $payload['boards'] = $this->normalizeTvPanelBoards($panelConfig);
+
         $validIntervals = [60, 180, 300];
         if (!in_array($payload['refresh_interval'], $validIntervals, true)) {
             $payload['refresh_interval'] = 60;
@@ -181,7 +211,28 @@ class AdminController
     public function getTvPanelData(): void
     {
         $settings = $this->getTvPanelSettings();
-        $processes = $this->processoModel->getProcessesForTvPanel();
+        $boards = $this->normalizeTvPanelBoards($settings['boards'] ?? []);
+
+        $panelId = isset($_GET['panel_id']) ? (string) $_GET['panel_id'] : '';
+        $selectedBoard = null;
+        foreach ($boards as $board) {
+            if ($board['id'] === $panelId) {
+                $selectedBoard = $board;
+                break;
+            }
+        }
+
+        if ($selectedBoard === null) {
+            $selectedBoard = $boards[0] ?? [
+                'id' => 'panel_processes',
+                'title' => 'Processos Ativos',
+                'statuses' => [],
+            ];
+        }
+
+        $processes = $this->processoModel->getProcessesForTvPanel([
+            'statuses' => $selectedBoard['statuses'],
+        ]);
 
         $deadlineColors = [
             'overdue' => $settings['overdue_color'],
@@ -210,8 +261,103 @@ class AdminController
             'html' => $htmlRows,
             'generated_at' => date(DATE_ATOM),
             'total' => count($processesForView),
+            'panel_id' => $selectedBoard['id'],
         ]);
         exit();
+    }
+
+    private function getAvailableProcessStatuses(): array
+    {
+        if ($this->availableProcessStatusesCache === null) {
+            $statuses = $this->processoModel->getAvailableStatuses();
+            $filtered = [];
+
+            foreach ($statuses as $status) {
+                if (!is_string($status)) {
+                    continue;
+                }
+
+                if (in_array($status, Processo::TV_PANEL_EXCLUDED_STATUSES, true)) {
+                    continue;
+                }
+
+                if (in_array($status, $filtered, true)) {
+                    continue;
+                }
+
+                $filtered[] = $status;
+            }
+
+            $this->availableProcessStatusesCache = $filtered;
+        }
+
+        return $this->availableProcessStatusesCache;
+    }
+
+    private function normalizeTvPanelBoards(array $boards): array
+    {
+        $allowedStatuses = $this->getAvailableProcessStatuses();
+        $normalized = [];
+
+        foreach ($boards as $board) {
+            if (!is_array($board)) {
+                continue;
+            }
+
+            $title = isset($board['title']) ? trim((string) $board['title']) : '';
+            if ($title === '') {
+                continue;
+            }
+
+            $rawId = isset($board['id']) ? (string) $board['id'] : '';
+            $id = preg_replace('/[^a-zA-Z0-9_-]/', '', $rawId);
+            if ($id === '') {
+                $id = 'panel_' . substr(sha1($title . microtime(true)), 0, 10);
+            }
+
+            $statusesInput = $board['statuses'] ?? [];
+            if (!is_array($statusesInput)) {
+                $statusesInput = [];
+            }
+
+            $statuses = [];
+            foreach ($statusesInput as $status) {
+                if (!is_string($status)) {
+                    continue;
+                }
+
+                $status = trim($status);
+                if ($status === '') {
+                    continue;
+                }
+
+                if (!in_array($status, $allowedStatuses, true)) {
+                    continue;
+                }
+
+                if (in_array($status, $statuses, true)) {
+                    continue;
+                }
+
+                $statuses[] = $status;
+            }
+
+            $normalized[] = [
+                'id' => $id,
+                'title' => $title,
+                'statuses' => $statuses,
+            ];
+        }
+
+        if (empty($normalized)) {
+            $normalized[] = [
+                'id' => 'panel_processes',
+                'title' => 'Processos Ativos',
+                'statuses' => [],
+            ];
+        }
+
+        return array_values($normalized);
     }
 
     /**
