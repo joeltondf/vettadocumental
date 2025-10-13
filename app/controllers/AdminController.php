@@ -131,18 +131,35 @@ class AdminController
             'on_track' => $settings['on_track_color'],
         ];
         $boards = $this->normalizeTvPanelBoards($settings['boards'] ?? []);
-        $panels = [];
+
+        $panelId = isset($_GET['panel_id']) ? (string) $_GET['panel_id'] : '';
+        $selectedBoard = null;
 
         foreach ($boards as $board) {
-            $panels[] = [
-                'id' => $board['id'],
-                'title' => $board['title'],
-                'statuses' => $board['statuses'],
-                'processes' => $this->processoModel->getProcessesForTvPanel([
-                    'statuses' => $board['statuses'],
-                ]),
+            if ($board['id'] === $panelId) {
+                $selectedBoard = $board;
+                break;
+            }
+        }
+
+        if ($selectedBoard === null) {
+            $selectedBoard = $boards[0] ?? [
+                'id' => 'panel_processes',
+                'title' => 'Processos Ativos',
+                'statuses' => [],
             ];
         }
+
+        $panel = [
+            'id' => $selectedBoard['id'],
+            'title' => $selectedBoard['title'],
+            'statuses' => $selectedBoard['statuses'],
+            'processes' => $this->processoModel->getProcessesForTvPanel([
+                'statuses' => $selectedBoard['statuses'],
+            ]),
+        ];
+
+        $panels = $boards;
         $bodyClass = $settings['color_scheme'] === 'light'
             ? 'tv-panel-page bg-white text-slate-900'
             : 'tv-panel-page bg-slate-900 text-white';

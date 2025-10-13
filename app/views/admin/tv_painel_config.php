@@ -65,7 +65,7 @@
             $panelsJson = htmlspecialchars(json_encode($panelsData, JSON_UNESCAPED_UNICODE));
             $statusesJson = htmlspecialchars(json_encode($statusesData, JSON_UNESCAPED_UNICODE));
         ?>
-        <section data-panel-builder data-statuses="<?php echo $statusesJson; ?>" data-panels="<?php echo $panelsJson; ?>">
+        <section data-panel-builder data-statuses="<?php echo $statusesJson; ?>" data-panels="<?php echo $panelsJson; ?>" data-panel-url="<?php echo htmlspecialchars(APP_URL . '/admin.php?action=tv_panel&panel_id='); ?>">
             <div class="flex items-center justify-between mb-4">
                 <div>
                     <h2 class="text-xl font-semibold text-gray-700">Quadros personalizados</h2>
@@ -79,7 +79,6 @@
         </section>
 
         <div class="flex justify-end space-x-4">
-            <a href="<?php echo APP_URL; ?>/admin.php?action=tv_panel" class="px-6 py-3 rounded-lg border border-gray-300 text-gray-700 hover:text-gray-900 hover:border-gray-400">Ver painel</a>
             <button type="submit" class="px-6 py-3 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700">Salvar configurações</button>
         </div>
     </form>
@@ -96,6 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const list = builder.querySelector('[data-panel-list]');
     const addButton = builder.querySelector('[data-add-panel]');
     const form = document.querySelector('[data-tv-config-form]');
+    const panelUrlBase = builder.dataset.panelUrl || '';
 
     const parseJson = (value, fallback) => {
         try {
@@ -159,7 +159,10 @@ document.addEventListener('DOMContentLoaded', () => {
             panelElement.innerHTML = `
                 <div class="flex items-center justify-between">
                     <h3 class="text-lg font-semibold text-gray-700" data-panel-heading>${escapeHtml(panel.title || `Painel ${index + 1}`)}</h3>
-                    <button type="button" class="text-sm font-semibold text-red-600 hover:text-red-700 ${panels.length === 1 ? 'hidden' : ''}" data-remove-panel>Remover</button>
+                    <div class="flex items-center gap-3">
+                        <a href="#" target="_blank" class="text-sm font-semibold text-indigo-600 hover:text-indigo-700" data-view-panel>Ver painel</a>
+                        <button type="button" class="text-sm font-semibold text-red-600 hover:text-red-700 ${panels.length === 1 ? 'hidden' : ''}" data-remove-panel>Remover</button>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Nome do painel</label>
@@ -180,6 +183,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const titleInput = panelElement.querySelector('[data-panel-title]');
             const removeButton = panelElement.querySelector('[data-remove-panel]');
             const statusContainer = panelElement.querySelector('[data-panel-statuses]');
+            const viewButton = panelElement.querySelector('[data-view-panel]');
+
+            if (viewButton) {
+                if (panel.id && panelUrlBase) {
+                    viewButton.href = panelUrlBase + encodeURIComponent(panel.id);
+                    viewButton.classList.remove('pointer-events-none', 'opacity-50');
+                } else {
+                    viewButton.href = '#';
+                    viewButton.classList.add('pointer-events-none', 'opacity-50');
+                }
+            }
 
             titleInput.addEventListener('input', () => {
                 panels[index].title = titleInput.value;
