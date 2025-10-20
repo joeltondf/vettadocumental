@@ -52,11 +52,20 @@ require_once __DIR__ . '/../layouts/header.php';
 
     <a href="admin.php?action=omie_settings" class="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow flex flex-col justify-between">
         <div>
-            <h3 class="text-xl font-bold text-indigo-600">Configurações e APIs</h3>
-            <p class="text-gray-600 mt-2">Ajustar integrações com serviços externos como a Omie.</p>
+            <h3 class="text-xl font-bold text-indigo-600">Integração Omie</h3>
+            <p class="text-gray-600 mt-2">Gerencie as credenciais e parâmetros da integração com a Omie.</p>
         </div>
         <div class="text-right mt-4">
             <i class="fas fa-cogs text-indigo-200 text-5xl"></i>
+        </div>
+    </a>
+    <a href="admin.php?action=settings" class="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow flex flex-col justify-between">
+        <div>
+            <h3 class="text-xl font-bold text-amber-600">Configurações Gerais</h3>
+            <p class="text-gray-600 mt-2">Defina percentuais e ajustes administrativos do CRM.</p>
+        </div>
+        <div class="text-right mt-4">
+            <i class="fas fa-sliders-h text-amber-200 text-5xl"></i>
         </div>
     </a>
     <a href="admin.php?action=omie_support&amp;type=produtos" class="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow flex flex-col justify-between">

@@ -19,6 +19,9 @@ LEFT JOIN `clientes` c ON c.`id` = p.`cliente_id`
 
 ```sql
 ALTER TABLE `clientes`
+  ADD COLUMN `telefone_ddi` VARCHAR(4) NULL DEFAULT NULL AFTER `telefone`,
+  ADD COLUMN `telefone_ddd` VARCHAR(4) NULL DEFAULT NULL AFTER `telefone_ddi`,
+  ADD COLUMN `telefone_numero` VARCHAR(20) NULL DEFAULT NULL AFTER `telefone_ddd`,
   ADD COLUMN `prazo_acordado_dias` INT UNSIGNED NULL DEFAULT NULL AFTER `tipo_assessoria`,
   ADD COLUMN `complemento` VARCHAR(60) NULL DEFAULT NULL AFTER `numero`,
   ADD COLUMN `cidade_validation_source` ENUM('api', 'database') NULL DEFAULT 'api' AFTER `estado`,
@@ -108,11 +111,11 @@ CREATE TABLE IF NOT EXISTS `clientes_test` (
 -- INSERT: novo cliente convertido
 INSERT INTO `clientes` (
   `nome_cliente`, `tipo_pessoa`, `tipo_assessoria`, `prazo_acordado_dias`,
-  `cpf_cnpj`, `email`, `telefone`, `cidade`, `estado`,
+  `cpf_cnpj`, `email`, `telefone`, `telefone_ddi`, `telefone_ddd`, `telefone_numero`, `cidade`, `estado`,
   `cidade_validation_source`, `is_prospect`, `data_conversao`
 ) VALUES (
   'Cliente Exemplo Ltda', 'Jurídica', 'Mensalista', 10,
-  '12345678000100', 'contato@exemplo.com', '(11) 99999-9999', 'São Paulo', 'SP',
+  '12345678000100', 'contato@exemplo.com', '5511999999999', '55', '11', '999999999', 'São Paulo', 'SP',
   'api', 0, NOW()
 );
 
@@ -139,6 +142,13 @@ ALTER TABLE `clientes_test`
 
 -- DELETE definitivo (apenas para ambiente de testes)
 DELETE FROM `clientes_test` WHERE `id` = 1;
+
+-- UPDATE: define o DDI padrão para registros legados
+UPDATE `clientes`
+   SET `telefone_ddi` = '55'
+ WHERE (`telefone_ddi` IS NULL OR `telefone_ddi` = '')
+   AND `telefone` IS NOT NULL
+   AND `telefone` <> '';
 ```
 
 > **Observação:** execute os scripts em ordem para preservar a integridade referencial. Sempre realize backup antes de aplicar as alterações em produção.
@@ -188,4 +198,87 @@ UPDATE servicos
 UPDATE orcamentos
    SET vendedor_id = @defaultVendorId
  WHERE vendedor_id IS NULL;
+```
+
+## 7. Habilitar o fluxo de SDR
+
+Execute as instruções abaixo para incluir o perfil `sdr`, registrar o proprietário de cada lead e ativar o histórico de distribuição.
+
+```sql
+-- 7.1 — adiciona o novo perfil ao ENUM de usuários
+ALTER TABLE `users`
+  MODIFY COLUMN `perfil`
+    ENUM('master','admin','gerencia','supervisor','financeiro','vendedor','colaborador','cliente','sdr') NOT NULL;
+
+-- 7.2 — armazena o SDR responsável por cada prospecção
+ALTER TABLE `prospeccoes`
+  ADD COLUMN `sdrId` INT UNSIGNED NULL DEFAULT NULL AFTER `responsavel_id`;
+
+-- 7.3 — registra respostas de qualificação
+CREATE TABLE IF NOT EXISTS `prospeccao_qualificacoes` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `prospeccaoId` INT UNSIGNED NOT NULL,
+  `sdrId` INT UNSIGNED NOT NULL,
+  `fitIcp` VARCHAR(40) NOT NULL,
+  `budget` VARCHAR(40) NOT NULL,
+  `authority` VARCHAR(40) NOT NULL,
+  `timing` VARCHAR(40) NOT NULL,
+  `decision` ENUM('qualificado','descartado') NOT NULL,
+  `notes` TEXT NULL,
+  `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_prospeccao_qualificacoes_prospeccao` (`prospeccaoId`),
+  CONSTRAINT `fk_qualificacoes_prospeccoes` FOREIGN KEY (`prospeccaoId`) REFERENCES `prospeccoes` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_qualificacoes_users` FOREIGN KEY (`sdrId`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 7.4 — histórico de distribuição automática
+CREATE TABLE IF NOT EXISTS `distribuicao_leads` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `prospeccaoId` INT UNSIGNED NOT NULL,
+  `sdrId` INT UNSIGNED NULL,
+  `vendedorId` INT UNSIGNED NOT NULL,
+  `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_distribuicao_leads_prospeccao` (`prospeccaoId`),
+  CONSTRAINT `fk_distribuicao_leads_prospeccoes` FOREIGN KEY (`prospeccaoId`) REFERENCES `prospeccoes` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 7.4.1 — fila de distribuição rotativa
+CREATE TABLE IF NOT EXISTS `lead_distribution_queue` (
+  `vendor_id` INT UNSIGNED NOT NULL PRIMARY KEY,
+  `position` INT NOT NULL,
+  `last_assigned_at` DATETIME NULL,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT `fk_lead_distribution_queue_vendor`
+    FOREIGN KEY (`vendor_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 7.5 — exemplos para cadastro de SDRs e leads de teste
+INSERT INTO `users` (nome_completo, email, senha, perfil, ativo)
+VALUES ('SDR Teste', 'sdr@empresa.com', '$2y$10$abcdefghijklmnopqrstuv', 'sdr', 1);
+
+SET @novoSdrId := LAST_INSERT_ID();
+
+INSERT INTO `prospeccoes` (
+  cliente_id, nome_prospecto, data_prospeccao,
+  responsavel_id, sdrId, feedback_inicial,
+  valor_proposto, status, leadCategory
+) VALUES (
+  1, 'Lead Demonstrativo', NOW(),
+  NULL, @novoSdrId, 'Contato inicial via inbound',
+  0, 'Novo', 'Entrada'
+);
+
+-- 7.6 — atualiza leads existentes vinculando o SDR atual quando aplicável
+UPDATE `prospeccoes`
+   SET `sdrId` = `responsavel_id`
+ WHERE `sdrId` IS NULL
+   AND `responsavel_id` IN (SELECT id FROM users WHERE perfil = 'sdr');
+
+-- 7.7 — remove a responsabilidade do vendedor para leads ainda não distribuídos
+UPDATE `prospeccoes`
+   SET `responsavel_id` = NULL
+ WHERE `status` IN ('Novo','Em Contato')
+   AND `responsavel_id` IN (SELECT id FROM users WHERE perfil = 'sdr');
 ```

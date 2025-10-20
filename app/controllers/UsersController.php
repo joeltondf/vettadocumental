@@ -65,7 +65,15 @@ class UsersController
                 exit();
             }
 
-            $userId = $this->userModel->create($_POST['nome_completo'], $_POST['email'], $_POST['senha'], $_POST['perfil']);
+            $perfil = $this->sanitizePerfil($_POST['perfil'] ?? null);
+
+            if ($perfil === null) {
+                $_SESSION['error_message'] = "Perfil selecionado é inválido.";
+                header('Location: users.php?action=create');
+                exit();
+            }
+
+            $userId = $this->userModel->create($_POST['nome_completo'], $_POST['email'], $_POST['senha'], $perfil);
             
             if ($userId) {
                 $_SESSION['success_message'] = "Utilizador criado com sucesso!";
@@ -108,6 +116,13 @@ class UsersController
     {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $data = $_POST;
+            $perfil = $this->sanitizePerfil($data['perfil'] ?? null);
+            if ($perfil === null) {
+                $_SESSION['error_message'] = "Perfil selecionado é inválido.";
+                header('Location: users.php?action=edit&id=' . $id);
+                exit();
+            }
+            $data['perfil'] = $perfil;
             $data['ativo'] = isset($data['ativo']) ? 1 : 0;
             
             $passwordUpdated = false;
@@ -165,7 +180,7 @@ class UsersController
             header('Location: users.php');
             exit();
         }
-        
+
         if ($this->userModel->delete($id)) {
             $_SESSION['success_message'] = "Utilizador apagado com sucesso!";
         } else {
@@ -174,5 +189,31 @@ class UsersController
 
         header('Location: users.php');
         exit();
+    }
+
+    private function sanitizePerfil(?string $perfil): ?string
+    {
+        $perfil = is_string($perfil) ? trim($perfil) : '';
+
+        if ($perfil === '') {
+            return null;
+        }
+
+        return in_array($perfil, $this->getAllowedProfiles(), true) ? $perfil : null;
+    }
+
+    private function getAllowedProfiles(): array
+    {
+        return [
+            'master',
+            'admin',
+            'gerencia',
+            'supervisor',
+            'financeiro',
+            'sdr',
+            'vendedor',
+            'colaborador',
+            'cliente'
+        ];
     }
 }

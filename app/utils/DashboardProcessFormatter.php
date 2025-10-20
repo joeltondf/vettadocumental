@@ -139,6 +139,7 @@ class DashboardProcessFormatter
             'CRC' => ['label' => 'CRC', 'class' => 'bg-teal-100 text-teal-800'],
             'Apostilamento' => ['label' => 'Apost.', 'class' => 'bg-purple-100 text-purple-800'],
             'Postagem' => ['label' => 'Post.', 'class' => 'bg-orange-100 text-orange-800'],
+            'Outros' => ['label' => 'Out.', 'class' => 'bg-gray-100 text-gray-800'],
         ];
 
         $badges = [];

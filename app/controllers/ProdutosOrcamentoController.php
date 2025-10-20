@@ -10,7 +10,7 @@ class ProdutosOrcamentoController {
     private $categoriaModel;
     private $configModel;
     private $omieSyncService;
-    private const SERVICE_TYPES = ['Nenhum', 'Tradução', 'CRC', 'Apostilamento', 'Postagem'];
+    private const SERVICE_TYPES = ['Nenhum', 'Tradução', 'CRC', 'Apostilamento', 'Postagem', 'Outros'];
 
     public function __construct($pdo) {
         $this->pdo = $pdo;

@@ -18,16 +18,28 @@ $bodyClass = isset($bodyClass) ? trim($bodyClass) : 'bg-slate-100 text-slate-800
 
 // --- LÓGICA DE PERMISSÕES ---
 $user_perfil = $_SESSION['user_perfil'] ?? 'guest';
-$crm_access = in_array($user_perfil, ['admin', 'gerencia', 'supervisor', 'vendedor']);
+$crm_access = in_array($user_perfil, ['admin', 'gerencia', 'supervisor', 'vendedor', 'sdr']);
 $finance_access = in_array($user_perfil, ['admin', 'gerencia', 'financeiro']);
 $admin_access = in_array($user_perfil, ['admin', 'gerencia', 'supervisor']);
 $is_vendedor = ($user_perfil === 'vendedor');
+$is_sdr = ($user_perfil === 'sdr');
 
 // --- LÓGICA PARA MENU ATIVO ---
 $currentPage = basename($_SERVER['PHP_SELF']);
 $isCrmPage = (strpos($_SERVER['PHP_SELF'], '/crm/') !== false);
+$isCrmClientesPage = $isCrmPage && strpos($_SERVER['PHP_SELF'], '/crm/clientes/') !== false;
+$isProspeccoesSection = $isCrmPage && strpos($_SERVER['PHP_SELF'], '/crm/prospeccoes/') !== false;
+$isProspeccoesList = $isProspeccoesSection && strpos($_SERVER['PHP_SELF'], 'lista.php') !== false;
+$isProspeccoesKanban = $isProspeccoesSection && strpos($_SERVER['PHP_SELF'], 'kanban.php') !== false;
+$isProspeccoesOther = $isProspeccoesSection && !$isProspeccoesList && !$isProspeccoesKanban;
 $financePages = ['financeiro.php', 'fluxo_caixa.php', 'vendas.php'];
 $isFinancePage = in_array($currentPage, $financePages);
+$homeUrl = APP_URL . '/dashboard.php';
+if ($is_vendedor) {
+    $homeUrl = APP_URL . '/dashboard_vendedor.php';
+} elseif ($is_sdr) {
+    $homeUrl = APP_URL . '/sdr_dashboard.php';
+}
 
 // --- LÓGICA DE NOTIFICAÇÕES UNIFICADAS ---
 $count_notificacoes = 0;
@@ -45,13 +57,13 @@ if (isset($_SESSION['user_id'])) {
 
     // 2. Conta e busca retornos de prospecção (LÓGICA AJUSTADA)
     // Apenas para perfis de gestão e vendedores
-    if (in_array($user_perfil, ['gerencia', 'supervisor', 'vendedor'])) {
+    if (in_array($user_perfil, ['gerencia', 'supervisor', 'vendedor', 'sdr'])) {
         $dias_para_alerta_menu = (int)$configModel->get('dias_alerta_retorno', 30);
         $status_excluidos = ['Convertido', 'Fechamento', 'Pausar', 'Descartado'];
-        
+
         // Força a filtragem por usuário para que os alertas apareçam apenas para o criador,
         // passando 'vendedor' como perfil para a função do model.
-        $force_user_filter_profile = 'vendedor';
+        $force_user_filter_profile = $user_perfil === 'sdr' ? 'sdr' : 'vendedor';
 
         $count_retornos = $prospeccaoModel->countProspectsForReturn($dias_para_alerta_menu, $status_excluidos, $_SESSION['user_id'], $force_user_filter_profile);
         if ($count_retornos > 0) {
@@ -102,7 +114,7 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
         <div class="max-w-[95%] mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
                 <div class="flex items-center">
-                    <a href="<?php echo $is_vendedor ? APP_URL.'/dashboard_vendedor.php' : APP_URL.'/dashboard.php'; ?>" class="flex-shrink-0">
+                    <a href="<?php echo $homeUrl; ?>" class="flex-shrink-0">
                         <?php if (!empty($system_logo) && file_exists(__DIR__ . '/../../../' . $system_logo)): ?>
                             <img src="<?php echo htmlspecialchars(APP_URL . '/' . $system_logo); ?>" alt="Logo" class="h-12 w-auto">
                         <?php else: ?>
@@ -117,12 +129,17 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
                         <?php if ($is_vendedor): ?>
                             <a href="<?php echo APP_URL; ?>/dashboard_vendedor.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($currentPage == 'dashboard_vendedor.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Meu Dashboard</a>
                             <a href="<?php echo APP_URL; ?>/relatorio_vendedor.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($currentPage == 'relatorio_vendedor.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Meus Relatórios</a>
+                        <?php elseif ($is_sdr): ?>
+                            <a href="<?php echo APP_URL; ?>/sdr_dashboard.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($currentPage == 'sdr_dashboard.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Painel SDR</a>
+                            <a href="<?php echo APP_URL; ?>/crm/clientes/lista.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo $isCrmClientesPage ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Leads</a>
+                            <a href="<?php echo APP_URL; ?>/crm/prospeccoes/kanban.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo $isProspeccoesKanban ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Kanban Geral</a>
+                            <a href="<?php echo APP_URL; ?>/crm/prospeccoes/lista.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo $isProspeccoesList || $isProspeccoesOther ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Prospeções</a>
                         <?php else: ?>
                             <a href="<?php echo APP_URL; ?>/dashboard.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($currentPage == 'dashboard.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Home</a>
                             <a href="<?php echo APP_URL; ?>/clientes.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($currentPage == 'clientes.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Clientes</a>
                         <?php endif; ?>
 
-                        <?php if ($crm_access): ?>
+                        <?php if ($crm_access && !$is_sdr): ?>
                         <div class="relative">
                             <button id="crm-menu-button" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($isCrmPage) ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">
                                 <span>CRM</span>
@@ -157,7 +174,7 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
                         <?php endif; ?>
                     </div>
                 </div>
-                <?php if (in_array($user_perfil, ['admin', 'gerencia', 'supervisor', 'vendedor'])): ?>
+                <?php if (in_array($user_perfil, ['admin', 'gerencia', 'supervisor', 'vendedor', 'sdr'])): ?>
 
                 <div class="hidden md:flex items-center space-x-4">
                     <div class="relative">

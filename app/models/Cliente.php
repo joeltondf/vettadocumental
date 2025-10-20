@@ -12,6 +12,7 @@ class Cliente
     private $pdo;
     private ?bool $integrationCodeColumnAvailable = null;
     private ?bool $conversionDateColumnAvailable = null;
+    private ?array $phoneColumnAvailability = null;
 
     /**
      * Construtor da classe Cliente.
@@ -89,21 +90,65 @@ class Cliente
                 ? $data['prazo_acordado_dias']
                 : ($clienteAtual['prazo_acordado_dias'] ?? null);
 
-            $sql = "UPDATE clientes SET
-                        nome_cliente = ?, nome_responsavel = ?, cpf_cnpj = ?,
-                        email = ?, telefone = ?, endereco = ?, numero = ?, bairro = ?, cidade = ?, estado = ?, cep = ?,
-                        tipo_pessoa = ?, tipo_assessoria = ?, prazo_acordado_dias = ?, user_id = ?
-                    WHERE id = ?";
+            $setParts = [
+                'nome_cliente = ?',
+                'nome_responsavel = ?',
+                'cpf_cnpj = ?',
+                'email = ?',
+                'telefone = ?',
+                'endereco = ?',
+                'numero = ?',
+                'bairro = ?',
+                'cidade = ?',
+                'estado = ?',
+                'cep = ?',
+                'tipo_pessoa = ?',
+                'tipo_assessoria = ?',
+                'prazo_acordado_dias = ?',
+                'user_id = ?',
+            ];
+
+            $params = [
+                $data['nome_cliente'],
+                $data['nome_responsavel'] ?? null,
+                $cpf_cnpj,
+                $data['email'] ?? null,
+                $data['telefone'] ?? null,
+                $data['endereco'] ?? null,
+                $data['numero'] ?? null,
+                $data['bairro'] ?? null,
+                $data['cidade'] ?? null,
+                $data['estado'] ?? null,
+                $data['cep'] ?? null,
+                $data['tipo_pessoa'] ?? 'Jurídica',
+                $data['tipo_assessoria'] ?? null,
+                $prazoAcordadoDias,
+                $userId,
+            ];
+
+            $phoneColumns = $this->getPhoneColumnAvailability();
+
+            if ($phoneColumns['ddi']) {
+                $setParts[] = 'telefone_ddi = ?';
+                $params[] = $data['telefone_ddi'] ?? null;
+            }
+
+            if ($phoneColumns['ddd']) {
+                $setParts[] = 'telefone_ddd = ?';
+                $params[] = $data['telefone_ddd'] ?? null;
+            }
+
+            if ($phoneColumns['numero']) {
+                $setParts[] = 'telefone_numero = ?';
+                $params[] = $data['telefone_numero'] ?? null;
+            }
+
+            $params[] = $id;
+
+            $sql = 'UPDATE clientes SET ' . implode(', ', $setParts) . ' WHERE id = ?';
 
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([
-                $data['nome_cliente'], $data['nome_responsavel'] ?? null, $cpf_cnpj,
-                $data['email'] ?? null, $data['telefone'] ?? null,
-                $data['endereco'] ?? null, $data['numero'] ?? null, $data['bairro'] ?? null,
-                $data['cidade'] ?? null, $data['estado'] ?? null,
-                $data['cep'] ?? null, $data['tipo_pessoa'] ?? 'Jurídica',
-                $data['tipo_assessoria'] ?? null, $prazoAcordadoDias, $userId, $id
-            ]);
+            $stmt->execute($params);
             
             $this->pdo->commit();
             return true;
@@ -314,15 +359,45 @@ class Cliente
                 }
             }
 
-            // --- CORREÇÃO AQUI ---
-            $sql = "INSERT INTO clientes
-                        (nome_cliente, nome_responsavel, cpf_cnpj, email, telefone, endereco, numero, bairro, cidade, estado, cep, tipo_pessoa, tipo_assessoria, prazo_acordado_dias, user_id, is_prospect)
-                    VALUES
-                        (:nome_cliente, :nome_responsavel, :cpf_cnpj, :email, :telefone, :endereco, :numero, :bairro, :cidade, :estado, :cep, :tipo_pessoa, :tipo_assessoria, :prazo_acordado_dias, :user_id, :is_prospect)";
+            $columns = [
+                'nome_cliente',
+                'nome_responsavel',
+                'cpf_cnpj',
+                'email',
+                'telefone',
+                'endereco',
+                'numero',
+                'bairro',
+                'cidade',
+                'estado',
+                'cep',
+                'tipo_pessoa',
+                'tipo_assessoria',
+                'prazo_acordado_dias',
+                'user_id',
+                'is_prospect',
+            ];
 
-            $stmt = $this->pdo->prepare($sql);
+            $placeholders = [
+                ':nome_cliente',
+                ':nome_responsavel',
+                ':cpf_cnpj',
+                ':email',
+                ':telefone',
+                ':endereco',
+                ':numero',
+                ':bairro',
+                ':cidade',
+                ':estado',
+                ':cep',
+                ':tipo_pessoa',
+                ':tipo_assessoria',
+                ':prazo_acordado_dias',
+                ':user_id',
+                ':is_prospect',
+            ];
 
-            $stmt->execute([
+            $params = [
                 ':nome_cliente' => $data['nome_cliente'],
                 ':nome_responsavel' => $data['nome_responsavel'] ?? null,
                 ':cpf_cnpj' => $cpf_cnpj,
@@ -338,8 +413,37 @@ class Cliente
                 ':tipo_assessoria' => $data['tipo_assessoria'] ?? null,
                 ':prazo_acordado_dias' => $data['prazo_acordado_dias'] ?? null,
                 ':user_id' => $userId,
-                ':is_prospect' => 0 // Define como cliente normal, e não prospecção
-            ]);
+                ':is_prospect' => 0,
+            ];
+
+            $phoneColumns = $this->getPhoneColumnAvailability();
+
+            if ($phoneColumns['ddi']) {
+                $columns[] = 'telefone_ddi';
+                $placeholders[] = ':telefone_ddi';
+                $params[':telefone_ddi'] = $data['telefone_ddi'] ?? null;
+            }
+
+            if ($phoneColumns['ddd']) {
+                $columns[] = 'telefone_ddd';
+                $placeholders[] = ':telefone_ddd';
+                $params[':telefone_ddd'] = $data['telefone_ddd'] ?? null;
+            }
+
+            if ($phoneColumns['numero']) {
+                $columns[] = 'telefone_numero';
+                $placeholders[] = ':telefone_numero';
+                $params[':telefone_numero'] = $data['telefone_numero'] ?? null;
+            }
+
+            $sql = sprintf(
+                'INSERT INTO clientes (%s) VALUES (%s)',
+                implode(', ', $columns),
+                implode(', ', $placeholders)
+            );
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
 
             $newClientId = $this->pdo->lastInsertId();
             $this->pdo->commit();
@@ -407,6 +511,19 @@ class Cliente
         return $this->integrationCodeColumnAvailable;
     }
 
+    private function getPhoneColumnAvailability(): array
+    {
+        if ($this->phoneColumnAvailability === null) {
+            $this->phoneColumnAvailability = [
+                'ddi' => DatabaseSchemaInspector::hasColumn($this->pdo, 'clientes', 'telefone_ddi'),
+                'ddd' => DatabaseSchemaInspector::hasColumn($this->pdo, 'clientes', 'telefone_ddd'),
+                'numero' => DatabaseSchemaInspector::hasColumn($this->pdo, 'clientes', 'telefone_numero'),
+            ];
+        }
+
+        return $this->phoneColumnAvailability;
+    }
+
     private function hasConversionDateColumn(): bool
     {
         if ($this->conversionDateColumnAvailable === null) {
@@ -425,8 +542,10 @@ class Cliente
                     SELECT COUNT(*)
                     FROM prospeccoes p
                     WHERE p.cliente_id = c.id
-                ) AS totalProspeccoes
+                ) AS totalProspeccoes,
+                owner.nome_completo AS ownerName
                 FROM clientes c
+                LEFT JOIN users owner ON owner.id = c.crmOwnerId
                 WHERE c.is_prospect = 1";
 
         $params = [];

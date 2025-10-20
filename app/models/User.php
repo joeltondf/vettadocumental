@@ -171,7 +171,40 @@ class User
     {
         $sql = "SELECT id, nome_completo
                 FROM users
-                WHERE perfil = 'vendedor' AND (ativo = 1 OR ativo IS NULL)
+                WHERE perfil = 'vendedor'
+                  AND ativo = 1
+                  AND id <> 17
+                ORDER BY nome_completo ASC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function findActiveVendorById(int $vendorId): ?array
+    {
+        $sql = "SELECT id, nome_completo
+                FROM users
+                WHERE id = :id
+                  AND perfil = 'vendedor'
+                  AND ativo = 1
+                  AND id <> 17";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(':id', $vendorId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        $vendor = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $vendor !== false ? $vendor : null;
+    }
+
+    public function getActiveSdrs(): array
+    {
+        $sql = "SELECT id, nome_completo
+                FROM users
+                WHERE perfil = 'sdr' AND (ativo = 1 OR ativo IS NULL)
                 ORDER BY nome_completo ASC";
 
         $stmt = $this->pdo->prepare($sql);

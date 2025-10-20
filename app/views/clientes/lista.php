@@ -7,6 +7,33 @@ if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
+$formatClientPhone = static function (array $cliente): string {
+    $rawPhone = $cliente['telefone'] ?? '';
+    $ddiValue = $cliente['telefone_ddi'] ?? '';
+
+    $digits = stripNonDigits((string) $rawPhone);
+    $ddiDigits = stripNonDigits((string) $ddiValue);
+
+    if ($digits === '') {
+        return '';
+    }
+
+    if ($ddiDigits !== '' && strpos($digits, $ddiDigits) === 0 && strlen($digits) > strlen($ddiDigits)) {
+        $digits = substr($digits, strlen($ddiDigits));
+    } elseif ($ddiDigits === '' && strlen($digits) > 11) {
+        $ddiDigits = substr($digits, 0, strlen($digits) - 11);
+        $digits = substr($digits, -11);
+    }
+
+    try {
+        $parts = extractPhoneParts($digits);
+        $ddiToUse = $ddiDigits !== '' ? $ddiDigits : '55';
+
+        return formatInternationalPhone($ddiToUse, $parts['ddd'] ?? '', $parts['phone'] ?? '');
+    } catch (Throwable $exception) {
+        return (string) $rawPhone;
+    }
+};
 
 ?>
 
@@ -71,7 +98,7 @@ if (session_status() == PHP_SESSION_NONE) {
                                 <p class="text-gray-900 whitespace-no-wrap"><?php echo htmlspecialchars($cliente['email'] ?? ''); ?></p>
                             </td>
                             <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                                <p class="text-gray-900 whitespace-no-wrap"><?php echo htmlspecialchars($cliente['telefone'] ?? ''); ?></p>
+                                <p class="text-gray-900 whitespace-no-wrap"><?php echo htmlspecialchars($formatClientPhone($cliente)); ?></p>
                             </td>
                             <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                                 <a href="clientes.php?action=edit&id=<?php echo $cliente['id']; ?>" class="text-indigo-600 hover:text-indigo-900 mr-4">Editar</a>

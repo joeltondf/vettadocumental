@@ -45,10 +45,18 @@ runTest('normalizePhone trims country code when present', function (): void {
     assertEquals('912345678', normalizePhone('+55 (11) 91234-5678'));
 }, $tests);
 
+runTest('normalizeDDI removes non-digits and validates length', function (): void {
+    assertEquals('351', normalizeDDI('+351'));
+}, $tests);
+
 runTest('extractPhoneParts returns digits without country code', function (): void {
     $parts = extractPhoneParts('+55 (21) 3456-7890');
     assertEquals('21', $parts['ddd']);
     assertEquals('34567890', $parts['phone']);
+}, $tests);
+
+runTest('formatInternationalPhone builds human readable string', function (): void {
+    assertEquals('+55 (11) 91234-5678', formatInternationalPhone('55', '11', '912345678'));
 }, $tests);
 
 runTest('updateIntegrationIdentifiers skips integration column when absent', function (): void {
@@ -96,6 +104,68 @@ runTest('buildAlterarClientePayload utiliza telefone pré-normalizado', function
 
     assertEquals('21', $payload['telefone1_ddd']);
     assertEquals('34567890', $payload['telefone1_numero']);
+}, $tests);
+
+runTest('Cliente::create persiste DDI quando coluna existe', function (): void {
+    $pdo = new PDO('sqlite::memory:');
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    $inspectorReflection = new ReflectionClass(DatabaseSchemaInspector::class);
+    $cacheProperty = $inspectorReflection->getProperty('columnCache');
+    $cacheProperty->setAccessible(true);
+    $cacheProperty->setValue(null, []);
+
+    $pdo->exec('CREATE TABLE clientes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome_cliente TEXT NOT NULL,
+        nome_responsavel TEXT NULL,
+        cpf_cnpj TEXT NULL,
+        email TEXT NULL,
+        telefone TEXT NULL,
+        telefone_ddi TEXT NULL,
+        telefone_ddd TEXT NULL,
+        telefone_numero TEXT NULL,
+        endereco TEXT NULL,
+        numero TEXT NULL,
+        bairro TEXT NULL,
+        cidade TEXT NULL,
+        estado TEXT NULL,
+        cep TEXT NULL,
+        tipo_pessoa TEXT NULL,
+        tipo_assessoria TEXT NULL,
+        prazo_acordado_dias INTEGER NULL,
+        user_id INTEGER NULL,
+        is_prospect INTEGER NOT NULL DEFAULT 0
+    )');
+
+    $clienteModel = new Cliente($pdo);
+
+    $data = [
+        'nome_cliente' => 'Cliente DDI',
+        'nome_responsavel' => 'Responsável',
+        'cpf_cnpj' => '12345678000100',
+        'email' => 'ddi@example.com',
+        'telefone' => '5511987654321',
+        'telefone_ddi' => '55',
+        'telefone_ddd' => '11',
+        'telefone_numero' => '987654321',
+        'endereco' => 'Rua Teste',
+        'numero' => '123',
+        'bairro' => 'Centro',
+        'cidade' => 'São Paulo',
+        'estado' => 'SP',
+        'cep' => '01001000',
+        'tipo_pessoa' => 'Jurídica',
+        'tipo_assessoria' => 'Mensalista',
+        'prazo_acordado_dias' => 10,
+    ];
+
+    $newId = $clienteModel->create($data);
+    $row = $pdo->query('SELECT telefone_ddi, telefone_ddd, telefone_numero FROM clientes WHERE id = ' . (int) $newId)->fetch(PDO::FETCH_ASSOC);
+
+    assertEquals('55', $row['telefone_ddi']);
+    assertEquals('11', $row['telefone_ddd']);
+    assertEquals('987654321', $row['telefone_numero']);
 }, $tests);
 
 foreach ($tests as $test) {

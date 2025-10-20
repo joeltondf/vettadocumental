@@ -4,6 +4,7 @@
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
 require_once __DIR__ . '/../../app/utils/PhoneUtils.php';
+require_once __DIR__ . '/../../app/utils/DatabaseSchemaInspector.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -16,6 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $nome_responsavel = trim($_POST['nome_responsavel']);
     $email = trim($_POST['email']);
     $telefone = trim($_POST['telefone']);
+    $telefoneDdiInput = trim($_POST['telefone_ddi'] ?? '');
     $canal_origem = trim($_POST['canal_origem']);
     $leadCategory = 'Entrada';
     $redirectUrl = $id ? APP_URL . "/crm/clientes/editar_cliente.php?id=$id" : APP_URL . "/crm/clientes/novo.php";
@@ -27,16 +29,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     }
 
+    $telefoneDdi = null;
+    $telefoneDdd = null;
+    $telefoneNumero = null;
+
     try {
         if ($telefone !== '') {
             $parts = extractPhoneParts($telefone);
-            $telefone = ($parts['ddd'] ?? '') . ($parts['phone'] ?? '');
+            $telefoneDdd = $parts['ddd'] ?? null;
+            $telefoneNumero = $parts['phone'] ?? null;
+            $telefoneDdi = $telefoneDdiInput !== '' ? normalizeDDI($telefoneDdiInput) : '55';
+
+            $telefone = $telefoneDdi . ($telefoneDdd ?? '') . ($telefoneNumero ?? '');
+        } else {
+            $telefone = null;
         }
     } catch (InvalidArgumentException $exception) {
         $_SESSION['error_message'] = $exception->getMessage();
         header('Location: ' . $redirectUrl);
         exit();
     }
+
+    if ($telefone === null) {
+        $telefoneDdi = null;
+        $telefoneDdd = null;
+        $telefoneNumero = null;
+    }
+
+    $phoneColumnAvailability = [
+        'ddi' => DatabaseSchemaInspector::hasColumn($pdo, 'clientes', 'telefone_ddi'),
+        'ddd' => DatabaseSchemaInspector::hasColumn($pdo, 'clientes', 'telefone_ddd'),
+        'numero' => DatabaseSchemaInspector::hasColumn($pdo, 'clientes', 'telefone_numero'),
+    ];
 
     try {
         if ($id) {
@@ -66,7 +90,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit();
             }
 
-            $sql = "UPDATE clientes SET nome_cliente = :nome_cliente, nome_responsavel = :nome_responsavel, email = :email, telefone = :telefone, canal_origem = :canal_origem, categoria = :categoria, is_prospect = :is_prospect WHERE id = :id";
+            $sql = "UPDATE clientes SET nome_cliente = :nome_cliente, nome_responsavel = :nome_responsavel, email = :email, telefone = :telefone";
+
+            if ($phoneColumnAvailability['ddi']) {
+                $sql .= ", telefone_ddi = :telefone_ddi";
+            }
+
+            if ($phoneColumnAvailability['ddd']) {
+                $sql .= ", telefone_ddd = :telefone_ddd";
+            }
+
+            if ($phoneColumnAvailability['numero']) {
+                $sql .= ", telefone_numero = :telefone_numero";
+            }
+
+            $sql .= ", canal_origem = :canal_origem, categoria = :categoria, is_prospect = :is_prospect WHERE id = :id";
+
             $params = [
                 ':nome_cliente' => $nome_cliente,
                 ':nome_responsavel' => $nome_responsavel,
@@ -77,6 +116,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':is_prospect' => 1,
                 ':id' => $id
             ];
+
+            if ($phoneColumnAvailability['ddi']) {
+                $params[':telefone_ddi'] = $telefoneDdi;
+            }
+
+            if ($phoneColumnAvailability['ddd']) {
+                $params[':telefone_ddd'] = $telefoneDdd;
+            }
+
+            if ($phoneColumnAvailability['numero']) {
+                $params[':telefone_numero'] = $telefoneNumero;
+            }
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
 
@@ -84,8 +135,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $redirect_location = APP_URL . '/crm/clientes/lista.php';
 
         } else {
-            $sql = "INSERT INTO clientes (nome_cliente, nome_responsavel, email, telefone, canal_origem, categoria, is_prospect, crmOwnerId)
-                    VALUES (:nome_cliente, :nome_responsavel, :email, :telefone, :canal_origem, :categoria, :is_prospect, :crm_owner_id)";
+            $columns = [
+                'nome_cliente',
+                'nome_responsavel',
+                'email',
+                'telefone',
+                'canal_origem',
+                'categoria',
+                'is_prospect',
+                'crmOwnerId',
+            ];
+
+            $placeholders = [
+                ':nome_cliente',
+                ':nome_responsavel',
+                ':email',
+                ':telefone',
+                ':canal_origem',
+                ':categoria',
+                ':is_prospect',
+                ':crm_owner_id',
+            ];
+
             $params = [
                 ':nome_cliente' => $nome_cliente,
                 ':nome_responsavel' => $nome_responsavel,
@@ -94,8 +165,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':canal_origem' => $canal_origem,
                 ':categoria' => $leadCategory,
                 ':is_prospect' => 1,
-                ':crm_owner_id' => $currentUserId
+                ':crm_owner_id' => $currentUserId,
             ];
+
+            if ($phoneColumnAvailability['ddi']) {
+                $columns[] = 'telefone_ddi';
+                $placeholders[] = ':telefone_ddi';
+                $params[':telefone_ddi'] = $telefoneDdi;
+            }
+
+            if ($phoneColumnAvailability['ddd']) {
+                $columns[] = 'telefone_ddd';
+                $placeholders[] = ':telefone_ddd';
+                $params[':telefone_ddd'] = $telefoneDdd;
+            }
+
+            if ($phoneColumnAvailability['numero']) {
+                $columns[] = 'telefone_numero';
+                $placeholders[] = ':telefone_numero';
+                $params[':telefone_numero'] = $telefoneNumero;
+            }
+
+            $sql = 'INSERT INTO clientes (' . implode(', ', $columns) . ') VALUES (' . implode(', ', $placeholders) . ')';
+
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
 

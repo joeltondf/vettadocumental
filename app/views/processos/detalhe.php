@@ -5,8 +5,8 @@ $pageTitle = "Detalhes do Processo";
 
 function has_service($processo, $service_name) {
     if (empty($processo['categorias_servico'])) return false;
-    $services = explode(',', $processo['categorias_servico']);
-    return in_array($service_name, $services);
+    $services = array_map('trim', explode(',', $processo['categorias_servico']));
+    return in_array($service_name, $services, true);
 }
 
 function format_prazo_countdown($dateString) {
@@ -197,6 +197,25 @@ $isServicePending = $statusNormalized === 'serviço pendente';
                             <p><strong>Qtd:</strong> <?php echo htmlspecialchars($processo['postagem_quantidade'] ?? '0'); ?></p>
                             <p><strong>Valor Unit.:</strong> R$ <?php echo number_format($processo['postagem_valor_unitario'] ?? 0, 2, ',', '.'); ?></p>
                             <p><strong>Subtotal:</strong> R$ <?php echo number_format(($processo['postagem_quantidade'] ?? 0) * ($processo['postagem_valor_unitario'] ?? 0), 2, ',', '.'); ?></p>
+                        </div>
+                    </div>
+                <?php endif; ?>
+                <?php if (has_service($processo, 'Outros')): ?>
+                    <?php
+                    $outrosDocs = array_filter($documentos, static function ($doc) {
+                        $categoria = isset($doc['categoria']) ? mb_strtolower((string) $doc['categoria'], 'UTF-8') : '';
+                        return $categoria === 'outros';
+                    });
+                    $outrosQuantidade = count($outrosDocs);
+                    $outrosTotal = array_reduce($outrosDocs, static function ($carry, $doc) {
+                        return $carry + (float) ($doc['valor_unitario'] ?? 0);
+                    }, 0.0);
+                    ?>
+                    <div class="p-3 bg-gray-50 rounded-md">
+                        <h3 class="font-semibold text-gray-800">Outros Serviços</h3>
+                        <div class="grid grid-cols-2 gap-4 mt-2 text-sm">
+                            <p><strong>Itens:</strong> <?= $outrosQuantidade; ?></p>
+                            <p><strong>Total:</strong> R$ <?= number_format($outrosTotal, 2, ',', '.'); ?></p>
                         </div>
                     </div>
                 <?php endif; ?>

@@ -9,6 +9,24 @@ if (!function_exists('stripNonDigits')) {
     }
 }
 
+if (!function_exists('normalizeDDI')) {
+    function normalizeDDI(string $value): string
+    {
+        $digits = stripNonDigits($value);
+
+        if ($digits === '') {
+            throw new InvalidArgumentException('Informe o DDI do telefone.');
+        }
+
+        $length = strlen($digits);
+        if ($length < 1 || $length > 4) {
+            throw new InvalidArgumentException('O DDI deve conter entre 1 e 4 dígitos.');
+        }
+
+        return $digits;
+    }
+}
+
 if (!function_exists('normalizeDDD')) {
     function normalizeDDD(string $value): string
     {
@@ -90,6 +108,35 @@ if (!function_exists('extractPhoneParts')) {
         $phone = normalizePhone($phoneDigits);
 
         return ['ddd' => $ddd, 'phone' => $phone];
+    }
+}
+
+if (!function_exists('formatInternationalPhone')) {
+    function formatInternationalPhone(string $ddi, string $ddd, string $phone): string
+    {
+        $ddiDigits = stripNonDigits($ddi);
+        if ($ddiDigits === '') {
+            throw new InvalidArgumentException('Informe o DDI do telefone.');
+        }
+
+        $dddDigits = stripNonDigits($ddd);
+        if ($dddDigits === '' || strlen($dddDigits) !== 2) {
+            throw new InvalidArgumentException('Informe o DDD com dois dígitos para formatação.');
+        }
+
+        $phoneDigits = stripNonDigits($phone);
+        if ($phoneDigits === '') {
+            throw new InvalidArgumentException('Informe o número de telefone para formatação.');
+        }
+
+        $length = strlen($phoneDigits);
+        if ($length < 4) {
+            $localNumber = $phoneDigits;
+        } else {
+            $localNumber = substr($phoneDigits, 0, $length - 4) . '-' . substr($phoneDigits, -4);
+        }
+
+        return sprintf('+%s (%s) %s', $ddiDigits, $dddDigits, $localNumber);
     }
 }
 

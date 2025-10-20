@@ -31,11 +31,11 @@
             <h3 class="text-xl font-bold text-gray-800 mb-2">Logo do Sistema</h3>
             <p class="text-gray-600 mb-4">Envie uma imagem (PNG, JPG, SVG) para substituir o nome do sistema no topo da navegação.</p>
 
-            <?php 
+            <?php
             // --- INÍCIO DA CORREÇÃO ---
             // Constrói o caminho completo do ficheiro no servidor para verificação
             $logo_path_no_servidor = __DIR__ . '/../../../' . $system_logo;
-            if (!empty($system_logo) && file_exists($logo_path_no_servidor)): 
+            if (!empty($system_logo) && file_exists($logo_path_no_servidor)):
             // --- FIM DA CORREÇÃO ---
             ?>
                 <div class="mb-4">
@@ -46,6 +46,27 @@
 
             <label for="system_logo" class="block text-sm font-medium text-gray-700">Escolher nova logo:</label>
             <input type="file" name="system_logo" id="system_logo" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100">
+        </div>
+
+        <div class="mt-10 border-t pt-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Senha da Gerência</h3>
+            <p class="text-gray-600 mb-4">Defina uma senha compartilhada para autorizar ações sensíveis nas prospecções sem expor o login individual de um gestor.</p>
+            <?php if (!empty($managementPasswordDefined)): ?>
+                <p class="text-sm text-emerald-600 mb-4">Uma senha da gerência está configurada atualmente.</p>
+            <?php else: ?>
+                <p class="text-sm text-orange-600 mb-4">Nenhuma senha da gerência está configurada.</p>
+            <?php endif; ?>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label for="management_password" class="block text-sm font-medium text-gray-700">Nova senha</label>
+                    <input type="password" name="management_password" id="management_password" class="mt-1 block w-full rounded-lg border border-gray-300 py-2 px-3 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="Mínimo de 6 caracteres">
+                </div>
+                <div>
+                    <label for="management_password_confirmation" class="block text-sm font-medium text-gray-700">Confirmar senha</label>
+                    <input type="password" name="management_password_confirmation" id="management_password_confirmation" class="mt-1 block w-full rounded-lg border border-gray-300 py-2 px-3 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="Repita a senha">
+                </div>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">Deixe ambos os campos em branco para manter a senha atual.</p>
         </div>
 
         <div class="text-right mt-8 border-t pt-6">

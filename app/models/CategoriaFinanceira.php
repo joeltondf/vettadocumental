@@ -1,6 +1,9 @@
 <?php
 class CategoriaFinanceira
 {
+    public const SERVICE_TYPES = ['Nenhum', 'Tradução', 'CRC', 'Apostilamento', 'Postagem', 'Outros'];
+    public const DEFAULT_SERVICE_TYPE = 'Nenhum';
+
     private $pdo;
     public function __construct($pdo) { $this->pdo = $pdo; }
 
@@ -27,7 +30,9 @@ class CategoriaFinanceira
             $data['tipo_lancamento'], 
             $data['grupo_principal'],
             ($data['tipo_lancamento'] === 'RECEITA') ? ($data['valor_padrao'] ?? null) : null,
-            ($data['tipo_lancamento'] === 'RECEITA') ? ($data['servico_tipo'] ?? 'Nenhum') : 'Nenhum',
+            ($data['tipo_lancamento'] === 'RECEITA')
+                ? $this->normalizeServiceType($data['servico_tipo'] ?? null)
+                : self::DEFAULT_SERVICE_TYPE,
             ($data['tipo_lancamento'] === 'RECEITA') ? (isset($data['bloquear_valor_minimo']) ? 1 : 0) : 0
         ]);
     }
@@ -41,7 +46,9 @@ class CategoriaFinanceira
             $data['grupo_principal'],
             $data['ativo'],
             ($data['tipo_lancamento'] === 'RECEITA') ? ($data['valor_padrao'] ?? null) : null,
-            ($data['tipo_lancamento'] === 'RECEITA') ? ($data['servico_tipo'] ?? 'Nenhum') : 'Nenhum',
+            ($data['tipo_lancamento'] === 'RECEITA')
+                ? $this->normalizeServiceType($data['servico_tipo'] ?? null)
+                : self::DEFAULT_SERVICE_TYPE,
             ($data['tipo_lancamento'] === 'RECEITA') ? (isset($data['bloquear_valor_minimo']) ? 1 : 0) : 0,
             ($data['tipo_lancamento'] === 'RECEITA') ? (isset($data['eh_produto_orcamento']) ? 1 : 0) : 0, // Adicionado
             $id
@@ -112,7 +119,7 @@ class CategoriaFinanceira
 
     /**
      * Busca todas as categorias de receita ativas que estão vinculadas a um tipo de serviço.
-     * @param string $tipo_servico 'Tradução' ou 'CRC'.
+     * @param string $tipo_servico 'Tradução', 'CRC', 'Apostilamento', 'Postagem' ou 'Outros'.
      * @return array A lista de categorias de receita.
      */
     public function getReceitasPorServico($tipo_servico) {
@@ -121,7 +128,7 @@ class CategoriaFinanceira
                 WHERE tipo_lancamento = 'RECEITA' AND servico_tipo = ? AND ativo = 1 
                 ORDER BY nome_categoria";
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([$tipo_servico]);
+        $stmt->execute([$this->normalizeServiceType($tipo_servico)]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -134,6 +141,21 @@ class CategoriaFinanceira
         $stmt = $this->pdo->prepare("SELECT * FROM categorias_financeiras WHERE nome_categoria = ? AND tipo_lancamento = 'RECEITA' LIMIT 1");
         $stmt->execute([$nome]);
         return $stmt->fetch();
+    }
+
+    public function findByServiceType(string $serviceType, bool $includeInactive = false)
+    {
+        $sql = "SELECT * FROM categorias_financeiras WHERE servico_tipo = ? AND tipo_lancamento = 'RECEITA' AND eh_produto_orcamento = 0";
+        if (!$includeInactive) {
+            $sql .= " AND ativo = 1";
+        }
+
+        $sql .= " ORDER BY id ASC LIMIT 1";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$serviceType]);
+
+        return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
     // NOVO MÉTODO: Busca apenas os produtos de orçamento.
@@ -192,7 +214,7 @@ class CategoriaFinanceira
             'RECEITA',
             $data['grupo_principal'] ?? 'Produtos e Serviços',
             $data['valor_padrao'] ?? null,
-            $data['servico_tipo'] ?? 'Nenhum',
+            $this->normalizeServiceType($data['servico_tipo'] ?? null),
             isset($data['bloquear_valor_minimo']) ? 1 : 0,
             1,
             $data['ativo'] ?? 1
@@ -208,7 +230,7 @@ class CategoriaFinanceira
         return $stmt->execute([
             $data['nome_categoria'],
             $data['valor_padrao'] ?? null,
-            $data['servico_tipo'] ?? 'Nenhum',
+            $this->normalizeServiceType($data['servico_tipo'] ?? null),
             isset($data['bloquear_valor_minimo']) ? 1 : 0,
             $data['ativo'],
             $id
@@ -279,5 +301,18 @@ class CategoriaFinanceira
         }
 
         return "NULL AS {$alias}";
+    }
+
+    private function normalizeServiceType(?string $serviceType): string
+    {
+        if (!is_string($serviceType)) {
+            return self::DEFAULT_SERVICE_TYPE;
+        }
+
+        $normalized = trim($serviceType);
+
+        return in_array($normalized, self::SERVICE_TYPES, true)
+            ? $normalized
+            : self::DEFAULT_SERVICE_TYPE;
     }
 }

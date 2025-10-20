@@ -11,6 +11,8 @@ $redirectUrl = filter_input(INPUT_GET, 'redirect_url', FILTER_SANITIZE_URL) ?: '
 if (strpos($redirectUrl, APP_URL) !== 0) {
     $redirectUrl = $defaultRedirectUrl;
 }
+
+$defaultPhoneDdi = '55';
 ?>
 
 <div class="bg-white shadow px-4 py-5 sm:rounded-lg sm:p-6">
@@ -61,7 +63,30 @@ if (strpos($redirectUrl, APP_URL) !== 0) {
                 
                 <div>
                     <label for="telefone" class="block text-sm font-medium text-gray-700">Telefone</label>
-                    <input type="tel" name="telefone" id="telefone" autocomplete="tel" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                    <div class="mt-1 flex items-stretch gap-2">
+                        <div class="w-24">
+                            <input
+                                type="text"
+                                id="telefone_ddi"
+                                name="telefone_ddi"
+                                inputmode="numeric"
+                                pattern="\d{1,4}"
+                                maxlength="4"
+                                value="<?php echo htmlspecialchars($defaultPhoneDdi); ?>"
+                                class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
+                            >
+                        </div>
+                        <div class="flex-1">
+                            <input
+                                type="tel"
+                                name="telefone"
+                                id="telefone"
+                                autocomplete="tel"
+                                maxlength="20"
+                                class="mt-0 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
+                            >
+                        </div>
+                    </div>
                 </div>
 
             </div>
@@ -92,6 +117,8 @@ function aplicarMascaraTelefone(value) {
 
 document.addEventListener('DOMContentLoaded', function() {
     const telefoneInput = document.getElementById('telefone');
+    const telefoneDdiInput = document.getElementById('telefone_ddi');
+
     if (telefoneInput) {
         telefoneInput.addEventListener('input', function(e) {
             e.target.value = aplicarMascaraTelefone(e.target.value);
@@ -100,6 +127,12 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => {
                 e.target.value = aplicarMascaraTelefone(e.target.value);
             }, 100);
+        });
+    }
+
+    if (telefoneDdiInput) {
+        telefoneDdiInput.addEventListener('input', function(e) {
+            e.target.value = e.target.value.replace(/\D/g, '').substring(0, 4);
         });
     }
 });

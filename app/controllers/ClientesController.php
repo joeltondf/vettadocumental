@@ -16,6 +16,7 @@ require_once __DIR__ . '/../utils/DocumentValidator.php';
 class ClientesController
 {
     private const SESSION_KEY_CLIENT_FORM = 'cliente_form_data';
+    private const DEFAULT_PHONE_DDI = '55';
 
     private $clienteModel;
     private $pdo;
@@ -341,10 +342,20 @@ class ClientesController
             }
         }
 
-        if ($requirePhone) {
-            $telefone = trim((string) ($data['telefone'] ?? ''));
-            if ($telefone === '') {
-                $errors[] = 'Informe o telefone.';
+        $telefone = trim((string) ($data['telefone'] ?? ''));
+        $telefoneDdi = trim((string) ($data['telefone_ddi'] ?? ''));
+
+        if ($requirePhone && $telefone === '') {
+            $errors[] = 'Informe o telefone.';
+        }
+
+        if ($telefone !== '') {
+            $ddiToValidate = $telefoneDdi !== '' ? $telefoneDdi : self::DEFAULT_PHONE_DDI;
+
+            try {
+                normalizeDDI($ddiToValidate);
+            } catch (InvalidArgumentException $exception) {
+                $errors[] = $exception->getMessage();
             }
         }
 
@@ -446,6 +457,14 @@ class ClientesController
 
     private function normalizeClientFields(array $data): array
     {
+        if (array_key_exists('telefone', $data)) {
+            $data['telefone'] = trim((string) $data['telefone']);
+        }
+
+        if (array_key_exists('telefone_ddi', $data)) {
+            $data['telefone_ddi'] = trim((string) $data['telefone_ddi']);
+        }
+
         $data['email'] = trim((string) ($data['email'] ?? ''));
         $data['cidade'] = trim((string) ($data['cidade'] ?? ''));
         $data['estado'] = strtoupper(trim((string) ($data['estado'] ?? '')));
@@ -551,8 +570,14 @@ class ClientesController
         }
 
         $telefone = trim((string) $data['telefone']);
+        $telefoneDdi = trim((string) ($data['telefone_ddi'] ?? ''));
+
         if ($telefone === '') {
-            $data['telefone'] = '';
+            $data['telefone'] = null;
+            $data['telefone_ddi'] = null;
+            $data['telefone_ddd'] = null;
+            $data['telefone_numero'] = null;
+
             return $data;
         }
 
@@ -560,13 +585,12 @@ class ClientesController
         $ddd = $parts['ddd'];
         $phone = $parts['phone'];
 
-        $data['telefone'] = ($ddd ?? '') . ($phone ?? '');
-        if ($ddd !== null) {
-            $data['telefone_ddd'] = $ddd;
-        }
-        if ($phone !== null) {
-            $data['telefone_numero'] = $phone;
-        }
+        $ddi = $telefoneDdi !== '' ? normalizeDDI($telefoneDdi) : self::DEFAULT_PHONE_DDI;
+
+        $data['telefone'] = $ddi . ($ddd ?? '') . ($phone ?? '');
+        $data['telefone_ddi'] = $ddi;
+        $data['telefone_ddd'] = $ddd;
+        $data['telefone_numero'] = $phone;
 
         return $data;
     }

@@ -1,13 +1,77 @@
 <?php
 // /app/models/Prospeccao.php
 
-class Prospeccao 
+class Prospeccao
 {
     private $pdo;
+    private const ALLOWED_PAYMENT_PROFILES = ['mensalista', 'avista'];
 
     public function __construct($pdo)
     {
         $this->pdo = $pdo;
+    }
+
+    public function logInteraction(int $prospectionId, int $userId, string $note, string $type = 'nota'): void
+    {
+        $sql = 'INSERT INTO interacoes (prospeccao_id, usuario_id, observacao, tipo)
+                VALUES (:prospectionId, :userId, :note, :type)';
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(':prospectionId', $prospectionId, PDO::PARAM_INT);
+        $stmt->bindValue(':userId', $userId, PDO::PARAM_INT);
+        $stmt->bindValue(':note', $note, PDO::PARAM_STR);
+        $stmt->bindValue(':type', $type, PDO::PARAM_STR);
+        $stmt->execute();
+    }
+
+    public function hasActiveProspectionForClient(int $clientId): bool
+    {
+        $sql = "SELECT COUNT(*)
+                FROM prospeccoes
+                WHERE cliente_id = :clientId
+                  AND status NOT IN ('Descartado', 'Convertido', 'Cliente Ativo', 'Inativo')";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(':clientId', $clientId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return (int) $stmt->fetchColumn() > 0;
+    }
+
+    public function findLatestProspectionByClient(int $clientId): ?array
+    {
+        $sql = "SELECT p.id, p.responsavel_id, u.nome_completo AS vendor_name
+                FROM prospeccoes p
+                LEFT JOIN users u ON p.responsavel_id = u.id
+                WHERE p.cliente_id = :clientId
+                ORDER BY p.data_prospeccao DESC
+                LIMIT 1";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(':clientId', $clientId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row !== false ? $row : null;
+    }
+
+    private function resolveOwnerColumn(string $column): string
+    {
+        $allowedColumns = ['responsavel_id', 'sdrId'];
+
+        return in_array($column, $allowedColumns, true) ? $column : 'responsavel_id';
+    }
+
+    private function normalizePaymentProfile(?string $profile): ?string
+    {
+        if ($profile === null) {
+            return null;
+        }
+
+        $normalized = mb_strtolower(trim($profile), 'UTF-8');
+
+        return in_array($normalized, self::ALLOWED_PAYMENT_PROFILES, true) ? $normalized : null;
     }
 
     /**
@@ -15,8 +79,9 @@ class Prospeccao
      * @param int $responsavel_id O ID do usuário (vendedor).
      * @return array
      */
-    public function getStatsByResponsavel(int $responsavel_id): array
+    public function getStatsByResponsavel(int $responsavel_id, string $ownerColumn = 'responsavel_id'): array
     {
+        $ownerColumn = $this->resolveOwnerColumn($ownerColumn);
         $stats = [
             'novos_leads_mes' => 0,
             'reunioes_agendadas_mes' => 0,
@@ -24,7 +89,7 @@ class Prospeccao
         ];
 
         // Novos leads no mês atual
-        $stmt_leads = $this->pdo->prepare("SELECT COUNT(*) FROM prospeccoes WHERE responsavel_id = :id AND MONTH(data_prospeccao) = MONTH(CURDATE()) AND YEAR(data_prospeccao) = YEAR(CURDATE())");
+        $stmt_leads = $this->pdo->prepare("SELECT COUNT(*) FROM prospeccoes WHERE {$ownerColumn} = :id AND MONTH(data_prospeccao) = MONTH(CURDATE()) AND YEAR(data_prospeccao) = YEAR(CURDATE())");
         $stmt_leads->execute(['id' => $responsavel_id]);
         $stats['novos_leads_mes'] = $stmt_leads->fetchColumn();
 
@@ -34,11 +99,11 @@ class Prospeccao
         $stats['reunioes_agendadas_mes'] = $stmt_reunioes->fetchColumn();
 
         // Taxa de conversão (total)
-        $stmt_total = $this->pdo->prepare("SELECT COUNT(*) FROM prospeccoes WHERE responsavel_id = :id");
+        $stmt_total = $this->pdo->prepare("SELECT COUNT(*) FROM prospeccoes WHERE {$ownerColumn} = :id");
         $stmt_total->execute(['id' => $responsavel_id]);
         $total_prospeccoes = $stmt_total->fetchColumn();
 
-        $stmt_convertidos = $this->pdo->prepare("SELECT COUNT(*) FROM prospeccoes WHERE responsavel_id = :id AND status = 'Convertido'");
+        $stmt_convertidos = $this->pdo->prepare("SELECT COUNT(*) FROM prospeccoes WHERE {$ownerColumn} = :id AND status = 'Convertido'");
         $stmt_convertidos->execute(['id' => $responsavel_id]);
         $total_convertidos = $stmt_convertidos->fetchColumn();
 
@@ -54,16 +119,17 @@ class Prospeccao
      * @param int $responsavel_id
      * @return array
      */
-    public function getProspeccoesCountByStatus(int $responsavel_id): array
+    public function getProspeccoesCountByStatus(int $responsavel_id, string $ownerColumn = 'responsavel_id'): array
     {
-        $sql = "SELECT status, COUNT(*) as total 
-                FROM prospeccoes 
-                WHERE responsavel_id = :id 
+        $ownerColumn = $this->resolveOwnerColumn($ownerColumn);
+        $sql = "SELECT status, COUNT(*) as total
+                FROM prospeccoes
+                WHERE {$ownerColumn} = :id
                 AND status NOT IN ('Convertido', 'Descartado', 'Inativo', 'Pausa')
                 GROUP BY status";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute(['id' => $responsavel_id]);
-        
+
         // Retorna um array no formato ['Status' => total]
         return $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
     }
@@ -74,18 +140,50 @@ class Prospeccao
      * @param int $limit
      * @return array
      */
-    public function getProximosAgendamentos(int $responsavel_id, int $limit = 5): array
+    public function getProximosAgendamentos(int $ownerId, int $limit = 5, string $ownerType = 'usuario'): array
     {
-        $sql = "SELECT a.titulo, a.data_inicio, c.nome_cliente
-                FROM agendamentos a
-                LEFT JOIN clientes c ON a.cliente_id = c.id
-                WHERE a.usuario_id = :id AND a.data_inicio >= CURDATE()
-                ORDER BY a.data_inicio ASC
-                LIMIT :limit";
+        $limit = max(1, $limit);
+
+        if ($ownerType === 'sdr') {
+            $sql = "SELECT a.id,
+                           a.titulo,
+                           a.status,
+                           a.data_inicio,
+                           a.data_fim,
+                           a.prospeccao_id,
+                           c.nome_cliente,
+                           u.nome_completo AS responsavel_nome
+                    FROM agendamentos a
+                    INNER JOIN prospeccoes p ON a.prospeccao_id = p.id
+                    LEFT JOIN clientes c ON a.cliente_id = c.id
+                    LEFT JOIN users u ON a.usuario_id = u.id
+                    WHERE p.sdrId = :id
+                      AND a.data_inicio >= NOW()
+                    ORDER BY a.data_inicio ASC
+                    LIMIT :limit";
+        } else {
+            $sql = "SELECT a.id,
+                           a.titulo,
+                           a.status,
+                           a.data_inicio,
+                           a.data_fim,
+                           a.prospeccao_id,
+                           c.nome_cliente,
+                           u.nome_completo AS responsavel_nome
+                    FROM agendamentos a
+                    LEFT JOIN clientes c ON a.cliente_id = c.id
+                    LEFT JOIN users u ON a.usuario_id = u.id
+                    WHERE a.usuario_id = :id
+                      AND a.data_inicio >= NOW()
+                    ORDER BY a.data_inicio ASC
+                    LIMIT :limit";
+        }
+
         $stmt = $this->pdo->prepare($sql);
-        $stmt->bindValue(':id', $responsavel_id, PDO::PARAM_INT);
+        $stmt->bindValue(':id', $ownerId, PDO::PARAM_INT);
         $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
         $stmt->execute();
+
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -97,8 +195,9 @@ class Prospeccao
         $sql_conditions = "status NOT IN (" . str_repeat('?,', count($excluded_statuses) - 1) . "?) AND data_ultima_atualizacao <= NOW() - INTERVAL ? DAY";
         $params = array_merge($excluded_statuses, [$days]);
 
-        if ($user_perfil === 'vendedor') {
-            $sql_conditions .= " AND responsavel_id = ?";
+        if (in_array($user_perfil, ['vendedor', 'sdr'], true) && $user_id) {
+            $ownerColumn = $user_perfil === 'sdr' ? 'sdrId' : 'responsavel_id';
+            $sql_conditions .= " AND {$ownerColumn} = ?";
             $params[] = $user_id;
         }
 
@@ -115,8 +214,9 @@ class Prospeccao
         $sql_conditions = "p.status NOT IN (" . str_repeat('?,', count($excluded_statuses) - 1) . "?) AND p.data_ultima_atualizacao <= NOW() - INTERVAL ? DAY";
         $params = array_merge($excluded_statuses, [$days]);
 
-        if ($user_perfil === 'vendedor') {
-            $sql_conditions .= " AND p.responsavel_id = ?";
+        if (in_array($user_perfil, ['vendedor', 'sdr'], true) && $user_id) {
+            $ownerColumn = $user_perfil === 'sdr' ? 'p.sdrId' : 'p.responsavel_id';
+            $sql_conditions .= " AND {$ownerColumn} = ?";
             $params[] = $user_id;
         }
 
@@ -134,7 +234,7 @@ class Prospeccao
             $stmt->bindValue($i++, $status, PDO::PARAM_STR);
         }
         $stmt->bindValue($i++, (int)$days, PDO::PARAM_INT);
-        if ($user_perfil === 'vendedor') {
+        if (in_array($user_perfil, ['vendedor', 'sdr'], true) && $user_id) {
             $stmt->bindValue($i++, (int)$user_id, PDO::PARAM_INT);
         }
         $stmt->bindValue($i, (int)$limit, PDO::PARAM_INT); // Explicitly cast limit to an integer
@@ -166,7 +266,12 @@ class Prospeccao
 
     public function getById(int $id)
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM prospeccoes WHERE id = ?");
+        $sql = "SELECT p.*, c.nome_cliente AS cliente_nome
+                FROM prospeccoes p
+                LEFT JOIN clientes c ON p.cliente_id = c.id
+                WHERE p.id = ?";
+
+        $stmt = $this->pdo->prepare($sql);
         $stmt->execute([$id]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
@@ -175,14 +280,23 @@ class Prospeccao
      * @param array<string> $statuses
      * @return array<int, array<string, mixed>>
      */
-    public function getKanbanLeads(array $statuses, ?int $responsavelId = null, bool $onlyUnassigned = false): array
+    public function getKanbanLeads(
+        array $statuses,
+        ?int $responsavelId = null,
+        bool $onlyUnassigned = false,
+        string $ownerColumn = 'responsavel_id',
+        ?string $paymentProfile = null
+    ): array
     {
         if (empty($statuses)) {
             return [];
         }
 
+        $ownerColumn = $this->resolveOwnerColumn($ownerColumn);
+        $ownerJoinColumn = $ownerColumn === 'sdrId' ? 'sdrId' : 'responsavel_id';
         $placeholders = implode(',', array_fill(0, count($statuses), '?'));
         $params = $statuses;
+        $normalizedProfile = $this->normalizePaymentProfile($paymentProfile);
 
         $sql = "SELECT
                     p.id,
@@ -190,19 +304,26 @@ class Prospeccao
                     p.valor_proposto,
                     p.status,
                     p.responsavel_id,
+                    p.sdrId,
+                    p.perfil_pagamento,
                     p.data_ultima_atualizacao,
                     c.nome_cliente,
                     u.nome_completo AS responsavel_nome
                 FROM prospeccoes p
                 LEFT JOIN clientes c ON p.cliente_id = c.id
-                LEFT JOIN users u ON p.responsavel_id = u.id
+                LEFT JOIN users u ON p.{$ownerJoinColumn} = u.id
                 WHERE p.status IN ($placeholders)";
 
         if ($onlyUnassigned) {
             $sql .= " AND (p.responsavel_id IS NULL OR p.responsavel_id = 0)";
         } elseif ($responsavelId !== null) {
-            $sql .= " AND p.responsavel_id = ?";
+            $sql .= " AND p.{$ownerColumn} = ?";
             $params[] = $responsavelId;
+        }
+
+        if ($normalizedProfile !== null) {
+            $sql .= " AND p.perfil_pagamento = ?";
+            $params[] = $normalizedProfile;
         }
 
         $sql .= " ORDER BY p.data_ultima_atualizacao DESC, p.id DESC";
@@ -237,6 +358,116 @@ class Prospeccao
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function getLeadDistributionForSdr(int $sdrId): array
+    {
+        $sql = "SELECT COALESCE(p.responsavel_id, 0) AS vendorId,
+                       COALESCE(u.nome_completo, 'Aguardando vendedor') AS vendorName,
+                       COUNT(*) AS total
+                FROM prospeccoes p
+                LEFT JOIN users u ON p.responsavel_id = u.id
+                WHERE p.sdrId = :sdrId
+                GROUP BY COALESCE(p.responsavel_id, 0), COALESCE(u.nome_completo, 'Aguardando vendedor')
+                ORDER BY (p.responsavel_id IS NULL OR p.responsavel_id = 0) ASC, vendorName ASC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(':sdrId', $sdrId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function getSdrVendorConversionRates(int $sdrId): array
+    {
+        $sql = "SELECT
+                    COALESCE(u.id, 0) AS vendorId,
+                    COALESCE(u.nome_completo, 'Aguardando vendedor') AS vendorName,
+                    COUNT(*) AS totalLeads,
+                    SUM(CASE WHEN p.status = 'Convertido' THEN 1 ELSE 0 END) AS convertedLeads
+                FROM prospeccoes p
+                LEFT JOIN users u ON p.responsavel_id = u.id
+                WHERE p.sdrId = :sdrId
+                GROUP BY COALESCE(u.id, 0), COALESCE(u.nome_completo, 'Aguardando vendedor')
+                ORDER BY vendorName ASC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(':sdrId', $sdrId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function registerLeadDistribution(int $leadId, int $vendorId, ?int $sdrId = null): void
+    {
+        $sql = "INSERT INTO distribuicao_leads (prospeccaoId, sdrId, vendedorId, createdAt)
+                VALUES (:leadId, :sdrId, :vendorId, NOW())";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(':leadId', $leadId, PDO::PARAM_INT);
+        if ($sdrId !== null) {
+            $stmt->bindValue(':sdrId', $sdrId, PDO::PARAM_INT);
+        } else {
+            $stmt->bindValue(':sdrId', null, PDO::PARAM_NULL);
+        }
+        $stmt->bindValue(':vendorId', $vendorId, PDO::PARAM_INT);
+        $stmt->execute();
+    }
+
+    public function assignLeadToVendor(int $leadId, ?int $vendorId, ?int $sdrId = null, bool $useTransaction = true): bool
+    {
+        if ($useTransaction) {
+            $this->pdo->beginTransaction();
+        }
+
+        try {
+            $setClauses = ['responsavel_id = :vendorId', 'data_ultima_atualizacao = NOW()'];
+            $params = [':leadId' => $leadId];
+
+            if ($vendorId !== null) {
+                $params[':vendorId'] = $vendorId;
+            }
+
+            if ($sdrId !== null) {
+                $setClauses[] = 'sdrId = :sdrId';
+                $params[':sdrId'] = $sdrId;
+            }
+
+            $sql = 'UPDATE prospeccoes SET ' . implode(', ', $setClauses) . ' WHERE id = :leadId';
+            $stmt = $this->pdo->prepare($sql);
+
+            if ($vendorId === null) {
+                $stmt->bindValue(':vendorId', null, PDO::PARAM_NULL);
+            } else {
+                $stmt->bindValue(':vendorId', $vendorId, PDO::PARAM_INT);
+            }
+
+            foreach ($params as $key => $value) {
+                if ($key === ':vendorId') {
+                    continue;
+                }
+
+                $stmt->bindValue($key, $value, PDO::PARAM_INT);
+            }
+
+            $stmt->execute();
+
+            if ($vendorId !== null) {
+                $this->registerLeadDistribution($leadId, $vendorId, $sdrId);
+            }
+
+            if ($useTransaction) {
+                $this->pdo->commit();
+            }
+
+            return true;
+        } catch (PDOException $exception) {
+            if ($useTransaction && $this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+
+            return false;
+        }
+    }
+
     /**
      * @return array<int, array<string, mixed>>
      */
@@ -261,31 +492,46 @@ class Prospeccao
      * @param array<string> $statuses
      * @return array<int, array<string, mixed>>
      */
-    public function getLeadsOutsideKanban(array $statuses, ?int $responsavelId = null, bool $onlyUnassigned = false): array
+    public function getLeadsOutsideKanban(
+        array $statuses,
+        ?int $responsavelId = null,
+        bool $onlyUnassigned = false,
+        string $ownerColumn = 'responsavel_id',
+        ?string $paymentProfile = null
+    ): array
     {
         if (empty($statuses)) {
             return [];
         }
 
+        $ownerColumn = $this->resolveOwnerColumn($ownerColumn);
         $placeholders = implode(',', array_fill(0, count($statuses), '?'));
         $params = $statuses;
+        $normalizedProfile = $this->normalizePaymentProfile($paymentProfile);
 
         $sql = "SELECT
                     p.id,
                     p.nome_prospecto,
                     p.responsavel_id,
+                    p.sdrId,
                     p.status,
                     p.data_ultima_atualizacao,
+                    p.perfil_pagamento,
                     u.nome_completo AS responsavel_nome
                 FROM prospeccoes p
-                LEFT JOIN users u ON p.responsavel_id = u.id
+                LEFT JOIN users u ON p.{$ownerColumn} = u.id
                 WHERE (p.status IS NULL OR p.status = '' OR p.status NOT IN ($placeholders))";
 
         if ($onlyUnassigned) {
             $sql .= " AND (p.responsavel_id IS NULL OR p.responsavel_id = 0)";
         } elseif ($responsavelId !== null) {
-            $sql .= " AND p.responsavel_id = ?";
+            $sql .= " AND p.{$ownerColumn} = ?";
             $params[] = $responsavelId;
+        }
+
+        if ($normalizedProfile !== null) {
+            $sql .= " AND p.perfil_pagamento = ?";
+            $params[] = $normalizedProfile;
         }
 
         $sql .= " ORDER BY p.data_ultima_atualizacao DESC, p.id DESC";
@@ -299,22 +545,235 @@ class Prospeccao
     /**
      * @param array<string> $statuses
      */
-    public function hasUnassignedKanbanLeads(array $statuses): bool
+    public function hasUnassignedKanbanLeads(array $statuses, ?string $paymentProfile = null): bool
     {
         if (empty($statuses)) {
             return false;
         }
 
         $placeholders = implode(',', array_fill(0, count($statuses), '?'));
+        $normalizedProfile = $this->normalizePaymentProfile($paymentProfile);
 
         $sql = "SELECT COUNT(*)
                 FROM prospeccoes p
                 WHERE p.status IN ($placeholders)
                   AND (p.responsavel_id IS NULL OR p.responsavel_id = 0)";
 
+        $params = $statuses;
+
+        if ($normalizedProfile !== null) {
+            $sql .= " AND p.perfil_pagamento = ?";
+            $params[] = $normalizedProfile;
+        }
+
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($statuses);
+        $stmt->execute($params);
 
         return (int)$stmt->fetchColumn() > 0;
     }
+
+    public function updateLeadStatus(int $leadId, string $newStatus): bool
+    {
+        $sql = "UPDATE prospeccoes
+                SET status = :status,
+                    data_ultima_atualizacao = NOW()
+                WHERE id = :id";
+
+        $stmt = $this->pdo->prepare($sql);
+
+        return $stmt->execute([
+            ':status' => $newStatus,
+            ':id' => $leadId
+        ]);
+    }
+
+    public function saveQualification(int $prospeccaoId, array $data): int
+    {
+        $sql = "INSERT INTO prospeccao_qualificacoes (
+                    prospeccaoId,
+                    sdrId,
+                    fitIcp,
+                    budget,
+                    authority,
+                    timing,
+                    decision,
+                    notes,
+                    createdAt
+                ) VALUES (
+                    :prospeccaoId,
+                    :sdrId,
+                    :fitIcp,
+                    :budget,
+                    :authority,
+                    :timing,
+                    :decision,
+                    :notes,
+                    NOW()
+                )";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([
+            ':prospeccaoId' => $prospeccaoId,
+            ':sdrId' => $data['sdrId'],
+            ':fitIcp' => $data['fitIcp'],
+            ':budget' => $data['budget'],
+            ':authority' => $data['authority'],
+            ':timing' => $data['timing'],
+            ':decision' => $data['decision'],
+            ':notes' => $data['notes'] ?? null
+        ]);
+
+        return (int) $this->pdo->lastInsertId();
+    }
+
+    public function updateResponsavelAndStatus(int $prospeccaoId, ?int $responsavelId, string $status): bool
+    {
+        $sql = "UPDATE prospeccoes
+                SET responsavel_id = :responsavel_id,
+                    status = :status,
+                    data_ultima_atualizacao = NOW()
+                WHERE id = :id";
+
+        $stmt = $this->pdo->prepare($sql);
+        if ($responsavelId === null) {
+            $stmt->bindValue(':responsavel_id', null, PDO::PARAM_NULL);
+        } else {
+            $stmt->bindValue(':responsavel_id', $responsavelId, PDO::PARAM_INT);
+        }
+        $stmt->bindValue(':status', $status, PDO::PARAM_STR);
+        $stmt->bindValue(':id', $prospeccaoId, PDO::PARAM_INT);
+
+        return $stmt->execute();
+    }
+
+    public function getLeadsWithoutResponsible(): array
+    {
+        $sql = "SELECT id, sdrId
+                FROM prospeccoes
+                WHERE responsavel_id IS NULL OR responsavel_id = 0
+                ORDER BY id ASC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function getLeadsDistributedCount(?int $sdrId = null): int
+    {
+        $sql = 'SELECT COUNT(*) FROM distribuicao_leads';
+        $params = [];
+
+        if ($sdrId !== null) {
+            $sql .= ' WHERE sdrId = :sdrId';
+            $params[':sdrId'] = $sdrId;
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+
+        return (int) $stmt->fetchColumn();
+    }
+
+    public function getAppointmentsCount(?int $sdrId = null): int
+    {
+        if ($sdrId === null) {
+            $stmt = $this->pdo->query('SELECT COUNT(*) FROM agendamentos');
+            return (int) $stmt->fetchColumn();
+        }
+
+        $sql = 'SELECT COUNT(*)
+                FROM agendamentos a
+                INNER JOIN prospeccoes p ON a.prospeccao_id = p.id
+                WHERE p.sdrId = :sdrId';
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(':sdrId', $sdrId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getSdrLeads(int $sdrId): array
+    {
+        $sql = "SELECT p.id,
+                       p.nome_prospecto,
+                       p.status,
+                       p.data_ultima_atualizacao,
+                       COALESCE(u.nome_completo, 'Aguardando vendedor') AS vendor_name,
+                       c.nome_cliente,
+                       p.valor_proposto,
+                       p.cliente_id,
+                       p.responsavel_id
+                FROM prospeccoes p
+                LEFT JOIN users u ON p.responsavel_id = u.id
+                LEFT JOIN clientes c ON p.cliente_id = c.id
+                WHERE p.sdrId = :sdrId
+                ORDER BY p.data_ultima_atualizacao DESC, p.id DESC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(':sdrId', $sdrId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getVendorLeads(int $vendorId): array
+    {
+        $sql = "SELECT p.id,
+                       p.nome_prospecto,
+                       p.status,
+                       p.data_ultima_atualizacao,
+                       c.nome_cliente,
+                       p.cliente_id,
+                       p.responsavel_id
+                FROM prospeccoes p
+                LEFT JOIN clientes c ON p.cliente_id = c.id
+                WHERE p.responsavel_id = :vendorId
+                ORDER BY p.data_ultima_atualizacao DESC, p.id DESC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(':vendorId', $vendorId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function getNextLeadForVendor(int $vendorId): ?array
+    {
+        $sql = "SELECT p.id,
+                       p.nome_prospecto,
+                       p.status,
+                       p.data_ultima_atualizacao,
+                       c.nome_cliente,
+                       COALESCE(dl.lastAssignedAt, p.data_ultima_atualizacao) AS distributed_at
+                FROM prospeccoes p
+                LEFT JOIN (
+                    SELECT prospeccaoId, MAX(createdAt) AS lastAssignedAt
+                    FROM distribuicao_leads
+                    GROUP BY prospeccaoId
+                ) dl ON dl.prospeccaoId = p.id
+                LEFT JOIN clientes c ON p.cliente_id = c.id
+                WHERE p.responsavel_id = :vendorId
+                  AND (p.status IS NULL OR p.status NOT IN ('Descartado', 'Convertido', 'Inativo'))
+                ORDER BY dl.lastAssignedAt IS NULL DESC,
+                         distributed_at ASC,
+                         p.id ASC
+                LIMIT 1";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(':vendorId', $vendorId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        $lead = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $lead !== false ? $lead : null;
+    }
+
 }

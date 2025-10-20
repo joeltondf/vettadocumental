@@ -69,10 +69,12 @@ $disableFields = false;
 // O restante da sua lógica original continua aqui...
 $tipos_traducao = $tipos_traducao ?? [];
 $tipos_crc = $tipos_crc ?? [];
-$financeiroServicos = [
-    'Tradução' => $tipos_traducao,
-    'CRC' => $tipos_crc,
-];
+$financeiroServicos = $financeiroServicos ?? [];
+$financeiroServicos['Tradução'] = $financeiroServicos['Tradução'] ?? $tipos_traducao;
+$financeiroServicos['CRC'] = $financeiroServicos['CRC'] ?? $tipos_crc;
+$financeiroServicos['Apostilamento'] = $financeiroServicos['Apostilamento'] ?? [];
+$financeiroServicos['Postagem'] = $financeiroServicos['Postagem'] ?? [];
+$financeiroServicos['Outros'] = $financeiroServicos['Outros'] ?? [];
 $translationAttachments = isset($translationAttachments) && is_array($translationAttachments) ? $translationAttachments : [];
 $crcAttachments = isset($crcAttachments) && is_array($crcAttachments) ? $crcAttachments : [];
 $paymentProofAttachments = isset($paymentProofAttachments) && is_array($paymentProofAttachments) ? $paymentProofAttachments : [];
@@ -236,7 +238,7 @@ $paymentDateTwo = $processo['data_pagamento_2'] ?? $formData['data_pagamento_2']
         <legend class="text-lg font-semibold text-gray-700 px-2 bg-white ml-4">Serviços Orçados</legend>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
             <?php
-            $categorias = ['Tradução', 'CRC', 'Apostilamento', 'Postagem'];
+            $categorias = ['Tradução', 'CRC', 'Apostilamento', 'Postagem', 'Outros'];
             $categoriasRaw = $processo['categorias_servico'] ?? [];
             if (is_string($categoriasRaw)) {
                 $categorias_selecionadas = array_filter(array_map('trim', explode(',', $categoriasRaw)));
@@ -245,24 +247,27 @@ $paymentDateTwo = $processo['data_pagamento_2'] ?? $formData['data_pagamento_2']
             } else {
                 $categorias_selecionadas = [];
             }
-            $slug_map = ['Tradução' => 'traducao', 'CRC' => 'crc', 'Apostilamento' => 'apostilamento', 'Postagem' => 'postagem'];
+            $slug_map = ['Tradução' => 'traducao', 'CRC' => 'crc', 'Apostilamento' => 'apostilamento', 'Postagem' => 'postagem', 'Outros' => 'outros'];
             $labelColorMap = [
                 'Tradução' => 'border-blue-300 bg-blue-50 hover:bg-blue-100',
                 'CRC' => 'border-green-300 bg-green-50 hover:bg-green-100',
                 'Apostilamento' => 'border-yellow-300 bg-yellow-50 hover:bg-yellow-100',
                 'Postagem' => 'border-purple-300 bg-purple-50 hover:bg-purple-100',
+                'Outros' => 'border-gray-300 bg-gray-50 hover:bg-gray-100',
             ];
             $checkboxColorMap = [
                 'Tradução' => 'text-blue-600 focus:ring-blue-500',
                 'CRC' => 'text-green-600 focus:ring-green-500',
                 'Apostilamento' => 'text-yellow-600 focus:ring-yellow-500',
                 'Postagem' => 'text-purple-600 focus:ring-purple-500',
+                'Outros' => 'text-gray-600 focus:ring-gray-500',
             ];
             $textColorMap = [
                 'Tradução' => 'text-blue-800',
                 'CRC' => 'text-green-800',
                 'Apostilamento' => 'text-yellow-800',
                 'Postagem' => 'text-purple-800',
+                'Outros' => 'text-gray-800',
             ];
             foreach ($categorias as $cat):
                 $slug = $slug_map[$cat];
@@ -390,6 +395,19 @@ $paymentDateTwo = $processo['data_pagamento_2'] ?? $formData['data_pagamento_2']
                     </ul>
                 </div>
             <?php endif; ?>
+        </fieldset>
+    </div>
+
+    <div id="section-outros" class="service-section hidden">
+        <fieldset class="border border-gray-200 rounded-md p-6 bg-gray-50 space-y-4">
+            <legend class="text-lg font-semibold text-gray-800 px-2 ml-4">Serviços Outros</legend>
+            <div class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-md font-medium text-gray-800">Documentos - Outros Serviços</h3>
+                    <button type="button" class="add-doc-btn bg-gray-600 hover:bg-gray-700 text-white text-sm font-bold py-1.5 px-4 rounded-md transition duration-200 ease-in-out" data-type="outros">Adicionar + Documento</button>
+                </div>
+                <div class="doc-container space-y-3" data-container-type="outros"></div>
+            </div>
         </fieldset>
     </div>
 
@@ -653,6 +671,39 @@ $paymentDateTwo = $processo['data_pagamento_2'] ?? $formData['data_pagamento_2']
         <input type="hidden" name="docs[__INDEX__][categoria]" value="CRC">
     </div>
 </template>
+
+<template id="doc-outros-template">
+    <div class="doc-item grid grid-cols-1 md:grid-cols-12 gap-3 p-4 border border-gray-200 rounded-md bg-white shadow-sm items-center">
+        <div class="flex items-center justify-center md:col-span-1 doc-number text-gray-500 font-bold text-lg"></div>
+        <div class="md:col-span-5">
+            <label class="block text-xs font-medium text-gray-500 sr-only">Tipo de Documento *</label>
+            <select name="docs[__INDEX__][tipo_documento]" class="mt-1 block w-full p-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-gray-500 focus:border-gray-500 servico-select" data-servico-tipo="Outros">
+                <option value="">Selecione o tipo...</option>
+                <?php foreach($financeiroServicos['Outros'] as $tipo): ?>
+                    <option value="<?php echo htmlspecialchars($tipo['nome_categoria']); ?>"
+                            data-valor-padrao="<?php echo $tipo['valor_padrao']; ?>"
+                            data-bloqueado="<?php echo $tipo['bloquear_valor_minimo']; ?>">
+                        <?php echo htmlspecialchars($tipo['nome_categoria']); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="md:col-span-4">
+            <label class="block text-xs font-medium text-gray-500 sr-only">Descrição *</label>
+            <input type="text" name="docs[__INDEX__][nome_documento]" class="mt-1 block w-full p-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-gray-500 focus:border-gray-500" placeholder="Descrição do serviço">
+        </div>
+        <div class="md:col-span-1">
+            <label class="block text-xs font-medium text-gray-500 sr-only">Valor *</label>
+            <input type="text" name="docs[__INDEX__][valor_unitario]" class="mt-1 block w-full p-2 text-sm doc-price valor-servico calculation-trigger border border-gray-300 rounded-md shadow-sm focus:ring-gray-500 focus:border-gray-500" placeholder="Valor">
+        </div>
+        <div class="md:col-span-1 flex items-center justify-center">
+            <button type="button" class="remove-doc-btn bg-red-500 text-white rounded-full h-7 w-7 flex items-center justify-center font-bold text-sm hover:bg-red-600 transition duration-200 ease-in-out" aria-label="Remover documento">X</button>
+        </div>
+        <input type="hidden" name="docs[__INDEX__][quantidade]" value="1">
+        <input type="hidden" name="docs[__INDEX__][categoria]" value="Outros">
+    </div>
+</template>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     $('#cliente_id').select2({
@@ -1204,8 +1255,8 @@ document.addEventListener('DOMContentLoaded', function() {
         evaluateBudgetMinValues();
     }
 
-    let docIndex = 0;
-    const categoryMap = {'Tradução': 'traducao', 'CRC': 'crc'};
+    let docIndex = 0;
+    const categoryMap = {'Tradução': 'traducao', 'CRC': 'crc', 'Outros': 'outros'};
 
     function addDocumentRow(type) {
         const template = document.getElementById(`doc-${type}-template`);

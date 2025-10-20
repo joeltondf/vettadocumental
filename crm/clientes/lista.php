@@ -7,11 +7,44 @@ error_reporting(E_ALL);
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
 require_once __DIR__ . '/../../app/models/Cliente.php';
+require_once __DIR__ . '/../../app/utils/PhoneUtils.php';
 
 $clienteModel = new Cliente($pdo);
 $currentUserId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
 $currentUserPerfil = $_SESSION['user_perfil'] ?? '';
 $clientes = $clienteModel->getCrmProspects($currentUserId, $currentUserPerfil);
+$showVendorLinkColumn = in_array($currentUserPerfil, ['admin', 'gerencia', 'supervisor', 'sdr'], true);
+
+$formatLeadPhone = static function (array $cliente): string {
+    $rawPhone = $cliente['telefone'] ?? '';
+    $ddiValue = $cliente['telefone_ddi'] ?? '';
+    $dddValue = $cliente['telefone_ddd'] ?? '';
+    $numberValue = $cliente['telefone_numero'] ?? '';
+
+    $digits = stripNonDigits((string) $rawPhone);
+    $ddiDigits = stripNonDigits((string) $ddiValue);
+
+    if ($digits === '' && ($dddValue !== '' || $numberValue !== '')) {
+        $digits = stripNonDigits((string) $dddValue . $numberValue);
+    }
+
+    if ($digits === '') {
+        return '';
+    }
+
+    if ($ddiDigits !== '' && strpos($digits, $ddiDigits) === 0 && strlen($digits) > strlen($ddiDigits)) {
+        $digits = substr($digits, strlen($ddiDigits));
+    }
+
+    try {
+        $parts = extractPhoneParts($digits);
+        $ddiToUse = $ddiDigits !== '' ? $ddiDigits : '55';
+
+        return formatInternationalPhone($ddiToUse, $parts['ddd'] ?? '', $parts['phone'] ?? '');
+    } catch (Throwable $exception) {
+        return (string) $rawPhone;
+    }
+};
 
 $pageTitle = "CRM - Lista de Leads";
 require_once __DIR__ . '/../../app/views/layouts/header.php';
@@ -72,6 +105,9 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                     <tr>
                         <th class="px-6 py-3 border-b-2 border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Nome / Empresa</th>
                         <th class="px-6 py-3 border-b-2 border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Lead</th>
+                        <?php if ($showVendorLinkColumn): ?>
+                            <th class="px-6 py-3 border-b-2 border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Vínculo com Vendedor</th>
+                        <?php endif; ?>
                         <th class="px-6 py-3 border-b-2 border-gray-200 bg-gray-50 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
                         <th class="px-6 py-3 border-b-2 border-gray-200 bg-gray-50 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Ações</th>
                     </tr>
@@ -79,7 +115,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                 <tbody>
                     <?php if (empty($clientes)): ?>
                         <tr>
-                            <td colspan="4" class="px-6 py-5 border-b border-gray-200 bg-white text-sm text-center text-gray-500">Nenhuma prospecção encontrada.</td>
+                            <td colspan="<?php echo $showVendorLinkColumn ? '5' : '4'; ?>" class="px-6 py-5 border-b border-gray-200 bg-white text-sm text-center text-gray-500">Nenhuma prospecção encontrada.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($clientes as $cliente): ?>
@@ -93,8 +129,17 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                                 </td>
                                 <td class="px-6 py-4 border-b border-gray-200 bg-white text-sm">
                                     <p class="text-gray-900 whitespace-no-wrap"><?php echo htmlspecialchars($cliente['email']); ?></p>
-                                    <p class="text-gray-600 whitespace-no-wrap mt-1"><?php echo htmlspecialchars($cliente['telefone']); ?></p>
+                                    <p class="text-gray-600 whitespace-no-wrap mt-1"><?php echo htmlspecialchars($formatLeadPhone($cliente)); ?></p>
                                 </td>
+                                <?php if ($showVendorLinkColumn): ?>
+                                    <td class="px-6 py-4 border-b border-gray-200 bg-white text-sm">
+                                        <?php
+                                            $ownerName = trim((string) ($cliente['ownerName'] ?? ''));
+                                            $ownerLabel = $ownerName !== '' ? $ownerName : 'Sem vínculo';
+                                        ?>
+                                        <p class="text-gray-900 whitespace-no-wrap"><?php echo htmlspecialchars($ownerLabel); ?></p>
+                                    </td>
+                                <?php endif; ?>
                                 <td class="px-6 py-4 border-b border-gray-200 bg-white text-sm text-center">
                                     <?php
                                         $statusClass = $hasProspection

@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
+require_once __DIR__ . '/../../app/models/Prospeccao.php';
+require_once __DIR__ . '/../../app/services/AutomacaoKanbanService.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: ' . APP_URL . '/crm/dashboard.php');
@@ -90,6 +92,8 @@ try {
         ? (int) $_POST['prospeccao_id']
         : null;
 
+    $context = $_POST['agendamento_context'] ?? '';
+
     $dataInicio = normalizeDateTime($_POST['data_inicio'] ?? null);
     $dataFim = normalizeDateTime($_POST['data_fim'] ?? null);
 
@@ -110,6 +114,46 @@ try {
 
     if ($fimDateTime <= $inicioDateTime) {
         throw new InvalidArgumentException('O horário final deve ser posterior ao início.');
+    }
+
+    if ($context === 'meeting') {
+        if (!$prospeccaoId) {
+            throw new InvalidArgumentException('Informe a prospecção para agendar a reunião.');
+        }
+
+        $stmtProspeccaoOwner = $pdo->prepare('SELECT responsavel_id FROM prospeccoes WHERE id = :id');
+        $stmtProspeccaoOwner->bindValue(':id', $prospeccaoId, PDO::PARAM_INT);
+        $stmtProspeccaoOwner->execute();
+        $responsavelId = (int) $stmtProspeccaoOwner->fetchColumn();
+
+        if ($responsavelId <= 0 || $responsavelId !== $usuarioId) {
+            throw new InvalidArgumentException('Somente o vendedor responsável pode agendar esta reunião.');
+        }
+
+        $startHour = (int) $inicioDateTime->format('H');
+        $startMinute = (int) $inicioDateTime->format('i');
+        $endHour = (int) $fimDateTime->format('H');
+        $endMinute = (int) $fimDateTime->format('i');
+
+        if (!in_array($startMinute, [0, 30], true) || !in_array($endMinute, [0, 30], true)) {
+            throw new InvalidArgumentException('Utilize intervalos de 30 minutos para o agendamento.');
+        }
+
+        $startTotalMinutes = $startHour * 60 + $startMinute;
+        $endTotalMinutes = $endHour * 60 + $endMinute;
+
+        if ($startTotalMinutes < 540 || $startTotalMinutes > 990) {
+            throw new InvalidArgumentException('Escolha um horário de início entre 09:00 e 16:30.');
+        }
+
+        if ($endTotalMinutes > 1020) {
+            throw new InvalidArgumentException('A reunião deve terminar até às 17:00.');
+        }
+
+        $durationMinutes = (int) (($fimDateTime->getTimestamp() - $inicioDateTime->getTimestamp()) / 60);
+        if (!in_array($durationMinutes, [30, 60], true)) {
+            throw new InvalidArgumentException('A reunião deve durar 30 ou 60 minutos.');
+        }
     }
 
     if ($prospeccaoId && !$clienteId) {
@@ -184,21 +228,21 @@ try {
     $stmt->execute();
 
     if ($prospeccaoId !== null) {
-        $descricaoInteracao = sprintf(
-            'Agendamento criado: %s em %s.',
-            $titulo,
-            $inicioDateTime->format('d/m/Y H:i')
-        );
+        $prospectionModel = new Prospeccao($pdo);
+        $interactionMessage = match ($context) {
+            'meeting' => sprintf('Reunião agendada para %s.', $inicioDateTime->format('d/m/Y H:i')),
+            'internal_followup' => sprintf('Atividade interna agendada para %s.', $inicioDateTime->format('d/m/Y H:i')),
+            default => sprintf('Agendamento criado: %s em %s.', $titulo, $inicioDateTime->format('d/m/Y H:i'))
+        };
+        $prospectionModel->logInteraction($prospeccaoId, $usuarioId, $interactionMessage, 'log_sistema');
+    }
 
-        $stmtInteracao = $pdo->prepare(
-            'INSERT INTO interacoes (prospeccao_id, usuario_id, observacao, tipo) VALUES (:prospeccao_id, :usuario_id, :observacao, :tipo)'
-        );
-        $stmtInteracao->execute([
-            ':prospeccao_id' => $prospeccaoId,
-            ':usuario_id' => $usuarioId,
-            ':observacao' => $descricaoInteracao,
-            ':tipo' => 'reuniao'
-        ]);
+    if ($prospeccaoId !== null) {
+        $prospectionModel = $prospectionModel ?? new Prospeccao($pdo);
+        $prospectionModel->updateLeadStatus($prospeccaoId, 'Agendamento');
+
+        $automationService = new AutomacaoKanbanService($pdo);
+        $automationService->handleStatusChange($prospeccaoId, 'Agendamento', $usuarioId);
     }
 
     $pdo->commit();

@@ -29,6 +29,22 @@ function getStatusBadgeClasses(?string $status): string
     };
 }
 
+function formatPaymentProfile(?string $profile): string
+{
+    if ($profile === null || $profile === '') {
+        return 'Não informado';
+    }
+
+    $map = [
+        'mensalista' => 'Possível mensalista',
+        'avista' => 'Possível à vista',
+    ];
+
+    $normalized = mb_strtolower(trim((string)$profile), 'UTF-8');
+
+    return $map[$normalized] ?? 'Não informado';
+}
+
 $pageTitle = "Lista de Prospecções";
 
 // --- INÍCIO DA LÓGICA DE FILTRO E CONTROLE DE ACESSO ---
@@ -41,6 +57,12 @@ $search_status = $_GET['status'] ?? '';
 $search_responsavel = $_GET['responsavel_id'] ?? '';
 $search_data_inicio = $_GET['data_inicio'] ?? '';
 $search_data_fim = $_GET['data_fim'] ?? '';
+$search_payment_profile = $_GET['perfil_pagamento'] ?? '';
+$allowedPaymentProfiles = ['mensalista', 'avista'];
+
+if (!in_array($search_payment_profile, $allowedPaymentProfiles, true)) {
+    $search_payment_profile = '';
+}
 
 if (!empty($search_term)) {
     $where_clauses[] = "(p.nome_prospecto LIKE :term OR c.nome_cliente LIKE :term)";
@@ -59,6 +81,11 @@ if (!empty($search_data_fim)) {
     $data_fim_ajustada = date('Y-m-d', strtotime($search_data_fim . ' +1 day'));
     $where_clauses[] = "p.data_prospeccao < :data_fim";
     $params[':data_fim'] = $data_fim_ajustada;
+}
+
+if (!empty($search_payment_profile)) {
+    $where_clauses[] = 'p.perfil_pagamento = :perfil_pagamento';
+    $params[':perfil_pagamento'] = $search_payment_profile;
 }
 
 
@@ -156,6 +183,15 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                 </select>
             </div>
 
+            <div>
+                <label for="perfil_pagamento" class="block text-sm font-medium text-gray-600 mb-2">Perfil de pagamento</label>
+                <select name="perfil_pagamento" id="perfil_pagamento" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">Todos</option>
+                    <option value="mensalista" <?php echo $search_payment_profile === 'mensalista' ? 'selected' : ''; ?>>Possível mensalista</option>
+                    <option value="avista" <?php echo $search_payment_profile === 'avista' ? 'selected' : ''; ?>>Possível à vista</option>
+                </select>
+            </div>
+
             <!-- Campo de responsável (visível apenas se o perfil não for 'vendedor') -->
             <?php if ($user_perfil !== 'vendedor'): ?>
             <div>
@@ -201,7 +237,8 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prospecto</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lead</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoria do Lead</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Responsável</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Perfil de pagamento</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vínculo com Vendedor</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
                     <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Ações</th>
                 </tr>
@@ -209,7 +246,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
             <tbody class="bg-white divide-y divide-gray-200">
                 <?php if (empty($prospeccoes)): ?>
                     <tr>
-                        <td colspan="6" class="px-6 py-4 text-center text-gray-500">Nenhuma prospecção encontrada com os filtros aplicados.</td>
+                        <td colspan="7" class="px-6 py-4 text-center text-gray-500">Nenhuma prospecção encontrada com os filtros aplicados.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($prospeccoes as $prospeccao): ?>
@@ -224,7 +261,14 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars(formatUppercase($prospeccao['nome_cliente'] ?? null, 'Lead não vinculado')); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars(formatUppercase($prospeccao['leadCategory'] ?? null, 'Entrada')); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars(formatUppercase($prospeccao['nome_responsavel'] ?? null)); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars(formatPaymentProfile($prospeccao['perfil_pagamento'] ?? null)); ?></td>
+                            <?php
+                                $vendorName = $prospeccao['nome_responsavel'] ?? null;
+                                if ($vendorName === null || trim($vendorName) === '') {
+                                    $vendorName = 'Aguardando vendedor';
+                                }
+                            ?>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars(formatUppercase($vendorName)); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo date('d/m/Y', strtotime($prospeccao['data_prospeccao'])); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
                                 <a href="detalhes.php?id=<?php echo $prospeccao['id']; ?>" class="text-indigo-600 hover:text-indigo-900">Detalhes</a>

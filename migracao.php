@@ -21,7 +21,12 @@ $statusMap = [
     'status-fechado'  => 'Concluído',
     'arquivado'       => 'Cancelado',
 ];
-$categoryMap = ['19' => 'Tradução', '20' => 'CRC', '21' => 'Apostilamento', '72' => 'Postagem'];
+$categoryMap = [
+    '19' => 'Tradução',
+    '20' => 'CRC',
+    '21' => 'Apostilamento',
+    '72' => 'Postagem',
+];
 $prazoTipoMap = ['colocar-data' => 'data', 'colocar-dia' => 'dias'];
 
 
@@ -83,7 +88,11 @@ try {
 
             $categoriasServico = [];
             $unserializedCats = @unserialize($meta['jet_tax__tipos-de-servico'] ?? '');
-            if (is_array($unserializedCats)) { foreach ($unserializedCats as $catId) { if (isset($categoryMap[$catId])) $categoriasServico[] = $categoryMap[$catId]; } }
+            if (is_array($unserializedCats)) {
+                foreach ($unserializedCats as $catId) {
+                    $categoriasServico[] = $categoryMap[$catId] ?? 'Outros';
+                }
+            }
 
             // ==================================================================
             // AJUSTES APLICADOS AQUI

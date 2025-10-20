@@ -34,7 +34,7 @@ INSERT INTO categorias_financeiras (
     'RECEITA',
     'Produtos e Serviços',
     150.00,
-    'Traducao',
+    'Outros',
     0,
     1,
     1

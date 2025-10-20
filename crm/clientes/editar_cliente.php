@@ -3,6 +3,7 @@
 
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
+require_once __DIR__ . '/../../app/utils/PhoneUtils.php';
 
 // Valida o ID do cliente na URL
 $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
@@ -34,6 +35,50 @@ try {
 
 } catch (PDOException $e) {
     die("Erro ao buscar dados do lead: " . $e->getMessage());
+}
+
+$telefoneDdi = stripNonDigits((string)($cliente['telefone_ddi'] ?? ''));
+if ($telefoneDdi === '') {
+    $telefoneDdi = '55';
+}
+
+$telefoneInputValue = '';
+$telefoneDigits = stripNonDigits((string)($cliente['telefone'] ?? ''));
+$telefoneDdd = stripNonDigits((string)($cliente['telefone_ddd'] ?? ''));
+$telefoneNumero = stripNonDigits((string)($cliente['telefone_numero'] ?? ''));
+
+if ($telefoneDigits !== '') {
+    if ($telefoneDdd === '' || $telefoneNumero === '') {
+        if ($telefoneDdi !== ''
+            && strpos($telefoneDigits, $telefoneDdi) === 0
+            && strlen($telefoneDigits) > strlen($telefoneDdi)
+        ) {
+            $telefoneDigits = substr($telefoneDigits, strlen($telefoneDdi));
+        }
+
+        try {
+            $parts = extractPhoneParts($telefoneDigits);
+            $telefoneDdd = $parts['ddd'] ?? '';
+            $telefoneNumero = $parts['phone'] ?? '';
+        } catch (Throwable $exception) {
+            $telefoneInputValue = (string)($cliente['telefone'] ?? '');
+        }
+    }
+
+    if ($telefoneInputValue === '' && $telefoneDdd !== '' && $telefoneNumero !== '') {
+        $localNumberLength = strlen($telefoneNumero);
+        if ($localNumberLength > 4) {
+            $localNumber = substr($telefoneNumero, 0, $localNumberLength - 4) . '-' . substr($telefoneNumero, -4);
+        } else {
+            $localNumber = $telefoneNumero;
+        }
+
+        $telefoneInputValue = sprintf('(%s) %s', $telefoneDdd, $localNumber);
+    }
+}
+
+if ($telefoneInputValue === '' && !empty($cliente['telefone'])) {
+    $telefoneInputValue = (string)$cliente['telefone'];
 }
 
 $pageTitle = "Editar Lead";
@@ -72,7 +117,30 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
             </div>
             <div>
                 <label for="telefone" class="block text-sm font-medium text-gray-700">Telefone</label>
-                <input type="tel" name="telefone" id="telefone" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" value="<?php echo htmlspecialchars($cliente['telefone']); ?>">
+                <div class="mt-1 flex items-stretch gap-2">
+                    <div class="w-24">
+                        <input
+                            type="text"
+                            id="telefone_ddi"
+                            name="telefone_ddi"
+                            inputmode="numeric"
+                            pattern="\d{1,4}"
+                            maxlength="4"
+                            value="<?php echo htmlspecialchars($telefoneDdi); ?>"
+                            class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
+                        >
+                    </div>
+                    <div class="flex-1">
+                        <input
+                            type="tel"
+                            name="telefone"
+                            id="telefone"
+                            maxlength="20"
+                            class="mt-0 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
+                            value="<?php echo htmlspecialchars($telefoneInputValue); ?>"
+                        >
+                    </div>
+                </div>
             </div>
             <div>
                 <label for="canal_origem" class="block text-sm font-medium text-gray-700">Canal de Origem</label>
@@ -116,6 +184,41 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
             document.getElementById('formExcluirCliente').submit();
         }
     }
+
+    function aplicarMascaraTelefone(value) {
+        value = value.replace(/\D/g, '');
+        if (value.length <= 10) {
+            value = value.replace(/^(\d{2})(\d)/, '($1) $2');
+            value = value.replace(/(\d{4})(\d)/, '$1-$2');
+        } else {
+            value = value.substring(0, 11);
+            value = value.replace(/^(\d{2})(\d)/, '($1) $2');
+            value = value.replace(/(\d{5})(\d)/, '$1-$2');
+        }
+        return value;
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const telefoneInput = document.getElementById('telefone');
+        const telefoneDdiInput = document.getElementById('telefone_ddi');
+
+        if (telefoneInput) {
+            telefoneInput.addEventListener('input', function (e) {
+                e.target.value = aplicarMascaraTelefone(e.target.value);
+            });
+            telefoneInput.addEventListener('paste', function (e) {
+                setTimeout(() => {
+                    e.target.value = aplicarMascaraTelefone(e.target.value);
+                }, 100);
+            });
+        }
+
+        if (telefoneDdiInput) {
+            telefoneDdiInput.addEventListener('input', function (e) {
+                e.target.value = e.target.value.replace(/\D/g, '').substring(0, 4);
+            });
+        }
+    });
 </script>
 
 <?php 

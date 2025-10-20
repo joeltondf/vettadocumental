@@ -50,6 +50,7 @@ $isEdit = isset($user) && $user;
                                 'gerencia'    => 'Gerência',
                                 'supervisor'  => 'Supervisor',
                                 'financeiro'  => 'Financeiro',
+                                'sdr'         => 'SDR',
                                 'vendedor'    => 'Vendedor',
                                 'colaborador' => 'Colaborador',
                                 'cliente'     => 'Cliente'

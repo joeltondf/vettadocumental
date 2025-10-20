@@ -88,8 +88,8 @@ class VendasController {
         $lancamentoFinanceiroModel = new LancamentoFinanceiro($this->pdo);
         $categoriaModel = new CategoriaFinanceira($this->pdo);
         
-        $produtosAgregados = ['Tradução' => 0, 'CRC' => 0];
-        $idsProdutosAgregados = ['Tradução' => [], 'CRC' => []];
+        $produtosAgregados = ['Tradução' => 0, 'CRC' => 0, 'Outros' => 0];
+        $idsProdutosAgregados = ['Tradução' => [], 'CRC' => [], 'Outros' => []];
 
         foreach ($itens as $item) {
             $categoria = $categoriaModel->getById($item['categoria_id']);
@@ -102,7 +102,18 @@ class VendasController {
                 } elseif ($categoria['servico_tipo'] === 'CRC') {
                     $produtosAgregados['CRC'] += $item['valor'];
                     $idsProdutosAgregados['CRC'][] = $item['id'];
+                } elseif ($categoria['servico_tipo'] === 'Outros') {
+                    $produtosAgregados['Outros'] += $item['valor'];
+                    $idsProdutosAgregados['Outros'][] = $item['id'];
                 }
+
+                if (!array_key_exists($serviceType, $produtosAgregados)) {
+                    $produtosAgregados[$serviceType] = 0.0;
+                    $idsProdutosAgregados[$serviceType] = [];
+                }
+
+                $produtosAgregados[$serviceType] += (float)$item['valor'];
+                $idsProdutosAgregados[$serviceType][] = $item['id'];
             } else {
                 // Comportamento antigo: cria lançamento individual
                 $dadosLancamento = [
@@ -121,24 +132,26 @@ class VendasController {
 
         // Criar lançamentos agregados, se houver
         foreach ($produtosAgregados as $tipoServico => $valorTotal) {
-            if ($valorTotal > 0) {
-                // Encontrar uma categoria correspondente para o lançamento agregado
-                $categoriaAgregada = $categoriaModel->findByServiceType($tipoServico);
-                
-                $dadosLancamentoAgregado = [
-                    'descricao' => $tipoServico . ' — Orçamento #' . $venda_id,
-                    'valor' => $valorTotal,
-                    'data_vencimento' => date('Y-m-d'),
-                    'tipo' => 'RECEITA',
-                    'categoria_id' => $categoriaAgregada ? $categoriaAgregada['id'] : null, // Usa a categoria encontrada
-                    'cliente_id' => $venda['cliente_id'],
-                    'processo_id' => $processo_id,
-                    'status' => 'Pendente',
-                    'eh_agregado' => 1, // Novo campo para identificar
-                    'itens_agregados_ids' => json_encode($idsProdutosAgregados[$tipoServico]) // Salva os IDs dos itens originais
-                ];
-                $lancamentoFinanceiroModel->create($dadosLancamentoAgregado);
+            if ($valorTotal <= 0) {
+                continue;
             }
+
+            // Encontrar uma categoria correspondente para o lançamento agregado
+            $categoriaAgregada = $categoriaModel->findByServiceType($tipoServico);
+
+            $dadosLancamentoAgregado = [
+                'descricao' => $tipoServico . ' — Orçamento #' . $venda_id,
+                'valor' => number_format((float)$valorTotal, 2, '.', ''),
+                'data_vencimento' => date('Y-m-d'),
+                'tipo' => 'RECEITA',
+                'categoria_id' => $categoriaAgregada ? $categoriaAgregada['id'] : null, // Usa a categoria encontrada
+                'cliente_id' => $venda['cliente_id'],
+                'processo_id' => $processo_id,
+                'status' => 'Pendente',
+                'eh_agregado' => 1, // Novo campo para identificar
+                'itens_agregados_ids' => json_encode($idsProdutosAgregados[$tipoServico]) // Salva os IDs dos itens originais
+            ];
+            $lancamentoFinanceiroModel->create($dadosLancamentoAgregado);
         }
 
         $_SESSION['success_message'] = 'Orçamento convertido para serviço com sucesso!';

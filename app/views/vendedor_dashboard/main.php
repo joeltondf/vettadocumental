@@ -56,6 +56,7 @@ if (!function_exists('seller_normalize_status_info')) {
 
 $selectedStatusInfo = seller_normalize_status_info($filters['status'] ?? '');
 $selectedStatusNormalized = $selectedStatusInfo['normalized'];
+$nextLead = $nextLead ?? null;
 ?>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
@@ -73,6 +74,28 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
         <a href="<?php echo $baseAppUrl; ?>/crm/prospeccoes/lista.php" class="inline-flex items-center bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors">
             <i class="fas fa-bullseye mr-2"></i> Ver Prospecções
         </a>
+    </div>
+</div>
+
+<div class="mb-8">
+    <h2 class="text-lg font-semibold text-gray-700 mb-3">Próximo lead</h2>
+    <div class="bg-white p-5 rounded-lg shadow-md border border-gray-200">
+        <?php if ($nextLead): ?>
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <p class="text-sm text-gray-500">Lead</p>
+                    <h3 class="text-xl font-bold text-gray-800"><?php echo htmlspecialchars($nextLead['nome_prospecto'] ?? 'Lead'); ?></h3>
+                    <p class="text-sm text-gray-500 mt-1">Cliente: <?php echo htmlspecialchars($nextLead['nome_cliente'] ?? 'Não informado'); ?></p>
+                    <p class="text-xs text-gray-400 mt-1">Distribuído em <?php echo !empty($nextLead['distributed_at']) ? date('d/m/Y H:i', strtotime($nextLead['distributed_at'])) : '--'; ?></p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <a href="<?php echo $baseAppUrl; ?>/crm/prospeccoes/detalhes.php?id=<?php echo (int) ($nextLead['id'] ?? 0); ?>" class="px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-colors text-sm">Abrir lead</a>
+                    <a href="<?php echo $baseAppUrl; ?>/qualificacao.php?action=create&amp;id=<?php echo (int) ($nextLead['id'] ?? 0); ?>" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm">Registrar avanço</a>
+                </div>
+            </div>
+        <?php else: ?>
+            <p class="text-sm text-gray-500">Nenhum lead pendente para atendimento imediato.</p>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -140,7 +163,7 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
                 <label for="tipo_servico" class="text-sm font-semibold text-gray-700 mb-1 block">Tipo de Serviço</label>
                 <select id="tipo_servico" name="tipo_servico" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg">
                     <option value="">Todos os Tipos</option>
-                    <?php $tipos = ['Tradução', 'CRC', 'Apostilamento', 'Postagem']; foreach($tipos as $tipo): ?>
+                    <?php $tipos = ['Tradução', 'CRC', 'Apostilamento', 'Postagem', 'Outros']; foreach($tipos as $tipo): ?>
                         <option value="<?php echo $tipo; ?>" <?php echo (($filters['tipo_servico'] ?? '') == $tipo) ? 'selected' : ''; ?>><?php echo $tipo; ?></option>
                     <?php endforeach; ?>
                 </select>
@@ -228,11 +251,18 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
                             <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500 text-center"><?php echo $processo['total_documentos_soma']; ?></td>
                             <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
                                 <?php
-                                $servicos = explode(',', $processo['categorias_servico'] ?? '');
-                                $mapServicos = ['Tradução' => 'Trad.', 'CRC' => 'CRC', 'Apostilamento' => 'Apost.', 'Postagem' => 'Post.'];
+                                $servicos = array_filter(array_map('trim', explode(',', $processo['categorias_servico'] ?? '')));
+                                $serviceBadgeMap = [
+                                    'Tradução' => ['label' => 'Trad.', 'class' => 'bg-blue-100 text-blue-800'],
+                                    'CRC' => ['label' => 'CRC', 'class' => 'bg-green-100 text-green-800'],
+                                    'Apostilamento' => ['label' => 'Apost.', 'class' => 'bg-yellow-100 text-yellow-800'],
+                                    'Postagem' => ['label' => 'Post.', 'class' => 'bg-purple-100 text-purple-800'],
+                                    'Outros' => ['label' => 'Out.', 'class' => 'bg-gray-100 text-gray-800'],
+                                ];
                                 foreach ($servicos as $servico) {
-                                    if(isset($mapServicos[$servico])) {
-                                        echo '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 mr-1">' . $mapServicos[$servico] . '</span>';
+                                    if(isset($serviceBadgeMap[$servico])) {
+                                        $badge = $serviceBadgeMap[$servico];
+                                        echo '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ' . $badge['class'] . ' mr-1">' . htmlspecialchars($badge['label']) . '</span>';
                                     }
                                 }
                                 ?>
@@ -370,14 +400,28 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
 
         function formatServices(servicesString) {
             if (!servicesString) return '';
-            const services = servicesString.split(',');
-            const map = {'Tradução': 'Trad.', 'CRC': 'CRC', 'Apostilamento': 'Apost.', 'Postagem': 'Post.'};
-            return services.map(s => {
-                if (map[s]) {
-                    return `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 mr-1">${map[s]}</span>`;
-                }
-                return '';
-            }).join('');
+            const serviceMap = {
+                'Tradução': { label: 'Trad.', class: 'bg-blue-100 text-blue-800' },
+                'CRC': { label: 'CRC', class: 'bg-teal-100 text-teal-800' },
+                'Apostilamento': { label: 'Apost.', class: 'bg-purple-100 text-purple-800' },
+                'Postagem': { label: 'Post.', class: 'bg-orange-100 text-orange-800' },
+                'Outros': { label: 'Out.', class: 'bg-gray-100 text-gray-800' }
+            };
+
+            return servicesString
+                .split(',')
+                .map(service => {
+                    const trimmed = service.trim();
+                    const info = serviceMap[trimmed];
+
+                    if (!info) {
+                        return '';
+                    }
+
+                    return `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${info.class} mr-1">${info.label}</span>`;
+                })
+                .filter(Boolean)
+                .join('');
         }
 
         const normalizeStatus = (status) => {

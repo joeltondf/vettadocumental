@@ -16,6 +16,20 @@ $selectedOwnerParam = $_GET['responsavel_id'] ?? null;
 $filterOnlyUnassigned = false;
 $selectedOwnerId = null;
 
+$paymentProfileLabels = [
+    'mensalista' => 'Possível mensalista',
+    'avista' => 'Possível à vista',
+];
+
+$rawPaymentProfile = $_GET['perfil_pagamento'] ?? '';
+$normalizedPaymentProfile = is_string($rawPaymentProfile)
+    ? mb_strtolower(trim($rawPaymentProfile), 'UTF-8')
+    : '';
+
+if (!array_key_exists($normalizedPaymentProfile, $paymentProfileLabels)) {
+    $normalizedPaymentProfile = '';
+}
+
 if ($isVendor && $userId !== null) {
     $selectedOwnerId = (int)$userId;
 } else {
@@ -56,10 +70,22 @@ try {
             }
         }
     }
-    $hasUnassignedLeads = !$isVendor && $prospectionModel->hasUnassignedKanbanLeads($kanbanColumns);
+    $hasUnassignedLeads = !$isVendor && $prospectionModel->hasUnassignedKanbanLeads($kanbanColumns, $normalizedPaymentProfile ?: null);
 
-    $kanbanLeads = $prospectionModel->getKanbanLeads($kanbanColumns, $selectedOwnerId, $filterOnlyUnassigned);
-    $assignableLeads = $prospectionModel->getLeadsOutsideKanban($kanbanColumns, $selectedOwnerId, $filterOnlyUnassigned);
+    $kanbanLeads = $prospectionModel->getKanbanLeads(
+        $kanbanColumns,
+        $selectedOwnerId,
+        $filterOnlyUnassigned,
+        'responsavel_id',
+        $normalizedPaymentProfile ?: null
+    );
+    $assignableLeads = $prospectionModel->getLeadsOutsideKanban(
+        $kanbanColumns,
+        $selectedOwnerId,
+        $filterOnlyUnassigned,
+        'responsavel_id',
+        $normalizedPaymentProfile ?: null
+    );
 } catch (Throwable $exception) {
     $errorMessage = 'Não foi possível carregar o Kanban. Tente novamente mais tarde.';
     error_log('Kanban error: ' . $exception->getMessage());
@@ -102,6 +128,7 @@ if ($isVendor) {
 
 $assignableLeadsCount = count($assignableLeads ?? []);
 $defaultKanbanDestination = $kanbanColumns[0] ?? '';
+$selectedPaymentProfile = $normalizedPaymentProfile;
 ?>
 
 <style>
@@ -219,13 +246,14 @@ $defaultKanbanDestination = $kanbanColumns[0] ?? '';
         <a href="<?php echo APP_URL; ?>/crm/prospeccoes/lista.php" class="bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">Ver em Lista</a>
     </div>
     <div class="flex flex-wrap items-center gap-3">
-        <?php if ($isVendor): ?>
-            <div class="text-sm text-gray-600 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                <span class="font-semibold text-blue-700">Filtro ativo:</span>
-                <span><?php echo htmlspecialchars($_SESSION['user_nome'] ?? 'Seus leads'); ?></span>
-            </div>
-        <?php else: ?>
-            <form method="get" class="flex items-center gap-2" id="sellerFilterForm">
+        <form method="get" class="flex flex-wrap items-center gap-3" id="kanbanFilterForm">
+            <?php if ($isVendor): ?>
+                <div class="text-sm text-gray-600 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                    <span class="font-semibold text-blue-700">Filtro ativo:</span>
+                    <span><?php echo htmlspecialchars($_SESSION['user_nome'] ?? 'Seus leads'); ?></span>
+                </div>
+                <input type="hidden" name="responsavel_id" value="<?php echo htmlspecialchars($defaultFilterValue, ENT_QUOTES, 'UTF-8'); ?>">
+            <?php else: ?>
                 <label for="sellerFilter" class="text-sm text-gray-700 font-medium">Vendedor</label>
                 <select name="responsavel_id" id="sellerFilter" class="border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="" <?php echo $defaultFilterValue === 'all' ? 'selected' : ''; ?>>Todos os vendedores</option>
@@ -238,13 +266,33 @@ $defaultKanbanDestination = $kanbanColumns[0] ?? '';
                         <option value="none" <?php echo $defaultFilterValue === 'none' ? 'selected' : ''; ?>>Sem responsável</option>
                     <?php endif; ?>
                 </select>
-            </form>
-            <script>
-                document.getElementById('sellerFilter').addEventListener('change', function () {
-                    this.form.submit();
-                });
-            </script>
-        <?php endif; ?>
+            <?php endif; ?>
+
+            <label for="paymentProfileFilter" class="text-sm text-gray-700 font-medium">Perfil de pagamento</label>
+            <select name="perfil_pagamento" id="paymentProfileFilter" class="border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="" <?php echo $selectedPaymentProfile === '' ? 'selected' : ''; ?>>Todos os perfis</option>
+                <?php foreach ($paymentProfileLabels as $value => $label): ?>
+                    <option value="<?php echo htmlspecialchars($value, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedPaymentProfile === $value ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($label, ENT_QUOTES, 'UTF-8'); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </form>
+        <script>
+            (function () {
+                const filterForm = document.getElementById('kanbanFilterForm');
+                const sellerField = document.getElementById('sellerFilter');
+                const paymentField = document.getElementById('paymentProfileFilter');
+
+                if (sellerField) {
+                    sellerField.addEventListener('change', () => filterForm.submit());
+                }
+
+                if (paymentField) {
+                    paymentField.addEventListener('change', () => filterForm.submit());
+                }
+            })();
+        </script>
         <button id="openAddLeadsModal" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" <?php echo $assignableLeadsCount === 0 ? 'disabled' : ''; ?>>Adicionar leads ao Kanban<?php echo $assignableLeadsCount > 0 ? ' (' . $assignableLeadsCount . ')' : ''; ?></button>
         <?php if ($assignableLeadsCount === 0): ?>
             <span class="text-xs text-gray-500">Nenhum lead disponível fora do Kanban para este filtro.</span>
@@ -287,6 +335,11 @@ $defaultKanbanDestination = $kanbanColumns[0] ?? '';
                                     <p class="text-xs text-gray-600 mt-1"><?php echo htmlspecialchars($lead['nome_cliente'] ?? 'Lead não associado'); ?></p>
                                     <?php if (!empty($lead['responsavel_nome'])): ?>
                                         <p class="text-xs text-gray-500 mt-1">Vendedor: <?php echo htmlspecialchars($lead['responsavel_nome']); ?></p>
+                                    <?php endif; ?>
+                                    <?php if (!empty($lead['perfil_pagamento'])): ?>
+                                        <span class="mt-2 inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[0.65rem] font-semibold text-slate-600">
+                                            <?php echo htmlspecialchars($paymentProfileLabels[$lead['perfil_pagamento']] ?? ucfirst($lead['perfil_pagamento']), ENT_QUOTES, 'UTF-8'); ?>
+                                        </span>
                                     <?php endif; ?>
                                 </div>
                                 <input type="checkbox" class="card-checkbox hidden mt-1 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" aria-label="Selecionar lead">
@@ -333,6 +386,11 @@ $defaultKanbanDestination = $kanbanColumns[0] ?? '';
                                     <p class="text-xs text-gray-500">Status atual: <?php echo htmlspecialchars($lead['status'] ?? 'Sem status'); ?></p>
                                     <?php if (!empty($lead['responsavel_nome'])): ?>
                                         <p class="text-xs text-gray-500">Vendedor: <?php echo htmlspecialchars($lead['responsavel_nome']); ?></p>
+                                    <?php endif; ?>
+                                    <?php if (!empty($lead['perfil_pagamento'])): ?>
+                                        <span class="mt-1 inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[0.65rem] font-semibold text-slate-600">
+                                            <?php echo htmlspecialchars($paymentProfileLabels[$lead['perfil_pagamento']] ?? ucfirst($lead['perfil_pagamento']), ENT_QUOTES, 'UTF-8'); ?>
+                                        </span>
                                     <?php endif; ?>
                                 </div>
                             </li>

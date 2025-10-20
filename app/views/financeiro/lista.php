@@ -78,7 +78,7 @@ $formatPeriod = static function (string $period, string $mode): string {
         </div>
     </div>
 
-    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
         <div class="rounded-lg bg-white p-4 shadow">
             <h2 class="text-sm font-medium text-gray-500">Valor total do período</h2>
             <p class="mt-2 text-2xl font-semibold text-blue-600">
@@ -101,6 +101,18 @@ $formatPeriod = static function (string $period, string $mode): string {
             <h2 class="text-sm font-medium text-gray-500">Média por documento</h2>
             <p class="mt-2 text-2xl font-semibold text-purple-600">
                 <?= htmlspecialchars($formatCurrency($overallSummary['media_valor_documento'] ?? 0), ENT_QUOTES, 'UTF-8'); ?>
+            </p>
+        </div>
+        <div class="rounded-lg bg-white p-4 shadow">
+            <h2 class="text-sm font-medium text-gray-500">Comissão do vendedor</h2>
+            <p class="mt-2 text-2xl font-semibold text-amber-600">
+                <?= htmlspecialchars($formatCurrency($overallSummary['total_comissao_vendedor'] ?? 0), ENT_QUOTES, 'UTF-8'); ?>
+            </p>
+        </div>
+        <div class="rounded-lg bg-white p-4 shadow">
+            <h2 class="text-sm font-medium text-gray-500">Comissão do SDR</h2>
+            <p class="mt-2 text-2xl font-semibold text-cyan-600">
+                <?= htmlspecialchars($formatCurrency($overallSummary['total_comissao_sdr'] ?? 0), ENT_QUOTES, 'UTF-8'); ?>
             </p>
         </div>
     </div>
@@ -203,6 +215,8 @@ $formatPeriod = static function (string $period, string $mode): string {
                             <th class="px-4 py-3 text-right">Valor total</th>
                             <th class="px-4 py-3 text-right">Valor recebido</th>
                             <th class="px-4 py-3 text-right">Valor restante</th>
+                            <th class="px-4 py-3 text-right">Comissão vendedor</th>
+                            <th class="px-4 py-3 text-right">Comissão SDR</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 bg-white text-gray-700">
@@ -222,6 +236,12 @@ $formatPeriod = static function (string $period, string $mode): string {
                                 </td>
                                 <td class="px-4 py-3 text-right">
                                     <?= htmlspecialchars($formatCurrency($row['total_valor_restante'] ?? 0), ENT_QUOTES, 'UTF-8'); ?>
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    <?= htmlspecialchars($formatCurrency($row['total_comissao_vendedor'] ?? 0), ENT_QUOTES, 'UTF-8'); ?>
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    <?= htmlspecialchars($formatCurrency($row['total_comissao_sdr'] ?? 0), ENT_QUOTES, 'UTF-8'); ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -245,6 +265,8 @@ $formatPeriod = static function (string $period, string $mode): string {
                         <th class="px-3 py-2 text-right">Desconto</th>
                         <th class="px-3 py-2 text-right">Valor recebido</th>
                         <th class="px-3 py-2 text-right">Valor restante</th>
+                        <th class="px-3 py-2 text-right">Comissão vendedor</th>
+                        <th class="px-3 py-2 text-right">Comissão SDR</th>
                         <th class="px-3 py-2 text-left">Parcelas</th>
                         <th class="px-3 py-2 text-left">Status financeiro</th>
                         <th class="px-3 py-2 text-left">Data pagamento</th>
@@ -254,7 +276,7 @@ $formatPeriod = static function (string $period, string $mode): string {
                 <tbody class="divide-y divide-gray-100 bg-white text-gray-700">
                     <?php if (empty($processos)): ?>
                         <tr>
-                            <td colspan="13" class="px-4 py-6 text-center text-xs text-gray-500">Nenhum processo encontrado para os filtros selecionados.</td>
+                            <td colspan="15" class="px-4 py-6 text-center text-xs text-gray-500">Nenhum processo encontrado para os filtros selecionados.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($processos as $processo):
@@ -272,6 +294,8 @@ $formatPeriod = static function (string $period, string $mode): string {
                             $desconto = $formatCurrency($processo['desconto'] ?? 0);
                             $valorRecebido = $formatCurrency($processo['valor_recebido'] ?? 0);
                             $valorRestante = $formatCurrency($processo['valor_restante'] ?? 0);
+                            $comissaoVendedor = $formatCurrency($processo['total_comissao_vendedor'] ?? 0);
+                            $comissaoSdr = $formatCurrency($processo['total_comissao_sdr'] ?? 0);
                             $rawValorRestanteNumeric = (float) ($processo['valor_restante'] ?? 0);
                             $rawPaymentDate = $processo['data_pagamento'] ?? null;
                             $statusFinanceiro = strtolower((string) ($processo['status_financeiro'] ?? 'pendente'));
@@ -341,6 +365,12 @@ $formatPeriod = static function (string $period, string $mode): string {
                                         data-original-value="<?= htmlspecialchars($valorRestante, ENT_QUOTES, 'UTF-8'); ?>">
                                         <?= htmlspecialchars($valorRestante, ENT_QUOTES, 'UTF-8'); ?>
                                     </span>
+                                </td>
+                                <td class="px-3 py-2 text-right text-slate-700">
+                                    <?= htmlspecialchars($comissaoVendedor, ENT_QUOTES, 'UTF-8'); ?>
+                                </td>
+                                <td class="px-3 py-2 text-right text-slate-700">
+                                    <?= htmlspecialchars($comissaoSdr, ENT_QUOTES, 'UTF-8'); ?>
                                 </td>
                                 <td class="px-3 py-2">
                                     <div class="flex flex-col gap-1 text-[0.7rem] leading-4 text-gray-700">

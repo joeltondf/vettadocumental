@@ -179,14 +179,22 @@ class ProcessosController
         $formData = $this->consumeFormInput(self::SESSION_KEY_PROCESS_FORM);
 
         $categoriaModel = new CategoriaFinanceira($this->pdo);
-        $tipos_traducao = $categoriaModel->getReceitasPorServico('Tradução');
-        $tipos_crc = $categoriaModel->getReceitasPorServico('CRC');
+        $financeiroServicos = [
+            'Tradução' => $categoriaModel->getReceitasPorServico('Tradução'),
+            'CRC' => $categoriaModel->getReceitasPorServico('CRC'),
+            'Apostilamento' => $categoriaModel->getReceitasPorServico('Apostilamento'),
+            'Postagem' => $categoriaModel->getReceitasPorServico('Postagem'),
+            'Outros' => $categoriaModel->getReceitasPorServico('Outros'),
+        ];
+        $tipos_traducao = $financeiroServicos['Tradução'];
+        $tipos_crc = $financeiroServicos['CRC'];
         $this->render('form', [
             'clientes' => $clientes,
             'vendedores' => $vendedores,
             'tradutores' => $tradutores,
             'tipos_traducao' => $tipos_traducao,
             'tipos_crc' => $tipos_crc,
+            'financeiroServicos' => $financeiroServicos,
             'pageTitle' => $pageTitle,
             'formData' => $formData,
             'translationAttachments' => [],
@@ -444,8 +452,23 @@ class ProcessosController
 
         $pageTitle = "Editar Processo: " . htmlspecialchars($processo['titulo']);
         $categoriaModel = new CategoriaFinanceira($this->pdo);
+        $serviceCategories = [
+            'Tradução' => $categoriaModel->getReceitasPorServico('Tradução'),
+            'CRC' => $categoriaModel->getReceitasPorServico('CRC'),
+            'Apostilamento' => $categoriaModel->getReceitasPorServico('Apostilamento'),
+            'Postagem' => $categoriaModel->getReceitasPorServico('Postagem'),
+            'Outros' => $categoriaModel->getReceitasPorServico('Outros'),
+        ];
         $vendedores = $this->vendedorModel->getAll();
         $loggedInVendedor = $this->resolveLoggedInVendedor($vendedores);
+
+        $financeiroServicos = [
+            'Tradução' => $categoriaModel->getReceitasPorServico('Tradução'),
+            'CRC' => $categoriaModel->getReceitasPorServico('CRC'),
+            'Apostilamento' => $categoriaModel->getReceitasPorServico('Apostilamento'),
+            'Postagem' => $categoriaModel->getReceitasPorServico('Postagem'),
+            'Outros' => $categoriaModel->getReceitasPorServico('Outros'),
+        ];
 
         $this->render('form', [
             'processo' => !empty($formData) ? array_merge($processo, $formData) : $processo,
@@ -456,8 +479,9 @@ class ProcessosController
             'clientes' => $this->getClientesForOrcamentoForm($processo),
             'vendedores' => $vendedores,
             'tradutores' => $this->tradutorModel->getAll(),
-            'tipos_traducao' => $categoriaModel->getReceitasPorServico('Tradução'),
-            'tipos_crc' => $categoriaModel->getReceitasPorServico('CRC'),
+            'tipos_traducao' => $financeiroServicos['Tradução'],
+            'tipos_crc' => $financeiroServicos['CRC'],
+            'financeiroServicos' => $financeiroServicos,
             'pageTitle' => $pageTitle,
             'formData' => $formData,
             'loggedInVendedorId' => $loggedInVendedor['id'],
@@ -513,6 +537,7 @@ class ProcessosController
             'CRC' => $categoriaModel->getReceitasPorServico('CRC'),
             'Apostilamento' => $categoriaModel->getReceitasPorServico('Apostilamento'),
             'Postagem' => $categoriaModel->getReceitasPorServico('Postagem'),
+            'Outros' => $categoriaModel->getReceitasPorServico('Outros'),
         ];
         $formData = $this->consumeFormInput(self::SESSION_KEY_SERVICO_FORM);
 

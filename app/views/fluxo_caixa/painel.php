@@ -66,7 +66,7 @@
     <form id="lancamento-form" action="fluxo_caixa.php?action=store" method="POST" class="space-y-6">
         <input type="hidden" name="id" id="lancamento_id">
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="md:col-span-2">
                 <label for="categoria_id" class="block text-sm font-semibold text-gray-700 mb-2">Grupo / Descrição</label>
                 <div class="relative">
@@ -156,28 +156,29 @@
         <h3 class="text-lg font-semibold text-gray-800 mb-4">
             Resumo de Serviços no Período Selecionado (<?= $mesRelatorio ?>)
         </h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                <h4 class="text-md font-semibold text-blue-800">Serviços de Tradução</h4>
-                <p class="text-2xl font-bold text-blue-900 mt-2">
-                    <?= $relatorioServicos['Tradução']['quantidade'] ?>
-                </p>
-                <p class="text-sm text-gray-600">serviços realizados</p>
-                <p class="text-lg font-semibold text-green-700 mt-3">
-                    R$ <?= number_format($relatorioServicos['Tradução']['valor_total'], 2, ',', '.') ?>
-                </p>
-            </div>
-
-            <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
-                <h4 class="text-md font-semibold text-purple-800">Serviços de CRC</h4>
-                <p class="text-2xl font-bold text-purple-900 mt-2">
-                    <?= $relatorioServicos['CRC']['quantidade'] ?>
-                </p>
-                <p class="text-sm text-gray-600">serviços realizados</p>
-                <p class="text-lg font-semibold text-green-700 mt-3">
-                    R$ <?= number_format($relatorioServicos['CRC']['valor_total'], 2, ',', '.') ?>
-                </p>
-            </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <?php
+            $serviceCards = [
+                'Tradução' => ['title' => 'Serviços de Tradução', 'wrapper' => 'bg-blue-50 border-blue-200', 'titleClass' => 'text-blue-800', 'accent' => 'text-blue-900'],
+                'CRC' => ['title' => 'Serviços de CRC', 'wrapper' => 'bg-purple-50 border-purple-200', 'titleClass' => 'text-purple-800', 'accent' => 'text-purple-900'],
+                'Outros' => ['title' => 'Serviços Outros', 'wrapper' => 'bg-gray-50 border-gray-200', 'titleClass' => 'text-gray-800', 'accent' => 'text-gray-900'],
+            ];
+            foreach ($serviceCards as $tipo => $config):
+                $dados = $relatorioServicos[$tipo] ?? ['quantidade' => 0, 'valor_total' => 0];
+            ?>
+                <div class="<?= htmlspecialchars($config['wrapper']); ?> p-4 rounded-lg border">
+                    <h4 class="text-md font-semibold <?= htmlspecialchars($config['titleClass']); ?>">
+                        <?= htmlspecialchars($config['title']); ?>
+                    </h4>
+                    <p class="text-2xl font-bold <?= htmlspecialchars($config['accent']); ?> mt-2">
+                        <?= (int) $dados['quantidade']; ?>
+                    </p>
+                    <p class="text-sm text-gray-600">serviços realizados</p>
+                    <p class="text-lg font-semibold text-green-700 mt-3">
+                        R$ <?= number_format((float) $dados['valor_total'], 2, ',', '.'); ?>
+                    </p>
+                </div>
+            <?php endforeach; ?>
         </div>
     </div>
     <div class="overflow-x-auto bg-white rounded-lg shadow">

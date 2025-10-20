@@ -4,12 +4,12 @@ $isEditMode = false; // Defina como false, pois este é um formulário de criaç
 $return_url = $_SERVER['HTTP_REFERER'] ?? 'processos.php'; // Usa a página anterior ou um padrão seguro.
 $formData = $formData ?? [];
 $cliente_pre_selecionado_id = $_GET['cliente_id'] ?? ($formData['cliente_id'] ?? null);
-$financeiroServicos = $financeiroServicos ?? [
-    'Tradução' => [],
-    'CRC' => [],
-    'Apostilamento' => [],
-    'Postagem' => [],
-];
+$financeiroServicos = $financeiroServicos ?? [];
+$financeiroServicos['Tradução'] = $financeiroServicos['Tradução'] ?? [];
+$financeiroServicos['CRC'] = $financeiroServicos['CRC'] ?? [];
+$financeiroServicos['Apostilamento'] = $financeiroServicos['Apostilamento'] ?? [];
+$financeiroServicos['Postagem'] = $financeiroServicos['Postagem'] ?? [];
+$financeiroServicos['Outros'] = $financeiroServicos['Outros'] ?? [];
 
 $translationAttachments = isset($translationAttachments) && is_array($translationAttachments) ? $translationAttachments : [];
 $crcAttachments = isset($crcAttachments) && is_array($crcAttachments) ? $crcAttachments : [];
@@ -170,25 +170,28 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
                 <label class="block text-sm font-semibold text-gray-700">Serviços Contratados *</label>
                 <div class="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-4">
                     <?php
-                    $servicos_lista = ['Tradução', 'CRC', 'Apostilamento', 'Postagem'];
-                    $slug_map = ['Tradução' => 'tradução', 'CRC' => 'crc', 'Apostilamento' => 'apostilamento', 'Postagem' => 'postagem'];
+                    $servicos_lista = ['Tradução', 'CRC', 'Apostilamento', 'Postagem', 'Outros'];
+                    $slug_map = ['Tradução' => 'tradução', 'CRC' => 'crc', 'Apostilamento' => 'apostilamento', 'Postagem' => 'postagem', 'Outros' => 'outros'];
                     $labelColorMap = [
                         'Tradução' => 'border-blue-300 bg-blue-50 hover:bg-blue-100',
                         'CRC' => 'border-green-300 bg-green-50 hover:bg-green-100',
                         'Apostilamento' => 'border-yellow-300 bg-yellow-50 hover:bg-yellow-100',
                         'Postagem' => 'border-purple-300 bg-purple-50 hover:bg-purple-100',
+                        'Outros' => 'border-gray-300 bg-gray-50 hover:bg-gray-100',
                     ];
                     $checkboxColorMap = [
                         'Tradução' => 'text-blue-600 focus:ring-blue-500',
                         'CRC' => 'text-green-600 focus:ring-green-500',
                         'Apostilamento' => 'text-yellow-600 focus:ring-yellow-500',
                         'Postagem' => 'text-purple-600 focus:ring-purple-500',
+                        'Outros' => 'text-gray-600 focus:ring-gray-500',
                     ];
                     $textColorMap = [
                         'Tradução' => 'text-blue-800',
                         'CRC' => 'text-green-800',
                         'Apostilamento' => 'text-yellow-800',
                         'Postagem' => 'text-purple-800',
+                        'Outros' => 'text-gray-800',
                     ];
                     foreach ($servicos_lista as $servico):
                         $slug = $slug_map[$servico];
@@ -337,6 +340,16 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
         </div>
     </div>
 
+    <div id="section-container-outros" class="bg-gray-50 p-6 rounded-lg shadow-lg border border-gray-200 mt-6" style="display: none;">
+        <div class="space-y-4">
+            <div class="flex items-center justify-between border-b border-gray-200 pb-2">
+                <h2 class="text-xl font-semibold text-gray-800">Serviços Outros</h2>
+                <button type="button" class="add-doc-row bg-gray-600 text-white px-4 py-2 rounded-md text-sm hover:bg-gray-700 transition duration-150 ease-in-out" data-section="outros">Adicionar</button>
+            </div>
+            <div id="documentos-container-outros" class="space-y-4"></div>
+        </div>
+    </div>
+
     <div id="section-container-apostilamento" class="bg-yellow-50 p-6 rounded-lg shadow-lg border border-yellow-200 mt-6" style="display: none;">
         <h2 class="text-xl font-semibold text-yellow-800 border-b border-yellow-200 pb-2">Etapa Apostilamento</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
@@ -370,6 +383,16 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
                 <label for="postagem_valor_total" class="block text-sm font-medium text-gray-700">Valor Total (R$)</label>
                 <input type="text" name="postagem_valor_total" id="postagem_valor_total" value="<?php echo htmlspecialchars($formData['postagem_valor_total'] ?? '0,00'); ?>" class="mt-1 block w-full p-2 border border-purple-300 rounded-md shadow-sm bg-gray-100" readonly>
             </div>
+        </div>
+    </div>
+
+    <div id="section-container-outros" class="bg-gray-50 p-6 rounded-lg shadow-lg border border-gray-200 mt-6" style="display: none;">
+        <div class="space-y-4">
+            <div class="flex items-center justify-between border-b border-gray-200 pb-2">
+                <h2 class="text-xl font-semibold text-gray-800">Outros Serviços</h2>
+                <button type="button" class="add-doc-row bg-gray-600 text-white px-4 py-2 rounded-md text-sm hover:bg-gray-700 transition duration-150 ease-in-out" data-section="outros">Adicionar</button>
+            </div>
+            <div id="documentos-container-outros" class="space-y-4"></div>
         </div>
     </div>
 
@@ -539,6 +562,41 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
 </template>
 
 
+<template id="template-outros">
+    <div class="doc-row grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border border-gray-200 rounded-md bg-gray-50 relative items-end">
+        <input type="hidden" name="documentos[outros][{index}][categoria]" value="Outros">
+        <div>
+            <label class="block text-sm font-medium text-gray-700">Tipo de Documento</label>
+            <select
+                name="documentos[outros][{index}][tipo_documento]"
+                class="servico-select mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2"
+                data-servico-tipo="Outros"
+            >
+                <option value="">Selecione o serviço...</option>
+                <?php foreach ($financeiroServicos['Outros'] as $servicoOutros): ?>
+                    <option value="<?php echo htmlspecialchars($servicoOutros['nome_categoria']); ?>"
+                            data-valor-padrao="<?php echo $servicoOutros['valor_padrao']; ?>"
+                            data-bloqueado="<?php echo $servicoOutros['bloquear_valor_minimo']; ?>">
+                        <?php echo htmlspecialchars($servicoOutros['nome_categoria']); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700">Descrição</label>
+            <input type="text" name="documentos[outros][{index}][nome_documento]" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2" placeholder="Descrição do serviço">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700">Valor</label>
+            <input type="text" name="documentos[outros][{index}][valor_unitario]" class="doc-valor valor-servico mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2" placeholder="0,00">
+        </div>
+        <div class="flex justify-end md:justify-start">
+            <button type="button" class="remove-doc-row bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 text-sm transition duration-150 ease-in-out">Remover</button>
+        </div>
+    </div>
+</template>
+
+
 
 <template id="template-tradução-avista">
     <div class="doc-row grid grid-cols-12 gap-4 items-center">
@@ -568,6 +626,33 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
         </div>
         <div class="col-span-1 text-right">
             <button type="button" class="remove-doc-row text-red-500 hover:text-red-700 font-bold text-xl">&times;</button>
+        </div>
+    </div>
+</template>
+
+<template id="template-outros">
+    <div class="doc-row grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border border-gray-200 rounded-md bg-white relative items-end">
+        <input type="hidden" name="documentos[outros][{index}][categoria]" value="Outros">
+        <div>
+            <label class="block text-sm font-medium text-gray-700">Tipo de Serviço</label>
+            <select
+                name="documentos[outros][{index}][tipo_documento]"
+                class="servico-select mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2"
+                data-servico-tipo="Outros"
+            >
+                <option value="">Selecione o serviço...</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700">Descrição</label>
+            <input type="text" name="documentos[outros][{index}][nome_documento]" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2" placeholder="Detalhes">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700">Valor</label>
+            <input type="text" name="documentos[outros][{index}][valor_unitario]" class="doc-valor valor-servico mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2" placeholder="0,00">
+        </div>
+        <div class="flex justify-end md:justify-start">
+            <button type="button" class="remove-doc-row bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 text-sm transition duration-150 ease-in-out">Remover</button>
         </div>
     </div>
 </template>
@@ -615,7 +700,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const prazoAcordadoDisplay = document.getElementById('prazo-acordado-display');
     const servicosCheckboxes = document.querySelectorAll('.service-checkbox');
     const userPerfil = "<?php echo $_SESSION['user_perfil'] ?? 'colaborador'; ?>";
-    const sectionCounters = { tradução: 0, crc: 0 };
+    const sectionCounters = { tradução: 0, crc: 0, outros: 0 };
     const financeServices = <?php echo json_encode($financeiroServicos, JSON_UNESCAPED_UNICODE); ?>;
     const isGestor = ['admin', 'gerencia', 'supervisor'].includes(userPerfil);
     const minValueAlertMessage = 'Atenção: O valor informado está abaixo do mínimo cadastrado. A supervisão irá validar e o serviço ficará pendente até a aprovação.';
@@ -1108,6 +1193,16 @@ document.addEventListener('DOMContentLoaded', function () {
         const crcContainer = document.getElementById('documentos-container-crc');
         if (crcSectionVisible && crcContainer) {
             crcContainer.querySelectorAll('.doc-row').forEach(row => {
+                totalDocumentos += 1;
+                const valorUnit = parseCurrency(row.querySelector('.doc-valor')?.value || '0');
+                totalGeralCents += Math.round(valorUnit * 100);
+            });
+        }
+
+        const outrosSectionVisible = isSectionVisible('section-container-outros');
+        const outrosContainer = document.getElementById('documentos-container-outros');
+        if (outrosSectionVisible && outrosContainer) {
+            outrosContainer.querySelectorAll('.doc-row').forEach(row => {
                 totalDocumentos += 1;
                 const valorUnit = parseCurrency(row.querySelector('.doc-valor')?.value || '0');
                 totalGeralCents += Math.round(valorUnit * 100);

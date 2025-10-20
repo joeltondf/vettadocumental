@@ -161,7 +161,7 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
                     <label for="tipo_servico" class="text-sm font-semibold text-gray-700 mb-1">Tipo de Serviço</label>
                     <select id="tipo_servico" name="tipo_servico" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition duration-200">
                         <option value="">Todos os Tipos</option>
-                        <?php $tipos = ['Tradução', 'CRC', 'Apostilamento', 'Postagem']; foreach($tipos as $tipo): ?>
+                        <?php $tipos = ['Tradução', 'CRC', 'Apostilamento', 'Postagem', 'Outros']; foreach($tipos as $tipo): ?>
                             <option value="<?php echo $tipo; ?>" <?php echo (($filters['tipo_servico'] ?? '') == $tipo) ? 'selected' : ''; ?>><?php echo $tipo; ?></option>
                         <?php endforeach; ?>
                     </select>
@@ -290,11 +290,18 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
                             </td>
                             <td class="px-3 py-0.5 whitespace-nowrap text-xs text-gray-500">
                                 <?php
-                                $servicos = explode(',', $processo['categorias_servico'] ?? '');
-                                $mapServicos = ['Tradução' => 'Trad.', 'CRC' => 'CRC', 'Apostilamento' => 'Apost.', 'Postagem' => 'Post.'];
+                                $servicos = array_filter(array_map('trim', explode(',', $processo['categorias_servico'] ?? '')));
+                                $serviceBadgeMap = [
+                                    'Tradução' => ['label' => 'Trad.', 'class' => 'bg-blue-100 text-blue-800'],
+                                    'CRC' => ['label' => 'CRC', 'class' => 'bg-green-100 text-green-800'],
+                                    'Apostilamento' => ['label' => 'Apost.', 'class' => 'bg-yellow-100 text-yellow-800'],
+                                    'Postagem' => ['label' => 'Post.', 'class' => 'bg-purple-100 text-purple-800'],
+                                    'Outros' => ['label' => 'Out.', 'class' => 'bg-gray-100 text-gray-800'],
+                                ];
                                 foreach ($servicos as $servico) {
-                                    if(isset($mapServicos[$servico])) {
-                                        echo '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 mr-1">' . $mapServicos[$servico] . '</span>';
+                                    if(isset($serviceBadgeMap[$servico])) {
+                                        $badge = $serviceBadgeMap[$servico];
+                                        echo '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ' . $badge['class'] . ' mr-1">' . htmlspecialchars($badge['label']) . '</span>';
                                     }
                                 }
                                 ?>
@@ -754,11 +761,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         // Lógica para os serviços (replicada do PHP)
                         let servicosHtml = '';
                         if (processo.categorias_servico) {
-                            const servicos = processo.categorias_servico.split(',');
-                            const mapServicos = {'Tradução': 'Trad.', 'CRC': 'CRC', 'Apostilamento': 'Apost.', 'Postagem': 'Post.'};
+                            const mapServicos = {'Tradução': 'Trad.', 'CRC': 'CRC', 'Apostilamento': 'Apost.', 'Postagem': 'Post.', 'Outros': 'Out.'};
+                            const serviceBadgeClassMap = {
+                                'Tradução': 'bg-blue-100 text-blue-800',
+                                'CRC': 'bg-green-100 text-green-800',
+                                'Apostilamento': 'bg-yellow-100 text-yellow-800',
+                                'Postagem': 'bg-purple-100 text-purple-800',
+                                'Outros': 'bg-gray-100 text-gray-800'
+                            };
+                            const servicos = processo.categorias_servico.split(',').map(servico => servico.trim()).filter(Boolean);
                             servicos.forEach(servico => {
                                 if (mapServicos[servico]) {
-                                    servicosHtml += `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 mr-1">${mapServicos[servico]}</span>`;
+                                    const badgeClass = serviceBadgeClassMap[servico] || 'bg-gray-100 text-gray-800';
+                                    servicosHtml += `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${badgeClass} mr-1">${mapServicos[servico]}</span>`;
                                 }
                             });
                         }

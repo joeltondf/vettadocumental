@@ -13,8 +13,100 @@
  */
 
 // Helpers para formatação
-$formatCurrency = fn($value) => 'R$ ' . number_format(floatval($value ?? 0), 2, ',', '.');
+$parseMoney = function ($value): float {
+    if (is_numeric($value)) {
+        return (float)$value;
+    }
+
+    if (is_string($value)) {
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return 0.0;
+        }
+
+        if (strpos($trimmed, ',') !== false) {
+            $normalized = str_replace(['.', ','], ['', '.'], $trimmed);
+            return (float)$normalized;
+        }
+
+        return (float)$trimmed;
+    }
+
+    return 0.0;
+};
+
+$formatCurrency = fn($value) => 'R$ ' . number_format($parseMoney($value), 2, ',', '.');
 $formatDate = fn($date) => $date ? date('d/m/Y', strtotime($date)) : 'N/A';
+
+$budgetItems = [];
+$documentsList = $documents ?? [];
+
+if (!empty($documentsList)) {
+    foreach ($documentsList as $document) {
+        $quantity = (int)($document['quantidade'] ?? 1);
+        $quantity = $quantity > 0 ? $quantity : 1;
+        $unitValue = $parseMoney($document['valor_unitario'] ?? 0);
+        $subtotal = $unitValue * $quantity;
+
+        $categoryLabel = $document['categoria'] ?? null;
+        $title = $document['tipo_documento'] ?? 'Item';
+        if (!empty($categoryLabel) && stripos($title, (string)$categoryLabel) === false) {
+            $title = $categoryLabel . ' — ' . $title;
+        }
+
+        $budgetItems[] = [
+            'title' => $title,
+            'description' => $document['nome_documento'] ?? null,
+            'quantity' => $quantity,
+            'unitValue' => $unitValue,
+            'subtotal' => $subtotal,
+        ];
+    }
+}
+
+$apostilleQuantity = (int)($process['apostilamento_quantidade'] ?? 0);
+$apostilleUnit = $parseMoney($process['apostilamento_valor_unitario'] ?? 0);
+if ($apostilleQuantity > 0 && $apostilleUnit > 0) {
+    $budgetItems[] = [
+        'title' => 'Apostilamento',
+        'description' => null,
+        'quantity' => $apostilleQuantity,
+        'unitValue' => $apostilleUnit,
+        'subtotal' => $apostilleQuantity * $apostilleUnit,
+    ];
+}
+
+$shippingQuantity = (int)($process['postagem_quantidade'] ?? 0);
+$shippingUnit = $parseMoney($process['postagem_valor_unitario'] ?? 0);
+if ($shippingQuantity > 0 && $shippingUnit > 0) {
+    $budgetItems[] = [
+        'title' => 'Envio / Postagem',
+        'description' => null,
+        'quantity' => $shippingQuantity,
+        'unitValue' => $shippingUnit,
+        'subtotal' => $shippingQuantity * $shippingUnit,
+    ];
+}
+
+$total = array_reduce(
+    $budgetItems,
+    static fn($carry, $item) => $carry + ($item['subtotal'] ?? 0),
+    0.0
+);
+
+if ($total <= 0) {
+    $total = $parseMoney($process['valor_total'] ?? 0);
+}
+
+if (empty($budgetItems) && $total > 0) {
+    $budgetItems[] = [
+        'title' => $process['titulo'] ?? 'Serviço',
+        'description' => null,
+        'quantity' => 1,
+        'unitValue' => $total,
+        'subtotal' => $total,
+    ];
+}
 
 $logo_url = null;
 if (!empty($system_logo)) {
@@ -116,34 +208,24 @@ if (!empty($system_logo)) {
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
-                    <?php
-                    $total = 0;
-                    if (!empty($documents)):
-                        foreach ($documents as $doc):
-                            $subtotal = floatval($doc['valor_unitario'] ?? 0) * intval($doc['quantidade'] ?? 1);
-                            $total += $subtotal;
-                    ?>
-                    <tr>
-                        <td class="px-4 py-3">
-                            <p class="font-medium text-gray-800"><?php echo htmlspecialchars($doc['tipo_documento'] ?? 'Item'); ?></p>
-                            <?php if (!empty($doc['nome_documento'])): ?>
-                                <p class="text-sm text-gray-500"><?php echo htmlspecialchars($doc['nome_documento']); ?></p>
-                            <?php endif; ?>
-                        </td>
-                        <td class="px-4 py-3 text-center text-gray-600"><?php echo htmlspecialchars($doc['quantidade'] ?? 1); ?></td>
-                        <td class="px-4 py-3 text-right text-gray-600"><?php echo $formatCurrency($doc['valor_unitario']); ?></td>
-                        <td class="px-4 py-3 text-right text-gray-800 font-medium"><?php echo $formatCurrency($subtotal); ?></td>
-                    </tr>
-                    <?php
-                        endforeach;
-                    else:
-                        // Caso não haja documentos, exibe o valor total do processo
-                        $total = floatval($process['valor_total'] ?? 0);
-                    ?>
-                    <tr>
-                        <td class="px-4 py-3 font-medium text-gray-800" colspan="3"><?php echo htmlspecialchars($process['titulo'] ?? 'Serviço Geral'); ?></td>
-                        <td class="px-4 py-3 text-right text-gray-800 font-medium"><?php echo $formatCurrency($total); ?></td>
-                    </tr>
+                    <?php if (!empty($budgetItems)): ?>
+                        <?php foreach ($budgetItems as $item): ?>
+                            <tr>
+                                <td class="px-4 py-3">
+                                    <p class="font-medium text-gray-800"><?php echo htmlspecialchars($item['title']); ?></p>
+                                    <?php if (!empty($item['description'])): ?>
+                                        <p class="text-sm text-gray-500"><?php echo htmlspecialchars($item['description']); ?></p>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="px-4 py-3 text-center text-gray-600"><?php echo htmlspecialchars($item['quantity']); ?></td>
+                                <td class="px-4 py-3 text-right text-gray-600"><?php echo $formatCurrency($item['unitValue']); ?></td>
+                                <td class="px-4 py-3 text-right text-gray-800 font-medium"><?php echo $formatCurrency($item['subtotal']); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td class="px-4 py-3 text-center text-gray-500" colspan="4">Nenhum item de orçamento informado.</td>
+                        </tr>
                     <?php endif; ?>
                 </tbody>
             </table>

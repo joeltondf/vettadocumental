@@ -39,7 +39,7 @@ if (isset($_SESSION['user_id'])) {
 
     // --- REGRA 1: ACESSO ESTRITO DO VENDEDOR ---
     if ($userProfile === 'vendedor') {
-        
+
         // Lista de páginas na raiz do site que um vendedor PODE acessar.
         $allowedRootPages = [
         'dashboard.php', // << ADICIONADO: Permite processar ações como a de excluir notificação.
@@ -64,12 +64,35 @@ if (isset($_SESSION['user_id'])) {
             exit();
         }
     }
+
+    if ($userProfile === 'sdr') {
+
+        $allowedRootPages = [
+            'sdr_dashboard.php',
+            'qualificacao.php',
+            'login.php'
+        ];
+
+        $isAllowedRootPage = in_array($currentPage, $allowedRootPages, true);
+        $isInCrmFolder = (strpos($_SERVER['PHP_SELF'], '/crm/') !== false);
+
+        if (!$isAllowedRootPage && !$isInCrmFolder) {
+            header('Location: ' . APP_URL . '/sdr_dashboard.php');
+            exit();
+        }
+    }
     
     // --- REGRA 2: PROTEÇÃO DAS PÁGINAS DO VENDEDOR ---
     // Se um usuário que NÃO É vendedor tentar acessar as páginas exclusivas do vendedor...
     $vendorOnlyPages = ['dashboard_vendedor.php', 'relatorio_vendedor.php'];
     if ($userProfile !== 'vendedor' && in_array($currentPage, $vendorOnlyPages)) {
         // ...ele é redirecionado para o seu próprio dashboard principal.
+        header('Location: ' . APP_URL . '/dashboard.php');
+        exit();
+    }
+
+    $sdrOnlyPages = ['sdr_dashboard.php', 'qualificacao.php'];
+    if ($userProfile !== 'sdr' && in_array($currentPage, $sdrOnlyPages, true)) {
         header('Location: ' . APP_URL . '/dashboard.php');
         exit();
     }

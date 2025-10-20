@@ -54,6 +54,7 @@ $pageTitle = 'Produtos de Orçamento';
                         <option value="CRC">CRC</option>
                         <option value="Apostilamento">Apostilamento</option>
                         <option value="Postagem">Postagem</option>
+                        <option value="Outros">Outros</option>
                     </select>
                     <p class="text-xs text-gray-500 mt-1">A seleção determina em quais formulários o produto estará disponível.</p>
                 </div>

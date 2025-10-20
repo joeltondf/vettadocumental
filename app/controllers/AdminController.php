@@ -60,6 +60,7 @@ class AdminController
     public function settings()
     {
         $settings = $this->configModel->getAll();
+        $settings['percentual_sdr'] = $this->getCommissionSettingValue('percentual_sdr', 0.5);
         $pageTitle = "Configurações";
         require_once __DIR__ . '/../views/layouts/header.php';
         require_once __DIR__ . '/../views/admin/settings.php';
@@ -69,7 +70,15 @@ class AdminController
     public function saveSettings()
     {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            foreach ($_POST as $key => $value) {
+            $payload = $_POST;
+
+            if (array_key_exists('percentual_sdr', $payload)) {
+                $normalizedPercentage = $this->normalizeCommissionPercentage($payload['percentual_sdr']);
+                $this->saveCommissionSetting('percentual_sdr', $normalizedPercentage);
+                unset($payload['percentual_sdr']);
+            }
+
+            foreach ($payload as $key => $value) {
                 $this->configModel->save($key, $value);
             }
             $_SESSION['success_message'] = "Configurações salvas com sucesso!";
@@ -118,6 +127,56 @@ class AdminController
     private function persistTvPanelSettings(array $settings): void
     {
         $this->configModel->save(self::TV_PANEL_SETTINGS_KEY, json_encode($settings, JSON_UNESCAPED_UNICODE));
+    }
+
+    private function getCommissionSettingValue(string $key, float $default): float
+    {
+        try {
+            $stmt = $this->pdo->prepare(
+                'SELECT valor FROM configuracoes_comissao WHERE tipo_regra = :key LIMIT 1'
+            );
+            $stmt->execute([':key' => $key]);
+            $value = $stmt->fetchColumn();
+
+            if ($value !== false && $value !== null) {
+                return (float) $value;
+            }
+        } catch (PDOException $exception) {
+            error_log('Erro ao buscar configuração de comissão: ' . $exception->getMessage());
+        }
+
+        return $default;
+    }
+
+    private function saveCommissionSetting(string $key, float $value): void
+    {
+        try {
+            $stmt = $this->pdo->prepare(
+                "INSERT INTO configuracoes_comissao (tipo_regra, valor, ativo) VALUES (:key, :value, 1) " .
+                "ON DUPLICATE KEY UPDATE valor = VALUES(valor), ativo = VALUES(ativo)"
+            );
+            $stmt->execute([
+                ':key' => $key,
+                ':value' => number_format($value, 4, '.', ''),
+            ]);
+        } catch (PDOException $exception) {
+            error_log('Erro ao salvar configuração de comissão: ' . $exception->getMessage());
+        }
+    }
+
+    private function normalizeCommissionPercentage($value): float
+    {
+        if (is_string($value)) {
+            $value = str_replace(['%', ' '], '', $value);
+            $value = str_replace(',', '.', $value);
+        }
+
+        $percentage = (float) $value;
+        if ($percentage < 0) {
+            $percentage = 0.0;
+        }
+
+        return round($percentage, 4);
     }
 
     public function showTvPanel(): void
@@ -713,6 +772,8 @@ class AdminController
         $pageTitle = "Configurações de Aparência";
         $theme_color = $this->configModel->get('theme_color');
         $system_logo = $this->configModel->get('system_logo');
+        $managementPasswordHash = $this->configModel->get('prospection_management_password_hash');
+        $managementPasswordDefined = !empty($managementPasswordHash);
         require_once __DIR__ . '/../views/layouts/header.php';
         require_once __DIR__ . '/../views/admin/configuracoes.php';
         require_once __DIR__ . '/../views/layouts/footer.php';
@@ -783,17 +844,38 @@ public function saveConfiguracoes()
             }
         }
 
+        // 3. Atualiza a senha da gerência, caso informada
+        $managementPassword = $_POST['management_password'] ?? '';
+        $managementPasswordConfirmation = $_POST['management_password_confirmation'] ?? '';
+
+        if ($managementPassword !== '' || $managementPasswordConfirmation !== '') {
+            if ($managementPassword === '' || $managementPasswordConfirmation === '') {
+                $_SESSION['error_message'] = 'Preencha e confirme a senha da gerência.';
+            } elseif ($managementPassword !== $managementPasswordConfirmation) {
+                $_SESSION['error_message'] = 'As senhas da gerência informadas não coincidem.';
+            } elseif (strlen($managementPassword) < 6) {
+                $_SESSION['error_message'] = 'A senha da gerência deve ter pelo menos 6 caracteres.';
+            } else {
+                $hashedPassword = password_hash($managementPassword, PASSWORD_DEFAULT);
+                if ($this->configModel->save('prospection_management_password_hash', $hashedPassword)) {
+                    $changes_made = true;
+                } else {
+                    $_SESSION['error_message'] = 'Não foi possível atualizar a senha da gerência.';
+                }
+            }
+        }
+
         // Define a mensagem final para o utilizador
         if (!isset($_SESSION['error_message'])) {
             if ($changes_made) {
-                $_SESSION['success_message'] = "Configurações de aparência salvas com sucesso!";
+                $_SESSION['success_message'] = "Configurações salvas com sucesso!";
             } else {
                 // Se não houve erro, mas nada foi alterado (ex: clicou em salvar sem mudar nada)
                 $_SESSION['success_message'] = "Nenhuma alteração foi efetuada.";
             }
         }
     }
-    
+
     // Garante o redirecionamento correto para a página de configurações
     header('Location: admin.php?action=config');
     exit();

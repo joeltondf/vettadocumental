@@ -21,6 +21,58 @@ $nome_responsavel = $formValues['nome_responsavel'] ?? '';
 $cpf_cnpj = $formValues['cpf_cnpj'] ?? '';
 $email = $formValues['email'] ?? '';
 $telefone = $formValues['telefone'] ?? '';
+$telefone_ddi = $formValues['telefone_ddi'] ?? '55';
+
+$formatPhoneInputValue = static function (string $ddd, string $phone): string {
+    $dddDigits = stripNonDigits($ddd);
+    $phoneDigits = stripNonDigits($phone);
+
+    if ($dddDigits === '' && $phoneDigits === '') {
+        return '';
+    }
+
+    if ($phoneDigits === '') {
+        return $dddDigits;
+    }
+
+    if ($dddDigits === '') {
+        return $phoneDigits;
+    }
+
+    $length = strlen($phoneDigits);
+    if ($length <= 4) {
+        return sprintf('(%s) %s', $dddDigits, $phoneDigits);
+    }
+
+    $firstPart = substr($phoneDigits, 0, $length - 4);
+    $lastPart = substr($phoneDigits, -4);
+
+    return sprintf('(%s) %s-%s', $dddDigits, $firstPart, $lastPart);
+};
+
+$rawPhoneDigits = stripNonDigits((string) $telefone);
+$rawDdiDigits = stripNonDigits((string) $telefone_ddi);
+
+if ($rawPhoneDigits !== '') {
+    if ($rawDdiDigits !== '' && strpos($rawPhoneDigits, $rawDdiDigits) === 0 && strlen($rawPhoneDigits) > strlen($rawDdiDigits)) {
+        $rawPhoneDigits = substr($rawPhoneDigits, strlen($rawDdiDigits));
+    } elseif ($rawDdiDigits === '' && strlen($rawPhoneDigits) > 11) {
+        $rawDdiDigits = substr($rawPhoneDigits, 0, strlen($rawPhoneDigits) - 11);
+        $rawPhoneDigits = substr($rawPhoneDigits, -11);
+    }
+
+    if (strlen($rawPhoneDigits) > 2) {
+        $dddDigits = substr($rawPhoneDigits, 0, 2);
+        $phoneDigits = substr($rawPhoneDigits, 2);
+        $telefone = $formatPhoneInputValue($dddDigits, $phoneDigits);
+    } else {
+        $telefone = $rawPhoneDigits;
+    }
+}
+
+if ($rawDdiDigits !== '') {
+    $telefone_ddi = $rawDdiDigits;
+}
 $numero = $formValues['numero'] ?? '';
 $bairro = $formValues['bairro'] ?? '';
 $cidade = $formValues['cidade'] ?? '';
@@ -172,7 +224,31 @@ require_once __DIR__ . '/../layouts/header.php';
 
             <div class="cliente-form-col cliente-col-33">
                 <label for="telefone" class="block text-sm font-semibold text-gray-700">Telefone<?php echo $isEdit ? '' : ' *'; ?></label>
-                <input type="text" id="telefone" name="telefone" autocomplete="nope" value="<?php echo htmlspecialchars($telefone); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" maxlength="15"<?php echo $isEdit ? '' : ' required'; ?>>
+                <div class="mt-1 flex items-stretch gap-2">
+                    <div class="w-24">
+                        <input
+                            type="text"
+                            id="telefone_ddi"
+                            name="telefone_ddi"
+                            inputmode="numeric"
+                            pattern="\d{1,4}"
+                            maxlength="4"
+                            value="<?php echo htmlspecialchars($telefone_ddi); ?>"
+                            class="block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                        >
+                    </div>
+                    <div class="flex-1">
+                        <input
+                            type="text"
+                            id="telefone"
+                            name="telefone"
+                            autocomplete="nope"
+                            value="<?php echo htmlspecialchars($telefone); ?>"
+                            class="block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                            maxlength="20"<?php echo $isEdit ? '' : ' required'; ?>
+                        >
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -520,6 +596,7 @@ document.addEventListener('DOMContentLoaded', function() {
             'CRC': 'bg-green-100 text-green-700',
             'Apostilamento': 'bg-yellow-100 text-yellow-700',
             'Postagem': 'bg-purple-100 text-purple-700',
+            'Outros': 'bg-gray-100 text-gray-700',
             'Nenhum': 'bg-gray-200 text-gray-700'
         };
 

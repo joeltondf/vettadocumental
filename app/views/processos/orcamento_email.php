@@ -4,10 +4,29 @@
  * @description Template específico para envio do orçamento por e-mail com estilos inline.
  */
 
-$formatCurrency = function ($value): string {
-    $numericValue = is_numeric($value) ? (float)$value : (float)str_replace(',', '.', (string)$value);
-    return 'R$ ' . number_format($numericValue, 2, ',', '.');
+$parseMoney = function ($value): float {
+    if (is_numeric($value)) {
+        return (float)$value;
+    }
+
+    if (is_string($value)) {
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return 0.0;
+        }
+
+        if (strpos($trimmed, ',') !== false) {
+            $normalized = str_replace(['.', ','], ['', '.'], $trimmed);
+            return (float)$normalized;
+        }
+
+        return (float)$trimmed;
+    }
+
+    return 0.0;
 };
+
+$formatCurrency = fn($value): string => 'R$ ' . number_format($parseMoney($value), 2, ',', '.');
 
 $formatDate = function ($date): string {
     if (empty($date)) {
@@ -24,19 +43,73 @@ if (!empty($system_logo)) {
 }
 
 $documentsList = $documents ?? [];
-$total = 0.0;
+$budgetItems = [];
 
 if (!empty($documentsList)) {
-    foreach ($documentsList as $doc) {
-        $unitValue = isset($doc['valor_unitario']) ? (float)$doc['valor_unitario'] : 0.0;
-        $quantity = (int)($doc['quantidade'] ?? 1);
-        if ($quantity <= 0) {
-            $quantity = 1;
+    foreach ($documentsList as $document) {
+        $quantity = (int)($document['quantidade'] ?? 1);
+        $quantity = $quantity > 0 ? $quantity : 1;
+        $unitValue = $parseMoney($document['valor_unitario'] ?? 0);
+        $subtotal = $unitValue * $quantity;
+
+        $categoryLabel = $document['categoria'] ?? null;
+        $title = $document['tipo_documento'] ?? 'Documento';
+        if (!empty($categoryLabel) && stripos($title, (string)$categoryLabel) === false) {
+            $title = $categoryLabel . ' — ' . $title;
         }
-        $total += $unitValue * $quantity;
+
+        $budgetItems[] = [
+            'title' => $title,
+            'description' => $document['nome_documento'] ?? null,
+            'quantity' => $quantity,
+            'unitValue' => $unitValue,
+            'subtotal' => $subtotal,
+        ];
     }
-} else {
-    $total = (float)($process['valor_total'] ?? 0.0);
+}
+
+$apostilleQuantity = (int)($process['apostilamento_quantidade'] ?? 0);
+$apostilleUnit = $parseMoney($process['apostilamento_valor_unitario'] ?? 0);
+if ($apostilleQuantity > 0 && $apostilleUnit > 0) {
+    $budgetItems[] = [
+        'title' => 'Apostilamento',
+        'description' => null,
+        'quantity' => $apostilleQuantity,
+        'unitValue' => $apostilleUnit,
+        'subtotal' => $apostilleQuantity * $apostilleUnit,
+    ];
+}
+
+$shippingQuantity = (int)($process['postagem_quantidade'] ?? 0);
+$shippingUnit = $parseMoney($process['postagem_valor_unitario'] ?? 0);
+if ($shippingQuantity > 0 && $shippingUnit > 0) {
+    $budgetItems[] = [
+        'title' => 'Envio / Postagem',
+        'description' => null,
+        'quantity' => $shippingQuantity,
+        'unitValue' => $shippingUnit,
+        'subtotal' => $shippingQuantity * $shippingUnit,
+    ];
+}
+
+$total = array_reduce(
+    $budgetItems,
+    static fn($carry, $item) => $carry + ($item['subtotal'] ?? 0),
+    0.0
+);
+
+if ($total <= 0) {
+    $total = $parseMoney($process['valor_total'] ?? 0);
+}
+
+if (empty($budgetItems) && $total > 0) {
+    $budgetItems[] = [
+        'title' => $process['titulo'] ?? 'Serviço',
+        'description' => null,
+        'quantity' => 1,
+        'unitValue' => $total,
+        'subtotal' => $total,
+    ];
 }
 
 $infoRows = [];
@@ -171,33 +244,25 @@ $footerStyle = 'margin-top:24px;font-size:11px;color:#9ca3af;text-align:center;l
                                 </tr>
                             </thead>
                             <tbody>
-                            <?php if (!empty($documentsList)): ?>
-                                <?php foreach ($documentsList as $doc): ?>
-                                    <?php
-                                        $quantity = (int)($doc['quantidade'] ?? 1);
-                                        if ($quantity <= 0) {
-                                            $quantity = 1;
-                                        }
-                                        $unitValue = isset($doc['valor_unitario']) ? (float)$doc['valor_unitario'] : 0.0;
-                                        $subtotal = $unitValue * $quantity;
-                                    ?>
+                            <?php if (!empty($budgetItems)): ?>
+                                <?php foreach ($budgetItems as $item): ?>
                                     <tr>
                                         <td style="<?php echo $tableCellStyle; ?>">
-                                            <span style="display:block;font-weight:600;"><?php echo htmlspecialchars($doc['tipo_documento'] ?? 'Documento'); ?></span>
-                                            <?php if (!empty($doc['nome_documento'])): ?>
+                                            <span style="display:block;font-weight:600;"><?php echo htmlspecialchars($item['title']); ?></span>
+                                            <?php if (!empty($item['description'])): ?>
                                                 <span style="display:block;color:#6b7280;font-size:12px;margin-top:2px;">
-                                                    <?php echo htmlspecialchars($doc['nome_documento']); ?>
+                                                    <?php echo htmlspecialchars($item['description']); ?>
                                                 </span>
                                             <?php endif; ?>
                                         </td>
                                         <td style="<?php echo $tableCellStyle; ?>text-align:center;">
-                                            <?php echo $quantity; ?>
+                                            <?php echo htmlspecialchars($item['quantity']); ?>
                                         </td>
                                         <td style="<?php echo $tableCellStyle; ?>text-align:right;">
-                                            <?php echo $formatCurrency($unitValue); ?>
+                                            <?php echo $formatCurrency($item['unitValue']); ?>
                                         </td>
                                         <td style="<?php echo $tableCellStyle; ?>text-align:right;font-weight:600;">
-                                            <?php echo $formatCurrency($subtotal); ?>
+                                            <?php echo $formatCurrency($item['subtotal']); ?>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>

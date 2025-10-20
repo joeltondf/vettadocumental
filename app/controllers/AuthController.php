@@ -59,6 +59,8 @@ class AuthController
                 // Lógica de redirecionamento por perfil
                 if ($user['perfil'] === 'vendedor') {
                     header('Location: ' . APP_URL . '/dashboard_vendedor.php');
+                } elseif ($user['perfil'] === 'sdr') {
+                    header('Location: ' . APP_URL . '/sdr_dashboard.php');
                 } elseif ($user['perfil'] === 'cliente') {
                     header('Location: ' . APP_URL . '/portal_cliente.php');
                 } else {

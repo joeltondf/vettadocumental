@@ -416,22 +416,28 @@ public function create($data, $files)
                 $processoCompleto = $this->getById($id)['processo'];
                 
                 // Prepara os arrays para agregar os valores
-                $produtosAgregados = ['Tradução' => 0, 'CRC' => 0];
-                $documentosAgregados = ['Tradução' => [], 'CRC' => []];
+                $produtosAgregados = ['Tradução' => 0, 'CRC' => 0, 'Outros' => 0];
+                $documentosAgregados = ['Tradução' => [], 'CRC' => [], 'Outros' => []];
 
                 foreach ($documentosDoProcesso as $doc) {
                     $categoriaFinanceira = $categoriaModel->findReceitaByNome($doc['tipo_documento']);
-                    
+
                     // Verifica se é um 'Produto de Orçamento' para ser agregado
                     if ($categoriaFinanceira && $categoriaFinanceira['eh_produto_orcamento'] == 1) {
                         if ($categoriaFinanceira['servico_tipo'] === 'Tradução') {
                             $produtosAgregados['Tradução'] += $doc['valor_unitario'];
                             // Guarda o documento para referência futura, se necessário
-                            $documentosAgregados['Tradução'][] = $doc; 
+                            $documentosAgregados['Tradução'][] = $doc;
                         } elseif ($categoriaFinanceira['servico_tipo'] === 'CRC') {
                             $produtosAgregados['CRC'] += $doc['valor_unitario'];
                             $documentosAgregados['CRC'][] = $doc;
+                        } elseif ($categoriaFinanceira['servico_tipo'] === 'Outros') {
+                            $produtosAgregados['Outros'] += $doc['valor_unitario'];
+                            $documentosAgregados['Outros'][] = $doc;
                         }
+
+                        $produtosAgregados[$serviceType] += (float)$doc['valor_unitario'];
+                        $documentosAgregados[$serviceType][] = $doc;
                     } else {
                         // Comportamento antigo: cria lançamento individual para itens que não são produtos de orçamento
                         if ($categoriaFinanceira) {
@@ -450,24 +456,29 @@ public function create($data, $files)
                     }
                 }
 
-                // Cria os lançamentos agregados para Tradução e CRC, se houver valor
+                // Cria os lançamentos agregados por tipo de serviço quando houver valor acumulado
                 foreach ($produtosAgregados as $tipoServico => $valorTotal) {
-                    if ($valorTotal > 0) {
-                        $categoriaAgregada = $categoriaModel->findByServiceType($tipoServico);
-                        $dadosLancamentoAgregado = [
-                            'descricao' => $tipoServico . ' — Orçamento #' . $processoCompleto['orcamento_numero'],
-                            'valor' => $valorTotal,
-                            'data_vencimento' => date('Y-m-d'),
-                            'tipo' => 'RECEITA',
-                            'categoria_id' => $categoriaAgregada ? $categoriaAgregada['id'] : null,
-                            'cliente_id' => $processoCompleto['cliente_id'],
-                            'processo_id' => $id,
-                            'status' => 'Pendente',
-                            'eh_agregado' => 1,
-                            'itens_agregados_ids' => json_encode(array_column($documentosAgregados[$tipoServico], 'id'))
-                        ];
-                        $lancamentoModel->create($dadosLancamentoAgregado);
+                    if ($valorTotal <= 0) {
+                        continue;
                     }
+
+                    $categoriaAgregada = $categoriaModel->findByServiceType($tipoServico);
+                    $idsDocumentos = array_column($documentosAgregados[$tipoServico], 'id');
+
+                    $dadosLancamentoAgregado = [
+                        'descricao' => $tipoServico . ' — Orçamento #' . $processoCompleto['orcamento_numero'],
+                        'valor' => number_format((float)$valorTotal, 2, '.', ''),
+                        'data_vencimento' => date('Y-m-d'),
+                        'tipo' => 'RECEITA',
+                        'categoria_id' => $categoriaAgregada ? $categoriaAgregada['id'] : null,
+                        'cliente_id' => $processoCompleto['cliente_id'],
+                        'processo_id' => $id,
+                        'status' => 'Pendente',
+                        'eh_agregado' => 1,
+                        'itens_agregados_ids' => json_encode($idsDocumentos)
+                    ];
+
+                    $lancamentoModel->create($dadosLancamentoAgregado);
                 }
             }
             // --- FIM DA NOVA LÓGICA ---
@@ -998,8 +1009,11 @@ public function create($data, $files)
             : 'COALESCE(p.data_pagamento_1, p.data_pagamento_2) AS data_pagamento';
 
         $selectParts[] = $this->getStatusFinanceiroSelectExpression();
+        $selectParts[] = 'COALESCE(comm.total_comissao_vendedor, 0) AS total_comissao_vendedor';
+        $selectParts[] = 'COALESCE(comm.total_comissao_sdr, 0) AS total_comissao_sdr';
 
-        $sql = 'SELECT ' . implode(",\n               ", $selectParts) . "\n                FROM processos AS p\n                JOIN clientes AS c ON p.cliente_id = c.id\n                LEFT JOIN vendedores AS v ON p.vendedor_id = v.id\n                LEFT JOIN users AS u ON v.user_id = u.id\n                LEFT JOIN formas_pagamento AS fp ON p.forma_pagamento_id = fp.id";
+
+        $sql = 'SELECT ' . implode(",\n               ", $selectParts) . "\n                FROM processos AS p\n                JOIN clientes AS c ON p.cliente_id = c.id\n                LEFT JOIN vendedores AS v ON p.vendedor_id = v.id\n                LEFT JOIN users AS u ON v.user_id = u.id\n                LEFT JOIN formas_pagamento AS fp ON p.forma_pagamento_id = fp.id\n                LEFT JOIN (\n                    SELECT venda_id,\n                           SUM(CASE WHEN tipo_comissao = 'vendedor' THEN valor_comissao ELSE 0 END) AS total_comissao_vendedor,\n                           SUM(CASE WHEN tipo_comissao = 'sdr' THEN valor_comissao ELSE 0 END) AS total_comissao_sdr\n                    FROM comissoes\n                    GROUP BY venda_id\n                ) comm ON comm.venda_id = p.id";
 
         $where = ["p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado')"];
         $params = [];
@@ -1051,14 +1065,12 @@ public function create($data, $files)
      */
     public function getOverallFinancialSummary($start_date, $end_date, array $filters = []): array
     {
-        // --- Constrói a base da query e das cláusulas WHERE ---
         $base_where_sql = " FROM processos p WHERE p.data_criacao BETWEEN :start_date AND :end_date AND p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado')";
         $params = [
             ':start_date' => $start_date . ' 00:00:00',
             ':end_date' => $end_date . ' 23:59:59'
         ];
 
-        // --- Adiciona filtros dinâmicos ---
         if (!empty($filters['vendedor_id'])) {
             $base_where_sql .= " AND p.vendedor_id = :vendedor_id";
             $params[':vendedor_id'] = $filters['vendedor_id'];
@@ -1072,20 +1084,23 @@ public function create($data, $files)
             $params[':cliente_id'] = $filters['cliente_id'];
         }
 
-        // --- Monta as queries finais ---
         $valorRecebidoExpr = $this->getValorRecebidoExpression();
         $valorRestanteExpr = $this->getValorRestanteExpression();
+        $conditionsSql = substr($base_where_sql, strlen(' FROM processos p'));
 
         $sql_totals = "SELECT
                         SUM(COALESCE(p.valor_total, 0)) AS total_valor_total,
                         SUM({$valorRecebidoExpr}) AS total_valor_entrada,
-                        SUM({$valorRestanteExpr}) AS total_valor_restante" . $base_where_sql;
+                        SUM({$valorRestanteExpr}) AS total_valor_restante,
+                        SUM(CASE WHEN c.tipo_comissao = 'vendedor' THEN COALESCE(c.valor_comissao, 0) ELSE 0 END) AS total_comissao_vendedor,
+                        SUM(CASE WHEN c.tipo_comissao = 'sdr' THEN COALESCE(c.valor_comissao, 0) ELSE 0 END) AS total_comissao_sdr
+                FROM processos p
+                LEFT JOIN comissoes c ON c.venda_id = p.id" . $conditionsSql;
 
         $sql_docs_count = "SELECT SUM(d.quantidade)
                            FROM documentos d
                            JOIN processos p ON d.processo_id = p.id " . ltrim($base_where_sql, ' FROM processos p');
-                           // ltrim remove o 'FROM processos p' duplicado na subquery
-        
+
         try {
             $stmt_totals = $this->pdo->prepare($sql_totals);
             $stmt_totals->execute($params);
@@ -1104,11 +1119,20 @@ public function create($data, $files)
                 'total_valor_total'      => $summary['total_valor_total'] ?? 0,
                 'total_valor_entrada'    => $summary['total_valor_entrada'] ?? 0,
                 'total_valor_restante'   => $summary['total_valor_restante'] ?? 0,
+                'total_comissao_vendedor' => $summary['total_comissao_vendedor'] ?? 0,
+                'total_comissao_sdr'     => $summary['total_comissao_sdr'] ?? 0,
                 'media_valor_documento'  => $media_valor_documento,
             ];
         } catch (PDOException $e) {
             error_log("Erro ao buscar resumo financeiro geral: " . $e->getMessage());
-            return ['total_valor_total' => 0, 'total_valor_entrada' => 0, 'total_valor_restante' => 0, 'media_valor_documento' => 0];
+            return [
+                'total_valor_total' => 0,
+                'total_valor_entrada' => 0,
+                'total_valor_restante' => 0,
+                'total_comissao_vendedor' => 0,
+                'total_comissao_sdr' => 0,
+                'media_valor_documento' => 0,
+            ];
         }
     }
 
@@ -1140,8 +1164,17 @@ public function create($data, $files)
                     COUNT(*) AS process_count,
                     SUM(COALESCE(p.valor_total, 0)) AS total_valor_total,
                     SUM({$valorRecebidoExpr}) AS total_valor_recebido,
-                    SUM({$valorRestanteExpr}) AS total_valor_restante
+                    SUM({$valorRestanteExpr}) AS total_valor_restante,
+                    SUM(COALESCE(comm.total_comissao_vendedor, 0)) AS total_comissao_vendedor,
+                    SUM(COALESCE(comm.total_comissao_sdr, 0)) AS total_comissao_sdr
                 FROM processos p
+                LEFT JOIN (
+                    SELECT venda_id,
+                           SUM(CASE WHEN tipo_comissao = 'vendedor' THEN valor_comissao ELSE 0 END) AS total_comissao_vendedor,
+                           SUM(CASE WHEN tipo_comissao = 'sdr' THEN valor_comissao ELSE 0 END) AS total_comissao_sdr
+                    FROM comissoes
+                    GROUP BY venda_id
+                ) comm ON comm.venda_id = p.id
                 WHERE p.data_criacao BETWEEN :start_date AND :end_date
                   AND p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado')";
 
@@ -1176,6 +1209,7 @@ public function create($data, $files)
             return [];
         }
     }
+
 
     public function getStatusFinanceiroOptions(): array
     {
@@ -1582,7 +1616,7 @@ public function create($data, $files)
                     }
 
                     $documents[] = [
-                        'categoria' => $category,
+                        'categoria' => $doc['categoria'] ?? $category,
                         'tipo_documento' => $doc['tipo_documento'] ?? null,
                         'nome_documento' => $doc['nome_documento'] ?? null,
                         'quantidade' => $doc['quantidade'] ?? 1,
@@ -1599,7 +1633,7 @@ public function create($data, $files)
                 }
 
                 $documents[] = [
-                    'categoria' => $doc['categoria'] ?? 'N/A',
+                    'categoria' => $doc['categoria'] ?? 'Outros',
                     'tipo_documento' => $doc['tipo_documento'] ?? null,
                     'nome_documento' => $doc['nome_documento'] ?? null,
                     'quantidade' => $doc['quantidade'] ?? 1,
@@ -1635,7 +1669,17 @@ public function create($data, $files)
 
             $category = isset($doc['categoria']) ? trim((string)$doc['categoria']) : '';
             if ($category === '') {
-                $category = 'N/A';
+                $category = 'Outros';
+            }
+
+            if (strcasecmp($category, 'Outros') === 0) {
+                if ($name === null) {
+                    continue;
+                }
+
+                if ((float)$parsedValue <= 0) {
+                    continue;
+                }
             }
 
             $normalized[] = [
@@ -1964,25 +2008,31 @@ public function create($data, $files)
     public function getRelatorioServicosPorPeriodo($data_inicio, $data_fim) {
         // CORREÇÃO: A consulta agora junta 'processos' com 'documentos' e 'categorias_financeiras'
         // e filtra apenas por status que representam um serviço ativo.
-        $sql = "SELECT 
-                    cf.servico_tipo, 
-                    COUNT(doc.id) AS quantidade, 
+        $serviceTypes = ['Tradução', 'CRC', 'Outros'];
+        $placeholders = implode(', ', array_fill(0, count($serviceTypes), '?'));
+
+        $sql = "SELECT
+                    cf.servico_tipo,
+                    COUNT(doc.id) AS quantidade,
                     SUM(doc.valor_unitario) AS valor_total
                 FROM processos p
                 JOIN documentos doc ON p.id = doc.processo_id
                 JOIN categorias_financeiras cf ON doc.tipo_documento = cf.nome_categoria
-                WHERE 
-                    p.data_criacao BETWEEN :data_inicio AND :data_fim
+                WHERE
+                    p.data_criacao BETWEEN ? AND ?
                     AND p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Concluído', 'Finalizado')
-                    AND cf.servico_tipo IN ('Tradução', 'CRC')
-                GROUP BY 
+                    AND cf.servico_tipo IN ($placeholders)
+                GROUP BY
                     cf.servico_tipo";
 
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute(['data_inicio' => $data_inicio, 'data_fim' => $data_fim]);
-        
-        // A lógica para organizar o resultado permanece a mesma
-        $resultado = ['Tradução' => ['quantidade' => 0, 'valor_total' => 0], 'CRC' => ['quantidade' => 0, 'valor_total' => 0]];
+        $params = array_merge([$data_inicio, $data_fim], $serviceTypes);
+        $stmt->execute($params);
+
+        $resultado = [];
+        foreach ($serviceTypes as $serviceType) {
+            $resultado[$serviceType] = ['quantidade' => 0, 'valor_total' => 0];
+        }
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $resultado[$row['servico_tipo']] = [
                 'quantidade' => (int)$row['quantidade'],

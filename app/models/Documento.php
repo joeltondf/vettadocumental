@@ -8,7 +8,101 @@
 
 class Documento
 {
+    public const SERVICE_CATEGORIES = ['Tradução', 'CRC', 'Apostilamento', 'Postagem', 'Outros'];
+    private const LEGACY_CATEGORIES = ['N/A'];
+    public const DEFAULT_CATEGORY = 'Outros';
+
     private $pdo;
+
+    private function normalizeDecimalValue($value): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_numeric($value)) {
+            return round((float)$value, 2);
+        }
+
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $normalized = str_replace(["R$", "\xc2\xa0", ' '], '', $value);
+        $normalized = trim((string)preg_replace('/[^0-9,.-]/u', '', $normalized));
+
+        if ($normalized === '' || $normalized === '-' || $normalized === '.' || $normalized === ',') {
+            return null;
+        }
+
+        $hasComma = strpos($normalized, ',') !== false;
+        $hasDot = strpos($normalized, '.') !== false;
+
+        if ($hasComma && $hasDot) {
+            $normalized = str_replace('.', '', $normalized);
+            $normalized = str_replace(',', '.', $normalized);
+        } elseif ($hasComma) {
+            $normalized = str_replace(',', '.', $normalized);
+        }
+
+        if (!is_numeric($normalized)) {
+            return null;
+        }
+
+        return round((float)$normalized, 2);
+    }
+
+    private function prepareDocumentPayload(array $data, bool $forUpdate = false): array
+    {
+        $category = isset($data['categoria']) ? trim((string)$data['categoria']) : '';
+        $category = $category === '' ? 'N/A' : $category;
+
+        $type = isset($data['tipo_documento']) ? trim((string)$data['tipo_documento']) : '';
+        if ($type === '') {
+            throw new InvalidArgumentException('Tipo do documento é obrigatório.');
+        }
+
+        $name = isset($data['nome_documento']) ? trim((string)$data['nome_documento']) : '';
+        $name = $name === '' ? null : $name;
+
+        $quantity = isset($data['quantidade']) ? (int)$data['quantidade'] : 1;
+        if ($quantity <= 0) {
+            $quantity = 1;
+        }
+
+        $value = $this->normalizeDecimalValue($data['valor_unitario'] ?? null);
+        if ($value === null) {
+            throw new InvalidArgumentException('Valor do documento é obrigatório.');
+        }
+
+        if (strcasecmp($category, 'Outros') === 0) {
+            if ($name === null) {
+                throw new InvalidArgumentException('Nome do documento é obrigatório para a categoria Outros.');
+            }
+
+            if ($value <= 0) {
+                throw new InvalidArgumentException('Valor do documento deve ser maior que zero para a categoria Outros.');
+            }
+        }
+
+        $payload = [
+            'categoria' => $category,
+            'tipo_documento' => $type,
+            'nome_documento' => $name,
+            'quantidade' => $quantity,
+            'valor_unitario' => number_format($value, 2, '.', ''),
+        ];
+
+        if (!$forUpdate) {
+            if (!isset($data['processo_id'])) {
+                throw new InvalidArgumentException('processo_id é obrigatório.');
+            }
+
+            $payload['processo_id'] = (int)$data['processo_id'];
+        }
+
+        return $payload;
+    }
 
     /**
      * Construtor da classe Documento.
@@ -33,21 +127,25 @@ class Documento
     public function create(array $data)
     {
         try {
-            $sql = "INSERT INTO documentos (processo_id, categoria, tipo_documento, nome_documento, quantidade, valor_unitario) 
+            $payload = $this->prepareDocumentPayload($data, false);
+            $sql = "INSERT INTO documentos (processo_id, categoria, tipo_documento, nome_documento, quantidade, valor_unitario)
                     VALUES (:processo_id, :categoria, :tipo_documento, :nome_documento, :quantidade, :valor_unitario)";
-            
+
             $stmt = $this->pdo->prepare($sql);
-            
+
             $stmt->execute([
-                ':processo_id'      => $data['processo_id'],
-                ':categoria'        => $data['categoria'] ?? 'N/A',
-                ':tipo_documento'   => $data['tipo_documento'] ?? 'N/A',
-                ':nome_documento'   => $data['nome_documento'] ?? null,
-                ':quantidade'       => $data['quantidade'] ?? 1,
-                ':valor_unitario'   => $data['valor_unitario'] ?? 0.00
+                ':processo_id' => $payload['processo_id'],
+                ':categoria' => $payload['categoria'],
+                ':tipo_documento' => $payload['tipo_documento'],
+                ':nome_documento' => $payload['nome_documento'],
+                ':quantidade' => $payload['quantidade'],
+                ':valor_unitario' => $payload['valor_unitario'],
             ]);
-            
+
             return $this->pdo->lastInsertId();
+        } catch (InvalidArgumentException $exception) {
+            error_log('Validação de documento falhou: ' . $exception->getMessage());
+            return false;
         } catch (PDOException $e) {
             error_log("Erro ao criar documento: " . $e->getMessage());
             return false;
@@ -100,24 +198,28 @@ class Documento
     public function update(int $id, array $data)
     {
         try {
-            $sql = "UPDATE documentos SET 
-                        categoria = :categoria, 
-                        tipo_documento = :tipo_documento, 
-                        nome_documento = :nome_documento, 
-                        quantidade = :quantidade, 
+            $payload = $this->prepareDocumentPayload($data, true);
+            $sql = "UPDATE documentos SET
+                        categoria = :categoria,
+                        tipo_documento = :tipo_documento,
+                        nome_documento = :nome_documento,
+                        quantidade = :quantidade,
                         valor_unitario = :valor_unitario 
                     WHERE id = :id";
 
             $stmt = $this->pdo->prepare($sql);
-            
+
             return $stmt->execute([
                 ':id'               => $id,
-                ':categoria'        => $data['categoria'] ?? 'N/A',
-                ':tipo_documento'   => $data['tipo_documento'] ?? 'N/A',
-                ':nome_documento'   => $data['nome_documento'] ?? null,
-                ':quantidade'       => $data['quantidade'] ?? 1,
-                ':valor_unitario'   => $data['valor_unitario'] ?? 0.00
+                ':categoria' => $payload['categoria'],
+                ':tipo_documento' => $payload['tipo_documento'],
+                ':nome_documento' => $payload['nome_documento'],
+                ':quantidade' => $payload['quantidade'],
+                ':valor_unitario' => $payload['valor_unitario'],
             ]);
+        } catch (InvalidArgumentException $exception) {
+            error_log('Validação de documento falhou: ' . $exception->getMessage());
+            return false;
         } catch (PDOException $e) {
             error_log("Erro ao atualizar documento: " . $e->getMessage());
             return false;
@@ -143,4 +245,26 @@ class Documento
     
         
 
+    private function normalizeCategoria($categoria): string
+    {
+        if (!is_string($categoria)) {
+            return self::DEFAULT_CATEGORY;
+        }
+
+        $normalized = trim($categoria);
+
+        if ($normalized === '') {
+            return self::DEFAULT_CATEGORY;
+        }
+
+        if (in_array($normalized, self::SERVICE_CATEGORIES, true)) {
+            return $normalized;
+        }
+
+        if (in_array($normalized, self::LEGACY_CATEGORIES, true)) {
+            return self::DEFAULT_CATEGORY;
+        }
+
+        return self::DEFAULT_CATEGORY;
+    }
 }

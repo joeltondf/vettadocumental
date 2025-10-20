@@ -6,26 +6,28 @@
 
 <div class="bg-white p-6 rounded-lg shadow-lg">
     <form action="admin.php?action=save_settings" method="POST">
+        <p class="text-sm text-gray-500">Utilize esta página para ajustar parâmetros administrativos gerais do CRM.</p>
+        <p class="text-sm text-gray-500 mt-2">As credenciais da integração Omie estão disponíveis em <a href="admin.php?action=omie_settings" class="text-indigo-600 hover:underline">Administração &gt; Integração Omie</a>.</p>
 
-        <div class="mt-6">
-            <h2 class="text-xl font-bold text-gray-800 mb-1">Omie</h2>
-            <p class="text-sm text-gray-500 mb-4">Insira as credenciais da sua aplicação Omie.</p>
+        <div class="mt-10">
+            <h2 class="text-xl font-bold text-gray-800 mb-1">Comissões</h2>
+            <p class="text-sm text-gray-500 mb-4">Defina o percentual da comissão do SDR.</p>
 
             <div class="space-y-4">
                 <div>
-                    <label for="omie_app_key" class="block text-sm font-medium text-gray-700">App Key</label>
-                    <input type="text" name="omie_app_key" id="omie_app_key" 
-                           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" 
-                           value="<?php echo htmlspecialchars($settings['omie_app_key'] ?? ''); ?>"
-                           placeholder="Cole a App Key aqui">
-                </div>
-                
-                <div>
-                    <label for="omie_app_secret" class="block text-sm font-medium text-gray-700">App Secret</label>
-                    <input type="password" name="omie_app_secret" id="omie_app_secret" 
-                           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" 
-                           value="<?php echo htmlspecialchars($settings['omie_app_secret'] ?? ''); ?>"
-                           placeholder="••••••••••••••••••••">
+                    <label for="percentual_sdr" class="block text-sm font-medium text-gray-700">
+                        Percentual SDR (%)
+                    </label>
+                    <input
+                        type="number"
+                        name="percentual_sdr"
+                        id="percentual_sdr"
+                        step="0.01"
+                        min="0"
+                        class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                        value="<?php echo htmlspecialchars(number_format((float) ($settings['percentual_sdr'] ?? 0.5), 2, '.', ''), ENT_QUOTES, 'UTF-8'); ?>"
+                        placeholder="0.50"
+                    >
                 </div>
             </div>
         </div>
