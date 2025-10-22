@@ -202,12 +202,12 @@ require_once __DIR__ . '/../layouts/header.php';
         <div class="cliente-form-row cliente-grid-2">
             <div id="container_nome_cliente" class="cliente-form-col cliente-col-50">
                 <label for="nome_cliente" id="label_nome_cliente" class="block text-sm font-semibold text-gray-700">Nome da Empresa *</label>
-                <input type="text" id="nome_cliente" name="nome_cliente" autocomplete="nope" value="<?php echo htmlspecialchars($nome_cliente); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
+                <input type="text" id="nome_cliente" name="nome_cliente" autocomplete="nope" value="<?php echo htmlspecialchars($nome_cliente); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" maxlength="60" required>
             </div>
 
             <div id="container_nome_responsavel" class="cliente-form-col cliente-col-50">
                 <label for="nome_responsavel" class="block text-sm font-semibold text-gray-700">Nome do Responsável</label>
-                <input type="text" id="nome_responsavel" name="nome_responsavel" autocomplete="nope" value="<?php echo htmlspecialchars($nome_responsavel); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                <input type="text" id="nome_responsavel" name="nome_responsavel" autocomplete="nope" value="<?php echo htmlspecialchars($nome_responsavel); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" maxlength="60">
             </div>
         </div>
 
@@ -255,7 +255,7 @@ require_once __DIR__ . '/../layouts/header.php';
         <div class="cliente-form-row cliente-grid-60-30-10">
             <div class="cliente-form-col cliente-col-60">
                 <label for="endereco" class="block text-sm font-semibold text-gray-700">Endereço *</label>
-                <input type="text" id="endereco" name="endereco" autocomplete="nope" value="<?php echo htmlspecialchars($endereco); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
+                <input type="text" id="endereco" name="endereco" autocomplete="nope" value="<?php echo htmlspecialchars($endereco); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" maxlength="60" required>
             </div>
 
             <div class="cliente-form-col cliente-col-30">

@@ -75,8 +75,8 @@ if (!function_exists('normalizePhone')) {
         }
 
         $length = strlen($digits);
-        if ($length < 8 || $length > 11) {
-            throw new InvalidArgumentException('O telefone deve conter entre 8 e 11 dígitos.');
+        if ($length < 4 || $length > 11) {
+            throw new InvalidArgumentException('O telefone deve conter entre 4 e 11 dígitos.');
         }
 
         if ($length === 11 && $digits[0] !== '9') {
@@ -97,7 +97,7 @@ if (!function_exists('extractPhoneParts')) {
 
         $digits = limitPhoneDigits($digits);
 
-        if (strlen($digits) < 10) {
+        if (strlen($digits) < 6) {
             throw new InvalidArgumentException('Informe o telefone com DDD (ex.: 11 91234-5678).');
         }
 

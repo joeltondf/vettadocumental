@@ -7,13 +7,59 @@ error_reporting(E_ALL);
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
 require_once __DIR__ . '/../../app/models/Cliente.php';
+require_once __DIR__ . '/../../app/models/User.php';
 require_once __DIR__ . '/../../app/utils/PhoneUtils.php';
 
 $clienteModel = new Cliente($pdo);
 $currentUserId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
 $currentUserPerfil = $_SESSION['user_perfil'] ?? '';
-$clientes = $clienteModel->getCrmProspects($currentUserId, $currentUserPerfil);
+$searchQuery = trim($_GET['search'] ?? '');
+$prospectionFilter = $_GET['prospection'] ?? 'all';
+$ownerFilter = null;
+
+if (!in_array($prospectionFilter, ['all', 'prospected', 'unprospected'], true)) {
+    $prospectionFilter = 'all';
+}
+
+if ($currentUserPerfil !== 'vendedor') {
+    $ownerFilter = isset($_GET['owner_id']) && $_GET['owner_id'] !== '' ? (int) $_GET['owner_id'] : null;
+}
+
+$filters = [
+    'search' => $searchQuery,
+    'prospection' => $prospectionFilter,
+    'ownerId' => $ownerFilter,
+];
+
+$clientes = $clienteModel->getCrmProspects($currentUserId, $currentUserPerfil, $filters);
+$statsFilters = ['search' => $searchQuery];
+if ($ownerFilter) {
+    $statsFilters['ownerId'] = $ownerFilter;
+}
+$stats = $clienteModel->getProspectStats($currentUserId, $currentUserPerfil, $statsFilters);
+
+$escapeHtml = static function ($value): string {
+    if ($value === null) {
+        return '';
+    }
+
+    if ($value instanceof Stringable) {
+        return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+    }
+
+    if (is_scalar($value)) {
+        return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+    }
+
+    return '';
+};
+
 $showVendorLinkColumn = in_array($currentUserPerfil, ['admin', 'gerencia', 'supervisor', 'sdr'], true);
+$vendorsForFilter = [];
+if ($currentUserPerfil !== 'vendedor') {
+    $userModel = new User($pdo);
+    $vendorsForFilter = $userModel->getActiveVendors();
+}
 
 $formatLeadPhone = static function (array $cliente): string {
     $rawPhone = $cliente['telefone'] ?? '';
@@ -84,19 +130,73 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                 <li>Leads criados: <?php echo (int)($summary['created'] ?? 0); ?></li>
                 <li>Linhas ignoradas: <?php echo (int)($summary['skipped'] ?? 0); ?></li>
                 <li>Registros duplicados: <?php echo (int)($summary['duplicates'] ?? 0); ?></li>
+                <?php if (isset($summary['discarded'])): ?>
+                    <li>Registros descartados: <?php echo (int)($summary['discarded'] ?? 0); ?></li>
+                <?php endif; ?>
             </ul>
             <?php if (!empty($summary['errors'])): ?>
                 <div class="mt-3 text-sm">
                     <p class="font-semibold">Ocorrências:</p>
                     <ul class="list-disc list-inside space-y-1">
                         <?php foreach ($summary['errors'] as $errorMessage): ?>
-                            <li><?php echo htmlspecialchars($errorMessage); ?></li>
+                            <li><?php echo $escapeHtml($errorMessage); ?></li>
                         <?php endforeach; ?>
                     </ul>
                 </div>
             <?php endif; ?>
         </div>
     <?php endif; ?>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="bg-white shadow rounded-lg p-4 border border-gray-200">
+            <p class="text-sm text-gray-500">Leads cadastrados</p>
+            <p class="text-2xl font-semibold text-gray-800"><?php echo (int) ($stats['total'] ?? 0); ?></p>
+        </div>
+        <div class="bg-white shadow rounded-lg p-4 border border-gray-200">
+            <p class="text-sm text-gray-500">Leads prospectados</p>
+            <p class="text-2xl font-semibold text-emerald-600"><?php echo (int) ($stats['prospected'] ?? 0); ?></p>
+        </div>
+        <div class="bg-white shadow rounded-lg p-4 border border-gray-200">
+            <p class="text-sm text-gray-500">Leads não prospectados</p>
+            <p class="text-2xl font-semibold text-amber-600"><?php echo (int) ($stats['unprospected'] ?? 0); ?></p>
+        </div>
+    </div>
+
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden mb-6">
+        <form method="GET" class="p-6 space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label for="search" class="block text-sm font-medium text-gray-700">Buscar</label>
+                    <input type="text" id="search" name="search" value="<?php echo $escapeHtml($searchQuery); ?>" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nome, e-mail ou telefone">
+                </div>
+                <div>
+                    <label for="prospection" class="block text-sm font-medium text-gray-700">Status de prospecção</label>
+                    <select id="prospection" name="prospection" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="all" <?php echo $prospectionFilter === 'all' ? 'selected' : ''; ?>>Todos</option>
+                        <option value="prospected" <?php echo $prospectionFilter === 'prospected' ? 'selected' : ''; ?>>Prospectados</option>
+                        <option value="unprospected" <?php echo $prospectionFilter === 'unprospected' ? 'selected' : ''; ?>>Não prospectados</option>
+                    </select>
+                </div>
+                <?php if ($currentUserPerfil !== 'vendedor'): ?>
+                    <div>
+                        <label for="owner_id" class="block text-sm font-medium text-gray-700">Responsável</label>
+                        <select id="owner_id" name="owner_id" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Todos</option>
+                            <?php foreach ($vendorsForFilter as $vendor): ?>
+                                <option value="<?php echo (int) $vendor['id']; ?>" <?php echo ($ownerFilter === (int) $vendor['id']) ? 'selected' : ''; ?>>
+                                    <?php echo $escapeHtml($vendor['nome_completo'] ?? null); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                <?php endif; ?>
+            </div>
+            <div class="flex justify-end gap-3">
+                <a href="<?php echo APP_URL; ?>/crm/clientes/lista.php" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Limpar</a>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Filtrar</button>
+            </div>
+        </form>
+    </div>
 
     <div class="bg-white shadow-lg rounded-lg overflow-hidden">
         <div class="overflow-x-auto">
@@ -125,11 +225,11 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                             ?>
                             <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-4 border-b border-gray-200 bg-white text-sm">
-                                    <p class="text-gray-900 whitespace-no-wrap font-medium"><?php echo htmlspecialchars($cliente['nome_cliente']); ?></p>
+                                    <p class="text-gray-900 whitespace-no-wrap font-medium"><?php echo $escapeHtml($cliente['nome_cliente'] ?? null); ?></p>
                                 </td>
                                 <td class="px-6 py-4 border-b border-gray-200 bg-white text-sm">
-                                    <p class="text-gray-900 whitespace-no-wrap"><?php echo htmlspecialchars($cliente['email']); ?></p>
-                                    <p class="text-gray-600 whitespace-no-wrap mt-1"><?php echo htmlspecialchars($formatLeadPhone($cliente)); ?></p>
+                                    <p class="text-gray-900 whitespace-no-wrap"><?php echo $escapeHtml($cliente['email'] ?? null); ?></p>
+                                    <p class="text-gray-600 whitespace-no-wrap mt-1"><?php echo $escapeHtml($formatLeadPhone($cliente)); ?></p>
                                 </td>
                                 <?php if ($showVendorLinkColumn): ?>
                                     <td class="px-6 py-4 border-b border-gray-200 bg-white text-sm">
@@ -137,7 +237,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                                             $ownerName = trim((string) ($cliente['ownerName'] ?? ''));
                                             $ownerLabel = $ownerName !== '' ? $ownerName : 'Sem vínculo';
                                         ?>
-                                        <p class="text-gray-900 whitespace-no-wrap"><?php echo htmlspecialchars($ownerLabel); ?></p>
+                                        <p class="text-gray-900 whitespace-no-wrap"><?php echo $escapeHtml($ownerLabel); ?></p>
                                     </td>
                                 <?php endif; ?>
                                 <td class="px-6 py-4 border-b border-gray-200 bg-white text-sm text-center">

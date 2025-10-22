@@ -29,12 +29,12 @@ $defaultPhoneDdi = '55';
                 
                 <div class="md:col-span-2">
                     <label for="nome_cliente" class="block text-sm font-medium text-gray-700">Nome do Lead / Empresa</label>
-                    <input type="text" name="nome_cliente" id="nome_cliente" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                    <input type="text" name="nome_cliente" id="nome_cliente" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" maxlength="60">
                 </div>
 
                 <div>
                     <label for="nome_responsavel" class="block text-sm font-medium text-gray-700">Nome do Lead Principal <span class="text-gray-500 font-normal">(Opcional)</span></label>
-                    <input type="text" name="nome_responsavel" id="nome_responsavel" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                    <input type="text" name="nome_responsavel" id="nome_responsavel" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" maxlength="60">
                 </div>
                 
                 <div>

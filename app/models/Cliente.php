@@ -12,6 +12,8 @@ class Cliente
     private $pdo;
     private ?bool $integrationCodeColumnAvailable = null;
     private ?bool $conversionDateColumnAvailable = null;
+    private ?bool $conversionUserColumnAvailable = null;
+    private ?bool $crmOwnerColumnAvailable = null;
     private ?array $phoneColumnAvailability = null;
 
     /**
@@ -283,6 +285,66 @@ class Cliente
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function getClientsCreatedByUser(int $userId): array
+    {
+        if ($userId <= 0) {
+            return [];
+        }
+
+        $filters = [];
+        if ($this->hasConversionUserColumn()) {
+            $filters[] = 'usuario_conversao_id = :userId';
+        }
+        if ($this->hasCrmOwnerColumn()) {
+            $filters[] = 'crmOwnerId = :userId';
+        }
+
+        if (empty($filters)) {
+            return [];
+        }
+
+        $sql = sprintf(
+            'SELECT * FROM clientes WHERE is_prospect = 0 AND (%s) ORDER BY nome_cliente',
+            implode(' OR ', $filters)
+        );
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([':userId' => $userId]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function getVendorBudgetClients(int $userId): array
+    {
+        if ($userId <= 0) {
+            return $this->getProspects();
+        }
+
+        $collections = [
+            $this->getProspectsByOwner($userId),
+            $this->getClientsCreatedByUser($userId),
+        ];
+
+        $indexed = [];
+        foreach ($collections as $collection) {
+            foreach ($collection as $cliente) {
+                $id = (int)($cliente['id'] ?? 0);
+                if ($id <= 0) {
+                    continue;
+                }
+
+                $indexed[$id] = $cliente;
+            }
+        }
+
+        $result = array_values($indexed);
+        usort($result, static function (array $first, array $second): int {
+            return strcasecmp($first['nome_cliente'] ?? '', $second['nome_cliente'] ?? '');
+        });
+
+        return $result;
+    }
+
     /**
      * Busca apenas os clientes finais utilizados no sistema principal.
      *
@@ -533,11 +595,71 @@ class Cliente
         return $this->conversionDateColumnAvailable;
     }
 
+    private function hasConversionUserColumn(): bool
+    {
+        if ($this->conversionUserColumnAvailable === null) {
+            $this->conversionUserColumnAvailable = DatabaseSchemaInspector::hasColumn(
+                $this->pdo,
+                'clientes',
+                'usuario_conversao_id'
+            );
+        }
+
+        return $this->conversionUserColumnAvailable;
+    }
+
+    private function hasCrmOwnerColumn(): bool
+    {
+        if ($this->crmOwnerColumnAvailable === null) {
+            $this->crmOwnerColumnAvailable = DatabaseSchemaInspector::hasColumn(
+                $this->pdo,
+                'clientes',
+                'crmOwnerId'
+            );
+        }
+
+        return $this->crmOwnerColumnAvailable;
+    }
+
         /**
      * Busca apenas os clientes que são prospecções (para o CRM).
      */
-    public function getCrmProspects(?int $currentUserId = null, string $currentUserPerfil = '')
+    private function buildProspectFilters(?int $currentUserId, string $currentUserPerfil, array $filters, bool $includeProspectionFilter = true): array
     {
+        $conditions = ['c.is_prospect = 1'];
+        $params = [];
+
+        if ($currentUserPerfil === 'vendedor' && $currentUserId) {
+            $conditions[] = 'c.crmOwnerId = :ownerId';
+            $params[':ownerId'] = $currentUserId;
+        } elseif (!empty($filters['ownerId'])) {
+            $conditions[] = 'c.crmOwnerId = :filterOwner';
+            $params[':filterOwner'] = (int) $filters['ownerId'];
+        }
+
+        if (!empty($filters['search'])) {
+            $conditions[] = '(c.nome_cliente LIKE :searchTerm OR c.nome_responsavel LIKE :searchTerm OR c.email LIKE :searchTerm OR c.telefone LIKE :searchTerm)';
+            $params[':searchTerm'] = '%' . $filters['search'] . '%';
+        }
+
+        if ($includeProspectionFilter) {
+            $prospectionFilter = $filters['prospection'] ?? 'all';
+            if ($prospectionFilter === 'prospected') {
+                $conditions[] = 'EXISTS (SELECT 1 FROM prospeccoes p WHERE p.cliente_id = c.id)';
+            } elseif ($prospectionFilter === 'unprospected') {
+                $conditions[] = 'NOT EXISTS (SELECT 1 FROM prospeccoes p WHERE p.cliente_id = c.id)';
+            }
+        }
+
+        return ['conditions' => $conditions, 'params' => $params];
+    }
+
+    public function getCrmProspects(?int $currentUserId = null, string $currentUserPerfil = '', array $filters = [])
+    {
+        $filterData = $this->buildProspectFilters($currentUserId, $currentUserPerfil, $filters, true);
+        $conditions = $filterData['conditions'];
+        $params = $filterData['params'];
+
         $sql = "SELECT c.*, (
                     SELECT COUNT(*)
                     FROM prospeccoes p
@@ -545,22 +667,54 @@ class Cliente
                 ) AS totalProspeccoes,
                 owner.nome_completo AS ownerName
                 FROM clientes c
-                LEFT JOIN users owner ON owner.id = c.crmOwnerId
-                WHERE c.is_prospect = 1";
+                LEFT JOIN users owner ON owner.id = c.crmOwnerId";
 
-        $params = [];
-
-        if ($currentUserPerfil === 'vendedor' && $currentUserId) {
-            $sql .= " AND c.crmOwnerId = :ownerId";
-            $params[':ownerId'] = $currentUserId;
+        if (!empty($conditions)) {
+            $sql .= ' WHERE ' . implode(' AND ', $conditions);
         }
 
-        $sql .= " ORDER BY c.nome_cliente ASC";
+        $sql .= ' ORDER BY c.nome_cliente ASC';
 
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+        $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function getProspectStats(?int $currentUserId = null, string $currentUserPerfil = '', array $filters = []): array
+    {
+        $baseFilters = $this->buildProspectFilters($currentUserId, $currentUserPerfil, $filters, false);
+        $conditions = $baseFilters['conditions'];
+        $params = $baseFilters['params'];
+
+        $whereClause = !empty($conditions) ? 'WHERE ' . implode(' AND ', $conditions) : '';
+
+        $sqlTotal = "SELECT COUNT(*) FROM clientes c {$whereClause}";
+        $stmtTotal = $this->pdo->prepare($sqlTotal);
+        foreach ($params as $key => $value) {
+            $stmtTotal->bindValue($key, $value);
+        }
+        $stmtTotal->execute();
+        $total = (int) $stmtTotal->fetchColumn();
+
+        $sqlProspected = $sqlTotal . ($whereClause === '' ? ' WHERE ' : ' AND ') . 'EXISTS (SELECT 1 FROM prospeccoes p WHERE p.cliente_id = c.id)';
+        $stmtProspected = $this->pdo->prepare($sqlProspected);
+        foreach ($params as $key => $value) {
+            $stmtProspected->bindValue($key, $value);
+        }
+        $stmtProspected->execute();
+        $prospected = (int) $stmtProspected->fetchColumn();
+
+        $unprospected = max(0, $total - $prospected);
+
+        return [
+            'total' => $total,
+            'prospected' => $prospected,
+            'unprospected' => $unprospected,
+        ];
     }
 
     /**

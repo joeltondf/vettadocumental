@@ -20,6 +20,7 @@ if (!function_exists('process_list_normalize_status')) {
             'serviço em andamento' => 'serviço em andamento',
             'servico em andamento' => 'serviço em andamento',
             'em andamento' => 'serviço em andamento',
+            'aguardando pagamento' => 'aguardando pagamento',
             'finalizado' => 'concluído',
             'finalizada' => 'concluído',
             'concluido' => 'concluído',
@@ -39,6 +40,7 @@ if (!function_exists('process_list_normalize_status')) {
             'orçamento pendente' => 'Orçamento Pendente',
             'serviço pendente' => 'Serviço Pendente',
             'serviço em andamento' => 'Serviço em Andamento',
+            'aguardando pagamento' => 'Aguardando pagamento',
             'concluído' => 'Concluído',
             'cancelado' => 'Cancelado',
         ];
@@ -106,6 +108,9 @@ if (session_status() == PHP_SESSION_NONE) {
                                     break;
                                 case 'serviço em andamento':
                                     $statusClasses = 'bg-cyan-200 text-cyan-900';
+                                    break;
+                                case 'aguardando pagamento':
+                                    $statusClasses = 'bg-indigo-200 text-indigo-900';
                                     break;
                                 case 'concluído':
                                     $statusClasses = 'bg-green-200 text-green-900';

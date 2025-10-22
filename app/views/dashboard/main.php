@@ -3,8 +3,9 @@
 // app/views/dashboard/main.php
 
 // --- Configurações Iniciais ---
-$activeFilters = array_filter($filters ?? []);
-$hasFilters = !empty($activeFilters);
+$hasFilters = $hasFilters ?? false;
+$defaultStatusApplied = $defaultStatusApplied ?? false;
+$listTitle = $listTitle ?? ($hasFilters ? 'Resultados da Busca' : 'Todos os Serviços');
 
 // Definir o limite inicial de processos para exibir no dashboard
 $initialProcessLimit = 50; // Altere este valor conforme necessário
@@ -28,6 +29,7 @@ if (!function_exists('dashboard_normalize_status_info')) {
             'serviço em andamento' => 'serviço em andamento',
             'servico em andamento' => 'serviço em andamento',
             'em andamento' => 'serviço em andamento',
+            'aguardando pagamento' => 'aguardando pagamento',
             'finalizado' => 'concluído',
             'finalizada' => 'concluído',
             'concluido' => 'concluído',
@@ -47,6 +49,7 @@ if (!function_exists('dashboard_normalize_status_info')) {
             'orçamento pendente' => 'Orçamento Pendente',
             'serviço pendente' => 'Serviço Pendente',
             'serviço em andamento' => 'Serviço em Andamento',
+            'aguardando pagamento' => 'Aguardando pagamento',
             'concluído' => 'Concluído',
             'cancelado' => 'Cancelado',
         ];
@@ -59,6 +62,103 @@ if (!function_exists('dashboard_normalize_status_info')) {
 
 $selectedStatusInfo = dashboard_normalize_status_info($filters['status'] ?? '');
 $selectedStatusNormalized = $selectedStatusInfo['normalized'];
+
+if (!function_exists('dashboard_get_aria_sort')) {
+    function dashboard_get_aria_sort(string $sortKey, string $currentSort, string $currentDirection): string
+    {
+        if ($sortKey !== $currentSort) {
+            return 'none';
+        }
+
+        return $currentDirection === 'DESC' ? 'descending' : 'ascending';
+    }
+}
+
+if (!function_exists('dashboard_get_sort_indicator')) {
+    function dashboard_get_sort_indicator(string $sortKey, string $currentSort, string $currentDirection): array
+    {
+        if ($sortKey !== $currentSort) {
+            return ['symbol' => '&#8597;', 'class' => 'text-gray-300'];
+        }
+
+        return [
+            'symbol' => $currentDirection === 'DESC' ? '&#8595;' : '&#8593;',
+            'class' => 'text-blue-500'
+        ];
+    }
+}
+
+if (!function_exists('dashboard_build_sort_url')) {
+    function dashboard_build_sort_url(string $sortKey, array $filters): string
+    {
+        $query = $filters;
+        unset($query['ajax'], $query['offset'], $query['limit']);
+
+        $currentSort = $filters['sort'] ?? '';
+        $currentDirection = strtoupper($filters['direction'] ?? 'ASC');
+        $currentDirection = $currentDirection === 'DESC' ? 'DESC' : 'ASC';
+        $nextDirection = 'ASC';
+
+        if ($currentSort === $sortKey) {
+            $nextDirection = $currentDirection === 'ASC' ? 'DESC' : 'ASC';
+        }
+
+        $query['sort'] = $sortKey;
+        $query['direction'] = $nextDirection;
+
+        $filteredQuery = array_filter(
+            $query,
+            static function ($value) {
+                return $value !== null && $value !== '';
+            }
+        );
+
+        return 'dashboard.php?' . http_build_query($filteredQuery);
+    }
+}
+
+if (!function_exists('dashboard_render_sortable_header')) {
+    function dashboard_render_sortable_header(string $label, string $sortKey, array $filters, string $currentSort, string $currentDirection): string
+    {
+        $url = dashboard_build_sort_url($sortKey, $filters);
+        $indicator = dashboard_get_sort_indicator($sortKey, $currentSort, $currentDirection);
+        $isActive = $sortKey === $currentSort;
+        $textClass = $isActive ? 'text-blue-600' : 'text-gray-500';
+        $arrowClass = 'sort-indicator ' . ($indicator['class'] ?? 'text-gray-300');
+        $baseClasses = 'flex items-center gap-1 group';
+
+        return '<a href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" class="' . $baseClasses . '"><span class="' . $textClass . '">' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</span><span class="' . $arrowClass . '" aria-hidden="true">' . $indicator['symbol'] . '</span></a>';
+    }
+}
+
+if (!function_exists('dashboard_card_classes')) {
+    function dashboard_card_classes(string $cardKey, string $currentCardFilter): string
+    {
+        $base = 'dashboard-card w-full bg-white px-4 py-3 rounded-lg shadow-md flex items-center gap-3 transition duration-200 text-left focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500';
+
+        if ($cardKey === $currentCardFilter) {
+            return $base . ' ring-2 ring-blue-500 ring-offset-2 shadow-lg';
+        }
+
+        return $base . ' hover:shadow-lg';
+    }
+}
+
+$currentSort = $filters['sort'] ?? '';
+$currentDirection = strtoupper($filters['direction'] ?? 'ASC');
+$currentDirection = in_array($currentDirection, ['ASC', 'DESC'], true) ? $currentDirection : 'ASC';
+$cardFilterLabels = [
+    'ativos' => 'Serviços em Andamento',
+    'pendentes' => 'Serviços Pendentes',
+    'orcamentos' => 'Orçamentos Pendentes',
+    'finalizados_mes' => 'Concluídos (Mês)',
+    'atrasados' => 'Serviços Atrasados',
+];
+$currentCardFilter = $filters['filtro_card'] ?? '';
+if (!array_key_exists($currentCardFilter, $cardFilterLabels)) {
+    $currentCardFilter = '';
+}
+$highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defaultStatusApplied ? 'ativos' : '');
 
 ?>
 
@@ -86,26 +186,86 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
 
     <div class="w-full lg:w-[15%]">
         <div class="grid grid-cols-1 sm:grid-cols-1 gap-2">
-            <div class="bg-white px-4 py-2 rounded-lg shadow-md flex items-center">
-                <div class="bg-blue-100 p-2 rounded-full"><svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"></path></svg></div>
-                <div class="ml-2"><p class="text-gray-500 text-xs">Serviços em Andamento</p><p class="text-xl font-bold text-gray-800"><?php echo $dashboardStats['processos_ativos'] ?? 0; ?></p></div>
-            </div>
-            <div class="bg-white px-4 py-2 rounded-lg shadow-md flex items-center">
-                <div class="bg-orange-100 p-2 rounded-full"><svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5 5a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
-                <div class="ml-2"><p class="text-gray-500 text-xs">Serviços Pendentes</p><p class="text-xl font-bold text-gray-800"><?php echo $dashboardStats['servicos_pendentes'] ?? 0; ?></p></div>
-            </div>
-            <div class="bg-white px-4 py-2 rounded-lg shadow-md flex items-center">
-                <div class="bg-yellow-100 p-2 rounded-full"><svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg></div>
-                <div class="ml-2"><p class="text-gray-500 text-xs">Orçamentos Pendentes</p><p class="text-xl font-bold text-gray-800"><?php echo $dashboardStats['orcamentos_pendentes'] ?? 0; ?></p></div>
-            </div>
-            <div class="bg-white px-4 py-2 rounded-lg shadow-md flex items-center">
-                <div class="bg-green-100 p-2 rounded-full"><svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
-                <div class="ml-2"><p class="text-gray-500 text-xs">Concluídos (Mês)</p><p class="text-xl font-bold text-gray-800"><?php echo $dashboardStats['finalizados_mes'] ?? 0; ?></p></div>
-            </div>
-            <div class="bg-white px-4 py-2 rounded-lg shadow-md flex items-center">
-                <div class="bg-red-100 p-2 rounded-full"><svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
-                <div class="ml-2"><p class="text-gray-500 text-xs">Serviços Atrasados</p><p class="text-xl font-bold text-gray-800"><?php echo $dashboardStats['processos_atrasados'] ?? 0; ?></p></div>
-            </div>
+            <?php $isActive = $highlightedCardFilter === 'ativos'; ?>
+            <button type="button"
+                    class="<?php echo dashboard_card_classes('ativos', $highlightedCardFilter); ?>"
+                    data-card-filter="ativos"
+                    aria-pressed="<?php echo $isActive ? 'true' : 'false'; ?>"
+                    title="Filtrar <?php echo htmlspecialchars($cardFilterLabels['ativos'], ENT_QUOTES, 'UTF-8'); ?>">
+                <span class="flex items-center gap-3 w-full">
+                    <span class="bg-blue-100 p-2 rounded-full">
+                        <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"></path></svg>
+                    </span>
+                    <span class="flex-1">
+                        <span class="block text-gray-500 text-xs">Serviços em Andamento</span>
+                        <span class="block text-xl font-bold text-gray-800"><?php echo $dashboardStats['processos_ativos'] ?? 0; ?></span>
+                    </span>
+                </span>
+            </button>
+            <?php $isActive = $highlightedCardFilter === 'pendentes'; ?>
+            <button type="button"
+                    class="<?php echo dashboard_card_classes('pendentes', $highlightedCardFilter); ?>"
+                    data-card-filter="pendentes"
+                    aria-pressed="<?php echo $isActive ? 'true' : 'false'; ?>"
+                    title="Filtrar <?php echo htmlspecialchars($cardFilterLabels['pendentes'], ENT_QUOTES, 'UTF-8'); ?>">
+                <span class="flex items-center gap-3 w-full">
+                    <span class="bg-orange-100 p-2 rounded-full">
+                        <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5 5a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </span>
+                    <span class="flex-1">
+                        <span class="block text-gray-500 text-xs">Serviços Pendentes</span>
+                        <span class="block text-xl font-bold text-gray-800"><?php echo $dashboardStats['servicos_pendentes'] ?? 0; ?></span>
+                    </span>
+                </span>
+            </button>
+            <?php $isActive = $highlightedCardFilter === 'orcamentos'; ?>
+            <button type="button"
+                    class="<?php echo dashboard_card_classes('orcamentos', $highlightedCardFilter); ?>"
+                    data-card-filter="orcamentos"
+                    aria-pressed="<?php echo $isActive ? 'true' : 'false'; ?>"
+                    title="Filtrar <?php echo htmlspecialchars($cardFilterLabels['orcamentos'], ENT_QUOTES, 'UTF-8'); ?>">
+                <span class="flex items-center gap-3 w-full">
+                    <span class="bg-yellow-100 p-2 rounded-full">
+                        <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                    </span>
+                    <span class="flex-1">
+                        <span class="block text-gray-500 text-xs">Orçamentos Pendentes</span>
+                        <span class="block text-xl font-bold text-gray-800"><?php echo $dashboardStats['orcamentos_pendentes'] ?? 0; ?></span>
+                    </span>
+                </span>
+            </button>
+            <?php $isActive = $highlightedCardFilter === 'finalizados_mes'; ?>
+            <button type="button"
+                    class="<?php echo dashboard_card_classes('finalizados_mes', $highlightedCardFilter); ?>"
+                    data-card-filter="finalizados_mes"
+                    aria-pressed="<?php echo $isActive ? 'true' : 'false'; ?>"
+                    title="Filtrar <?php echo htmlspecialchars($cardFilterLabels['finalizados_mes'], ENT_QUOTES, 'UTF-8'); ?>">
+                <span class="flex items-center gap-3 w-full">
+                    <span class="bg-green-100 p-2 rounded-full">
+                        <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </span>
+                    <span class="flex-1">
+                        <span class="block text-gray-500 text-xs">Concluídos (Mês)</span>
+                        <span class="block text-xl font-bold text-gray-800"><?php echo $dashboardStats['finalizados_mes'] ?? 0; ?></span>
+                    </span>
+                </span>
+            </button>
+            <?php $isActive = $highlightedCardFilter === 'atrasados'; ?>
+            <button type="button"
+                    class="<?php echo dashboard_card_classes('atrasados', $highlightedCardFilter); ?>"
+                    data-card-filter="atrasados"
+                    aria-pressed="<?php echo $isActive ? 'true' : 'false'; ?>"
+                    title="Filtrar <?php echo htmlspecialchars($cardFilterLabels['atrasados'], ENT_QUOTES, 'UTF-8'); ?>">
+                <span class="flex items-center gap-3 w-full">
+                    <span class="bg-red-100 p-2 rounded-full">
+                        <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </span>
+                    <span class="flex-1">
+                        <span class="block text-gray-500 text-xs">Serviços Atrasados</span>
+                        <span class="block text-xl font-bold text-gray-800"><?php echo $dashboardStats['processos_atrasados'] ?? 0; ?></span>
+                    </span>
+                </span>
+            </button>
         </div>
     </div>
 
@@ -139,6 +299,9 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
     <div class="w-full lg:w-[50%] bg-white px-5 py-4 rounded-lg shadow-xl border border-gray-200">
         <h4 class="text-xl font-bold text-gray-800 mb-5 border-b pb-2">Filtrar Serviços</h4>
         <form action="dashboard.php" method="GET" id="filter-form">
+            <input type="hidden" name="filtro_card" value="<?php echo htmlspecialchars($filters['filtro_card'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+            <input type="hidden" name="sort" value="<?php echo htmlspecialchars($filters['sort'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+            <input type="hidden" name="direction" value="<?php echo htmlspecialchars($filters['direction'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
                 <div class="flex flex-col">
                     <label for="titulo" class="text-sm font-semibold text-gray-700 mb-1">Serviço</label>
@@ -181,7 +344,7 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
                     <label for="status" class="text-sm font-semibold text-gray-700 mb-1">Status</label>
                     <select id="status" name="status" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition duration-200">
                         <option value="">Todos os Status</option>
-                        <?php $statusOptions = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Concluído', 'Cancelado']; foreach ($statusOptions as $option): ?>
+                    <?php $statusOptions = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Aguardando pagamento', 'Concluído', 'Cancelado']; foreach ($statusOptions as $option): ?>
                             <?php $optionInfo = dashboard_normalize_status_info($option); ?>
                             <option value="<?php echo $optionInfo['label']; ?>" <?php echo ($selectedStatusNormalized === $optionInfo['normalized']) ? 'selected' : ''; ?>><?php echo $optionInfo['label']; ?></option>
                         <?php endforeach; ?>
@@ -223,7 +386,7 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
 
 <div class="bg-white shadow-md rounded-lg mb-6">
     <div class="px-6 py-4 border-b">
-        <h3 class="text-lg font-medium leading-6 text-gray-900"><?php echo $hasFilters ? 'Resultados da Busca' : 'Todos os Serviços'; ?></h3>
+        <h3 class="text-lg font-medium leading-6 text-gray-900"><?php echo htmlspecialchars($listTitle, ENT_QUOTES, 'UTF-8'); ?></h3>
     </div>
     <?php if (empty($processos)): ?>
         <div class="text-center py-12"><p class="text-gray-500">Nenhum Serviço encontrado.</p></div>
@@ -232,13 +395,23 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
             <table class="min-w-full divide-y divide-gray-200 table-auto">
                 <thead class="bg-gray-50 sticky top-0 z-10">
                     <tr>
-                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Família</th>
-                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assessoria</th>
+                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" aria-sort="<?php echo dashboard_get_aria_sort('titulo', $currentSort, $currentDirection); ?>">
+                            <?php echo dashboard_render_sortable_header('Família', 'titulo', $filters, $currentSort, $currentDirection); ?>
+                        </th>
+                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" aria-sort="<?php echo dashboard_get_aria_sort('cliente', $currentSort, $currentDirection); ?>">
+                            <?php echo dashboard_render_sortable_header('Assessoria', 'cliente', $filters, $currentSort, $currentDirection); ?>
+                        </th>
                         <th scope="col" class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Doc.</th>
-                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OS Omie</th>
+                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" aria-sort="<?php echo dashboard_get_aria_sort('omie', $currentSort, $currentDirection); ?>">
+                            <?php echo dashboard_render_sortable_header('OS Omie', 'omie', $filters, $currentSort, $currentDirection); ?>
+                        </th>
                         <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Serviços</th>
-                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entrada</th>
-                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Envio</th>
+                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" aria-sort="<?php echo dashboard_get_aria_sort('dataEntrada', $currentSort, $currentDirection); ?>">
+                            <?php echo dashboard_render_sortable_header('Entrada', 'dataEntrada', $filters, $currentSort, $currentDirection); ?>
+                        </th>
+                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" aria-sort="<?php echo dashboard_get_aria_sort('dataEnvio', $currentSort, $currentDirection); ?>">
+                            <?php echo dashboard_render_sortable_header('Envio', 'dataEnvio', $filters, $currentSort, $currentDirection); ?>
+                        </th>
                         <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prazo</th>
                         <th scope="col" class="relative px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                     </tr>
@@ -259,6 +432,9 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
                                     break;
                                 case 'serviço em andamento':
                                     $rowClass = 'bg-cyan-50 hover:bg-cyan-100';
+                                    break;
+                                case 'aguardando pagamento':
+                                    $rowClass = 'bg-indigo-50 hover:bg-indigo-100';
                                     break;
                                 case 'concluído':
                                     $rowClass = 'bg-purple-50 hover:bg-purple-100';
@@ -316,7 +492,7 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
                                 if ($statusNormalized === 'concluído') {
                                     $texto_tempo = 'Concluído';
                                     $classe_tempo = 'bg-green-100 text-green-800';
-                                } elseif (in_array($statusNormalized, ['cancelado', 'orçamento'], true)) {
+                                } elseif (in_array($statusNormalized, ['cancelado', 'orçamento', 'aguardando pagamento'], true)) {
                                     $texto_tempo = 'N/A';
                                     $classe_tempo = 'text-gray-500';
                                 } else {
@@ -389,7 +565,7 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
         <?php if ($totalProcessesCount > $initialProcessLimit): ?>
             <div class="py-4 text-center flex justify-center">
                 <button id="load-more-processes" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-200 ease-in-out">
-                    Ver mais processos (<?php echo $totalProcessesCount - $initialProcessLimit; ?> restantes)
+                    Ver mais serviços (<?php echo $totalProcessesCount - $initialProcessLimit; ?> restantes)
                 </button>
             </div>
         <?php endif; ?>
@@ -411,6 +587,15 @@ $selectedStatusNormalized = $selectedStatusInfo['normalized'];
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #555;
+}
+
+.dashboard-card {
+    cursor: pointer;
+}
+
+.sort-indicator {
+    font-size: 0.75rem;
+    line-height: 1;
 }
 
 /* Aplicação de estilos Tailwind para inputs e selects (JIT/Custom) */
@@ -464,6 +649,36 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeTooltip = null;
     let showDelayTimeout;
     let hideDelayTimeout;
+
+    const filterForm = document.getElementById('filter-form');
+    const cardFilterInput = filterForm ? filterForm.querySelector('input[name="filtro_card"]') : null;
+    const sortInput = filterForm ? filterForm.querySelector('input[name="sort"]') : null;
+    const directionInput = filterForm ? filterForm.querySelector('input[name="direction"]') : null;
+    const statusSelect = document.getElementById('status');
+
+    document.querySelectorAll('[data-card-filter]').forEach(cardButton => {
+        cardButton.addEventListener('click', () => {
+            if (!filterForm || !cardFilterInput) {
+                return;
+            }
+
+            const selectedFilter = cardButton.dataset.cardFilter ?? '';
+            const currentValue = cardFilterInput.value;
+            const nextValue = currentValue === selectedFilter ? '' : selectedFilter;
+
+            cardFilterInput.value = nextValue;
+
+            if (statusSelect) {
+                statusSelect.value = '';
+            }
+
+            if (sortInput && directionInput && !sortInput.value) {
+                directionInput.value = '';
+            }
+
+            filterForm.submit();
+        });
+    });
 
     // Classe CSS para o tooltip dinâmico (Tailwind)
     const TOOLTIP_CLASSES = `
@@ -703,6 +918,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'serviço em andamento': 'serviço em andamento',
             'servico em andamento': 'serviço em andamento',
             'em andamento': 'serviço em andamento',
+            'aguardando pagamento': 'aguardando pagamento',
             'finalizado': 'concluído',
             'finalizada': 'concluído',
             'concluido': 'concluído',
@@ -720,7 +936,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (loadMoreButton) {
         // Atualiza o texto do botão ou o esconde se não houver mais processos
         if (totalAvailableProcesses > currentLoadedProcesses) {
-            loadMoreButton.textContent = `Ver mais Serviços (${totalAvailableProcesses - currentLoadedProcesses} restantes)`;
+            loadMoreButton.textContent = `Ver mais serviços (${totalAvailableProcesses - currentLoadedProcesses} restantes)`;
             loadMoreButton.style.display = 'block';
         } else {
             loadMoreButton.style.display = 'none';
@@ -787,7 +1003,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (normalizedStatus === 'concluído') {
                             texto_prazo_js = 'Concluído';
                             classe_prazo_js = 'bg-green-100 text-green-800';
-                        } else if (['cancelado', 'orçamento'].includes(normalizedStatus)) {
+                        } else if (['cancelado', 'orçamento', 'aguardando pagamento'].includes(normalizedStatus)) {
                             texto_prazo_js = 'N/A';
                             classe_prazo_js = 'text-gray-500';
                         } else {

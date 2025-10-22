@@ -154,7 +154,10 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
                                     $isSelected = ($cliente_pre_selecionado_id == $cliente['id']);
                                     echo $isSelected ? 'selected' : '';
                                 ?>>
-                                <?php echo htmlspecialchars($cliente['nome_cliente']); ?>
+                                <?php
+                                    $displayName = $cliente['budgetDisplayName'] ?? ($cliente['nome_cliente'] ?? '');
+                                    echo htmlspecialchars($displayName);
+                                ?>
                             </option>
                         <?php endforeach; ?>
                     </select>

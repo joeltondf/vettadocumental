@@ -45,6 +45,10 @@ runTest('normalizePhone trims country code when present', function (): void {
     assertEquals('912345678', normalizePhone('+55 (11) 91234-5678'));
 }, $tests);
 
+runTest('normalizePhone accepts short phone numbers', function (): void {
+    assertEquals('1234', normalizePhone('1234'));
+}, $tests);
+
 runTest('normalizeDDI removes non-digits and validates length', function (): void {
     assertEquals('351', normalizeDDI('+351'));
 }, $tests);
@@ -53,6 +57,12 @@ runTest('extractPhoneParts returns digits without country code', function (): vo
     $parts = extractPhoneParts('+55 (21) 3456-7890');
     assertEquals('21', $parts['ddd']);
     assertEquals('34567890', $parts['phone']);
+}, $tests);
+
+runTest('extractPhoneParts handles short local numbers', function (): void {
+    $parts = extractPhoneParts('(11) 1234');
+    assertEquals('11', $parts['ddd']);
+    assertEquals('1234', $parts['phone']);
 }, $tests);
 
 runTest('formatInternationalPhone builds human readable string', function (): void {

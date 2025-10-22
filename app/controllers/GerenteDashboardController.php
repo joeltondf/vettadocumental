@@ -21,6 +21,9 @@ class GerenteDashboardController
         $dataInicio = $_GET['data_inicio'] ?? null;
         $dataFim    = $_GET['data_fim']    ?? null;
 
+        $startDate = $this->normalizeDate($dataInicio);
+        $endDate   = $this->normalizeDate($dataFim);
+
         // Lista todos os vendedores
         $vendedores = $vendedorModel->getAll();
         $performance = [];
@@ -56,7 +59,6 @@ class GerenteDashboardController
                 'total_vendas'    => $totalVendas,
                 'novos_leads_mes' => $prospecStats['novos_leads_mes'],
                 'taxa_conversao'  => $prospecStats['taxa_conversao'],
-                // Você pode incluir mais indicadores aqui conforme necessidade
             ];
         }
             $stmt = $this->pdo->prepare("
@@ -115,7 +117,7 @@ class GerenteDashboardController
                 JOIN users u ON v.user_id = u.id
                 LEFT JOIN processos p
                     ON v.id = p.vendedor_id
-                    AND p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento')
+                    AND p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Aguardando pagamento')
                 GROUP BY v.id, u.nome_completo
             ");
             $stmt->execute();
@@ -124,6 +126,11 @@ class GerenteDashboardController
             $valoresPrevisto = array_column($dadosPrevistos, 'valor_previsto');
 
 
+        $sdrSummary = $prospeccaoModel->getSdrWorkSummary($startDate, $endDate);
+        $sdrVendorSummary = $prospeccaoModel->getSdrVendorConversionSummary($startDate, $endDate);
+        $vendorCommissionReport = $processoModel->getVendorCommissionSummary($startDate, $endDate);
+        $budgetOverview = $processoModel->getBudgetPipelineSummary($startDate, $endDate);
+
         // Nome da página para a view
         $pageTitle = 'Painel de Gestão';
 
@@ -131,5 +138,16 @@ class GerenteDashboardController
         require_once __DIR__ . '/../views/layouts/header.php';
         require_once __DIR__ . '/../views/gerente_dashboard/main.php';
         require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+
+    private function normalizeDate(?string $date): ?string
+    {
+        if (empty($date)) {
+            return null;
+        }
+
+        $parsed = \DateTime::createFromFormat('Y-m-d', $date);
+
+        return $parsed instanceof \DateTime ? $parsed->format('Y-m-d') : null;
     }
 }

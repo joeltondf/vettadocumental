@@ -166,6 +166,7 @@ class VendedorDashboardController
             'serviço em andamento' => 'serviço em andamento',
             'servico em andamento' => 'serviço em andamento',
             'em andamento' => 'serviço em andamento',
+            'aguardando pagamento' => 'aguardando pagamento',
             'finalizado' => 'concluído',
             'finalizada' => 'concluído',
             'concluido' => 'concluído',
@@ -185,6 +186,7 @@ class VendedorDashboardController
             'orçamento pendente' => 'Orçamento Pendente',
             'serviço pendente' => 'Serviço Pendente',
             'serviço em andamento' => 'Serviço em Andamento',
+            'aguardando pagamento' => 'Aguardando pagamento',
             'concluído' => 'Concluído',
             'cancelado' => 'Cancelado',
         ];

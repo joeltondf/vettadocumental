@@ -33,6 +33,39 @@ class DashboardController
         $vendedorModel = new Vendedor($this->pdo);
 
         $filters = $_GET ?? [];
+        $sortOptions = ['titulo', 'cliente', 'omie', 'dataEntrada', 'dataEnvio'];
+        $allowedDirections = ['ASC', 'DESC'];
+
+        if (!empty($filters['sort']) && !in_array($filters['sort'], $sortOptions, true)) {
+            unset($filters['sort']);
+        }
+
+        if (!empty($filters['direction'])) {
+            $direction = strtoupper((string)$filters['direction']);
+            if (!in_array($direction, $allowedDirections, true)) {
+                unset($filters['direction']);
+            } else {
+                $filters['direction'] = $direction;
+            }
+        }
+
+        if (empty($filters['sort']) && isset($filters['direction'])) {
+            unset($filters['direction']);
+        }
+
+        if (!empty($filters['sort']) && empty($filters['direction'])) {
+            $filters['direction'] = 'ASC';
+        }
+        $defaultStatusApplied = false;
+        $defaultStatusLabel = 'Serviço em Andamento';
+
+        $hasCardFilter = !empty($filters['filtro_card'] ?? '');
+        $isAjaxRequest = isset($filters['ajax']) && $filters['ajax'] === '1';
+
+        if (!$hasCardFilter && !$isAjaxRequest && !array_key_exists('status', $filters)) {
+            $filters['status'] = $defaultStatusLabel;
+            $defaultStatusApplied = true;
+        }
 
         // LÓGICA CENTRAL DE FILTRO (APLICADA A TUDO)
         if (isset($_SESSION['user_perfil']) && $_SESSION['user_perfil'] === 'vendedor') {
@@ -91,8 +124,38 @@ class DashboardController
 
         // 2.7. Preparação de variáveis para a View
         $pageTitle = 'Dashboard';
-        $activeFilters = array_filter($filters);
+        $activeFilters = array_filter(
+            $filters,
+            static function ($value, $key) use ($defaultStatusApplied) {
+                if (in_array($key, ['ajax', 'offset', 'limit', 'sort', 'direction', 'filtro_card'], true)) {
+                    return false;
+                }
+
+                if ($defaultStatusApplied && $key === 'status') {
+                    return false;
+                }
+
+                return $value !== null && $value !== '';
+            },
+            ARRAY_FILTER_USE_BOTH
+        );
         $hasFilters = !empty($activeFilters);
+        $listTitle = 'Todos os Serviços';
+        $cardFiltersLabels = [
+            'ativos' => 'Serviços em Andamento',
+            'pendentes' => 'Serviços Pendentes',
+            'orcamentos' => 'Orçamentos Pendentes',
+            'finalizados_mes' => 'Concluídos (Mês)',
+            'atrasados' => 'Serviços Atrasados',
+        ];
+
+        if ($defaultStatusApplied) {
+            $listTitle = 'Serviços em Andamento';
+        } elseif (!empty($filters['filtro_card']) && isset($cardFiltersLabels[$filters['filtro_card']])) {
+            $listTitle = $cardFiltersLabels[$filters['filtro_card']];
+        } elseif ($hasFilters) {
+            $listTitle = 'Resultados da Busca';
+        }
 
         // 2.8. Renderização da página completa
         require_once __DIR__ . '/../views/layouts/header.php';

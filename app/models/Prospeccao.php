@@ -396,6 +396,107 @@ class Prospeccao
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function getSdrWorkSummary(?string $startDate = null, ?string $endDate = null): array
+    {
+        $conditions = ['p.sdrId IS NOT NULL'];
+        $params = [];
+
+        if (!empty($startDate)) {
+            $conditions[] = 'p.data_prospeccao >= :startDate';
+            $params[':startDate'] = $startDate . ' 00:00:00';
+        }
+
+        if (!empty($endDate)) {
+            $conditions[] = 'p.data_prospeccao <= :endDate';
+            $params[':endDate'] = $endDate . ' 23:59:59';
+        }
+
+        $whereSql = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+
+        $sql = "SELECT
+                    u.id AS sdrId,
+                    u.nome_completo AS sdrName,
+                    COUNT(*) AS totalLeads,
+                    SUM(CASE WHEN p.responsavel_id IS NOT NULL AND p.responsavel_id <> 0 THEN 1 ELSE 0 END) AS assignedLeads,
+                    SUM(CASE WHEN p.status = 'Convertido' THEN 1 ELSE 0 END) AS convertedLeads,
+                    SUM(COALESCE(p.valor_proposto, 0)) AS totalBudget,
+                    SUM(CASE WHEN p.status = 'Convertido' THEN COALESCE(p.valor_proposto, 0) ELSE 0 END) AS convertedBudget,
+                    SUM(COALESCE(ag.totalAppointments, 0)) AS totalAppointments
+                FROM prospeccoes p
+                INNER JOIN users u ON p.sdrId = u.id
+                LEFT JOIN (
+                    SELECT prospeccao_id, COUNT(*) AS totalAppointments
+                    FROM agendamentos
+                    GROUP BY prospeccao_id
+                ) ag ON ag.prospeccao_id = p.id
+                $whereSql
+                GROUP BY u.id, u.nome_completo
+                ORDER BY u.nome_completo";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rows as &$row) {
+            $totalLeads = (int) ($row['totalLeads'] ?? 0);
+            $convertedLeads = (int) ($row['convertedLeads'] ?? 0);
+            $row['conversionRate'] = $totalLeads > 0 ? ($convertedLeads / $totalLeads) * 100 : 0;
+        }
+
+        unset($row);
+
+        return $rows;
+    }
+
+    public function getSdrVendorConversionSummary(?string $startDate = null, ?string $endDate = null): array
+    {
+        $conditions = ['p.sdrId IS NOT NULL'];
+        $params = [];
+
+        if (!empty($startDate)) {
+            $conditions[] = 'p.data_prospeccao >= :startDate';
+            $params[':startDate'] = $startDate . ' 00:00:00';
+        }
+
+        if (!empty($endDate)) {
+            $conditions[] = 'p.data_prospeccao <= :endDate';
+            $params[':endDate'] = $endDate . ' 23:59:59';
+        }
+
+        $whereSql = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+
+        $sql = "SELECT
+                    COALESCE(v.id, 0) AS vendorId,
+                    COALESCE(u.id, 0) AS userId,
+                    COALESCE(u.nome_completo, 'Sem vendedor') AS vendorName,
+                    COUNT(*) AS totalLeads,
+                    SUM(CASE WHEN p.status = 'Convertido' THEN 1 ELSE 0 END) AS convertedLeads,
+                    SUM(COALESCE(p.valor_proposto, 0)) AS totalBudget,
+                    SUM(CASE WHEN p.status = 'Convertido' THEN COALESCE(p.valor_proposto, 0) ELSE 0 END) AS convertedBudget
+                FROM prospeccoes p
+                LEFT JOIN vendedores v ON v.user_id = p.responsavel_id
+                LEFT JOIN users u ON u.id = p.responsavel_id
+                $whereSql
+                GROUP BY COALESCE(v.id, 0), COALESCE(u.id, 0), COALESCE(u.nome_completo, 'Sem vendedor')
+                ORDER BY convertedLeads DESC, vendorName ASC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rows as &$row) {
+            $totalLeads = (int) ($row['totalLeads'] ?? 0);
+            $convertedLeads = (int) ($row['convertedLeads'] ?? 0);
+            $row['conversionRate'] = $totalLeads > 0 ? ($convertedLeads / $totalLeads) * 100 : 0;
+        }
+
+        unset($row);
+
+        return $rows;
+    }
+
     public function registerLeadDistribution(int $leadId, int $vendorId, ?int $sdrId = null): void
     {
         $sql = "INSERT INTO distribuicao_leads (prospeccaoId, sdrId, vendedorId, createdAt)
@@ -465,6 +566,150 @@ class Prospeccao
             }
 
             return false;
+        }
+    }
+
+    public function createLeadFromKanban(array $payload): array
+    {
+        $companyName = trim((string)($payload['companyName'] ?? ''));
+        $contactName = trim((string)($payload['contactName'] ?? ''));
+        $email = trim((string)($payload['email'] ?? ''));
+        $phone = trim((string)($payload['phone'] ?? ''));
+        $channel = trim((string)($payload['channel'] ?? 'Outro'));
+        $status = trim((string)($payload['status'] ?? ''));
+        $leadCategory = 'Entrada';
+        $vendorId = $payload['vendorId'] ?? null;
+        $sdrId = $payload['sdrId'] ?? null;
+
+        if ($companyName === '') {
+            throw new InvalidArgumentException('company_name_required');
+        }
+
+        if ($status === '') {
+            throw new InvalidArgumentException('status_required');
+        }
+
+        $normalizedEmail = filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : null;
+        $normalizedPhone = $phone !== '' ? preg_replace('/\s+/', ' ', $phone) : null;
+
+        $prospectName = $contactName !== '' ? $contactName : $companyName;
+
+        $vendorParam = null;
+        if ($vendorId !== null) {
+            $vendorParam = (int)$vendorId > 0 ? (int)$vendorId : null;
+        }
+
+        $sdrParam = null;
+        if ($sdrId !== null) {
+            $sdrParam = (int)$sdrId > 0 ? (int)$sdrId : null;
+        }
+
+        $this->pdo->beginTransaction();
+
+        try {
+            $clientSql = 'INSERT INTO clientes (
+                    nome_cliente,
+                    nome_responsavel,
+                    email,
+                    telefone,
+                    canal_origem,
+                    categoria,
+                    is_prospect,
+                    crmOwnerId
+                ) VALUES (
+                    :company_name,
+                    :contact_name,
+                    :email,
+                    :phone,
+                    :channel,
+                    :category,
+                    1,
+                    :owner_id
+                )';
+
+            $clientStmt = $this->pdo->prepare($clientSql);
+            $clientStmt->bindValue(':company_name', $companyName, PDO::PARAM_STR);
+            $clientStmt->bindValue(':contact_name', $contactName !== '' ? $contactName : null, PDO::PARAM_STR);
+            $clientStmt->bindValue(':email', $normalizedEmail, $normalizedEmail !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+            $clientStmt->bindValue(':phone', $normalizedPhone, $normalizedPhone !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+            $clientStmt->bindValue(':channel', $channel !== '' ? $channel : 'Outro', PDO::PARAM_STR);
+            $clientStmt->bindValue(':category', $leadCategory, PDO::PARAM_STR);
+            if ($vendorParam !== null) {
+                $clientStmt->bindValue(':owner_id', $vendorParam, PDO::PARAM_INT);
+            } else {
+                $clientStmt->bindValue(':owner_id', null, PDO::PARAM_NULL);
+            }
+            $clientStmt->execute();
+
+            $clientId = (int)$this->pdo->lastInsertId();
+
+            $prospectionSql = 'INSERT INTO prospeccoes (
+                    cliente_id,
+                    nome_prospecto,
+                    data_prospeccao,
+                    responsavel_id,
+                    sdrId,
+                    feedback_inicial,
+                    valor_proposto,
+                    status,
+                    leadCategory,
+                    perfil_pagamento,
+                    data_ultima_atualizacao
+                ) VALUES (
+                    :client_id,
+                    :prospect_name,
+                    NOW(),
+                    :vendor_id,
+                    :sdr_id,
+                    :feedback,
+                    :deal_value,
+                    :status,
+                    :lead_category,
+                    NULL,
+                    NOW()
+                )';
+
+            $prospectionStmt = $this->pdo->prepare($prospectionSql);
+            $prospectionStmt->bindValue(':client_id', $clientId, PDO::PARAM_INT);
+            $prospectionStmt->bindValue(':prospect_name', $prospectName, PDO::PARAM_STR);
+            if ($vendorParam !== null) {
+                $prospectionStmt->bindValue(':vendor_id', $vendorParam, PDO::PARAM_INT);
+            } else {
+                $prospectionStmt->bindValue(':vendor_id', null, PDO::PARAM_NULL);
+            }
+            if ($sdrParam !== null) {
+                $prospectionStmt->bindValue(':sdr_id', $sdrParam, PDO::PARAM_INT);
+            } else {
+                $prospectionStmt->bindValue(':sdr_id', null, PDO::PARAM_NULL);
+            }
+            $prospectionStmt->bindValue(':feedback', '', PDO::PARAM_STR);
+            $prospectionStmt->bindValue(':deal_value', 0, PDO::PARAM_INT);
+            $prospectionStmt->bindValue(':status', $status, PDO::PARAM_STR);
+            $prospectionStmt->bindValue(':lead_category', $leadCategory, PDO::PARAM_STR);
+            $prospectionStmt->execute();
+
+            $prospectionId = (int)$this->pdo->lastInsertId();
+
+            if ($vendorParam !== null && $sdrParam !== null) {
+                $this->registerLeadDistribution($prospectionId, $vendorParam, $sdrParam);
+            }
+
+            $this->logInteraction(
+                $prospectionId,
+                $sdrParam ?? 0,
+                'Lead criado diretamente no Kanban do SDR.',
+                'sistema'
+            );
+
+            $this->pdo->commit();
+
+            return [
+                'clientId' => $clientId,
+                'prospectionId' => $prospectionId,
+            ];
+        } catch (Throwable $exception) {
+            $this->pdo->rollBack();
+            throw $exception;
         }
     }
 

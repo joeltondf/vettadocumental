@@ -5,6 +5,23 @@ require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
 require_once __DIR__ . '/../../app/utils/PhoneUtils.php';
 
+function escape($value): string
+{
+    if ($value === null) {
+        return '';
+    }
+
+    if ($value instanceof Stringable) {
+        return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+    }
+
+    if (is_scalar($value)) {
+        return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+    }
+
+    return '';
+}
+
 // Valida o ID do cliente na URL
 $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 if (!$id) {
@@ -88,32 +105,32 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
 <div class="bg-white shadow px-4 py-5 sm:rounded-lg sm:p-6">
     <div class="md:flex md:items-center md:justify-between border-b border-gray-200 pb-4">
         <h1 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-            Editar Lead: <span class="text-blue-600"><?php echo htmlspecialchars($cliente['nome_cliente']); ?></span>
+            Editar Lead: <span class="text-blue-600"><?php echo escape($cliente['nome_cliente'] ?? null); ?></span>
         </h1>
     </div>
 
     <form action="<?php echo APP_URL; ?>/crm/clientes/salvar.php" method="POST" class="space-y-6 mt-6">
         <input type="hidden" name="id" value="<?php echo $cliente['id']; ?>">
         <?php if (isset($_GET['prospeccao_id'])): ?>
-            <input type="hidden" name="prospeccao_id" value="<?php echo htmlspecialchars($_GET['prospeccao_id']); ?>">
+            <input type="hidden" name="prospeccao_id" value="<?php echo escape($_GET['prospeccao_id']); ?>">
         <?php endif; ?>
 
         <?php if (isset($_GET['vendedor_id'])): ?>
-            <input type="hidden" name="vendedor_id" value="<?php echo htmlspecialchars($_GET['vendedor_id']); ?>">
+            <input type="hidden" name="vendedor_id" value="<?php echo escape($_GET['vendedor_id']); ?>">
         <?php endif; ?>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                 <label for="nome_cliente" class="block text-sm font-medium text-gray-700">Nome do Lead / Empresa</label>
-                <input type="text" name="nome_cliente" id="nome_cliente" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" value="<?php echo htmlspecialchars($cliente['nome_cliente']); ?>">
+                <input type="text" name="nome_cliente" id="nome_cliente" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" maxlength="60" value="<?php echo escape($cliente['nome_cliente'] ?? null); ?>">
             </div>
             <div>
                 <label for="nome_responsavel" class="block text-sm font-medium text-gray-700">Nome do Lead Principal</label>
-                <input type="text" name="nome_responsavel" id="nome_responsavel" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" value="<?php echo htmlspecialchars($cliente['nome_responsavel']); ?>">
+                <input type="text" name="nome_responsavel" id="nome_responsavel" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" maxlength="60" value="<?php echo escape($cliente['nome_responsavel'] ?? null); ?>">
             </div>
             <div>
                 <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
-                <input id="email" name="email" type="email" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" value="<?php echo htmlspecialchars($cliente['email']); ?>">
+                <input id="email" name="email" type="email" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" value="<?php echo escape($cliente['email'] ?? null); ?>">
             </div>
             <div>
                 <label for="telefone" class="block text-sm font-medium text-gray-700">Telefone</label>
@@ -126,7 +143,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                             inputmode="numeric"
                             pattern="\d{1,4}"
                             maxlength="4"
-                            value="<?php echo htmlspecialchars($telefoneDdi); ?>"
+                            value="<?php echo escape($telefoneDdi); ?>"
                             class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
                         >
                     </div>
@@ -137,7 +154,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                             id="telefone"
                             maxlength="20"
                             class="mt-0 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
-                            value="<?php echo htmlspecialchars($telefoneInputValue); ?>"
+                            value="<?php echo escape($telefoneInputValue); ?>"
                         >
                     </div>
                 </div>

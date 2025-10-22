@@ -99,6 +99,9 @@ $kanbanConfigEndpoint = $kanbanEditUrl ?? ($baseAppUrl . '/sdr_dashboard.php?act
             <p class="text-sm text-gray-500">Arraste os cartões para atualizar o status e organizar suas oportunidades.</p>
         </div>
         <div class="flex items-center gap-3 text-sm text-gray-500">
+            <button type="button" class="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-colors" data-open-create-lead>
+                <i class="fas fa-plus mr-2"></i> Adicionar lead
+            </button>
             <button type="button" class="inline-flex items-center px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors" data-open-column-editor>
                 <i class="fas fa-columns mr-2"></i> Editar colunas
             </button>
@@ -177,6 +180,70 @@ $kanbanConfigEndpoint = $kanbanEditUrl ?? ($baseAppUrl . '/sdr_dashboard.php?act
     </div>
 </div>
 
+<div id="kanban-create-lead-modal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-xl">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-800">Adicionar lead ao Kanban</h3>
+            <button type="button" class="text-gray-400 hover:text-gray-600" data-close-create-lead>
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="kanban-create-lead-form" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="md:col-span-2">
+                    <label for="kanban_company_name" class="block text-sm font-medium text-gray-700">Nome do lead / empresa</label>
+                    <input type="text" id="kanban_company_name" name="company_name" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <div>
+                    <label for="kanban_contact_name" class="block text-sm font-medium text-gray-700">Contato principal</label>
+                    <input type="text" id="kanban_contact_name" name="contact_name" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="kanban_email" class="block text-sm font-medium text-gray-700">E-mail</label>
+                    <input type="email" id="kanban_email" name="email" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="kanban_phone" class="block text-sm font-medium text-gray-700">Telefone</label>
+                    <input type="text" id="kanban_phone" name="phone" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="kanban_channel" class="block text-sm font-medium text-gray-700">Canal</label>
+                    <select id="kanban_channel" name="channel" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <?php
+                        $channelOptions = ['Call', 'LinkedIn', 'Instagram', 'Whatsapp', 'Indicação Cliente', 'Indicação Cartório', 'Website', 'Bitrix', 'Evento', 'Outro'];
+                        foreach ($channelOptions as $channelOption): ?>
+                            <option value="<?php echo htmlspecialchars($channelOption); ?>" <?php echo $channelOption === 'Outro' ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($channelOption); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div>
+                    <label for="kanban_status" class="block text-sm font-medium text-gray-700">Coluna</label>
+                    <select id="kanban_status" name="status" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        <?php foreach ($kanbanColumns as $columnName): ?>
+                            <option value="<?php echo htmlspecialchars($columnName); ?>"><?php echo htmlspecialchars($columnName); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="md:col-span-2">
+                    <label for="kanban_vendor" class="block text-sm font-medium text-gray-700">Delegar para vendedor</label>
+                    <select id="kanban_vendor" name="vendor_id" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Aguardando vendedor</option>
+                        <?php foreach ($vendorOptions as $vendor): ?>
+                            <option value="<?php echo (int) ($vendor['id'] ?? 0); ?>"><?php echo htmlspecialchars($vendor['nome_completo'] ?? ''); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+            <div class="flex items-center justify-end gap-3 pt-2">
+                <button type="button" class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg" data-close-create-lead>Cancelar</button>
+                <button type="submit" class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700" data-submit-create-lead>Adicionar lead</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div id="kanban-columns-modal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-50">
     <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl">
         <div class="flex items-center justify-between mb-4">
@@ -211,6 +278,15 @@ $kanbanConfigEndpoint = $kanbanEditUrl ?? ($baseAppUrl . '/sdr_dashboard.php?act
     </div>
 </div>
 
+<?php
+$vendorOptionsForJs = [];
+foreach ($vendorOptions as $vendorOption) {
+    $vendorOptionsForJs[] = [
+        'id' => (int) ($vendorOption['id'] ?? 0),
+        'name' => $vendorOption['nome_completo'] ?? '',
+    ];
+}
+?>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const board = document.getElementById('sdr-kanban-board');
@@ -220,13 +296,22 @@ $kanbanConfigEndpoint = $kanbanEditUrl ?? ($baseAppUrl . '/sdr_dashboard.php?act
 
         const updateUrl = board.dataset.updateUrl;
         const assignUrl = board.dataset.assignUrl;
+        const createLeadEndpoint = <?php echo json_encode($baseAppUrl . '/sdr_dashboard.php?action=create_lead'); ?>;
         const baseListUrl = <?php echo json_encode($baseAppUrl . '/crm/prospeccoes/lista.php?responsavel_id='); ?>;
+        const detailsBaseUrl = <?php echo json_encode($baseAppUrl . '/crm/prospeccoes/detalhes.php?id='); ?>;
+        const qualificationUrlBase = <?php echo json_encode($qualificationBaseUrl); ?>;
+        const vendorOptionsList = <?php echo json_encode($vendorOptionsForJs, JSON_UNESCAPED_UNICODE); ?>;
         const columnEditorButton = document.querySelector('[data-open-column-editor]');
         const modal = document.getElementById('kanban-columns-modal');
         const columnList = modal ? modal.querySelector('[data-column-list]') : null;
         const addColumnButton = modal ? modal.querySelector('[data-add-column]') : null;
         const columnForm = document.getElementById('kanban-columns-form');
         const columnEndpoint = <?php echo json_encode($kanbanConfigEndpoint); ?>;
+        const createLeadModal = document.getElementById('kanban-create-lead-modal');
+        const createLeadButton = document.querySelector('[data-open-create-lead]');
+        const createLeadForm = document.getElementById('kanban-create-lead-form');
+        const createLeadSubmitButton = createLeadForm ? createLeadForm.querySelector('[data-submit-create-lead]') : null;
+        const closeCreateLeadButtons = createLeadModal ? createLeadModal.querySelectorAll('[data-close-create-lead]') : [];
         let draggedCard = null;
 
         const escapeSelector = value => {
@@ -234,6 +319,34 @@ $kanbanConfigEndpoint = $kanbanEditUrl ?? ($baseAppUrl . '/sdr_dashboard.php?act
                 return window.CSS.escape(value);
             }
             return value.replace(/[^a-zA-Z0-9_\-]/g, '\\$&');
+        };
+
+        const escapeHtml = value => {
+            const div = document.createElement('div');
+            div.innerText = value ?? '';
+            return div.innerHTML;
+        };
+
+        const formatDateTime = value => {
+            if (!value) {
+                return '';
+            }
+            const parsed = new Date(value.replace(' ', 'T'));
+            if (Number.isNaN(parsed.getTime())) {
+                return '';
+            }
+            return parsed.toLocaleString('pt-BR');
+        };
+
+        const buildVendorOptions = selectedId => {
+            const options = ['<option value="">Aguardando vendedor</option>'];
+            const numericSelected = selectedId === null ? null : Number(selectedId);
+            vendorOptionsList.forEach(vendor => {
+                const label = escapeHtml(vendor.name || '');
+                const selected = vendor.id === numericSelected ? 'selected' : '';
+                options.push(`<option value="${vendor.id}" ${selected}>${label}</option>`);
+            });
+            return options.join('');
         };
 
         const updateCounters = () => {
@@ -245,6 +358,206 @@ $kanbanConfigEndpoint = $kanbanEditUrl ?? ($baseAppUrl . '/sdr_dashboard.php?act
                     return;
                 }
                 counter.textContent = column.querySelectorAll('.kanban-card').length;
+            });
+        };
+
+        const updateAssignmentCounters = (assigned, unassigned) => {
+            const assignedTargets = document.querySelectorAll('#assigned-leads-count, [data-counter="assigned"], #card-assigned-leads');
+            assignedTargets.forEach(node => {
+                node.textContent = typeof assigned === 'number' ? assigned : node.textContent;
+            });
+
+            const unassignedTargets = document.querySelectorAll('#unassigned-leads-count, [data-counter="unassigned"], #card-unassigned-leads');
+            unassignedTargets.forEach(node => {
+                node.textContent = typeof unassigned === 'number' ? unassigned : node.textContent;
+            });
+        };
+
+        const ensureVendorRow = (tableBody, vendorId, vendorName) => {
+            let row = tableBody.querySelector(`tr[data-vendor-row="${vendorId}"]`);
+            if (!row) {
+                row = document.createElement('tr');
+                row.setAttribute('data-vendor-row', vendorId);
+                row.innerHTML = `
+                    <td class="px-4 py-3 text-sm font-semibold text-gray-700" data-vendor-name="${vendorId}">${escapeHtml(vendorName)}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600" data-vendor-total="${vendorId}">0</td>
+                    <td class="px-4 py-3 text-sm text-center"><span class="text-xs text-gray-400">--</span></td>
+                `;
+                tableBody.appendChild(row);
+            }
+            return row;
+        };
+
+        const updateDistributionTable = distribution => {
+            const tableBody = document.querySelector('#vendor-distribution-table tbody');
+            if (!tableBody) {
+                return;
+            }
+
+            const seen = new Set();
+
+            distribution.forEach(item => {
+                const vendorId = String(item.vendorId ?? 0);
+                const vendorName = item.vendorName ?? 'Aguardando vendedor';
+                const total = parseInt(item.total ?? 0, 10) || 0;
+                const row = ensureVendorRow(tableBody, vendorId, vendorName);
+
+                const nameCell = row.querySelector(`[data-vendor-name="${vendorId}"]`);
+                const totalCell = row.querySelector(`[data-vendor-total="${vendorId}"]`);
+
+                if (nameCell) {
+                    nameCell.textContent = vendorName;
+                }
+
+                if (totalCell) {
+                    totalCell.textContent = total;
+                }
+
+                const actionCell = row.querySelector('td:last-child');
+                if (actionCell) {
+                    if (parseInt(vendorId, 10) > 0 && total > 0) {
+                        const link = document.createElement('a');
+                        link.href = `${baseListUrl}${vendorId}`;
+                        link.target = '_blank';
+                        link.rel = 'noopener';
+                        link.className = 'inline-flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs';
+                        link.setAttribute('data-vendor-link', vendorId);
+                        link.textContent = 'Ver leads';
+                        actionCell.innerHTML = '';
+                        actionCell.appendChild(link);
+                    } else {
+                        actionCell.innerHTML = '<span class="text-xs text-gray-400">--</span>';
+                    }
+                }
+
+                seen.add(vendorId);
+            });
+
+            tableBody.querySelectorAll('tr[data-vendor-row]').forEach(row => {
+                const vendorId = row.getAttribute('data-vendor-row');
+                if (!seen.has(vendorId)) {
+                    const totalCell = row.querySelector(`[data-vendor-total="${vendorId}"]`);
+                    if (totalCell) {
+                        totalCell.textContent = '0';
+                    }
+                    const actionCell = row.querySelector('td:last-child');
+                    if (actionCell) {
+                        actionCell.innerHTML = '<span class="text-xs text-gray-400">--</span>';
+                    }
+                }
+            });
+        };
+
+        const createKanbanCardElement = lead => {
+            const card = document.createElement('article');
+            card.className = 'kanban-card';
+            card.setAttribute('draggable', 'true');
+            card.dataset.leadId = String(lead.id);
+            card.dataset.currentStatus = lead.status;
+            card.dataset.currentVendor = lead.vendorId ?? 0;
+
+            const prospectName = escapeHtml(lead.prospectName ?? 'Lead');
+            const clientName = escapeHtml(lead.clientName ?? 'Não informado');
+            const vendorName = escapeHtml(lead.vendorName ?? 'Aguardando vendedor');
+            const updatedLabel = formatDateTime(lead.updatedAt);
+            const vendorDatasetValue = lead.vendorId ? String(lead.vendorId) : '';
+
+            card.innerHTML = `
+                <div class="flex items-start justify-between">
+                    <div>
+                        <h3 class="text-base font-semibold text-gray-800">${prospectName}</h3>
+                        <p class="text-xs text-gray-500 mt-1">Cliente: ${clientName}</p>
+                        ${updatedLabel ? `<p class="text-[11px] text-gray-400 mt-1">Atualizado em ${updatedLabel}</p>` : ''}
+                    </div>
+                    <span class="bg-blue-100 text-blue-600 px-2 py-1 rounded-full text-xs font-semibold" data-vendor-label="${lead.id}">
+                        ${vendorName}
+                    </span>
+                </div>
+                <div class="mt-3">
+                    <label class="block text-[11px] uppercase tracking-wide text-gray-500 mb-1">Delegar para vendedor</label>
+                    <select class="assign-vendor-select w-full border border-gray-200 rounded-md text-sm px-2 py-1" data-lead-id="${lead.id}" data-current-vendor="${vendorDatasetValue}">
+                        ${buildVendorOptions(lead.vendorId ?? null)}
+                    </select>
+                </div>
+                <div class="kanban-card-actions flex items-center gap-2 mt-4">
+                    <a href="${detailsBaseUrl}${lead.id}" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                        Detalhes
+                    </a>
+                    <a href="${qualificationUrlBase}?action=create&id=${lead.id}" class="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        Qualificar
+                    </a>
+                </div>
+            `;
+
+            return card;
+        };
+
+        const attachCardDragEvents = card => {
+            card.addEventListener('dragstart', () => {
+                draggedCard = card;
+                card.classList.add('dragging');
+            });
+
+            card.addEventListener('dragend', () => {
+                card.classList.remove('dragging');
+                draggedCard = null;
+            });
+        };
+
+        const attachVendorSelectEvents = select => {
+            select.addEventListener('change', () => {
+                if (!assignUrl) {
+                    return;
+                }
+
+                const leadId = parseInt(select.dataset.leadId, 10);
+                const newVendor = select.value === '' ? null : parseInt(select.value, 10);
+                const previousVendor = select.dataset.currentVendor ? parseInt(select.dataset.currentVendor, 10) : null;
+                if (!leadId || (newVendor === previousVendor)) {
+                    return;
+                }
+
+                select.disabled = true;
+
+                fetch(assignUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        leadId,
+                        vendorId: newVendor ?? ''
+                    })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (!data.success) {
+                            throw new Error(data.message || 'Não foi possível delegar o lead.');
+                        }
+
+                        select.dataset.currentVendor = newVendor ?? '';
+                        const label = document.querySelector(`[data-vendor-label="${leadId}"]`);
+                        if (label) {
+                            label.textContent = data.vendorName || 'Aguardando vendedor';
+                        }
+
+                        const card = select.closest('.kanban-card');
+                        if (card) {
+                            card.dataset.currentVendor = newVendor ?? 0;
+                        }
+
+                        updateAssignmentCounters(data.assignedLeadCount ?? null, data.unassignedLeadCount ?? null);
+                        if (Array.isArray(data.distribution)) {
+                            updateDistributionTable(data.distribution);
+                        }
+                    })
+                    .catch(error => {
+                        alert(error.message || 'Não foi possível delegar o lead.');
+                        select.value = previousVendor ? String(previousVendor) : '';
+                    })
+                    .finally(() => {
+                        select.disabled = false;
+                    });
             });
         };
 
@@ -273,7 +586,7 @@ $kanbanConfigEndpoint = $kanbanEditUrl ?? ($baseAppUrl . '/sdr_dashboard.php?act
             li.setAttribute('data-column-item', '');
             li.innerHTML = `
                 <span class="cursor-move text-gray-400"><i class="fas fa-grip-vertical"></i></span>
-                <input type="text" name="columns[]" value="${value}"
+                <input type="text" name="columns[]" value="${escapeHtml(value)}"
                        class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 <div class="flex items-center gap-2">
                     <button type="button" class="text-gray-500 hover:text-gray-700" data-move-up title="Mover para cima"><i class="fas fa-arrow-up"></i></button>
@@ -379,15 +692,7 @@ $kanbanConfigEndpoint = $kanbanEditUrl ?? ($baseAppUrl . '/sdr_dashboard.php?act
         });
 
         document.querySelectorAll('.kanban-card').forEach(card => {
-            card.addEventListener('dragstart', () => {
-                draggedCard = card;
-                card.classList.add('dragging');
-            });
-
-            card.addEventListener('dragend', () => {
-                card.classList.remove('dragging');
-                draggedCard = null;
-            });
+            attachCardDragEvents(card);
         });
 
         document.querySelectorAll('.kanban-column').forEach(column => {
@@ -451,148 +756,113 @@ $kanbanConfigEndpoint = $kanbanEditUrl ?? ($baseAppUrl . '/sdr_dashboard.php?act
                     });
             });
         });
-        const updateAssignmentCounters = (assigned, unassigned) => {
-            const assignedTargets = document.querySelectorAll('#assigned-leads-count, [data-counter="assigned"], #card-assigned-leads');
-            assignedTargets.forEach(node => {
-                node.textContent = typeof assigned === 'number' ? assigned : node.textContent;
-            });
 
-            const unassignedTargets = document.querySelectorAll('#unassigned-leads-count, [data-counter="unassigned"], #card-unassigned-leads');
-            unassignedTargets.forEach(node => {
-                node.textContent = typeof unassigned === 'number' ? unassigned : node.textContent;
-            });
-        };
+        document.querySelectorAll('.assign-vendor-select').forEach(select => {
+            attachVendorSelectEvents(select);
+        });
 
-        const ensureVendorRow = (tableBody, vendorId, vendorName) => {
-            let row = tableBody.querySelector(`tr[data-vendor-row="${vendorId}"]`);
-            if (!row) {
-                row = document.createElement('tr');
-                row.setAttribute('data-vendor-row', vendorId);
-                row.innerHTML = `
-                    <td class="px-4 py-3 text-sm font-semibold text-gray-700" data-vendor-name="${vendorId}">${vendorName}</td>
-                    <td class="px-4 py-3 text-sm text-gray-600" data-vendor-total="${vendorId}">0</td>
-                    <td class="px-4 py-3 text-sm text-center"><span class="text-xs text-gray-400">--</span></td>
-                `;
-                tableBody.appendChild(row);
+        const appendLeadToColumn = lead => {
+            const selector = escapeSelector(lead.status);
+            const column = document.querySelector(`.kanban-column[data-status="${selector}"] .kanban-cards`);
+            if (!column) {
+                return;
             }
-            return row;
+            const card = createKanbanCardElement(lead);
+            column.prepend(card);
+            attachCardDragEvents(card);
+            const select = card.querySelector('.assign-vendor-select');
+            if (select) {
+                attachVendorSelectEvents(select);
+            }
+            updateCounters();
         };
 
-        const updateDistributionTable = distribution => {
-            const tableBody = document.querySelector('#vendor-distribution-table tbody');
-            if (!tableBody) {
+        const resetCreateLeadForm = () => {
+            createLeadForm?.reset();
+        };
+
+        const openCreateLeadModal = () => {
+            if (!createLeadModal) {
+                return;
+            }
+            resetCreateLeadForm();
+            createLeadModal.classList.remove('hidden');
+            createLeadModal.classList.add('flex');
+        };
+
+        const closeCreateLeadModal = () => {
+            if (!createLeadModal) {
+                return;
+            }
+            createLeadModal.classList.add('hidden');
+            createLeadModal.classList.remove('flex');
+        };
+
+        createLeadButton?.addEventListener('click', openCreateLeadModal);
+        closeCreateLeadButtons.forEach(button => {
+            button.addEventListener('click', closeCreateLeadModal);
+        });
+        createLeadModal?.addEventListener('click', event => {
+            if (event.target === createLeadModal) {
+                closeCreateLeadModal();
+            }
+        });
+
+        createLeadForm?.addEventListener('submit', async event => {
+            event.preventDefault();
+            if (!createLeadSubmitButton) {
                 return;
             }
 
-            const seen = new Set();
+            const formData = new FormData(createLeadForm);
+            const payload = {
+                companyName: (formData.get('company_name') || '').toString().trim(),
+                contactName: (formData.get('contact_name') || '').toString().trim(),
+                email: (formData.get('email') || '').toString().trim(),
+                phone: (formData.get('phone') || '').toString().trim(),
+                channel: (formData.get('channel') || '').toString().trim(),
+                status: (formData.get('status') || '').toString().trim(),
+                vendorId: formData.get('vendor_id') ? Number(formData.get('vendor_id')) : null,
+            };
 
-            distribution.forEach(item => {
-                const vendorId = String(item.vendorId ?? 0);
-                const vendorName = item.vendorName ?? 'Aguardando vendedor';
-                const total = parseInt(item.total ?? 0, 10) || 0;
-                const row = ensureVendorRow(tableBody, vendorId, vendorName);
+            if (Number.isNaN(payload.vendorId)) {
+                payload.vendorId = null;
+            }
 
-                const nameCell = row.querySelector(`[data-vendor-name="${vendorId}"]`);
-                const totalCell = row.querySelector(`[data-vendor-total="${vendorId}"]`);
+            createLeadSubmitButton.disabled = true;
+            createLeadSubmitButton.classList.add('opacity-70', 'cursor-not-allowed');
 
-                if (nameCell) {
-                    nameCell.textContent = vendorName;
-                }
-
-                if (totalCell) {
-                    totalCell.textContent = total;
-                }
-
-                const actionCell = row.querySelector('td:last-child');
-                if (actionCell) {
-                    if (parseInt(vendorId, 10) > 0 && total > 0) {
-                        const link = document.createElement('a');
-                        link.href = `${baseListUrl}${vendorId}`;
-                        link.target = '_blank';
-                        link.rel = 'noopener';
-                        link.className = 'inline-flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs';
-                        link.setAttribute('data-vendor-link', vendorId);
-                        link.textContent = 'Ver leads';
-                        actionCell.innerHTML = '';
-                        actionCell.appendChild(link);
-                    } else {
-                        actionCell.innerHTML = '<span class="text-xs text-gray-400">--</span>';
-                    }
-                }
-
-                seen.add(vendorId);
-            });
-
-            tableBody.querySelectorAll('tr[data-vendor-row]').forEach(row => {
-                const vendorId = row.getAttribute('data-vendor-row');
-                if (!seen.has(vendorId)) {
-                    const totalCell = row.querySelector(`[data-vendor-total="${vendorId}"]`);
-                    if (totalCell) {
-                        totalCell.textContent = '0';
-                    }
-                    const actionCell = row.querySelector('td:last-child');
-                    if (actionCell) {
-                        actionCell.innerHTML = '<span class="text-xs text-gray-400">--</span>';
-                    }
-                }
-            });
-        };
-
-        document.querySelectorAll('.assign-vendor-select').forEach(select => {
-            select.addEventListener('change', () => {
-                if (!assignUrl) {
-                    return;
-                }
-
-                const leadId = parseInt(select.dataset.leadId, 10);
-                const newVendor = select.value === '' ? null : parseInt(select.value, 10);
-                const previousVendor = select.dataset.currentVendor ? parseInt(select.dataset.currentVendor, 10) : null;
-                if (!leadId || (newVendor === previousVendor)) {
-                    return;
-                }
-
-                select.disabled = true;
-
-                fetch(assignUrl, {
+            try {
+                const response = await fetch(createLeadEndpoint, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        leadId,
-                        vendorId: newVendor ?? ''
-                    })
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (!data.success) {
-                            throw new Error(data.message || 'Não foi possível delegar o lead.');
-                        }
+                    body: JSON.stringify(payload)
+                });
 
-                        select.dataset.currentVendor = newVendor ?? '';
-                        const label = document.querySelector(`[data-vendor-label="${leadId}"]`);
-                        if (label) {
-                            label.textContent = data.vendorName || 'Aguardando vendedor';
-                        }
+                const data = await response.json();
 
-                        const card = select.closest('.kanban-card');
-                        if (card) {
-                            card.dataset.currentVendor = newVendor ?? 0;
-                        }
+                if (!data.success) {
+                    throw new Error(data.message || 'Não foi possível criar o lead.');
+                }
 
-                        updateAssignmentCounters(data.assignedLeadCount ?? null, data.unassignedLeadCount ?? null);
-                        if (Array.isArray(data.distribution)) {
-                            updateDistributionTable(data.distribution);
-                        }
-                    })
-                    .catch(error => {
-                        alert(error.message || 'Não foi possível delegar o lead.');
-                        select.value = previousVendor ? String(previousVendor) : '';
-                    })
-                    .finally(() => {
-                        select.disabled = false;
-                    });
-            });
+                if (data.lead) {
+                    appendLeadToColumn(data.lead);
+                }
+
+                updateAssignmentCounters(data.assignedLeadCount ?? null, data.unassignedLeadCount ?? null);
+                if (Array.isArray(data.distribution)) {
+                    updateDistributionTable(data.distribution);
+                }
+
+                closeCreateLeadModal();
+            } catch (error) {
+                alert(error.message || 'Não foi possível criar o lead.');
+            } finally {
+                createLeadSubmitButton.disabled = false;
+                createLeadSubmitButton.classList.remove('opacity-70', 'cursor-not-allowed');
+            }
         });
     });
 </script>

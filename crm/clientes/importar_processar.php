@@ -2,12 +2,66 @@
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
 
+function insertImportedProspects(PDO $pdo, array $rows, ?int $assignedOwnerId): int
+{
+    if (empty($rows)) {
+        return 0;
+    }
+
+    $insertSql = 'INSERT INTO clientes (
+            nome_cliente,
+            nome_responsavel,
+            email,
+            telefone,
+            canal_origem,
+            categoria,
+            is_prospect,
+            crmOwnerId
+        ) VALUES (
+            :nome_cliente,
+            :nome_responsavel,
+            :email,
+            :telefone,
+            :canal_origem,
+            :categoria,
+            1,
+            :crm_owner_id
+        )';
+
+    $insertStmt = $pdo->prepare($insertSql);
+    $created = 0;
+
+    $pdo->beginTransaction();
+
+    try {
+        foreach ($rows as $row) {
+            $insertStmt->execute([
+                ':nome_cliente' => $row['company_name'],
+                ':nome_responsavel' => $row['contact_name'] !== '' ? $row['contact_name'] : null,
+                ':email' => $row['email'] !== '' ? $row['email'] : null,
+                ':telefone' => $row['phone'] !== '' ? $row['phone'] : null,
+                ':canal_origem' => $row['channel'],
+                ':categoria' => 'Entrada',
+                ':crm_owner_id' => $assignedOwnerId,
+            ]);
+            $created++;
+        }
+
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        $pdo->rollBack();
+        throw $exception;
+    }
+
+    return $created;
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: ' . APP_URL . '/crm/clientes/lista.php');
     exit();
 }
 
-$currentUserId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+$currentUserId = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
 $currentUserPerfil = $_SESSION['user_perfil'] ?? '';
 
 if (!$currentUserId) {
@@ -41,7 +95,7 @@ if (!in_array($defaultChannel, $channelOptions, true)) {
 }
 
 $delimiter = $_POST['delimiter'] ?? ';';
-$allowedDelimiters = [';', ',', '\t'];
+$allowedDelimiters = [';', ',', "\t"];
 if (!in_array($delimiter, $allowedDelimiters, true)) {
     $delimiter = ';';
 }
@@ -81,24 +135,19 @@ if (!$handle) {
     exit();
 }
 
-$createdCount = 0;
 $skippedCount = 0;
-$duplicateCount = 0;
 $errorRows = [];
 $rowNumber = 0;
-
-$pdo->beginTransaction();
+$rows = [];
+$duplicates = [];
 
 try {
     if ($hasHeader) {
         fgetcsv($handle, 0, $delimiter);
     }
 
-    $insertSql = "INSERT INTO clientes (nome_cliente, nome_responsavel, email, telefone, canal_origem, categoria, is_prospect, crmOwnerId)
-                  VALUES (:nome_cliente, :nome_responsavel, :email, :telefone, :canal_origem, :categoria, 1, :crm_owner_id)";
-    $insertStmt = $pdo->prepare($insertSql);
-
-    $duplicateSql = "SELECT id FROM clientes
+    $duplicateSql = "SELECT id, nome_cliente, email, telefone
+                     FROM clientes
                      WHERE is_prospect = 1 AND (
                          (:email <> '' AND email = :email) OR
                          (:telefone <> '' AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(telefone, '(', ''), ')', ''), '-', ''), ' ', ''), '.', ''), '+', '') = :telefone) OR
@@ -135,52 +184,75 @@ try {
             ':nome_cliente' => $nomeCliente,
         ]);
 
-        if ($duplicateStmt->fetchColumn()) {
-            $duplicateCount++;
-            continue;
+        $existingLead = $duplicateStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+        $rowData = [
+            'row_index' => $rowNumber,
+            'company_name' => $nomeCliente,
+            'contact_name' => $nomeResponsavel,
+            'email' => $email,
+            'phone' => $telefoneRaw,
+            'channel' => $defaultChannel,
+            'duplicate' => $existingLead ? [
+                'id' => (int) ($existingLead['id'] ?? 0),
+                'name' => $existingLead['nome_cliente'] ?? '',
+                'email' => $existingLead['email'] ?? '',
+                'phone' => $existingLead['telefone'] ?? '',
+            ] : null,
+        ];
+
+        $rows[] = $rowData;
+
+        if ($existingLead) {
+            $duplicates[] = $rowData;
         }
+    }
+} finally {
+    fclose($handle);
+}
 
-        $insertStmt->execute([
-            ':nome_cliente' => $nomeCliente,
-            ':nome_responsavel' => $nomeResponsavel !== '' ? $nomeResponsavel : null,
-            ':email' => $email !== '' ? $email : null,
-            ':telefone' => $telefoneRaw !== '' ? $telefoneRaw : null,
-            ':canal_origem' => $defaultChannel,
-            ':categoria' => 'Entrada',
-            ':crm_owner_id' => $assignedOwnerId,
-        ]);
+$duplicateCount = count($duplicates);
+$validRows = array_filter($rows, static fn(array $row) => $row['duplicate'] === null);
 
-        $createdCount++;
+if ($duplicateCount === 0) {
+    try {
+        $createdCount = insertImportedProspects($pdo, array_values($validRows), $assignedOwnerId);
+    } catch (Throwable $exception) {
+        error_log('Erro na importação de leads: ' . $exception->getMessage());
+        $_SESSION['error_message'] = 'Não foi possível concluir a importação. Tente novamente.';
+        header('Location: ' . APP_URL . '/crm/clientes/importar.php');
+        exit();
     }
 
-    $pdo->commit();
-} catch (Throwable $exception) {
-    $pdo->rollBack();
-    fclose($handle);
+    $_SESSION['import_summary'] = [
+        'created' => $createdCount,
+        'skipped' => $skippedCount,
+        'duplicates' => 0,
+        'discarded' => 0,
+        'errors' => array_slice($errorRows, 0, 5),
+    ];
 
-    error_log('Erro na importação de leads: ' . $exception->getMessage());
-    $_SESSION['error_message'] = 'Não foi possível concluir a importação. Tente novamente.';
-    header('Location: ' . APP_URL . '/crm/clientes/importar.php');
+    if ($createdCount > 0) {
+        $_SESSION['success_message'] = "Importação concluída: {$createdCount} lead(s) criado(s).";
+    } elseif (!empty($errorRows) || $skippedCount > 0) {
+        $_SESSION['error_message'] = 'Nenhum lead foi importado. Verifique o arquivo e tente novamente.';
+    }
+
+    header('Location: ' . APP_URL . '/crm/clientes/lista.php');
     exit();
 }
 
-fclose($handle);
+$token = bin2hex(random_bytes(16));
 
-$_SESSION['import_summary'] = [
-    'created' => $createdCount,
+$_SESSION['lead_import_batches'][$token] = [
+    'rows' => $rows,
+    'assigned_owner_id' => $assignedOwnerId,
+    'default_channel' => $defaultChannel,
     'skipped' => $skippedCount,
-    'duplicates' => $duplicateCount,
     'errors' => array_slice($errorRows, 0, 5),
+    'uploader_id' => $currentUserId,
+    'created_at' => time(),
 ];
 
-if ($createdCount > 0) {
-    $_SESSION['success_message'] = "Importação concluída: {$createdCount} lead(s) criado(s).";
-} elseif ($duplicateCount > 0) {
-    $_SESSION['success_message'] = 'Importação concluída sem novos leads. Todos já existiam.';
-} elseif (!empty($errorRows) || $skippedCount > 0) {
-    $_SESSION['error_message'] = 'Nenhum lead foi importado. Verifique o arquivo e tente novamente.';
-}
-
-header('Location: ' . APP_URL . '/crm/clientes/lista.php');
+header('Location: ' . APP_URL . '/crm/clientes/importar_revisao.php?token=' . urlencode($token));
 exit();
-?>

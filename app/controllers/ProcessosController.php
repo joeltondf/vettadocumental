@@ -1067,6 +1067,8 @@ class ProcessosController
                 $successMessage = 'Processo concluído.';
             } elseif ($newStatusNormalized === 'cancelado') {
                 $successMessage = 'Processo cancelado.';
+            } elseif ($newStatusNormalized === 'aguardando pagamento') {
+                $successMessage = 'Processo atualizado para Aguardando pagamento.';
             }
             $_SESSION['success_message'] = $successMessage;
         }
@@ -1110,6 +1112,12 @@ class ProcessosController
             case 'serviço em andamento':
                 if ($sellerUserId && $senderId !== $sellerUserId) {
                     $message = "Seu serviço #{$process['orcamento_numero']} foi aprovado e está em andamento.";
+                    $this->notifyUser($sellerUserId, $senderId, $message, $link, 'processo_servico_aprovado', $processId, 'vendedor');
+                }
+                break;
+            case 'aguardando pagamento':
+                if ($sellerUserId && $senderId !== $sellerUserId) {
+                    $message = "Seu serviço #{$process['orcamento_numero']} está aguardando pagamento.";
                     $this->notifyUser($sellerUserId, $senderId, $message, $link, 'processo_servico_aprovado', $processId, 'vendedor');
                 }
                 break;
@@ -1728,7 +1736,7 @@ class ProcessosController
             if (!$vendedorUserId || $vendedorUserId != ($_SESSION['user_id'] ?? null)) {
                 return false;
             }
-            $allowed = ['Orçamento', 'Orçamento Pendente', 'Serviço Pendente'];
+            $allowed = ['Orçamento', 'Orçamento Pendente', 'Serviço Pendente', 'Aguardando pagamento'];
             return in_array($novoStatus, $allowed, true);
         }
 
@@ -1742,6 +1750,7 @@ class ProcessosController
             'orçamento',
             'serviço pendente',
             'serviço em andamento',
+            'aguardando pagamento',
             'concluído',
             'cancelado',
         ];
@@ -2631,6 +2640,8 @@ class ProcessosController
                 return 'bg-orange-100 text-orange-800';
             case 'serviço em andamento':
                 return 'bg-cyan-100 text-cyan-800';
+            case 'aguardando pagamento':
+                return 'bg-indigo-100 text-indigo-800';
             case 'concluído':
                 return 'bg-green-100 text-green-800';
             case 'cancelado':
@@ -2688,7 +2699,7 @@ class ProcessosController
         }
 
         $normalized = $this->normalizeStatusName($status);
-        $serviceStatuses = ['serviço pendente', 'serviço em andamento', 'concluído'];
+        $serviceStatuses = ['serviço pendente', 'serviço em andamento', 'aguardando pagamento', 'concluído'];
 
         return in_array($normalized, $serviceStatuses, true);
     }
@@ -2866,43 +2877,89 @@ class ProcessosController
     {
         $userProfile = $_SESSION['user_perfil'] ?? '';
         $userId = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
+        $isVendor = $userProfile === 'vendedor';
 
         $isEditingNonBudget = $processo !== null && !$this->isBudgetStatus($processo['status_processo'] ?? null);
 
         if ($isEditingNonBudget) {
             $clientes = $this->clienteModel->getAll();
-        } elseif ($userProfile === 'vendedor') {
-            $clientes = $userId !== null
-                ? $this->clienteModel->getProspectsByOwner($userId)
-                : $this->clienteModel->getProspects();
+        } elseif ($isVendor) {
+            if ($userId !== null) {
+                $clientes = $this->clienteModel->getVendorBudgetClients($userId);
+            } else {
+                $clientes = $this->clienteModel->getProspects();
+            }
         } else {
             $clientes = $this->clienteModel->getAll();
         }
 
-        if ($processo === null) {
-            return $clientes;
-        }
+        if ($processo !== null) {
+            $clienteId = (int)($processo['cliente_id'] ?? 0);
+            if ($clienteId > 0) {
+                $clienteJaListado = false;
 
-        $clienteId = (int)($processo['cliente_id'] ?? 0);
-        if ($clienteId <= 0) {
-            return $clientes;
-        }
+                foreach ($clientes as $cliente) {
+                    if ((int)($cliente['id'] ?? 0) === $clienteId) {
+                        $clienteJaListado = true;
+                        break;
+                    }
+                }
 
-        foreach ($clientes as $cliente) {
-            if ((int)($cliente['id'] ?? 0) === $clienteId) {
-                return $clientes;
+                if (!$clienteJaListado) {
+                    $clienteSelecionado = $this->clienteModel->getById($clienteId);
+                    if ($clienteSelecionado) {
+                        $clientes[] = $clienteSelecionado;
+                        usort($clientes, static function (array $a, array $b): int {
+                            return strcasecmp($a['nome_cliente'] ?? '', $b['nome_cliente'] ?? '');
+                        });
+                    }
+                }
             }
         }
 
-        $clienteSelecionado = $this->clienteModel->getById($clienteId);
-        if ($clienteSelecionado) {
-            $clientes[] = $clienteSelecionado;
-            usort($clientes, static function (array $a, array $b): int {
-                return strcasecmp($a['nome_cliente'] ?? '', $b['nome_cliente'] ?? '');
-            });
+        return $this->mapClienteDisplayNames($clientes, $isVendor);
+    }
+
+    private function mapClienteDisplayNames(array $clientes, bool $shouldDifferentiate): array
+    {
+        if (!$shouldDifferentiate) {
+            return $clientes;
         }
 
+        foreach ($clientes as &$cliente) {
+            $nome = trim((string)($cliente['nome_cliente'] ?? ''));
+            $tipoRegistro = ((int)($cliente['is_prospect'] ?? 0) === 1) ? 'Lead' : 'Cliente';
+            $nomeFormatado = $nome === '' ? 'Sem nome' : $nome;
+
+            $cliente['budgetDisplayName'] = sprintf('[%s] %s', $tipoRegistro, $nomeFormatado);
+        }
+
+        unset($cliente);
+
         return $clientes;
+    }
+
+    private function mergeClientsById(array ...$collections): array
+    {
+        $indexed = [];
+
+        foreach ($collections as $collection) {
+            foreach ($collection as $cliente) {
+                $id = (int)($cliente['id'] ?? 0);
+                if ($id <= 0) {
+                    continue;
+                }
+
+                $indexed[$id] = $cliente;
+            }
+        }
+
+        $result = array_values($indexed);
+        usort($result, static function (array $a, array $b): int {
+            return strcasecmp($a['nome_cliente'] ?? '', $b['nome_cliente'] ?? '');
+        });
+
+        return $result;
     }
 
     private function buildOmieServiceDescription(array $documento, array $processo): string

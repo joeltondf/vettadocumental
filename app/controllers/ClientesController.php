@@ -280,6 +280,17 @@ class ClientesController
     private function validateClientData(array $data, bool $requirePhone = false): array
     {
         $errors = [];
+        $nomeCliente = trim((string) ($data['nome_cliente'] ?? ''));
+        if ($nomeCliente === '') {
+            $errors[] = 'Informe o nome do cliente.';
+        } elseif (mb_strlen($nomeCliente, 'UTF-8') > 60) {
+            $errors[] = 'O nome do cliente deve ter no máximo 60 caracteres.';
+        }
+
+        $nomeResponsavel = trim((string) ($data['nome_responsavel'] ?? ''));
+        if ($nomeResponsavel !== '' && mb_strlen($nomeResponsavel, 'UTF-8') > 60) {
+            $errors[] = 'O nome do responsável deve ter no máximo 60 caracteres.';
+        }
         $tipoPessoa = $data['tipo_pessoa'] ?? 'Jurídica';
         $documento = DocumentValidator::sanitizeNumber((string) ($data['cpf_cnpj'] ?? ''));
 
@@ -314,6 +325,8 @@ class ClientesController
         $endereco = trim((string) ($data['endereco'] ?? ''));
         if ($endereco === '') {
             $errors[] = 'Informe o endereço.';
+        } elseif (mb_strlen($endereco, 'UTF-8') > 60) {
+            $errors[] = 'O endereço deve ter no máximo 60 caracteres.';
         }
 
         $bairro = trim((string) ($data['bairro'] ?? ''));
@@ -463,6 +476,11 @@ class ClientesController
 
         if (array_key_exists('telefone_ddi', $data)) {
             $data['telefone_ddi'] = trim((string) $data['telefone_ddi']);
+        }
+
+        $data['nome_cliente'] = trim((string) ($data['nome_cliente'] ?? ''));
+        if (array_key_exists('nome_responsavel', $data)) {
+            $data['nome_responsavel'] = trim((string) $data['nome_responsavel']);
         }
 
         $data['email'] = trim((string) ($data['email'] ?? ''));

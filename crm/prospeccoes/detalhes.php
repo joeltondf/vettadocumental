@@ -215,12 +215,6 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                             </button>
                         <?php endif; ?>
 
-                        <?php if ($canScheduleMeeting): ?>
-                            <button type="button" data-modal-target="meetingScheduleModal" class="bg-emerald-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-emerald-700 shadow-sm">
-                                Reunião
-                            </button>
-                        <?php endif; ?>
-
                         <?php if ($canManageVendor): ?>
                             <button type="button" data-modal-target="delegateVendorModal" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 shadow-sm">
                                 Delegar para vendedor
@@ -343,7 +337,7 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                                 <svg class="h-4 w-4 mr-1.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                                 </svg>
-                                <span>Reunião</span>
+                                <span>Reunião de venda</span>
                             </button>
                         <?php endif; ?>
                     </div>

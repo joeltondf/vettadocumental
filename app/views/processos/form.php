@@ -153,7 +153,7 @@ $paymentDateTwo = $processo['data_pagamento_2'] ?? $formData['data_pagamento_2']
             </div>
             <div class="md:col-span-2 lg:col-span-1">
                 <?php
-                    $clienteLabel = $isVendedor ? 'Lead' : 'Cliente (Assessoria) *';
+                    $clienteLabel = $isVendedor ? 'Lead ou Cliente *' : 'Cliente (Assessoria) *';
                 ?>
                 <label for="cliente_id" class="block text-sm font-medium text-gray-700"><?php echo $clienteLabel; ?></label>
                 <div class="flex items-center space-x-2 mt-1">
@@ -161,7 +161,10 @@ $paymentDateTwo = $processo['data_pagamento_2'] ?? $formData['data_pagamento_2']
                         <option value="">Selecione...</option>
                         <?php if (!empty($clientes)): foreach ($clientes as $cliente): ?>
                             <option value="<?php echo $cliente['id']; ?>" data-tipo-assessoria="<?php echo $cliente['tipo_assessoria'] ?? ''; ?>" data-canal-origem="<?php echo htmlspecialchars($cliente['canal_origem'] ?? ''); ?>" <?php echo ($cliente_id_selecionado == $cliente['id']) ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($cliente['nome_cliente']); ?>
+                                <?php
+                                    $displayName = $cliente['budgetDisplayName'] ?? ($cliente['nome_cliente'] ?? '');
+                                    echo htmlspecialchars($displayName);
+                                ?>
                             </option>
                         <?php endforeach; endif; ?>
                     </select>
