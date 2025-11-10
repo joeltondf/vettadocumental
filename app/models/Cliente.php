@@ -194,9 +194,9 @@ class Cliente
 
     /**
      * Marca um prospect como cliente, atualizando o campo is_prospect e, quando disponível,
-     * a data de conversão.
+     * a data de conversão e o usuário responsável pela conversão.
      */
-    public function promoteProspectToClient(int $clienteId): bool
+    public function promoteProspectToClient(int $clienteId, ?int $usuarioConversaoId = null): bool
     {
         if ($clienteId <= 0) {
             return false;
@@ -209,6 +209,7 @@ class Cliente
 
         $needsConversion = (int)($cliente['is_prospect'] ?? 1) === 1;
         $shouldStampConversionDate = $this->hasConversionDateColumn();
+        $shouldStampConversionUser = $usuarioConversaoId !== null && $this->hasConversionUserColumn();
 
         if (!$needsConversion && !$shouldStampConversionDate) {
             return true;
@@ -258,6 +259,10 @@ class Cliente
 
         if ($shouldStampConversionDate) {
             $columnsToUpdate['data_conversao'] = date('Y-m-d H:i:s');
+        }
+
+        if ($shouldStampConversionUser) {
+            $columnsToUpdate['usuario_conversao_id'] = $usuarioConversaoId;
         }
 
         if (empty($columnsToUpdate)) {
@@ -566,6 +571,13 @@ class Cliente
                 $columns[] = 'telefone_numero';
                 $placeholders[] = ':telefone_numero';
                 $params[':telefone_numero'] = $data['telefone_numero'] ?? null;
+            }
+
+            if (array_key_exists('crmOwnerId', $data) && $this->hasCrmOwnerColumn()) {
+                $columns[] = 'crmOwnerId';
+                $placeholders[] = ':crmOwnerId';
+                $ownerId = $data['crmOwnerId'];
+                $params[':crmOwnerId'] = ($ownerId === '' || $ownerId === null) ? null : (int) $ownerId;
             }
 
             $sql = sprintf(

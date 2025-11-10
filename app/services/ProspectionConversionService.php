@@ -19,11 +19,27 @@ class ProspectionConversionService
         $this->clientModel = new Cliente($pdo);
     }
 
-    public function convert(int $prospectionId, int $initiatorId, ?int $authorizedManagerId = null): string
+    public function convert(
+        int $prospectionId,
+        int $initiatorId,
+        ?int $authorizedManagerId = null,
+        ?string $initiatorProfile = null
+    ): string
     {
         $prospection = $this->prospectionModel->getById($prospectionId);
         if (!$prospection) {
             throw new RuntimeException('Prospecção não encontrada.');
+        }
+
+        $initiatorData = $this->userModel->getById($initiatorId) ?: [];
+        $resolvedProfile = strtolower(trim((string) ($initiatorProfile ?? ($initiatorData['perfil'] ?? ''))));
+        $initiatorName = trim((string) ($initiatorData['nome_completo'] ?? 'Usuário'));
+
+        if ($resolvedProfile === 'vendedor') {
+            $responsavelId = (int) ($prospection['responsavel_id'] ?? 0);
+            if ($responsavelId !== $initiatorId) {
+                throw new RuntimeException('Somente o vendedor responsável pode converter este lead.');
+            }
         }
 
         $clientId = (int) ($prospection['cliente_id'] ?? 0);
@@ -40,7 +56,7 @@ class ProspectionConversionService
             $updateStmt->bindValue(':id', $prospectionId, PDO::PARAM_INT);
             $updateStmt->execute();
 
-            if (!$this->clientModel->promoteProspectToClient($clientId)) {
+            if (!$this->clientModel->promoteProspectToClient($clientId, $initiatorId)) {
                 throw new RuntimeException('Não foi possível promover o lead para cliente.');
             }
 
@@ -57,9 +73,15 @@ class ProspectionConversionService
                 );
             }
 
-            $conversionNote = $authorizedManagerId !== null && $authorizedManagerId !== $initiatorId
-                ? sprintf('Lead convertido em cliente com autorização de %s.', $managerName)
-                : 'Lead convertido em cliente.';
+            if ($authorizedManagerId !== null && $authorizedManagerId !== $initiatorId) {
+                $conversionNote = sprintf('Lead convertido em cliente com autorização de %s.', $managerName);
+            } elseif ($resolvedProfile === 'vendedor') {
+                $conversionNote = sprintf('Lead convertido em cliente diretamente pelo vendedor %s.', $initiatorName);
+            } elseif ($resolvedProfile === 'sdr') {
+                $conversionNote = sprintf('Lead convertido em cliente pelo SDR %s.', $initiatorName);
+            } else {
+                $conversionNote = 'Lead convertido em cliente.';
+            }
 
             $this->prospectionModel->logInteraction(
                 $prospectionId,
