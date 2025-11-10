@@ -105,16 +105,16 @@ class User
      */
     public function update(int $id, array $data)
     {
-        $sql = "UPDATE users SET nome_completo = ?, email = ?, perfil = ?, ativo = ? WHERE id = ?";
+        $sql = "UPDATE users SET nome_completo = :nome, email = :email, perfil = :perfil, ativo = :ativo WHERE id = :id";
         $stmt = $this->pdo->prepare($sql);
-        
-        return $stmt->execute([
-            $data['nome_completo'],
-            $data['email'],
-            $data['perfil'],
-            $data['ativo'] ?? 1, // Por padrão, mantém/define o utilizador como ativo no update.
-            $id
-        ]);
+
+        $stmt->bindValue(':nome', $data['nome_completo']);
+        $stmt->bindValue(':email', $data['email']);
+        $stmt->bindValue(':perfil', $data['perfil']);
+        $stmt->bindValue(':ativo', isset($data['ativo']) ? (int) $data['ativo'] : 1, PDO::PARAM_INT);
+        $stmt->bindValue(':id', (int) $id, PDO::PARAM_INT);
+
+        return $stmt->execute();
     }
     
     /**
