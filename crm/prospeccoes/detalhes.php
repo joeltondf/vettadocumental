@@ -131,9 +131,10 @@ $redirectUrl = APP_URL . '/crm/prospeccoes/detalhes.php?id=' . $prospect['id'];
 
 $canManageVendor = in_array($user_perfil, $managementProfiles, true);
 $canScheduleInternal = in_array($user_perfil, ['sdr', 'admin', 'gerencia', 'supervisor'], true);
-$canConvertDirectly = $canManageVendor;
+$isVendorUser = ($user_perfil === 'vendedor');
+$isResponsibleVendor = ($isVendorUser && (int) ($prospect['responsavel_id'] ?? 0) === $loggedUserId);
+$showVendorConversionOption = $isResponsibleVendor;
 $canRequestConversion = ($user_perfil === 'sdr');
-$isResponsibleVendor = ($user_perfil === 'vendedor' && (int) ($prospect['responsavel_id'] ?? 0) === $loggedUserId);
 $hasAssignedVendor = (int) ($prospect['responsavel_id'] ?? 0) > 0;
 
 $canScheduleMeeting = $hasAssignedVendor && (
@@ -221,7 +222,14 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                             </button>
                         <?php endif; ?>
 
-                        <?php if ($canConvertDirectly): ?>
+                        <?php if ($showVendorConversionOption): ?>
+                            <form action="<?php echo APP_URL; ?>/crm/prospeccoes/converter.php" method="POST" class="inline">
+                                <input type="hidden" name="prospeccao_id" value="<?php echo (int) $prospect['id']; ?>">
+                                <button type="submit" class="bg-teal-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-teal-700 shadow-sm">
+                                    Converter
+                                </button>
+                            </form>
+                        <?php elseif ($canManageVendor): ?>
                             <form action="<?php echo APP_URL; ?>/crm/prospeccoes/converter.php" method="POST" class="inline">
                                 <input type="hidden" name="prospeccao_id" value="<?php echo (int) $prospect['id']; ?>">
                                 <button type="submit" class="bg-teal-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-teal-700 shadow-sm">
