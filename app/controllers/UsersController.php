@@ -123,7 +123,7 @@ class UsersController
                 exit();
             }
             $data['perfil'] = $perfil;
-            $data['ativo'] = isset($data['ativo']) ? 1 : 0;
+            $data['ativo'] = $this->normalizeActiveFlag($data['ativo'] ?? null);
             
             $passwordUpdated = false;
             $detailsUpdated = false;
@@ -200,6 +200,35 @@ class UsersController
         }
 
         return in_array($perfil, $this->getAllowedProfiles(), true) ? $perfil : null;
+    }
+
+    private function normalizeActiveFlag($value): int
+    {
+        if (is_int($value)) {
+            return $value === 1 ? 1 : 0;
+        }
+
+        if (is_string($value)) {
+            $normalized = strtolower(trim($value));
+
+            if ($normalized === '1' || $normalized === 'ativo') {
+                return 1;
+            }
+
+            if ($normalized === '0' || $normalized === 'inativo') {
+                return 0;
+            }
+
+            if (is_numeric($normalized)) {
+                return ((int) $normalized) === 1 ? 1 : 0;
+            }
+        }
+
+        if (is_bool($value)) {
+            return $value ? 1 : 0;
+        }
+
+        return 0;
     }
 
     private function getAllowedProfiles(): array

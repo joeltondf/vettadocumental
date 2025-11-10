@@ -180,6 +180,35 @@ class AdminController
         return round($percentage, 4);
     }
 
+    private function normalizeUserActiveFlag($value): int
+    {
+        if (is_int($value)) {
+            return $value === 1 ? 1 : 0;
+        }
+
+        if (is_string($value)) {
+            $normalized = strtolower(trim($value));
+
+            if ($normalized === '1' || $normalized === 'ativo') {
+                return 1;
+            }
+
+            if ($normalized === '0' || $normalized === 'inativo') {
+                return 0;
+            }
+
+            if (is_numeric($normalized)) {
+                return ((int) $normalized) === 1 ? 1 : 0;
+            }
+        }
+
+        if (is_bool($value)) {
+            return $value ? 1 : 0;
+        }
+
+        return 0;
+    }
+
     public function showTvPanel(): void
     {
         $pageTitle = 'Painel de TV';
@@ -722,7 +751,7 @@ class AdminController
                 'nome_completo' => $_POST['nome_completo'],
                 'email'         => $_POST['email'],
                 'perfil'        => $_POST['perfil'],
-                'ativo'         => isset($_POST['ativo']) ? 1 : 0
+                'ativo'         => $this->normalizeUserActiveFlag($_POST['ativo'] ?? null)
             ];
 
             $this->userModel->update($id, $data);
