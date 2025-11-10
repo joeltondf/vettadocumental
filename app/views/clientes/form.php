@@ -22,6 +22,58 @@ $cpf_cnpj = $formValues['cpf_cnpj'] ?? '';
 $email = $formValues['email'] ?? '';
 $telefone = $formValues['telefone'] ?? '';
 $telefone_ddi = $formValues['telefone_ddi'] ?? '55';
+$telefone_ddd = $formValues['telefone_ddd'] ?? '';
+$telefone_numero = $formValues['telefone_numero'] ?? '';
+
+$sanitizePhoneDigits = static function ($value): string {
+    return preg_replace('/\D+/', '', (string) $value) ?? '';
+};
+
+$telefone_ddi = $sanitizePhoneDigits($telefone_ddi);
+if ($telefone_ddi === '') {
+    $telefone_ddi = '55';
+}
+$telefone_ddi = substr($telefone_ddi, 0, 4);
+
+$telefone_ddd = $sanitizePhoneDigits($telefone_ddd);
+if ($telefone_ddd !== '') {
+    $telefone_ddd = substr($telefone_ddd, 0, 4);
+}
+
+$telefone_numero_digits = $sanitizePhoneDigits($telefone_numero);
+if ($telefone_numero_digits !== '') {
+    $telefone_numero_digits = substr($telefone_numero_digits, 0, 20);
+}
+
+$legacyPhoneDigits = $sanitizePhoneDigits($telefone);
+
+if ($telefone_ddd === '' || $telefone_numero_digits === '') {
+    if ($legacyPhoneDigits !== '') {
+        if ($telefone_ddi !== '' && strpos($legacyPhoneDigits, $telefone_ddi) === 0 && strlen($legacyPhoneDigits) > strlen($telefone_ddi)) {
+            $legacyPhoneDigits = substr($legacyPhoneDigits, strlen($telefone_ddi));
+        }
+
+        if (strlen($legacyPhoneDigits) > 2) {
+            if ($telefone_ddd === '') {
+                $telefone_ddd = substr($legacyPhoneDigits, 0, 2);
+            }
+
+            if ($telefone_numero_digits === '') {
+                $telefone_numero_digits = substr($legacyPhoneDigits, 2);
+            }
+        }
+    }
+}
+
+$telefone_numero_formatado = $telefone_numero_digits;
+if ($telefone_numero_formatado !== '' && strlen($telefone_numero_formatado) > 5) {
+    $telefone_numero_formatado = substr($telefone_numero_formatado, 0, 5) . '-' . substr($telefone_numero_formatado, 5);
+}
+
+$telefone_completo_padrao = formatarTelefone($telefone_ddi, $telefone_ddd, $telefone_numero_digits);
+if ($telefone_completo_padrao === '-') {
+    $telefone_completo_padrao = '';
+}
 
 $formatPhoneInputValue = static function (string $ddd, string $phone): string {
     $dddDigits = stripNonDigits($ddd);
@@ -80,6 +132,10 @@ $estado = $formValues['estado'] ?? '';
 $endereco = $formValues['endereco'] ?? '';
 $cep = $formValues['cep'] ?? '';
 $tipo_assessoria = $formValues['tipo_assessoria'] ?? '';
+$tipo_servico = $formValues['tipo_servico'] ?? 'Assessoria';
+if (!in_array($tipo_servico, ['Assessoria', 'Balcão'], true)) {
+    $tipo_servico = 'Assessoria';
+}
 $tipo_pessoa = $formValues['tipo_pessoa'] ?? 'Jurídica';
 $criar_login = !empty($formValues['criar_login']);
 $login_email = $formValues['login_email'] ?? '';
@@ -186,16 +242,33 @@ require_once __DIR__ . '/../layouts/header.php';
     <?php endif; ?>
 
     <div class="mb-6">
-        <label class="block text-sm font-semibold text-gray-700 mb-2">Tipo de Cliente</label>
-        <div class="flex items-center space-x-6">
-            <label class="flex items-center cursor-pointer">
-                <input type="radio" name="tipo_pessoa" value="Jurídica" class="h-4 w-4 text-blue-600 border-gray-300"  <?php echo ($tipo_pessoa === 'Jurídica') ? 'checked' : ''; ?>>
-                <span class="ml-2 text-sm text-gray-700">Pessoa Jurídica</span>
-            </label>
-            <label class="flex items-center cursor-pointer">
-                <input type="radio" name="tipo_pessoa" value="Física" class="h-4 w-4 text-blue-600 border-gray-300" <?php echo ($tipo_pessoa === 'Física') ? 'checked' : ''; ?>>
-                <span class="ml-2 text-sm text-gray-700">Pessoa Física</span>
-            </label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="border border-gray-200 rounded-lg p-4 bg-white">
+                <h3 class="text-sm font-semibold text-gray-700 mb-3">Tipo de Cliente</h3>
+                <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="radio" name="tipo_pessoa" value="Jurídica" id="tipo_pessoa_juridica" class="h-4 w-4 text-blue-600 border-gray-300"  <?php echo ($tipo_pessoa === 'Jurídica') ? 'checked' : ''; ?>>
+                        <span class="ml-2 text-sm text-gray-700">Pessoa Jurídica</span>
+                    </label>
+                    <label class="flex items-center cursor-pointer">
+                        <input type="radio" name="tipo_pessoa" value="Física" id="tipo_pessoa_fisica" class="h-4 w-4 text-blue-600 border-gray-300" <?php echo ($tipo_pessoa === 'Física') ? 'checked' : ''; ?>>
+                        <span class="ml-2 text-sm text-gray-700">Pessoa Física</span>
+                    </label>
+                </div>
+            </div>
+            <div class="border border-gray-200 rounded-lg p-4 bg-white">
+                <h3 class="text-sm font-semibold text-gray-700 mb-3">Tipo de Serviço</h3>
+                <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="radio" name="tipo_servico" value="Assessoria" id="tipo_servico_assessoria" class="h-4 w-4 text-blue-600 border-gray-300" <?php echo ($tipo_servico === 'Assessoria') ? 'checked' : ''; ?>>
+                        <span class="ml-2 text-sm text-gray-700">Assessoria</span>
+                    </label>
+                    <label class="flex items-center cursor-pointer">
+                        <input type="radio" name="tipo_servico" value="Balcão" id="tipo_servico_balcao" class="h-4 w-4 text-blue-600 border-gray-300" <?php echo ($tipo_servico === 'Balcão') ? 'checked' : ''; ?>>
+                        <span class="ml-2 text-sm text-gray-700">Balcão</span>
+                    </label>
+                </div>
+            </div>
         </div>
     </div>
     <div class="space-y-6">
@@ -223,32 +296,65 @@ require_once __DIR__ . '/../layouts/header.php';
             </div>
 
             <div class="cliente-form-col cliente-col-33">
-                <label for="telefone" class="block text-sm font-semibold text-gray-700">Telefone<?php echo $isEdit ? '' : ' *'; ?></label>
+                <label for="telefone_ddi" class="block text-sm font-semibold text-gray-700">Telefone *</label>
                 <div class="mt-1 flex items-stretch gap-2">
-                    <div class="w-24">
+                    <div style="width: 80px;">
                         <input
                             type="text"
                             id="telefone_ddi"
                             name="telefone_ddi"
+                            list="telefone_ddi_opcoes"
                             inputmode="numeric"
-                            pattern="\d{1,4}"
+                            pattern="[0-9]+"
                             maxlength="4"
+                            placeholder="+55"
                             value="<?php echo htmlspecialchars($telefone_ddi); ?>"
                             class="block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                            required
+                        >
+                    </div>
+                    <div style="width: 80px;">
+                        <input
+                            type="text"
+                            id="telefone_ddd"
+                            name="telefone_ddd"
+                            inputmode="numeric"
+                            pattern="[0-9]+"
+                            maxlength="4"
+                            placeholder="11"
+                            value="<?php echo htmlspecialchars($telefone_ddd); ?>"
+                            class="block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                            required
                         >
                     </div>
                     <div class="flex-1">
                         <input
                             type="text"
-                            id="telefone"
-                            name="telefone"
-                            autocomplete="nope"
-                            value="<?php echo htmlspecialchars($telefone); ?>"
+                            id="telefone_numero"
+                            name="telefone_numero"
+                            placeholder="98765-4321"
+                            maxlength="20"
+                            value="<?php echo htmlspecialchars($telefone_numero_formatado); ?>"
                             class="block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                            maxlength="20"<?php echo $isEdit ? '' : ' required'; ?>
+                            required
                         >
                     </div>
                 </div>
+                <input type="hidden" id="telefone_completo" name="telefone" value="<?php echo htmlspecialchars($telefone_completo_padrao); ?>">
+                <datalist id="telefone_ddi_opcoes">
+                    <option value="55">Brasil (+55)</option>
+                    <option value="1">EUA/Canadá (+1)</option>
+                    <option value="351">Portugal (+351)</option>
+                    <option value="34">Espanha (+34)</option>
+                    <option value="44">Reino Unido (+44)</option>
+                    <option value="39">Itália (+39)</option>
+                    <option value="49">Alemanha (+49)</option>
+                    <option value="33">França (+33)</option>
+                    <option value="52">México (+52)</option>
+                    <option value="54">Argentina (+54)</option>
+                    <option value="593">Equador (+593)</option>
+                    <option value="57">Colômbia (+57)</option>
+                </datalist>
             </div>
         </div>
 
@@ -897,22 +1003,80 @@ document.addEventListener('DOMContentLoaded', function() {
         return value;
     }
 
-    // Função para máscara de telefone
-    function aplicarMascaraTelefone(value) {
-        value = value.replace(/\D/g, '');
-        
-        if (value.length <= 10) {
-            // Telefone fixo: (00) 0000-0000
-            value = value.replace(/^(\d{2})(\d)/, '($1) $2');
-            value = value.replace(/(\d{4})(\d)/, '$1-$2');
-        } else {
-            // Celular: (00) 00000-0000
-            value = value.substring(0, 11);
-            value = value.replace(/^(\d{2})(\d)/, '($1) $2');
-            value = value.replace(/(\d{5})(\d)/, '$1-$2');
+    function sanitizeDigits(value, maxLength) {
+        let digits = (value || '').replace(/\D+/g, '');
+        if (typeof maxLength === 'number') {
+            digits = digits.slice(0, maxLength);
         }
-        
-        return value;
+
+        return digits;
+    }
+
+    function formatTelefoneNumero(value) {
+        const digits = sanitizeDigits(value, 20);
+        if (digits.length <= 5) {
+            return digits;
+        }
+
+        return digits.slice(0, 5) + '-' + digits.slice(5, 20);
+    }
+
+    function splitTelefoneCompleto(value) {
+        const digits = sanitizeDigits(value, 32);
+        if (!digits) {
+            return { ddi: '', ddd: '', number: '' };
+        }
+
+        if (digits.length <= 11) {
+            const ddd = digits.slice(0, Math.min(2, digits.length));
+            const number = digits.slice(ddd.length);
+            return { ddi: '', ddd, number };
+        }
+
+        const possibleNumberLengths = [9, 8, 7, 6, 5, 4];
+        let ddi = '';
+        let ddd = '';
+        let number = '';
+
+        for (const length of possibleNumberLengths) {
+            const ddiLength = digits.length - 2 - length;
+            if (ddiLength < 0 || ddiLength > 4) {
+                continue;
+            }
+
+            const rest = digits.slice(ddiLength);
+            if (rest.length < 2 + length) {
+                continue;
+            }
+
+            const candidateDdd = rest.slice(0, 2);
+            const candidateNumber = rest.slice(2, 2 + length);
+            if (candidateNumber.length === length) {
+                ddi = ddiLength > 0 ? digits.slice(0, ddiLength) : '';
+                ddd = candidateDdd;
+                number = candidateNumber;
+                break;
+            }
+        }
+
+        if (ddd === '') {
+            const fallbackRestLength = Math.min(11, digits.length);
+            const rest = digits.slice(digits.length - fallbackRestLength);
+            ddi = digits.slice(0, digits.length - rest.length);
+            ddd = rest.slice(0, 2);
+            number = rest.slice(2);
+        }
+
+        if (ddd === '') {
+            ddd = digits.slice(0, Math.min(2, digits.length));
+            number = digits.slice(ddd.length);
+        }
+
+        return {
+            ddi,
+            ddd,
+            number: number.slice(0, 20)
+        };
     }
 
     // Função para máscara de CEP
@@ -995,22 +1159,111 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Adiciona evento de input para Telefone
-    const telefoneInput = document.getElementById('telefone');
-    if (telefoneInput) {
-        if (telefoneInput.value) {
-            telefoneInput.value = aplicarMascaraTelefone(telefoneInput.value);
-        }
-        telefoneInput.addEventListener('input', function(e) {
-            e.target.value = aplicarMascaraTelefone(e.target.value);
-        });
+    const telefoneDdiInput = document.getElementById('telefone_ddi');
+    const telefoneDddInput = document.getElementById('telefone_ddd');
+    const telefoneNumeroInput = document.getElementById('telefone_numero');
+    const telefoneCompletoInput = document.getElementById('telefone_completo');
 
-        telefoneInput.addEventListener('paste', function(e) {
-            setTimeout(() => {
-                e.target.value = aplicarMascaraTelefone(e.target.value);
-            }, 100);
-        });
+    function atualizarTelefoneCompleto() {
+        if (!telefoneCompletoInput) {
+            return;
+        }
+
+        const ddiDigits = sanitizeDigits(telefoneDdiInput ? telefoneDdiInput.value : '', 4);
+        const dddDigits = sanitizeDigits(telefoneDddInput ? telefoneDddInput.value : '', 4);
+        const numeroDigits = sanitizeDigits(telefoneNumeroInput ? telefoneNumeroInput.value : '', 20);
+
+        if (telefoneDdiInput && telefoneDdiInput.value !== ddiDigits) {
+            telefoneDdiInput.value = ddiDigits;
+        }
+
+        if (telefoneDddInput && telefoneDddInput.value !== dddDigits) {
+            telefoneDddInput.value = dddDigits;
+        }
+
+        if (telefoneNumeroInput) {
+            const formatted = formatTelefoneNumero(numeroDigits);
+            if (telefoneNumeroInput.value !== formatted) {
+                telefoneNumeroInput.value = formatted;
+            }
+        }
+
+        if (dddDigits === '' || numeroDigits === '') {
+            telefoneCompletoInput.value = '';
+            return;
+        }
+
+        const ddiParaFormatar = ddiDigits !== '' ? ddiDigits : '55';
+        const numeroFormatado = formatTelefoneNumero(numeroDigits);
+        telefoneCompletoInput.value = `+${ddiParaFormatar} (${dddDigits}) ${numeroFormatado}`;
     }
+
+    function handleTelefonePaste(event) {
+        const clipboard = event.clipboardData || window.clipboardData;
+        if (!clipboard) {
+            return;
+        }
+
+        const pastedText = clipboard.getData('text');
+        if (!pastedText) {
+            return;
+        }
+
+        const parts = splitTelefoneCompleto(pastedText);
+        if (parts.ddd === '' && parts.number === '') {
+            return;
+        }
+
+        event.preventDefault();
+
+        if (telefoneDdiInput) {
+            const pastedDdi = sanitizeDigits(parts.ddi, 4);
+            if (pastedDdi !== '') {
+                telefoneDdiInput.value = pastedDdi;
+            } else if (!telefoneDdiInput.value) {
+                telefoneDdiInput.value = '55';
+            }
+        }
+
+        if (telefoneDddInput) {
+            telefoneDddInput.value = sanitizeDigits(parts.ddd, 4);
+        }
+
+        if (telefoneNumeroInput) {
+            telefoneNumeroInput.value = formatTelefoneNumero(parts.number);
+        }
+
+        atualizarTelefoneCompleto();
+    }
+
+    if (telefoneDdiInput) {
+        telefoneDdiInput.value = sanitizeDigits(telefoneDdiInput.value, 4) || '55';
+        telefoneDdiInput.addEventListener('input', function(event) {
+            event.target.value = sanitizeDigits(event.target.value, 4);
+            atualizarTelefoneCompleto();
+        });
+        telefoneDdiInput.addEventListener('paste', handleTelefonePaste);
+    }
+
+    if (telefoneDddInput) {
+        telefoneDddInput.value = sanitizeDigits(telefoneDddInput.value, 4);
+        telefoneDddInput.addEventListener('input', function(event) {
+            event.target.value = sanitizeDigits(event.target.value, 4);
+            atualizarTelefoneCompleto();
+        });
+        telefoneDddInput.addEventListener('paste', handleTelefonePaste);
+    }
+
+    if (telefoneNumeroInput) {
+        telefoneNumeroInput.value = formatTelefoneNumero(telefoneNumeroInput.value);
+        telefoneNumeroInput.addEventListener('input', function(event) {
+            event.target.value = formatTelefoneNumero(event.target.value);
+            atualizarTelefoneCompleto();
+        });
+        telefoneNumeroInput.addEventListener('paste', handleTelefonePaste);
+    }
+
+    atualizarTelefoneCompleto();
 
     // Adiciona evento de input para CEP
     const cepInput = document.getElementById('cep');

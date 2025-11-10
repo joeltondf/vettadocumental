@@ -140,3 +140,26 @@ if (!function_exists('formatInternationalPhone')) {
     }
 }
 
+if (!function_exists('formatarTelefone')) {
+    function formatarTelefone($ddi, $ddd, $numero): string
+    {
+        $ddiDigits = stripNonDigits((string) $ddi);
+        $dddDigits = stripNonDigits((string) $ddd);
+        $numeroDigits = stripNonDigits((string) $numero);
+
+        if ($ddiDigits === '' || $dddDigits === '' || $numeroDigits === '') {
+            return '-';
+        }
+
+        if (strlen($numeroDigits) > 20) {
+            $numeroDigits = substr($numeroDigits, 0, 20);
+        }
+
+        $numeroFormatado = strlen($numeroDigits) > 5
+            ? substr($numeroDigits, 0, 5) . '-' . substr($numeroDigits, 5)
+            : $numeroDigits;
+
+        return sprintf('+%s (%s) %s', $ddiDigits, $dddDigits, $numeroFormatado);
+    }
+}
+

@@ -5,18 +5,51 @@ require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
 require_once __DIR__ . '/../../app/views/layouts/header.php';
 
+$perfilLogado = $_SESSION['user_perfil'] ?? '';
+$usuarioLogadoId = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : 0;
+$mostrar_filtro = in_array($perfilLogado, ['sdr', 'gerencia', 'admin', 'master', 'supervisor'], true);
+
 $responsavel_filtrado = null;
-if (in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'supervisor']) && isset($_GET['responsavel_id']) && !empty($_GET['responsavel_id'])) {
+if ($mostrar_filtro && isset($_GET['responsavel_id']) && $_GET['responsavel_id'] !== '') {
     $responsavel_filtrado = filter_input(INPUT_GET, 'responsavel_id', FILTER_VALIDATE_INT);
+    if ($responsavel_filtrado === false) {
+        $responsavel_filtrado = null;
+    }
 }
+
+$usuarios_filtro = [];
+$idsPermitidosFiltro = [];
 
 try {
     $stmt_users = $pdo->query("SELECT id, nome_completo, perfil FROM users ORDER BY nome_completo");
     $todos_usuarios = $stmt_users->fetchAll(PDO::FETCH_ASSOC);
 
-    $usuarios_filtro = array_filter($todos_usuarios, function($user) {
-        return in_array($user['perfil'], ['vendedor', 'gerencia', 'supervisor', 'admin']);
-    });
+    if ($mostrar_filtro) {
+        if ($perfilLogado === 'sdr') {
+            $stmtDistribuicao = $pdo->prepare('SELECT DISTINCT vendedorId FROM distribuicao_leads WHERE sdrId = :sdr_id');
+            $stmtDistribuicao->execute([':sdr_id' => $usuarioLogadoId]);
+            $vendedoresRelacionados = array_map('intval', $stmtDistribuicao->fetchAll(PDO::FETCH_COLUMN));
+
+            $idsPermitidosFiltro = array_values(array_unique(array_merge([$usuarioLogadoId], $vendedoresRelacionados)));
+
+            $usuarios_filtro = array_values(array_filter($todos_usuarios, static function($user) use ($idsPermitidosFiltro) {
+                return in_array((int) $user['id'], $idsPermitidosFiltro, true);
+            }));
+        } else {
+            $usuarios_filtro = array_values(array_filter($todos_usuarios, static function($user) {
+                return in_array($user['perfil'], ['vendedor', 'gerencia', 'supervisor', 'admin', 'master', 'sdr'], true);
+            }));
+            $idsPermitidosFiltro = array_values(array_filter(array_unique(array_map(static function($user) {
+                return (int) $user['id'];
+            }, $usuarios_filtro)), static function ($id) {
+                return $id > 0;
+            }));
+        }
+
+        if ($responsavel_filtrado !== null && !in_array($responsavel_filtrado, $idsPermitidosFiltro, true)) {
+            $responsavel_filtrado = null;
+        }
+    }
 
     $clientes = $pdo->query("SELECT id, nome_cliente AS nome FROM clientes WHERE is_prospect = 1 ORDER BY nome_cliente")
         ->fetchAll(PDO::FETCH_ASSOC);
@@ -60,7 +93,7 @@ if ($prefillTitle !== '') {
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-3xl font-bold">Agenda de Reuniões</h1>
 
-        <?php if (in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'supervisor'])): ?>
+        <?php if ($mostrar_filtro && !empty($usuarios_filtro)): ?>
             <form method="GET" action="<?php echo APP_URL; ?>/crm/agendamentos/calendario.php" class="flex items-center ml-auto">
                 <label for="responsavel_id" class="mr-2 text-gray-700">Ver agenda de:</label>
                 <select name="responsavel_id" id="responsavel_id" onchange="this.form.submit()" class="form-select border border-gray-300 rounded-md py-1 px-2 text-sm">
@@ -220,6 +253,45 @@ document.addEventListener('DOMContentLoaded', function() {
         JSON_UNESCAPED_UNICODE
     ); ?>);
 
+    function formatTimeWithSuffix(timeText) {
+        if (!timeText) {
+            return timeText;
+        }
+
+        return timeText.replace(/(\d{1,2})(:\d{2})?(?!h)/g, '$1$2h');
+    }
+
+    function applyHourSuffix(container) {
+        if (!container) {
+            return;
+        }
+
+        ['.fc-event-time', '.fc-list-event-time'].forEach(function(selector) {
+            Array.prototype.forEach.call(container.querySelectorAll(selector), function(element) {
+                if (element.childNodes && element.childNodes.length > 0) {
+                    Array.prototype.forEach.call(element.childNodes, function(node) {
+                        if (node.nodeType === 3) {
+                            var formatted = formatTimeWithSuffix(node.textContent);
+                            if (formatted !== node.textContent) {
+                                node.textContent = formatted;
+                            }
+                        } else if (node.nodeType === 1) {
+                            var formattedElementText = formatTimeWithSuffix(node.textContent);
+                            if (formattedElementText !== node.textContent) {
+                                node.textContent = formattedElementText;
+                            }
+                        }
+                    });
+                } else if (element.textContent) {
+                    var formattedText = formatTimeWithSuffix(element.textContent);
+                    if (formattedText !== element.textContent) {
+                        element.textContent = formattedText;
+                    }
+                }
+            });
+        });
+    }
+
     var calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
         locale: 'pt-br',
@@ -229,7 +301,12 @@ document.addEventListener('DOMContentLoaded', function() {
             right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
         },
         events: calendarEventsUrl,
-        
+        eventTimeFormat: {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        },
+
         selectable: true,
         dateClick: function(info) {
             formNovoAgendamento.reset();
@@ -361,6 +438,7 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         eventDidMount: function(info) {
              info.el.style.cursor = 'pointer';
+             applyHourSuffix(info.el);
         }
     });
 

@@ -142,8 +142,53 @@ class Processo
         return "LOWER(CASE\n                WHEN COALESCE(p.valor_total, 0) <= 0 THEN 'pendente'\n                WHEN {$valorRecebido} >= COALESCE(p.valor_total, 0) - 0.01 THEN 'pago'\n                WHEN {$valorRecebido} > 0 THEN 'parcial'\n                ELSE 'pendente'\n            END) AS status_financeiro";
     }
 
+    private function normalizePrazoDias($value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
 
-    
+        if (is_numeric($value)) {
+            $normalized = (int)$value;
+            // Zero ou negativos removem o prazo e são tratados como null.
+            return $normalized > 0 ? $normalized : null;
+        }
+
+        if (is_string($value)) {
+            $filtered = preg_replace('/[^0-9-]/', '', $value);
+            if ($filtered === null || $filtered === '' || $filtered === '-') {
+                return null;
+            }
+
+            if (is_numeric($filtered)) {
+                $normalized = (int)$filtered;
+                // Zero ou negativos removem o prazo e são tratados como null.
+                return $normalized > 0 ? $normalized : null;
+            }
+        }
+
+        return null;
+    }
+
+    private function calculateDeadlineFromCreation(?string $creationDate, ?int $prazoDias): ?string
+    {
+        if ($prazoDias === null) {
+            return null;
+        }
+
+        $baseDate = $creationDate ?: date('Y-m-d');
+
+        try {
+            $date = new DateTimeImmutable($baseDate);
+        } catch (Exception $exception) {
+            return null;
+        }
+
+        return $date->modify('+' . $prazoDias . ' days')->format('Y-m-d');
+    }
+
+
+
 public function create($data, $files)
 {
     $this->pdo->beginTransaction();
@@ -169,7 +214,7 @@ public function create($data, $files)
         // ===== INÍCIO DA CORREÇÃO =====
         // Query SQL CORRIGIDA: A coluna 'orcamento_comprovantes' foi removida.
         $sqlProcesso = "INSERT INTO processos (
-            cliente_id, colaborador_id, vendedor_id, titulo, status_processo,
+            cliente_id, colaborador_id, vendedor_id, prospeccao_id, titulo, status_processo,
             orcamento_numero, orcamento_origem, orcamento_prazo_calculado,
             data_previsao_entrega, categorias_servico, idioma,
             valor_total, orcamento_forma_pagamento, orcamento_parcelas, orcamento_valor_entrada,
@@ -177,11 +222,11 @@ public function create($data, $files)
             apostilamento_quantidade, apostilamento_valor_unitario,
             postagem_quantidade, postagem_valor_unitario, observacoes,
             data_entrada, data_inicio_traducao, traducao_modalidade,
-            traducao_prazo_data, traducao_prazo_dias,
+            prazo_dias, traducao_prazo_dias,
             assinatura_tipo, tradutor_id, modalidade_assinatura,
             etapa_faturamento_codigo, codigo_categoria, codigo_conta_corrente, codigo_cenario_fiscal, os_numero_conta_azul
         ) VALUES (
-            :cliente_id, :colaborador_id, :vendedor_id, :titulo, :status_processo,
+            :cliente_id, :colaborador_id, :vendedor_id, :prospeccao_id, :titulo, :status_processo,
             :orcamento_numero, :orcamento_origem, :orcamento_prazo_calculado,
             :data_previsao_entrega, :categorias_servico, :idioma,
             :valor_total, :orcamento_forma_pagamento, :orcamento_parcelas, :orcamento_valor_entrada,
@@ -189,7 +234,7 @@ public function create($data, $files)
             :apostilamento_quantidade, :apostilamento_valor_unitario,
             :postagem_quantidade, :postagem_valor_unitario, :observacoes,
             :data_entrada, :data_inicio_traducao, :traducao_modalidade,
-            :traducao_prazo_data, :traducao_prazo_dias,
+            :prazo_dias, :traducao_prazo_dias,
             :assinatura_tipo, :tradutor_id, :modalidade_assinatura,
             :etapa_faturamento_codigo, :codigo_categoria, :codigo_conta_corrente, :codigo_cenario_fiscal, :os_numero_conta_azul
         )";
@@ -199,16 +244,26 @@ public function create($data, $files)
         // $comprovantePath = $this->uploadComprovante($files['comprovante'] ?? null);
 
         // Parâmetros CORRIGIDOS: A chave 'orcamento_comprovantes' foi removida.
+        $dataEntrada = $data['data_solicitacao'] ?? $data['data_entrada'] ?? date('Y-m-d');
+        $traducaoPrazoDias = $this->normalizePrazoDias($data['traducao_prazo_dias'] ?? null);
+        $prazoDias = $this->normalizePrazoDias($data['prazo_dias'] ?? null);
+        if ($prazoDias === null && $traducaoPrazoDias !== null) {
+            // Ao cadastrar serviços rápidos, zero ou vazio removem o prazo geral; reaproveitamos o prazo de tradução quando informado.
+            $prazoDias = $traducaoPrazoDias;
+        }
+        $dataPrevisaoEntrega = $this->calculateDeadlineFromCreation($dataEntrada, $prazoDias);
+
         $params = [
             'cliente_id' => $data['id_cliente'] ?? $data['cliente_id'] ?? null,
             'colaborador_id' => $_SESSION['user_id'],
             'vendedor_id' => $this->resolveVendorId($data),
             'titulo' => $data['titulo'] ?? 'Orçamento #' . $orcamento_numero,
+            'prospeccao_id' => $this->sanitizeNullableInt($data['prospeccao_id'] ?? null),
             'status_processo' => $data['status_processo'] ?? $data['status'] ?? 'Orçamento',
             'orcamento_numero' => $orcamento_numero,
             'orcamento_origem' => $data['orcamento_origem'] ?? null,
             'orcamento_prazo_calculado' => $prazo_formatado,
-            'data_previsao_entrega' => $data['data_entrega'] ?? $data['traducao_prazo_data'] ?? null,
+            'data_previsao_entrega' => $dataPrevisaoEntrega,
             'categorias_servico' => isset($data['categorias_servico']) ? implode(',', $data['categorias_servico']) : ($data['tipo_servico'] ?? null),
             'idioma' => $data['idioma'] ?? null,
             'valor_total' => $this->parseCurrency($data['valor_total'] ?? $data['valor_total_hidden'] ?? 0),
@@ -224,11 +279,11 @@ public function create($data, $files)
             'postagem_quantidade' => empty($data['postagem_quantidade']) ? null : (int)$data['postagem_quantidade'],
             'postagem_valor_unitario' => $this->parseCurrency($data['postagem_valor_unitario'] ?? null),
             'observacoes' => $data['observacoes'] ?? '',
-            'data_entrada' => $data['data_solicitacao'] ?? $data['data_entrada'] ?? date('Y-m-d'),
+            'data_entrada' => $dataEntrada,
             'data_inicio_traducao' => $data['data_inicio_traducao'] ?? null,
             'traducao_modalidade' => $data['traducao_modalidade'] ?? 'Normal',
-            'traducao_prazo_data' => $data['traducao_prazo_data'] ?? null,
-            'traducao_prazo_dias' => $data['traducao_prazo_dias'] ?? null,
+            'prazo_dias' => $prazoDias,
+            'traducao_prazo_dias' => $traducaoPrazoDias,
             'assinatura_tipo' => $data['assinatura_tipo'] ?? 'Digital',
             'tradutor_id' => $data['id_tradutor'] ?? $data['tradutor_id'] ?? null,
             'modalidade_assinatura' => $data['modalidade_assinatura'] ?? null,
@@ -296,15 +351,18 @@ public function create($data, $files)
     public function getById($id)
     {
         // A correção está na consulta SQL abaixo, que agora inclui um JOIN com a tabela 'users'.
-        $sql = "SELECT 
-                    p.*, 
-                    c.nome_cliente, 
+        $sql = "SELECT
+                    p.*,
+                    c.nome_cliente,
+                    pr.id_texto AS prospeccao_codigo,
+                    pr.nome_prospecto AS prospeccao_nome,
                     u_vendedor.nome_completo as nome_vendedor, -- Pega o nome da tabela 'users'
-                    t.nome_tradutor 
+                    t.nome_tradutor
                 FROM processos p
                 LEFT JOIN clientes c ON p.cliente_id = c.id
                 LEFT JOIN vendedores v ON p.vendedor_id = v.id
                 LEFT JOIN users u_vendedor ON v.user_id = u_vendedor.id -- FAZ O JOIN ADICIONAL AQUI
+                LEFT JOIN prospeccoes pr ON p.prospeccao_id = pr.id
                 LEFT JOIN tradutores t ON p.tradutor_id = t.id
                 WHERE p.id = ?";
         
@@ -401,7 +459,7 @@ public function create($data, $files)
             
             // --- INÍCIO DA NOVA LÓGICA DE LANÇAMENTO FINANCEIRO ---
             $newStatus = $data['status_processo'];
-            $statusTrigger = ['Serviço Pendente', 'Serviço em Andamento', 'Serviço pendente', 'Serviço em andamento', 'Aguardando pagamento']; // Status que disparam a criação da receita
+            $statusTrigger = ['Serviço Pendente', 'Serviço em Andamento', 'Serviço pendente', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos']; // Status que disparam a criação da receita
 
             // Dispara a lógica apenas se o status MUDOU para um dos status do gatilho
             if ($oldStatus != $newStatus && in_array($newStatus, $statusTrigger)) {
@@ -509,9 +567,11 @@ public function create($data, $files)
         $allowedFields = [
             'status_processo',
             'data_inicio_traducao',
-            'traducao_prazo_tipo',
+            'prazo_dias',
             'traducao_prazo_dias',
-            'traducao_prazo_data',
+            'data_previsao_entrega',
+            'prazo_pausado_em',
+            'prazo_dias_restantes',
             'valor_total',
             'orcamento_forma_pagamento',
             'orcamento_parcelas',
@@ -527,6 +587,9 @@ public function create($data, $files)
         $setParts = [];
         $params = [':id' => $processoId];
 
+        $shouldUpdateDeadline = false;
+        $translationDeadlineProvided = false;
+
         foreach ($allowedFields as $field) {
             if (!array_key_exists($field, $data)) {
                 continue;
@@ -534,16 +597,47 @@ public function create($data, $files)
 
             $value = $data[$field];
 
+            if ($value === '') {
+                $value = null;
+            }
+
             if (in_array($field, ['valor_total', 'orcamento_valor_entrada', 'orcamento_valor_restante'], true)) {
                 $value = $this->parseCurrency($value);
+            } elseif (in_array($field, ['prazo_dias', 'traducao_prazo_dias'], true)) {
+                // Zero ou valores vazios removem o prazo e devem ser tratados como NULL.
+                $value = $this->normalizePrazoDias($value);
+            } elseif (in_array($field, ['orcamento_parcelas', 'cliente_id', 'prazo_dias_restantes'], true) && $value !== null) {
+                $value = (int)$value;
             }
 
-            if (in_array($field, ['traducao_prazo_dias', 'orcamento_parcelas', 'cliente_id'], true)) {
-                $value = $value === null ? null : (int)$value;
-            }
-
-            $params[":" . $field] = ($value === '' ? null : $value);
+            $params[":" . $field] = $value;
             $setParts[] = "`{$field}` = :{$field}";
+
+            if (in_array($field, ['prazo_dias', 'traducao_prazo_dias'], true)) {
+                $shouldUpdateDeadline = true;
+
+                if ($field === 'traducao_prazo_dias') {
+                    $translationDeadlineProvided = true;
+                }
+            }
+        }
+
+        if ($translationDeadlineProvided) {
+            $translationValue = $params[':traducao_prazo_dias'] ?? null;
+
+            if (!in_array('`prazo_dias` = :prazo_dias', $setParts, true)) {
+                $setParts[] = '`prazo_dias` = :prazo_dias';
+            }
+
+            $params[':prazo_dias'] = $translationValue;
+        }
+
+        if ($shouldUpdateDeadline && !array_key_exists('data_previsao_entrega', $data)) {
+            if (!array_key_exists(':data_inicio_traducao', $params)) {
+                $params[':data_inicio_traducao'] = null;
+            }
+
+            $setParts[] = "data_previsao_entrega = CASE\n                WHEN :prazo_dias IS NULL THEN NULL\n                WHEN COALESCE(:data_inicio_traducao, data_inicio_traducao) IS NOT NULL THEN DATE_ADD(COALESCE(:data_inicio_traducao, data_inicio_traducao), INTERVAL :prazo_dias DAY)\n                ELSE DATE_ADD(data_criacao, INTERVAL :prazo_dias DAY)\n            END";
         }
 
         if (empty($setParts)) {
@@ -617,7 +711,10 @@ public function create($data, $files)
     {
         $sql = "SELECT
                     p.orcamento_numero, p.id, p.titulo, p.status_processo, p.data_entrada,
-                    p.data_previsao_entrega, p.valor_total, c.nome_cliente,
+                    p.data_previsao_entrega, p.valor_total, p.prospeccao_id,
+                    c.nome_cliente,
+                    pr.id_texto AS prospeccao_codigo,
+                    pr.nome_prospecto AS prospeccao_nome,
                     u_colab.nome_completo as nome_colaborador,
                     u_vend.nome_completo as nome_vendedor
                 FROM processos p
@@ -625,6 +722,7 @@ public function create($data, $files)
                 JOIN users u_colab ON p.colaborador_id = u_colab.id
                 LEFT JOIN vendedores v ON p.vendedor_id = v.id
                 LEFT JOIN users u_vend ON v.user_id = u_vend.id
+                LEFT JOIN prospeccoes pr ON p.prospeccao_id = pr.id
                 WHERE p.status_processo NOT IN ('Cancelado', 'Recusado')
                 ORDER BY p.id DESC";
         $stmt = $this->pdo->query($sql);
@@ -642,10 +740,12 @@ public function create($data, $files)
     {
         $select_part = "SELECT
                     p.id, p.titulo, p.status_processo, p.data_criacao, p.data_previsao_entrega,
-                    p.valor_total,
+                    p.valor_total, p.prospeccao_id,
+                    pr.id_texto AS prospeccao_codigo,
+                    pr.nome_prospecto AS prospeccao_nome,
                     p.categorias_servico, c.nome_cliente, t.nome_tradutor, p.os_numero_omie, p.os_numero_conta_azul,
-                    p.data_inicio_traducao, p.traducao_prazo_data, p.traducao_prazo_dias, p.traducao_modalidade, p.assinatura_tipo,
-                    p.data_envio_assinatura, p.data_devolucao_assinatura, p.data_envio_cartorio, 
+                    p.data_inicio_traducao, p.data_previsao_entrega AS prazo_data, p.prazo_dias, p.traducao_modalidade, p.assinatura_tipo,
+                    p.data_envio_assinatura, p.data_devolucao_assinatura, p.data_envio_cartorio,
                     v.nome_completo as nome_vendedor,
                     (SELECT COUNT(*) FROM documentos d WHERE d.processo_id = p.id) as total_documentos_contagem,
                     (SELECT COALESCE(SUM(d.quantidade), 0) FROM documentos d WHERE d.processo_id = p.id) as total_documentos_soma";
@@ -654,7 +754,8 @@ public function create($data, $files)
                     JOIN clientes AS c ON p.cliente_id = c.id
                     LEFT JOIN tradutores AS t ON p.tradutor_id = t.id
                     LEFT JOIN vendedores AS vend ON p.vendedor_id = vend.id
-                    LEFT JOIN users AS v ON vend.user_id = v.id";
+                    LEFT JOIN users AS v ON vend.user_id = v.id
+                    LEFT JOIN prospeccoes AS pr ON p.prospeccao_id = pr.id";
 
     $where_clauses = [];
     $params = [];
@@ -668,9 +769,13 @@ public function create($data, $files)
     //  NOVO BLOCO PARA TRATAR OS FILTROS VINDOS DOS CARDS
     // ==========================================================
     if (!empty($filters['filtro_card'])) {
+        $deadlineDateExpression = "COALESCE(\n            p.data_previsao_entrega,\n            CASE\n                WHEN p.traducao_prazo_dias IS NOT NULL AND p.data_inicio_traducao IS NOT NULL\n                    THEN DATE_ADD(p.data_inicio_traducao, INTERVAL p.traducao_prazo_dias DAY)\n                WHEN p.prazo_dias IS NOT NULL AND p.data_inicio_traducao IS NOT NULL\n                    THEN DATE_ADD(p.data_inicio_traducao, INTERVAL p.prazo_dias DAY)\n                ELSE NULL\n            END\n        )";
+
+        $deadlineDiffExpression = "CASE\n            WHEN LOWER(p.status_processo) IN ('pendente de pagamento', 'pendente de documentos') AND p.prazo_dias_restantes IS NOT NULL THEN p.prazo_dias_restantes\n            WHEN {$deadlineDateExpression} IS NOT NULL THEN DATEDIFF({$deadlineDateExpression}, CURDATE())\n            ELSE NULL\n        END";
+
         switch ($filters['filtro_card']) {
             case 'ativos':
-                $where_clauses[] = "p.status_processo IN ('Serviço em Andamento', 'Serviço em andamento', 'Aguardando pagamento')";
+                $where_clauses[] = "p.status_processo IN ('Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos')";
                 break;
             case 'pendentes':
                 $where_clauses[] = "p.status_processo IN ('Serviço Pendente', 'Serviço pendente')";
@@ -682,7 +787,7 @@ public function create($data, $files)
                 $where_clauses[] = "p.status_processo IN ('Concluído', 'Finalizado') AND MONTH(p.data_finalizacao_real) = MONTH(CURDATE()) AND YEAR(p.data_finalizacao_real) = YEAR(CURDATE())";
                 break;
             case 'atrasados':
-                $where_clauses[] = "p.traducao_prazo_data < CURDATE() AND p.status_processo NOT IN ('Concluído', 'Finalizado', 'Arquivado', 'Cancelado', 'Recusado', 'Aguardando pagamento')";
+                $where_clauses[] = "p.data_previsao_entrega < CURDATE() AND p.status_processo NOT IN ('Concluído', 'Finalizado', 'Arquivado', 'Cancelado', 'Recusado', 'Pendente de pagamento', 'Pendente de documentos')";
                 break;
         }
     }
@@ -726,15 +831,14 @@ public function create($data, $files)
         $params[':data_fim'] = $filters['data_fim'];
     }
     if (!empty($filters['tipo_prazo'])) {
-        $today = 'CURDATE()';
         switch ($filters['tipo_prazo']) {
-            case 'falta_3': $where_clauses[] = "DATEDIFF(p.traducao_prazo_data, $today) = 3"; break;
-            case 'falta_2': $where_clauses[] = "DATEDIFF(p.traducao_prazo_data, $today) = 2"; break;
-            case 'falta_1': $where_clauses[] = "DATEDIFF(p.traducao_prazo_data, $today) = 1"; break;
-            case 'vence_hoje': $where_clauses[] = "DATEDIFF(p.traducao_prazo_data, $today) = 0"; break;
-            case 'venceu_1': $where_clauses[] = "DATEDIFF(p.traducao_prazo_data, $today) = -1"; break;
-            case 'venceu_2': $where_clauses[] = "DATEDIFF(p.traducao_prazo_data, $today) = -2"; break;
-            case 'venceu_3_mais': $where_clauses[] = "DATEDIFF(p.traducao_prazo_data, $today) <= -3"; break;
+            case 'falta_3': $where_clauses[] = "DATEDIFF(p.data_previsao_entrega, $today) = 3"; break;
+            case 'falta_2': $where_clauses[] = "DATEDIFF(p.data_previsao_entrega, $today) = 2"; break;
+            case 'falta_1': $where_clauses[] = "DATEDIFF(p.data_previsao_entrega, $today) = 1"; break;
+            case 'vence_hoje': $where_clauses[] = "DATEDIFF(p.data_previsao_entrega, $today) = 0"; break;
+            case 'venceu_1': $where_clauses[] = "DATEDIFF(p.data_previsao_entrega, $today) = -1"; break;
+            case 'venceu_2': $where_clauses[] = "DATEDIFF(p.data_previsao_entrega, $today) = -2"; break;
+            case 'venceu_3_mais': $where_clauses[] = "DATEDIFF(p.data_previsao_entrega, $today) <= -3"; break;
         }
     }
 
@@ -794,10 +898,14 @@ public function create($data, $files)
 
         }
 
+        $deadlineDateExpression = "COALESCE(\n            p.data_previsao_entrega,\n            CASE\n                WHEN p.traducao_prazo_dias IS NOT NULL AND p.data_inicio_traducao IS NOT NULL\n                    THEN DATE_ADD(p.data_inicio_traducao, INTERVAL p.traducao_prazo_dias DAY)\n                WHEN p.prazo_dias IS NOT NULL AND p.data_inicio_traducao IS NOT NULL\n                    THEN DATE_ADD(p.data_inicio_traducao, INTERVAL p.prazo_dias DAY)\n                ELSE NULL\n            END\n        )";
+
+        $deadlineDiffExpression = "CASE\n            WHEN LOWER(p.status_processo) IN ('pendente de pagamento', 'pendente de documentos') AND p.prazo_dias_restantes IS NOT NULL THEN p.prazo_dias_restantes\n            WHEN {$deadlineDateExpression} IS NOT NULL THEN DATEDIFF({$deadlineDateExpression}, CURDATE())\n            ELSE NULL\n        END";
+
         if (!empty($filters['filtro_card'])) {
             switch ($filters['filtro_card']) {
                 case 'ativos':
-                    $where_clauses[] = "p.status_processo IN ('Serviço em Andamento', 'Serviço em andamento', 'Aguardando pagamento')";
+                    $where_clauses[] = "p.status_processo IN ('Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos')";
                     break;
                 case 'pendentes':
                     $where_clauses[] = "p.status_processo IN ('Serviço Pendente', 'Serviço pendente')";
@@ -809,7 +917,7 @@ public function create($data, $files)
                     $where_clauses[] = "p.status_processo IN ('Concluído', 'Finalizado') AND MONTH(p.data_finalizacao_real) = MONTH(CURDATE()) AND YEAR(p.data_finalizacao_real) = YEAR(CURDATE())";
                     break;
                 case 'atrasados':
-                    $where_clauses[] = "p.traducao_prazo_data < CURDATE() AND p.status_processo NOT IN ('Concluído', 'Finalizado', 'Arquivado', 'Cancelado', 'Recusado', 'Aguardando pagamento')";
+                    $where_clauses[] = "p.data_previsao_entrega < CURDATE() AND p.status_processo NOT IN ('Concluído', 'Finalizado', 'Arquivado', 'Cancelado', 'Recusado', 'Pendente de pagamento', 'Pendente de documentos')";
                     break;
             }
         }
@@ -852,15 +960,14 @@ public function create($data, $files)
         $params[':data_fim'] = $filters['data_fim'];
     }
     if (!empty($filters['tipo_prazo'])) {
-        $today = 'CURDATE()';
         switch ($filters['tipo_prazo']) {
-            case 'falta_3': $where_clauses[] = "DATEDIFF(p.traducao_prazo_data, $today) = 3"; break;
-            case 'falta_2': $where_clauses[] = "DATEDIFF(p.traducao_prazo_data, $today) = 2"; break;
-            case 'falta_1': $where_clauses[] = "DATEDIFF(p.traducao_prazo_data, $today) = 1"; break;
-            case 'vence_hoje': $where_clauses[] = "DATEDIFF(p.traducao_prazo_data, $today) = 0"; break;
-            case 'venceu_1': $where_clauses[] = "DATEDIFF(p.traducao_prazo_data, $today) = -1"; break;
-            case 'venceu_2': $where_clauses[] = "DATEDIFF(p.traducao_prazo_data, $today) = -2"; break;
-            case 'venceu_3_mais': $where_clauses[] = "DATEDIFF(p.traducao_prazo_data, $today) <= -3"; break;
+            case 'falta_3': $where_clauses[] = "DATEDIFF(p.data_previsao_entrega, $today) = 3"; break;
+            case 'falta_2': $where_clauses[] = "DATEDIFF(p.data_previsao_entrega, $today) = 2"; break;
+            case 'falta_1': $where_clauses[] = "DATEDIFF(p.data_previsao_entrega, $today) = 1"; break;
+            case 'vence_hoje': $where_clauses[] = "DATEDIFF(p.data_previsao_entrega, $today) = 0"; break;
+            case 'venceu_1': $where_clauses[] = "DATEDIFF(p.data_previsao_entrega, $today) = -1"; break;
+            case 'venceu_2': $where_clauses[] = "DATEDIFF(p.data_previsao_entrega, $today) = -2"; break;
+            case 'venceu_3_mais': $where_clauses[] = "DATEDIFF(p.data_previsao_entrega, $today) <= -3"; break;
         }
     }
 
@@ -882,15 +989,15 @@ public function create($data, $files)
         $baseSql = "SELECT
                     p.id, p.titulo, p.status_processo, p.data_criacao, p.data_previsao_entrega,
                     p.categorias_servico, c.nome_cliente, t.nome_tradutor, p.os_numero_omie,
-                    p.data_inicio_traducao, p.traducao_prazo_data, p.traducao_prazo_dias,
+                    p.data_inicio_traducao, p.data_previsao_entrega, p.prazo_dias,
                     p.traducao_modalidade, p.finalizacao_tipo, p.data_envio_cartorio,
                     p.data_envio_assinatura, p.data_devolucao_assinatura,
                     (SELECT COALESCE(SUM(d.quantidade), 0) FROM documentos d WHERE d.processo_id = p.id) AS total_documentos_soma,
                     COALESCE(
-                        p.traducao_prazo_data,
+                        p.data_previsao_entrega,
                         CASE
-                            WHEN p.traducao_prazo_dias IS NOT NULL AND p.data_inicio_traducao IS NOT NULL
-                                THEN DATE_ADD(p.data_inicio_traducao, INTERVAL p.traducao_prazo_dias DAY)
+                            WHEN p.prazo_dias IS NOT NULL
+                                THEN DATE_ADD(p.data_criacao, INTERVAL p.prazo_dias DAY)
                             ELSE p.data_previsao_entrega
                         END
                     ) AS prazo_estimado
@@ -974,6 +1081,8 @@ public function create($data, $files)
             'Orçamento Pendente',
             'Serviço Pendente',
             'Serviço em Andamento',
+            'Pendente de pagamento',
+            'Pendente de documentos',
             'Serviço',
             'Serviço Pendente com Serviço',
             'Serviço em andamento',
@@ -1197,8 +1306,8 @@ public function create($data, $files)
         $sql = "SELECT
                     SUM(CASE WHEN p.status_processo IN ('Orçamento', 'Orçamento Pendente') THEN 1 ELSE 0 END) AS budgetCount,
                     SUM(CASE WHEN p.status_processo IN ('Orçamento', 'Orçamento Pendente') THEN COALESCE(p.valor_total, 0) ELSE 0 END) AS budgetValue,
-                    SUM(CASE WHEN p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Aguardando pagamento') THEN 1 ELSE 0 END) AS pipelineCount,
-                    SUM(CASE WHEN p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Aguardando pagamento') THEN COALESCE(p.valor_total, 0) ELSE 0 END) AS pipelineValue,
+                    SUM(CASE WHEN p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos') THEN 1 ELSE 0 END) AS pipelineCount,
+                    SUM(CASE WHEN p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos') THEN COALESCE(p.valor_total, 0) ELSE 0 END) AS pipelineValue,
                     SUM(CASE WHEN p.status_processo IN ('Concluído', 'Finalizado') THEN 1 ELSE 0 END) AS closedCount,
                     SUM(CASE WHEN p.status_processo IN ('Concluído', 'Finalizado') THEN COALESCE(p.valor_total, 0) ELSE 0 END) AS closedValue
                 FROM processos p
@@ -1457,12 +1566,14 @@ public function create($data, $files)
      */
     public function getDashboardStats()
     {
+        $deadlineExpression = "COALESCE(\n            p.data_previsao_entrega,\n            CASE\n                WHEN p.traducao_prazo_dias IS NOT NULL AND p.data_inicio_traducao IS NOT NULL\n                    THEN DATE_ADD(p.data_inicio_traducao, INTERVAL p.traducao_prazo_dias DAY)\n                WHEN p.prazo_dias IS NOT NULL AND p.data_inicio_traducao IS NOT NULL\n                    THEN DATE_ADD(p.data_inicio_traducao, INTERVAL p.prazo_dias DAY)\n                ELSE NULL\n            END\n        )";
+
         $sql = "SELECT
-            COUNT(CASE WHEN status_processo IN ('Serviço em Andamento', 'Serviço em andamento', 'Aguardando pagamento') THEN 1 END) as processos_ativos,
+            COUNT(CASE WHEN status_processo IN ('Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos') THEN 1 END) as processos_ativos,
             COUNT(CASE WHEN status_processo IN ('Serviço Pendente', 'Serviço pendente') THEN 1 END) as servicos_pendentes,
             COUNT(CASE WHEN status_processo IN ('Orçamento', 'Orçamento Pendente') THEN 1 END) as orcamentos_pendentes,
             COUNT(CASE WHEN status_processo IN ('Concluído', 'Finalizado') AND MONTH(data_finalizacao_real) = MONTH(CURDATE()) AND YEAR(data_finalizacao_real) = YEAR(CURDATE()) THEN 1 END) as finalizados_mes,
-            COUNT(CASE WHEN traducao_prazo_data < CURDATE() AND status_processo NOT IN ('Concluído', 'Finalizado', 'Arquivado', 'Cancelado', 'Recusado', 'Aguardando pagamento') THEN 1 END) as processos_atrasados
+            COUNT(CASE WHEN data_previsao_entrega < CURDATE() AND status_processo NOT IN ('Concluído', 'Finalizado', 'Arquivado', 'Cancelado', 'Recusado', 'Pendente de pagamento', 'Pendente de documentos') THEN 1 END) as processos_atrasados
         FROM processos";
         try {
             $stmt = $this->pdo->prepare($sql);
@@ -1522,9 +1633,10 @@ public function create($data, $files)
         // Lista de todas as colunas que esta função tem permissão para atualizar.
         $allowed_fields = [
             'status_processo', 'tradutor_id', 'data_inicio_traducao', 'traducao_modalidade',
-            'traducao_prazo_tipo', 'traducao_prazo_dias', 'traducao_prazo_data',
+            'prazo_dias', 'traducao_prazo_dias', 'data_previsao_entrega',
             'assinatura_tipo', 'data_envio_assinatura', 'data_devolucao_assinatura',
-            'finalizacao_tipo', 'data_envio_cartorio', 'os_numero_conta_azul', 'os_numero_omie'
+            'finalizacao_tipo', 'data_envio_cartorio', 'os_numero_conta_azul', 'os_numero_omie',
+            'prazo_pausado_em', 'prazo_dias_restantes'
         ];
 
         // Adiciona a data de finalização apenas se o status for 'Concluído'
@@ -1537,12 +1649,48 @@ public function create($data, $files)
         $params = ['id' => $id];
 
         // Monta a query dinamicamente, usando apenas os campos que foram enviados pelo controller.
+        $shouldUpdateDeadline = false;
+        $translationDeadlineProvided = false;
+
         foreach ($allowed_fields as $field) {
             if (array_key_exists($field, $data)) {
+                $value = ($data[$field] === '') ? null : $data[$field];
+
+                if (in_array($field, ['prazo_dias', 'traducao_prazo_dias'], true)) {
+                    // Prazo igual a zero remove a deadline e deve ser persistido como NULL.
+                    $value = $this->normalizePrazoDias($value);
+                } elseif ($field === 'prazo_dias_restantes' && $value !== null) {
+                    $value = (int) $value;
+                }
+
                 $fieldsToUpdate[] = "`{$field}` = :{$field}";
-                // Trata valores que são strings vazias como NULL para o banco de dados.
-                $params[$field] = ($data[$field] === '') ? null : $data[$field];
+                $params[$field] = $value;
+
+                if (in_array($field, ['prazo_dias', 'traducao_prazo_dias'], true)) {
+                    $shouldUpdateDeadline = true;
+
+                    if ($field === 'traducao_prazo_dias') {
+                        $translationDeadlineProvided = true;
+                    }
+                }
             }
+        }
+        if ($translationDeadlineProvided) {
+            $translationValue = $params['traducao_prazo_dias'] ?? null;
+
+            if (!in_array('`prazo_dias` = :prazo_dias', $fieldsToUpdate, true)) {
+                $fieldsToUpdate[] = "`prazo_dias` = :prazo_dias";
+            }
+
+            $params['prazo_dias'] = $translationValue;
+        }
+
+        if ($shouldUpdateDeadline && !array_key_exists('data_previsao_entrega', $data)) {
+            if (!array_key_exists('data_inicio_traducao', $params)) {
+                $params['data_inicio_traducao'] = null;
+            }
+
+            $fieldsToUpdate[] = "data_previsao_entrega = CASE\n                WHEN :prazo_dias IS NULL THEN NULL\n                WHEN COALESCE(:data_inicio_traducao, data_inicio_traducao) IS NOT NULL THEN DATE_ADD(COALESCE(:data_inicio_traducao, data_inicio_traducao), INTERVAL :prazo_dias DAY)\n                ELSE DATE_ADD(data_criacao, INTERVAL :prazo_dias DAY)\n            END";
         }
 
         // Se, por algum motivo, nenhum campo válido foi enviado, interrompe a execução.
@@ -1971,7 +2119,7 @@ public function create($data, $files)
                     JOIN clientes c ON p.cliente_id = c.id
                     WHERE p.valor_total > 0 
                       AND p.vendedor_id IS NOT NULL
-                      AND p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Aguardando pagamento', 'Concluído', 'Finalizado')"; // Apenas status que contam como venda
+                      AND p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Finalizado')"; // Apenas status que contam como venda
         
             $params = [];
         
@@ -2019,10 +2167,10 @@ public function create($data, $files)
             $omieKeyPreview = $this->generateNextOmieKey();
 
             $sqlProcesso = "INSERT INTO processos (
-                cliente_id, colaborador_id, vendedor_id, titulo, valor_total,
+                cliente_id, colaborador_id, vendedor_id, prospeccao_id, titulo, valor_total,
                 status_processo, orcamento_numero, data_entrada, os_numero_conta_azul
             ) VALUES (
-                :cliente_id, :colaborador_id, :vendedor_id, :titulo, :valor_total,
+                :cliente_id, :colaborador_id, :vendedor_id, :prospeccao_id, :titulo, :valor_total,
                 :status_processo, :orcamento_numero, :data_entrada, :os_numero_conta_azul
             )";
             $stmtProcesso = $this->pdo->prepare($sqlProcesso);
@@ -2032,6 +2180,7 @@ public function create($data, $files)
                 'colaborador_id'  => $data['colaborador_id'] ?? $data['vendedor_id'], // O vendedor/SDR que fechou se torna o colaborador inicial
                 'vendedor_id'     => $data['vendedor_id'],
                 'titulo'          => $data['titulo'] ?? ('Orçamento #' . $orcamento_numero),
+                'prospeccao_id'   => $this->sanitizeNullableInt($data['prospeccao_id'] ?? null),
                 'valor_total'     => $data['valor_proposto'] ?? 0.00,
                 'status_processo' => $data['status_processo'] ?? 'Orçamento',
                 'orcamento_numero'=> $orcamento_numero,
@@ -2093,15 +2242,15 @@ public function create($data, $files)
         public function getServicosVencidos()
     {
         $sql = "SELECT 
-                    p.id, p.orcamento_numero, p.traducao_prazo_data, p.status_processo,
+                    p.id, p.orcamento_numero, p.data_previsao_entrega, p.status_processo,
                     c.nome_cliente
                 FROM processos p
                 JOIN clientes c ON p.cliente_id = c.id
                 WHERE 
-                    p.traducao_prazo_data IS NOT NULL
-                    AND p.traducao_prazo_data < CURDATE()
-                    AND p.status_processo NOT IN ('Concluído', 'Finalizado', 'Cancelado', 'Arquivado', 'Recusado', 'Aguardando pagamento')
-                ORDER BY p.traducao_prazo_data ASC";
+                    p.data_previsao_entrega IS NOT NULL
+                    AND p.data_previsao_entrega < CURDATE()
+                    AND p.status_processo NOT IN ('Concluído', 'Finalizado', 'Cancelado', 'Arquivado', 'Recusado', 'Pendente de pagamento', 'Pendente de documentos')
+                ORDER BY p.data_previsao_entrega ASC";
         
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute();
@@ -2121,7 +2270,7 @@ public function create($data, $files)
             SELECT 
                 p.*,
                 c.nome AS nome_cliente,
-                u.nome AS nome_usuario_criador
+                u.nome_completo AS nome_usuario_criador
             FROM 
                 processos p
             LEFT JOIN 
@@ -2161,7 +2310,7 @@ public function create($data, $files)
                 JOIN categorias_financeiras cf ON doc.tipo_documento = cf.nome_categoria
                 WHERE
                     p.data_criacao BETWEEN ? AND ?
-                    AND p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Aguardando pagamento', 'Concluído', 'Finalizado')
+                    AND p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Finalizado')
                     AND cf.servico_tipo IN ($placeholders)
                 GROUP BY
                     cf.servico_tipo";

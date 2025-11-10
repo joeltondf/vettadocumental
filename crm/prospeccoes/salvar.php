@@ -182,8 +182,17 @@ try {
         try {
             $leadDistributor = new LeadDistributor($pdo);
             $distributionSummary = $leadDistributor->distributeToNextSalesperson($prospectionId, $userId);
-            $interactionText = sprintf('Lead distribuído automaticamente para %s via round-robin.', $distributionSummary['vendorName']);
-            $prospectionModel->logInteraction($prospectionId, $userId, $interactionText);
+            if ($distributionSummary === null) {
+                $distributionWarning = 'Nenhum vendedor disponível para distribuição automática.';
+                $prospectionModel->logInteraction(
+                    $prospectionId,
+                    $userId,
+                    'Distribuição automática adiada: ' . $distributionWarning
+                );
+            } else {
+                $interactionText = sprintf('Lead distribuído automaticamente para %s via round-robin.', $distributionSummary['vendorName']);
+                $prospectionModel->logInteraction($prospectionId, $userId, $interactionText);
+            }
         } catch (Throwable $distributionException) {
             $distributionWarning = $distributionException->getMessage();
             $prospectionModel->logInteraction(

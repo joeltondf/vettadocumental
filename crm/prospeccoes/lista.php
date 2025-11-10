@@ -123,10 +123,15 @@ $sql_where = !empty($where_clauses) ? 'WHERE ' . implode(' AND ', $where_clauses
 $sql = "SELECT 
             p.*, 
             c.nome_cliente, 
-            u.nome_completo as nome_responsavel 
+            u.nome_completo as nome_responsavel,
+            sdr.nome_completo AS nome_sdr,
+            vendedor.nome_completo AS nome_vendedor
         FROM prospeccoes p
         LEFT JOIN clientes c ON p.cliente_id = c.id
         LEFT JOIN users u ON p.responsavel_id = u.id
+        LEFT JOIN distribuicao_leads d ON p.id = d.prospeccaoId
+        LEFT JOIN users sdr ON d.sdrId = sdr.id
+        LEFT JOIN users vendedor ON d.vendedorId = vendedor.id
         $sql_where
         ORDER BY p.data_prospeccao DESC";
 
@@ -229,48 +234,114 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
 </div>
 
 
+    <style>
+        .tabela-prospeccoes {
+            width: 100%;
+            table-layout: fixed;
+            border-collapse: collapse;
+        }
 
-    <div class="bg-white overflow-x-auto shadow-md rounded-lg">
-        <table class="min-w-full divide-y divide-gray-200">
+        .tabela-prospeccoes-container {
+            overflow-x: auto;
+            max-width: 100%;
+        }
+
+        .tabela-prospeccoes td,
+        .tabela-prospeccoes th {
+            padding: 12px 8px;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .tabela-prospeccoes td.nome-prospeccao,
+        .tabela-prospeccoes th.nome-prospeccao {
+            width: 25%;
+            max-width: 300px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tabela-prospeccoes td.categoria-lead,
+        .tabela-prospeccoes th.categoria-lead {
+            width: 12%;
+        }
+
+        .tabela-prospeccoes td.perfil-pagamento,
+        .tabela-prospeccoes th.perfil-pagamento {
+            width: 15%;
+        }
+
+        .tabela-prospeccoes td.vinculo-vendedor,
+        .tabela-prospeccoes th.vinculo-vendedor {
+            width: 25%;
+        }
+
+        .tabela-prospeccoes td.data-coluna,
+        .tabela-prospeccoes th.data-coluna {
+            width: 10%;
+        }
+
+        .tabela-prospeccoes td.acoes,
+        .tabela-prospeccoes th.acoes {
+            width: 13%;
+        }
+    </style>
+
+    <div class="bg-white shadow-md rounded-lg tabela-prospeccoes-container">
+        <table class="tabela-prospeccoes min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prospecto</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lead</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoria do Lead</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Perfil de pagamento</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vínculo com Vendedor</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
-                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Ações</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase nome-prospeccao">NOME DA PROSPECÇÃO</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase categoria-lead">Categoria do Lead</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase perfil-pagamento">Perfil de pagamento</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase vinculo-vendedor">Vínculo com Vendedor</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase data-coluna">Data</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase acoes">Ações</th>
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
                 <?php if (empty($prospeccoes)): ?>
                     <tr>
-                        <td colspan="7" class="px-6 py-4 text-center text-gray-500">Nenhuma prospecção encontrada com os filtros aplicados.</td>
+                        <td colspan="6" class="px-6 py-4 text-center text-gray-500">Nenhuma prospecção encontrada com os filtros aplicados.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($prospeccoes as $prospeccao): ?>
                         <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            <?php
+                                $nomeProspeccaoCompleto = trim((string)($prospeccao['nome_prospecto'] ?? ''));
+                                if ($nomeProspeccaoCompleto === '') {
+                                    $nomeProspeccaoCompleto = 'N/A';
+                                }
+                                $nomeProspeccaoTruncado = mb_strlen($nomeProspeccaoCompleto, 'UTF-8') > 40
+                                    ? mb_substr($nomeProspeccaoCompleto, 0, 40, 'UTF-8') . '...'
+                                    : $nomeProspeccaoCompleto;
+                            ?>
+                            <td class="px-6 py-4 text-sm font-medium text-gray-900 nome-prospeccao" title="<?php echo htmlspecialchars($nomeProspeccaoCompleto); ?>">
                                 <div class="flex items-center space-x-2">
-                                    <span><?php echo htmlspecialchars(formatUppercase($prospeccao['nome_prospecto'])); ?></span>
+                                    <span><?php echo htmlspecialchars(formatUppercase($nomeProspeccaoTruncado)); ?></span>
                                     <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo getStatusBadgeClasses($prospeccao['status'] ?? null); ?>">
                                         <?php echo htmlspecialchars(formatUppercase($prospeccao['status'] ?? null)); ?>
                                     </span>
                                 </div>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars(formatUppercase($prospeccao['nome_cliente'] ?? null, 'Lead não vinculado')); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars(formatUppercase($prospeccao['leadCategory'] ?? null, 'Entrada')); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars(formatPaymentProfile($prospeccao['perfil_pagamento'] ?? null)); ?></td>
-                            <?php
-                                $vendorName = $prospeccao['nome_responsavel'] ?? null;
-                                if ($vendorName === null || trim($vendorName) === '') {
-                                    $vendorName = 'Aguardando vendedor';
-                                }
-                            ?>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo htmlspecialchars(formatUppercase($vendorName)); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"><?php echo date('d/m/Y', strtotime($prospeccao['data_prospeccao'])); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
+                            <td class="px-6 py-4 text-sm text-gray-600 categoria-lead"><?php echo htmlspecialchars(formatUppercase($prospeccao['leadCategory'] ?? null, 'Entrada')); ?></td>
+                            <td class="px-6 py-4 text-sm text-gray-600 perfil-pagamento"><?php echo htmlspecialchars(formatPaymentProfile($prospeccao['perfil_pagamento'] ?? null)); ?></td>
+                            <td class="px-6 py-4 text-sm text-gray-600 vinculo-vendedor">
+                                <?php
+                                    $nomeSdr = trim((string)($prospeccao['nome_sdr'] ?? ''));
+                                    $nomeVendedor = trim((string)($prospeccao['nome_vendedor'] ?? ''));
+                                    if ($nomeSdr !== '' && $nomeVendedor !== '') {
+                                        echo htmlspecialchars(formatUppercase($nomeSdr)) . ' &rarr; ' . htmlspecialchars(formatUppercase($nomeVendedor));
+                                    } elseif ($nomeSdr !== '') {
+                                        echo 'SDR: ' . htmlspecialchars(formatUppercase($nomeSdr));
+                                    } else {
+                                        echo '-';
+                                    }
+                                ?>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-600 data-coluna"><?php echo date('d/m/Y', strtotime($prospeccao['data_prospeccao'])); ?></td>
+                            <td class="px-6 py-4 text-sm font-medium text-center acoes">
                                 <a href="detalhes.php?id=<?php echo $prospeccao['id']; ?>" class="text-indigo-600 hover:text-indigo-900">Detalhes</a>
                             </td>
                         </tr>

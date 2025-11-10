@@ -29,7 +29,14 @@ if (!function_exists('dashboard_normalize_status_info')) {
             'serviço em andamento' => 'serviço em andamento',
             'servico em andamento' => 'serviço em andamento',
             'em andamento' => 'serviço em andamento',
-            'aguardando pagamento' => 'aguardando pagamento',
+            'aguardando pagamento' => 'pendente de pagamento',
+            'aguardando pagamentos' => 'pendente de pagamento',
+            'aguardando documento' => 'pendente de documentos',
+            'aguardando documentos' => 'pendente de documentos',
+            'aguardando documentacao' => 'pendente de documentos',
+            'aguardando documentação' => 'pendente de documentos',
+            'pendente de pagamento' => 'pendente de pagamento',
+            'pendente de documentos' => 'pendente de documentos',
             'finalizado' => 'concluído',
             'finalizada' => 'concluído',
             'concluido' => 'concluído',
@@ -49,7 +56,8 @@ if (!function_exists('dashboard_normalize_status_info')) {
             'orçamento pendente' => 'Orçamento Pendente',
             'serviço pendente' => 'Serviço Pendente',
             'serviço em andamento' => 'Serviço em Andamento',
-            'aguardando pagamento' => 'Aguardando pagamento',
+            'pendente de pagamento' => 'Pendente de pagamento',
+            'pendente de documentos' => 'Pendente de documentos',
             'concluído' => 'Concluído',
             'cancelado' => 'Cancelado',
         ];
@@ -141,6 +149,98 @@ if (!function_exists('dashboard_card_classes')) {
         }
 
         return $base . ' hover:shadow-lg';
+    }
+}
+
+if (!function_exists('dashboard_calculate_deadline_context')) {
+    function dashboard_calculate_deadline_context(array $processo, string $statusNormalized): array
+    {
+        $pauseLabels = [
+            'pendente de pagamento' => 'pausado/pagamento',
+            'pendente de documentos' => 'pausado/documento',
+        ];
+
+        $pauseLabel = $pauseLabels[$statusNormalized] ?? null;
+        $isPaused = $pauseLabel !== null;
+        $daysRemaining = null;
+
+        if ($statusNormalized === 'concluído') {
+            $daysRemaining = 0;
+        } elseif ($isPaused) {
+            $rawStored = $processo['prazo_dias_restantes'] ?? null;
+            if ($rawStored !== null && $rawStored !== '') {
+                $daysRemaining = (int) $rawStored;
+            }
+        } else {
+            $deadline = null;
+
+            $rawDate = $processo['data_previsao_entrega'] ?? null;
+            if (!empty($rawDate)) {
+                try {
+                    $deadline = new DateTimeImmutable((string) $rawDate);
+                } catch (Throwable $exception) {
+                    $deadline = null;
+                }
+            }
+
+            if ($deadline === null && !empty($processo['traducao_prazo_dias']) && !empty($processo['data_inicio_traducao'])) {
+                try {
+                    $startDate = new DateTimeImmutable((string) $processo['data_inicio_traducao']);
+                    $deadline = $startDate->modify('+' . (int) $processo['traducao_prazo_dias'] . ' days');
+                } catch (Throwable $exception) {
+                    $deadline = null;
+                }
+            }
+
+            if ($deadline instanceof DateTimeImmutable) {
+                $today = new DateTimeImmutable('today');
+                $daysRemaining = (int) $today->diff($deadline)->format('%r%a');
+            }
+        }
+
+        $display = '—';
+        $badgeClass = 'text-gray-500';
+
+        if ($daysRemaining !== null) {
+            $display = (string) $daysRemaining;
+
+            if ($isPaused) {
+                $badgeClass = 'bg-slate-200 text-slate-800';
+            } elseif ($daysRemaining <= 0) {
+                $badgeClass = 'bg-red-200 text-red-800';
+            } elseif ($daysRemaining <= 3) {
+                $badgeClass = 'bg-yellow-200 text-yellow-800';
+            } else {
+                $badgeClass = 'text-green-600';
+            }
+        }
+
+        return [
+            'display' => $display,
+            'class' => $badgeClass,
+            'is_paused' => $isPaused,
+            'pause_label' => $pauseLabel,
+        ];
+    }
+}
+
+if (!function_exists('dashboard_render_deadline_badge')) {
+    function dashboard_render_deadline_badge(array $context): string
+    {
+        $badgeClass = htmlspecialchars($context['class'] ?? 'text-gray-500', ENT_QUOTES, 'UTF-8');
+        $displayValue = htmlspecialchars($context['display'] ?? '—', ENT_QUOTES, 'UTF-8');
+        $pauseBadge = '';
+
+        if (!empty($context['is_paused']) && !empty($context['pause_label'])) {
+            $pauseBadge = '<span class="px-2 py-0.5 inline-flex items-center text-[10px] uppercase tracking-wide font-semibold rounded-full bg-slate-200 text-slate-800">'
+                . htmlspecialchars((string) $context['pause_label'], ENT_QUOTES, 'UTF-8')
+                . '</span>';
+        }
+
+        return '<div class="flex items-center gap-2">'
+            . '<span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ' . $badgeClass . '">' . $displayValue . '</span>'
+            . $pauseBadge
+            . '</div>';
     }
 }
 
@@ -344,7 +444,7 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                     <label for="status" class="text-sm font-semibold text-gray-700 mb-1">Status</label>
                     <select id="status" name="status" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition duration-200">
                         <option value="">Todos os Status</option>
-                    <?php $statusOptions = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Aguardando pagamento', 'Concluído', 'Cancelado']; foreach ($statusOptions as $option): ?>
+                    <?php $statusOptions = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Cancelado']; foreach ($statusOptions as $option): ?>
                             <?php $optionInfo = dashboard_normalize_status_info($option); ?>
                             <option value="<?php echo $optionInfo['label']; ?>" <?php echo ($selectedStatusNormalized === $optionInfo['normalized']) ? 'selected' : ''; ?>><?php echo $optionInfo['label']; ?></option>
                         <?php endforeach; ?>
@@ -433,8 +533,11 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                                 case 'serviço em andamento':
                                     $rowClass = 'bg-cyan-50 hover:bg-cyan-100';
                                     break;
-                                case 'aguardando pagamento':
+                                case 'pendente de pagamento':
                                     $rowClass = 'bg-indigo-50 hover:bg-indigo-100';
+                                    break;
+                                case 'pendente de documentos':
+                                    $rowClass = 'bg-violet-50 hover:bg-violet-100';
                                     break;
                                 case 'concluído':
                                     $rowClass = 'bg-purple-50 hover:bg-purple-100';
@@ -486,45 +589,8 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                             <td class="px-3 py-0.5 whitespace-nowrap text-xs text-gray-500"><?php echo isset($processo['data_inicio_traducao']) ? date('d/m/Y', strtotime($processo['data_inicio_traducao'])) : 'N/A'; ?></td>
                             <td class="px-3 py-0.5 whitespace-nowrap text-xs font-medium">
                                 <?php
-                                $texto_tempo = 'A definir'; 
-                                $classe_tempo = 'text-gray-500';
-
-                                if ($statusNormalized === 'concluído') {
-                                    $texto_tempo = 'Concluído';
-                                    $classe_tempo = 'bg-green-100 text-green-800';
-                                } elseif (in_array($statusNormalized, ['cancelado', 'orçamento', 'aguardando pagamento'], true)) {
-                                    $texto_tempo = 'N/A';
-                                    $classe_tempo = 'text-gray-500';
-                                } else {
-                                    $data_previsao_final = null;
-                                    if (!empty($processo['traducao_prazo_data'])) {
-                                        $data_previsao_final = new DateTime($processo['traducao_prazo_data']);
-                                    } elseif (!empty($processo['traducao_prazo_dias']) && !empty($processo['data_inicio_traducao'])) {
-                                        $data_previsao_final = new DateTime($processo['data_inicio_traducao']);
-                                        $data_previsao_final->modify('+' . $processo['traducao_prazo_dias'] . ' days');
-                                    }
-
-                                    if ($data_previsao_final) {
-                                        $hoje = new DateTime('today');
-                                        $diff = $hoje->diff($data_previsao_final);
-                                        $dias_restantes = (int)$diff->format('%r%a');
-
-                                        if ($dias_restantes < 0) {
-                                            $texto_tempo = abs($dias_restantes) . ' dia(s) vencido(s)';
-                                            $classe_tempo = 'bg-red-200 text-red-800';
-                                        } elseif ($dias_restantes == 0) {
-                                            $texto_tempo = 'Vence hoje';
-                                            $classe_tempo = 'bg-red-200 text-red-800';
-                                        } elseif ($dias_restantes <= 3) {
-                                            $texto_tempo = $dias_restantes . ' dias';
-                                            $classe_tempo = 'bg-yellow-200 text-yellow-800';
-                                        } else {
-                                            $texto_tempo = $dias_restantes . ' dias';
-                                            $classe_tempo = 'text-green-600';
-                                        }
-                                    }
-                                }
-                                echo "<span class='px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full " . $classe_tempo . "'>" . $texto_tempo . "</span>";
+                                $deadlineContext = dashboard_calculate_deadline_context($processo, $statusNormalized);
+                                echo dashboard_render_deadline_badge($deadlineContext);
                                 ?>
                             </td>
                             <td class="px-3 py-0.5 whitespace-nowrap text-center text-xs font-medium">
@@ -918,7 +984,8 @@ document.addEventListener('DOMContentLoaded', () => {
             'serviço em andamento': 'serviço em andamento',
             'servico em andamento': 'serviço em andamento',
             'em andamento': 'serviço em andamento',
-            'aguardando pagamento': 'aguardando pagamento',
+            'pendente de pagamento': 'pendente de pagamento',
+            'pendente de documentos': 'pendente de documentos',
             'finalizado': 'concluído',
             'finalizada': 'concluído',
             'concluido': 'concluído',
@@ -929,6 +996,93 @@ document.addEventListener('DOMContentLoaded', () => {
             'recusada': 'cancelado'
         };
         return aliases[normalized] ?? normalized;
+    };
+
+    const pauseLabelByStatus = {
+        'pendente de pagamento': 'pausado/pagamento',
+        'pendente de documentos': 'pausado/documento',
+    };
+
+    const buildDateOnly = (value) => {
+        if (!value) {
+            return null;
+        }
+
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) {
+            return null;
+        }
+
+        return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+    };
+
+    const computeDeadlineContext = (processo, normalizedStatus) => {
+        const pauseLabel = pauseLabelByStatus[normalizedStatus] ?? null;
+        let daysRemaining = null;
+
+        if (normalizedStatus === 'concluído') {
+            daysRemaining = 0;
+        } else if (pauseLabel) {
+            const stored = processo.prazo_dias_restantes;
+            if (stored !== null && stored !== undefined && stored !== '') {
+                const parsed = parseInt(stored, 10);
+                if (!Number.isNaN(parsed)) {
+                    daysRemaining = parsed;
+                }
+            }
+        } else {
+            let deadline = buildDateOnly(processo.data_previsao_entrega);
+
+            if (!deadline && processo.traducao_prazo_dias && processo.data_inicio_traducao) {
+                const start = buildDateOnly(processo.data_inicio_traducao);
+                const addDays = parseInt(processo.traducao_prazo_dias, 10);
+
+                if (start && !Number.isNaN(addDays)) {
+                    deadline = new Date(start);
+                    deadline.setDate(deadline.getDate() + addDays);
+                }
+            }
+
+            if (!deadline && processo.prazo_dias && processo.data_inicio_traducao) {
+                const start = buildDateOnly(processo.data_inicio_traducao);
+                const addDays = parseInt(processo.prazo_dias, 10);
+
+                if (start && !Number.isNaN(addDays)) {
+                    deadline = new Date(start);
+                    deadline.setDate(deadline.getDate() + addDays);
+                }
+            }
+
+            if (deadline) {
+                const today = new Date();
+                const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                const diffMs = deadline.getTime() - todayDate.getTime();
+                daysRemaining = Math.round(diffMs / (1000 * 60 * 60 * 24));
+            }
+        }
+
+        let display = '—';
+        let cssClass = 'text-gray-500';
+
+        if (typeof daysRemaining === 'number' && !Number.isNaN(daysRemaining)) {
+            display = String(daysRemaining);
+
+            if (pauseLabel) {
+                cssClass = 'bg-slate-200 text-slate-800';
+            } else if (daysRemaining <= 0) {
+                cssClass = 'bg-red-200 text-red-800';
+            } else if (daysRemaining <= 3) {
+                cssClass = 'bg-yellow-200 text-yellow-800';
+            } else {
+                cssClass = 'text-green-600';
+            }
+        }
+
+        return {
+            display,
+            cssClass,
+            pauseLabel,
+        };
     };
     // O PHP já deve ter fornecido $totalProcessesCount para o JS
     const totalAvailableProcesses = <?php echo $totalProcessesCount; ?>;
@@ -995,46 +1149,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
 
                         // Lógica para o prazo (replicada do PHP)
-                        let texto_prazo_js = 'N/A';
-                        let classe_prazo_js = 'text-gray-500';
-
                         const normalizedStatus = normalizeStatus(processo.status_processo);
-
-                        if (normalizedStatus === 'concluído') {
-                            texto_prazo_js = 'Concluído';
-                            classe_prazo_js = 'bg-green-100 text-green-800';
-                        } else if (['cancelado', 'orçamento', 'aguardando pagamento'].includes(normalizedStatus)) {
-                            texto_prazo_js = 'N/A';
-                            classe_prazo_js = 'text-gray-500';
-                        } else {
-                            if (processo.traducao_prazo_data) {
-                                const previsao = new Date(processo.traducao_prazo_data);
-                                const hoje = new Date();
-                                hoje.setHours(0, 0, 0, 0); // Zera a hora para comparação de datas
-
-                                // Ajuste para garantir que a data de previsão também não considere o fuso horário ao comparar
-                                const previsaoUTC = new Date(previsao.getUTCFullYear(), previsao.getUTCMonth(), previsao.getUTCDate());
-                                const diffTime = previsaoUTC.getTime() - hoje.getTime();
-                                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); // Diferença em dias
-
-                                if (diffDays < 0) {
-                                    texto_prazo_js = Math.abs(diffDays) + ' dia(s) vencido(s)';
-                                    classe_prazo_js = 'bg-red-200 text-red-800';
-                                } else if (diffDays === 0) {
-                                    texto_prazo_js = 'Vence hoje';
-                                    classe_prazo_js = 'bg-red-200 text-red-800';
-                                } else if (diffDays <= 3) {
-                                    texto_prazo_js = diffDays + ' dias';
-                                    classe_prazo_js = 'bg-yellow-200 text-yellow-800';
-                                } else {
-                                    texto_prazo_js = diffDays + ' dias';
-                                    classe_prazo_js = 'text-green-600';
-                                }
-                            } else {
-                                texto_prazo_js = 'A definir';
-                                classe_prazo_js = 'text-gray-500';
-                            }
-                        }
+                        const prazoContext = computeDeadlineContext(processo, normalizedStatus);
+                        const pauseBadgeHtml = prazoContext.pauseLabel
+                            ? `<span class="px-2 py-0.5 inline-flex items-center text-[10px] uppercase tracking-wide font-semibold rounded-full bg-slate-200 text-slate-800">${prazoContext.pauseLabel}</span>`
+                            : '';
 
                         // Conteúdo HTML do tooltip para o data-attribute (JSON.stringify necessário)
                         const tooltip_html_content_for_js = `
@@ -1058,7 +1177,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500">${processo.data_criacao ? new Date(processo.data_criacao).toLocaleDateString('pt-BR') : 'N/A'}</td>
                                 <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500">${processo.data_inicio_traducao ? new Date(processo.data_inicio_traducao).toLocaleDateString('pt-BR') : 'N/A'}</td>
                                 <td class="px-3 py-2 whitespace-nowrap text-xs font-medium">
-                                    <span class='px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${classe_prazo_js}'>${texto_prazo_js}</span>
+                                    <div class="flex items-center gap-2">
+                                        <span class='px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${prazoContext.cssClass}'>${prazoContext.display}</span>
+                                        ${pauseBadgeHtml}
+                                    </div>
                                 </td>
                                 <td class="px-3 py-2 whitespace-nowrap text-center text-xs font-medium">
                                     <div class="relative inline-block p-1">

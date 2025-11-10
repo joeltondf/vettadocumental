@@ -18,7 +18,14 @@ if (!function_exists('client_portal_normalize_status_info')) {
             'serviço em andamento' => 'serviço em andamento',
             'servico em andamento' => 'serviço em andamento',
             'em andamento' => 'serviço em andamento',
-            'aguardando pagamento' => 'aguardando pagamento',
+            'aguardando pagamento' => 'pendente de pagamento',
+            'aguardando pagamentos' => 'pendente de pagamento',
+            'aguardando documento' => 'pendente de documentos',
+            'aguardando documentos' => 'pendente de documentos',
+            'aguardando documentacao' => 'pendente de documentos',
+            'aguardando documentação' => 'pendente de documentos',
+            'pendente de pagamento' => 'pendente de pagamento',
+            'pendente de documentos' => 'pendente de documentos',
             'finalizado' => 'concluído',
             'finalizada' => 'concluído',
             'concluido' => 'concluído',
@@ -38,7 +45,8 @@ if (!function_exists('client_portal_normalize_status_info')) {
             'orçamento pendente' => 'Orçamento Pendente',
             'serviço pendente' => 'Serviço Pendente',
             'serviço em andamento' => 'Serviço em Andamento',
-            'aguardando pagamento' => 'Aguardando pagamento',
+            'pendente de pagamento' => 'Pendente de pagamento',
+            'pendente de documentos' => 'Pendente de documentos',
             'concluído' => 'Concluído',
             'cancelado' => 'Cancelado',
         ];
@@ -68,7 +76,10 @@ if (!function_exists('client_portal_calculate_overview')) {
                 case 'serviço em andamento':
                     $summary['inProgress']++;
                     break;
-                case 'aguardando pagamento':
+                case 'pendente de pagamento':
+                    $summary['pending']++;
+                    break;
+                case 'pendente de documentos':
                     $summary['pending']++;
                     break;
                 case 'concluído':
@@ -193,8 +204,11 @@ $hasProcessos = !empty($processosList);
                                         case 'serviço em andamento':
                                             $statusClasses = 'bg-indigo-100 text-indigo-800';
                                             break;
-                                        case 'aguardando pagamento':
+                                        case 'pendente de pagamento':
                                             $statusClasses = 'bg-indigo-200 text-indigo-900';
+                                            break;
+                                        case 'pendente de documentos':
+                                            $statusClasses = 'bg-violet-200 text-violet-900';
                                             break;
                                         case 'concluído':
                                             $statusClasses = 'bg-green-100 text-green-800';

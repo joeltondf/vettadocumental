@@ -17,6 +17,7 @@ require_once __DIR__ . '/../services/DigicApiService.php';
 require_once __DIR__ . '/../services/EmailService.php';
 require_once __DIR__ . '/../services/OmieSyncService.php';
 require_once __DIR__ . '/../services/KanbanConfigService.php';
+require_once __DIR__ . '/../utils/PhoneUtils.php';
 require_once __DIR__ . '/../models/SmtpConfigModel.php';
 
 class AdminController
@@ -1155,14 +1156,24 @@ public function saveConfiguracoes()
      * Executa o teste de envio para o canal WhatsApp.
      */
     private function testarCanalWhatsApp($campanha, $cliente, &$log) {
-        if (empty($cliente['telefone'])) {
-            throw new Exception("Cliente não possui um número de telefone cadastrado para o teste de WhatsApp.");
-        }
-
         $apiUrl = $this->configModel->get('digisac_api_url');
         $token = $this->configModel->get('digisac_api_token');
         if (empty($apiUrl) || empty($token)) {
             throw new Exception("API Digisac não configurada corretamente (URL ou Token ausentes).");
+        }
+
+        $ddiDigits = stripNonDigits((string)($cliente['telefone_ddi'] ?? ''));
+        $dddDigits = stripNonDigits((string)($cliente['telefone_ddd'] ?? ''));
+        $numeroDigits = stripNonDigits((string)($cliente['telefone_numero'] ?? ''));
+
+        if ($dddDigits !== '' && $numeroDigits !== '') {
+            $numeroDestino = ($ddiDigits !== '' ? $ddiDigits : '55') . $dddDigits . $numeroDigits;
+        } else {
+            $numeroDestino = stripNonDigits((string)($cliente['telefone'] ?? ''));
+        }
+
+        if ($numeroDestino === '') {
+            throw new Exception("Cliente não possui um número de telefone cadastrado para o teste de WhatsApp.");
         }
 
         $digicApi = new DigicApiService($apiUrl, $token);
@@ -1175,7 +1186,7 @@ public function saveConfiguracoes()
             }
         }
 
-        $log[] = "DEBUG: Telefone Destino: " . $cliente['telefone'];
+        $log[] = "DEBUG: Telefone Destino: " . $numeroDestino;
         $log[] = "DEBUG: Conexão ID: " . ($campanha['digisac_conexao_id'] ?: 'Nenhum');
         $log[] = "DEBUG: Usuário Remetente ID: " . ($campanha['digisac_user_id'] ?: 'Nenhum');
         $log[] = "DEBUG: Template ID: " . ($campanha['digisac_template_id'] ?: 'Nenhum');
@@ -1183,9 +1194,9 @@ public function saveConfiguracoes()
         $log[] = "INFO: Enviando para a API Digisac...";
         
         $response = $digicApi->sendMessageByNumber(
-            $cliente['telefone'], 
-            $campanha['digisac_conexao_id'], 
-            $campanha['digisac_template_id'], 
+            $numeroDestino,
+            $campanha['digisac_conexao_id'],
+            $campanha['digisac_template_id'],
             $params,
             $campanha['digisac_user_id']
         );

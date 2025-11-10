@@ -44,6 +44,7 @@ if ($isEditMode) {
 } else {
     $processo = $formData;
 }
+$prospeccaoId = $processo['prospeccao_id'] ?? ($_GET['prospeccao_id'] ?? null);
 $cliente_id_selecionado = $_GET['cliente_id'] ?? ($processo['cliente_id'] ?? null);
 
 // Se o usuário for vendedor, fixa o responsável como o próprio usuário logado.
@@ -118,6 +119,9 @@ $paymentDateTwo = $processo['data_pagamento_2'] ?? $formData['data_pagamento_2']
     <input type="hidden" name="return_to" value="<?php echo htmlspecialchars($return_url); ?>">
     <?php if ($isEditMode): ?>
         <input type="hidden" name="id" value="<?php echo $processo['id']; ?>">
+    <?php endif; ?>
+    <?php if (!empty($prospeccaoId)): ?>
+        <input type="hidden" name="prospeccao_id" value="<?php echo htmlspecialchars((string) $prospeccaoId); ?>">
     <?php endif; ?>
     <?php
     // A variável $isEditMode já existe no topo deste arquivo.
@@ -239,7 +243,7 @@ $paymentDateTwo = $processo['data_pagamento_2'] ?? $formData['data_pagamento_2']
 
     <fieldset class="border border-gray-200 rounded-md p-6 mt-6">
         <legend class="text-lg font-semibold text-gray-700 px-2 bg-white ml-4">Serviços Orçados</legend>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mt-4">
             <?php
             $categorias = ['Tradução', 'CRC', 'Apostilamento', 'Postagem', 'Outros'];
             $categoriasRaw = $processo['categorias_servico'] ?? [];

@@ -94,6 +94,10 @@ class QualificacaoController
                     (int) ($_SESSION['user_id'] ?? 0)
                 );
 
+                if ($distribution === null) {
+                    throw new \RuntimeException('Não há vendedores disponíveis para receber este lead no momento.');
+                }
+
                 $vendorId = (int) ($distribution['vendorId'] ?? 0);
                 if ($vendorId <= 0) {
                     throw new \RuntimeException('Não foi possível identificar o próximo vendedor na fila.');

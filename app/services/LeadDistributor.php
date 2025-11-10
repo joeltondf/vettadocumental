@@ -6,6 +6,11 @@ require_once __DIR__ . '/../models/User.php';
 class LeadDistributor
 {
     private const QUEUE_TABLE = 'lead_distribution_queue';
+    /**
+     * Identificador do usuário institucional da empresa (Vetta).
+     * Este registro não deve receber leads automaticamente.
+     */
+    private const COMPANY_PLACEHOLDER_USER_ID = 17;
 
     private PDO $pdo;
     private Prospeccao $prospectionModel;
@@ -19,13 +24,13 @@ class LeadDistributor
     }
 
     /**
-     * @return array{leadId:int,vendorId:int,vendorName:string}
+     * @return array{leadId:int,vendorId:int,vendorName:string}|null
      */
-    public function distributeToNextSalesperson(int $leadId, ?int $sdrId = null): array
+    public function distributeToNextSalesperson(int $leadId, ?int $sdrId = null): ?array
     {
         $activeVendors = $this->indexActiveVendors();
         if (empty($activeVendors)) {
-            throw new RuntimeException('Nenhum vendedor ativo encontrado para distribuição.');
+            return null;
         }
 
         $ownsTransaction = !$this->pdo->inTransaction();
@@ -39,7 +44,12 @@ class LeadDistributor
             $queue = $this->syncQueueWithActiveVendors($queue, $activeVendors);
 
             if (empty($queue)) {
-                throw new RuntimeException('A fila de distribuição está vazia.');
+                $this->persistQueue($queue);
+                if ($ownsTransaction) {
+                    $this->pdo->commit();
+                }
+
+                return null;
             }
 
             $nextVendorRow = array_shift($queue);
@@ -94,7 +104,12 @@ class LeadDistributor
             try {
                 $leadId = (int) $lead['id'];
                 $sdrId = isset($lead['sdrId']) ? (int) $lead['sdrId'] : null;
-                $this->distributeToNextSalesperson($leadId, $sdrId);
+                $distribution = $this->distributeToNextSalesperson($leadId, $sdrId);
+                if ($distribution === null) {
+                    error_log('Nenhum vendedor disponível para receber o lead #' . $leadId . '.');
+                    continue;
+                }
+
                 $distributed++;
             } catch (Throwable $exception) {
                 error_log('Erro ao distribuir lead #' . ($lead['id'] ?? 'desconhecido') . ': ' . $exception->getMessage());
@@ -258,7 +273,12 @@ class LeadDistributor
         $indexed = [];
 
         foreach ($vendors as $vendor) {
-            $indexed[(int) $vendor['id']] = $vendor;
+            $vendorId = (int) $vendor['id'];
+            if ($vendorId === self::COMPANY_PLACEHOLDER_USER_ID) {
+                continue;
+            }
+
+            $indexed[$vendorId] = $vendor;
         }
 
         return $indexed;

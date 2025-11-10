@@ -107,8 +107,31 @@ $pageTitle = 'Revisar duplicados da importação';
                                         <?php if ($duplicateRow['email'] !== ''): ?>
                                             <p class="text-gray-500">E-mail: <?php echo htmlspecialchars($duplicateRow['email']); ?></p>
                                         <?php endif; ?>
-                                        <?php if ($duplicateRow['phone'] !== ''): ?>
-                                            <p class="text-gray-500">Telefone: <?php echo htmlspecialchars($duplicateRow['phone']); ?></p>
+                                        <?php if (!empty($duplicateRow['phone_raw'])): ?>
+                                            <div class="text-gray-500 space-y-1">
+                                                <div>
+                                                    <strong class="text-gray-600">Telefone:</strong>
+                                                    <?php echo htmlspecialchars($duplicateRow['phone_raw']); ?>
+                                                    <?php if ($duplicateRow['phone_valido']): ?>
+                                                        <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold text-emerald-700 bg-emerald-100 rounded-full ml-2" title="Telefone validado">
+                                                            ✓ Válido
+                                                        </span>
+                                                    <?php elseif (!empty($duplicateRow['phone_erro'])): ?>
+                                                        <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold text-amber-700 bg-amber-100 rounded-full ml-2" title="<?php echo htmlspecialchars($duplicateRow['phone_erro']); ?>">
+                                                            ⚠ Inválido
+                                                        </span>
+                                                    <?php endif; ?>
+                                                </div>
+                                                <?php if ($duplicateRow['phone_valido']): ?>
+                                                    <div class="text-xs text-gray-500">
+                                                        DDI: <?php echo htmlspecialchars($duplicateRow['phone_ddi']); ?>,
+                                                        DDD: <?php echo htmlspecialchars($duplicateRow['phone_ddd'] ?? ''); ?>,
+                                                        Nº: <?php echo htmlspecialchars($duplicateRow['phone_numero'] ?? ''); ?>
+                                                    </div>
+                                                <?php elseif (!empty($duplicateRow['phone_erro'])): ?>
+                                                    <div class="text-xs text-amber-700"><?php echo htmlspecialchars($duplicateRow['phone_erro']); ?></div>
+                                                <?php endif; ?>
+                                            </div>
                                         <?php endif; ?>
                                     </td>
                                     <td class="px-4 py-4 align-top">
@@ -118,6 +141,13 @@ $pageTitle = 'Revisar duplicados da importação';
                                         <?php endif; ?>
                                         <?php if (!empty($existing['phone'])): ?>
                                             <p class="text-gray-500">Telefone: <?php echo htmlspecialchars($existing['phone']); ?></p>
+                                            <?php if (!empty($existing['phone_ddd']) && !empty($existing['phone_numero'])): ?>
+                                                <p class="text-xs text-gray-400">
+                                                    DDI: <?php echo htmlspecialchars($existing['phone_ddi'] ?? ''); ?>,
+                                                    DDD: <?php echo htmlspecialchars($existing['phone_ddd']); ?>,
+                                                    Nº: <?php echo htmlspecialchars($existing['phone_numero']); ?>
+                                                </p>
+                                            <?php endif; ?>
                                         <?php endif; ?>
                                     </td>
                                     <td class="px-4 py-4 align-top">

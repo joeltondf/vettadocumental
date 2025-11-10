@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
+require_once __DIR__ . '/../../app/utils/PhoneUtils.php';
+require_once __DIR__ . '/../../app/utils/DatabaseSchemaInspector.php';
 
 function insertImportedProspects(PDO $pdo, array $rows, ?int $assignedOwnerId): int
 {
@@ -8,25 +10,52 @@ function insertImportedProspects(PDO $pdo, array $rows, ?int $assignedOwnerId): 
         return 0;
     }
 
-    $insertSql = 'INSERT INTO clientes (
-            nome_cliente,
-            nome_responsavel,
-            email,
-            telefone,
-            canal_origem,
-            categoria,
-            is_prospect,
-            crmOwnerId
-        ) VALUES (
-            :nome_cliente,
-            :nome_responsavel,
-            :email,
-            :telefone,
-            :canal_origem,
-            :categoria,
-            1,
-            :crm_owner_id
-        )';
+    $hasPhoneDDI = DatabaseSchemaInspector::hasColumn($pdo, 'clientes', 'telefone_ddi');
+    $hasPhoneDDD = DatabaseSchemaInspector::hasColumn($pdo, 'clientes', 'telefone_ddd');
+    $hasPhoneNumero = DatabaseSchemaInspector::hasColumn($pdo, 'clientes', 'telefone_numero');
+
+    $columns = [
+        'nome_cliente',
+        'nome_responsavel',
+        'email',
+        'telefone',
+        'canal_origem',
+        'categoria',
+        'is_prospect',
+        'crmOwnerId',
+    ];
+
+    $placeholders = [
+        ':nome_cliente',
+        ':nome_responsavel',
+        ':email',
+        ':telefone',
+        ':canal_origem',
+        ':categoria',
+        '1',
+        ':crm_owner_id',
+    ];
+
+    if ($hasPhoneDDI) {
+        $columns[] = 'telefone_ddi';
+        $placeholders[] = ':telefone_ddi';
+    }
+
+    if ($hasPhoneDDD) {
+        $columns[] = 'telefone_ddd';
+        $placeholders[] = ':telefone_ddd';
+    }
+
+    if ($hasPhoneNumero) {
+        $columns[] = 'telefone_numero';
+        $placeholders[] = ':telefone_numero';
+    }
+
+    $insertSql = sprintf(
+        'INSERT INTO clientes (%s) VALUES (%s)',
+        implode(', ', $columns),
+        implode(', ', $placeholders)
+    );
 
     $insertStmt = $pdo->prepare($insertSql);
     $created = 0;
@@ -35,15 +64,36 @@ function insertImportedProspects(PDO $pdo, array $rows, ?int $assignedOwnerId): 
 
     try {
         foreach ($rows as $row) {
-            $insertStmt->execute([
+            $telefoneLegacy = null;
+            if (!empty($row['phone_combinado'])) {
+                $telefoneLegacy = $row['phone_combinado'];
+            } elseif (!empty($row['phone_raw'])) {
+                $telefoneLegacy = $row['phone_raw'];
+            }
+
+            $params = [
                 ':nome_cliente' => $row['company_name'],
                 ':nome_responsavel' => $row['contact_name'] !== '' ? $row['contact_name'] : null,
                 ':email' => $row['email'] !== '' ? $row['email'] : null,
-                ':telefone' => $row['phone'] !== '' ? $row['phone'] : null,
+                ':telefone' => $telefoneLegacy,
                 ':canal_origem' => $row['channel'],
                 ':categoria' => 'Entrada',
                 ':crm_owner_id' => $assignedOwnerId,
-            ]);
+            ];
+
+            if ($hasPhoneDDI) {
+                $params[':telefone_ddi'] = $row['phone_ddi'] ?? null;
+            }
+
+            if ($hasPhoneDDD) {
+                $params[':telefone_ddd'] = $row['phone_ddd'] ?? null;
+            }
+
+            if ($hasPhoneNumero) {
+                $params[':telefone_numero'] = $row['phone_numero'] ?? null;
+            }
+
+            $insertStmt->execute($params);
             $created++;
         }
 

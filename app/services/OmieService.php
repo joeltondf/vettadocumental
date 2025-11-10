@@ -378,7 +378,7 @@ class OmieService {
             $cabecalho = [
                 'codigo_pedido_integracao' => $codigoIntegracao,
                 'codigo_cliente' => (int)$cliente['omie_id'],
-                'data_previsao' => $this->formatDateForOmie($processo['data_previsao_entrega'] ?? $processo['traducao_prazo_data'] ?? null),
+                'data_previsao' => $this->formatDateForOmie($this->resolveProcessDeadline($processo)),
                 'etapa' => $this->resolveEtapaCodigo($processo),
                 'quantidade_itens' => count($itens),
             ];
@@ -910,6 +910,26 @@ class OmieService {
     private function formatDateForOmie($date): string
     {
         return $this->createDateTime($date)->format('d/m/Y');
+    }
+
+    private function resolveProcessDeadline(array $processo): ?string
+    {
+        if (!empty($processo['data_previsao_entrega'])) {
+            return $processo['data_previsao_entrega'];
+        }
+
+        if (!empty($processo['prazo_dias'])) {
+            $baseDate = $processo['data_criacao'] ?? date('Y-m-d');
+
+            try {
+                $start = new DateTimeImmutable((string) $baseDate);
+                return $start->modify('+' . (int) $processo['prazo_dias'] . ' days')->format('Y-m-d');
+            } catch (Throwable $exception) {
+                return null;
+            }
+        }
+
+        return null;
     }
 
     private function normalizeDecimal($value): float

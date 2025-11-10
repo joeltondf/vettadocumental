@@ -4,6 +4,10 @@
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
 
+$currentUserId = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : 0;
+$currentPerfil = $_SESSION['user_perfil'] ?? '';
+$managementProfiles = ['admin', 'gerencia', 'supervisor', 'master'];
+
 // --- CONSULTA SQL CORRIGIDA ---
 // Alterações:
 // 1. JOIN com 'users' e usa 'nome_completo'
@@ -20,6 +24,7 @@ if ($context === 'sdr-table') {
                 a.status,
                 a.usuario_id,
                 u.nome_completo AS responsavel_nome,
+                u.perfil AS perfil,
                 a.prospeccao_id,
                 c.nome_cliente
             FROM agendamentos a
@@ -37,6 +42,7 @@ if ($context === 'sdr-table') {
                 a.observacoes,
                 a.usuario_id,
                 u.nome_completo as responsavel,
+                u.perfil as perfil,
                 a.prospeccao_id,
                 c.nome_cliente
             FROM agendamentos a
@@ -53,12 +59,12 @@ $where_clauses = [];
 if ($context === 'sdr-table') {
     $where_clauses[] = "a.data_inicio >= NOW()";
 
-    if (in_array($_SESSION['user_perfil'] ?? '', ['sdr'], true)) {
+    if (in_array($currentPerfil, ['sdr'], true)) {
         $where_clauses[] = "p.sdrId = :current_sdr";
-        $params[':current_sdr'] = $_SESSION['user_id'];
-    } elseif (!in_array($_SESSION['user_perfil'] ?? '', ['admin', 'gerencia', 'supervisor'], true)) {
+        $params[':current_sdr'] = $currentUserId;
+    } elseif (!in_array($currentPerfil, $managementProfiles, true)) {
         $where_clauses[] = "a.usuario_id = :current_user";
-        $params[':current_user'] = $_SESSION['user_id'];
+        $params[':current_user'] = $currentUserId;
     }
 
     if (!empty($_GET['q'])) {
@@ -67,12 +73,49 @@ if ($context === 'sdr-table') {
         $params[':search'] = $search;
     }
 } else {
-    if (!in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'supervisor'])) {
+    if (in_array($currentPerfil, $managementProfiles, true)) {
+        $responsavelFiltro = filter_input(INPUT_GET, 'responsavel_id', FILTER_VALIDATE_INT);
+        if ($responsavelFiltro !== null && $responsavelFiltro !== false) {
+            $where_clauses[] = "a.usuario_id = :responsavel_id";
+            $params[':responsavel_id'] = $responsavelFiltro;
+        }
+    } elseif ($currentPerfil === 'sdr') {
+        $vendedorIds = [];
+        if ($currentUserId > 0) {
+            $stmtVendedores = $pdo->prepare('SELECT DISTINCT vendedorId FROM distribuicao_leads WHERE sdrId = :sdr_id');
+            $stmtVendedores->execute([':sdr_id' => $currentUserId]);
+            $vendedorIds = array_map('intval', $stmtVendedores->fetchAll(PDO::FETCH_COLUMN));
+        }
+
+        $usuariosVisiveis = array_values(array_filter(array_unique(array_merge([$currentUserId], $vendedorIds)), static function ($id) {
+            return $id > 0;
+        }));
+        $responsavelFiltro = filter_input(INPUT_GET, 'responsavel_id', FILTER_VALIDATE_INT);
+
+        if ($responsavelFiltro !== null && $responsavelFiltro !== false) {
+            if (in_array($responsavelFiltro, $usuariosVisiveis, true)) {
+                $where_clauses[] = "a.usuario_id = :responsavel_id";
+                $params[':responsavel_id'] = $responsavelFiltro;
+            } else {
+                $where_clauses[] = '1 = 0';
+            }
+        } else {
+            if (!empty($usuariosVisiveis)) {
+                $placeholders = [];
+                foreach ($usuariosVisiveis as $indice => $usuarioIdVisivel) {
+                    $paramName = ':sdr_visible_' . $indice;
+                    $placeholders[] = $paramName;
+                    $params[$paramName] = $usuarioIdVisivel;
+                }
+                $where_clauses[] = 'a.usuario_id IN (' . implode(', ', $placeholders) . ')';
+            } else {
+                $where_clauses[] = 'a.usuario_id = :current_user';
+                $params[':current_user'] = $currentUserId;
+            }
+        }
+    } else {
         $where_clauses[] = "a.usuario_id = :user_id";
-        $params[':user_id'] = $_SESSION['user_id'];
-    } elseif (isset($_GET['responsavel_id']) && !empty($_GET['responsavel_id'])) {
-        $where_clauses[] = "a.usuario_id = :responsavel_id";
-        $params[':responsavel_id'] = filter_input(INPUT_GET, 'responsavel_id', FILTER_VALIDATE_INT);
+        $params[':user_id'] = $currentUserId;
     }
 }
 
@@ -104,10 +147,19 @@ try {
     }
 
     // Adiciona cores e prepara dados para o tooltip
-    $eventos_formatados = array_map(function($evento) {
-        $colors = ['Confirmado' => '#3788d8', 'Pendente' => '#f0ad4e', 'Realizado' => '#5cb85c', 'Cancelado' => '#d9534f'];
-        $evento['color'] = $colors[$evento['status']] ?? '#777';
+    $eventos_formatados = array_map(static function($evento) {
+        $perfil = $evento['perfil'] ?? '';
+        $cor = '#007bff';
 
+        if ($perfil === 'sdr') {
+            $cor = '#28a745';
+        } elseif (in_array($perfil, ['gerencia', 'admin', 'master', 'supervisor'], true)) {
+            $cor = '#6f42c1';
+        }
+
+        $evento['backgroundColor'] = $cor;
+        $evento['borderColor'] = $cor;
+        $evento['color'] = $cor;
         $evento['extendedProps'] = [
             'responsavel' => $evento['responsavel'],
             'cliente' => $evento['nome_cliente'],
@@ -115,8 +167,9 @@ try {
             'local_link' => $evento['local_link'],
             'observacoes' => $evento['observacoes'],
             'usuario_id' => (int) $evento['usuario_id'],
+            'perfil' => $perfil,
             'canDelete' => $evento['usuario_id'] == ($_SESSION['user_id'] ?? null)
-                || in_array($_SESSION['user_perfil'] ?? '', ['admin', 'gerencia', 'supervisor'], true)
+                || in_array($_SESSION['user_perfil'] ?? '', ['admin', 'gerencia', 'supervisor', 'master'], true)
         ];
         return $evento;
     }, $eventos);

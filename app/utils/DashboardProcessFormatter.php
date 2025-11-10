@@ -31,7 +31,14 @@ class DashboardProcessFormatter
             'serviço em andamento' => 'serviço em andamento',
             'servico em andamento' => 'serviço em andamento',
             'em andamento' => 'serviço em andamento',
-            'aguardando pagamento' => 'aguardando pagamento',
+            'aguardando pagamento' => 'pendente de pagamento',
+            'aguardando pagamentos' => 'pendente de pagamento',
+            'aguardando documento' => 'pendente de documentos',
+            'aguardando documentos' => 'pendente de documentos',
+            'aguardando documentacao' => 'pendente de documentos',
+            'aguardando documentação' => 'pendente de documentos',
+            'pendente de pagamento' => 'pendente de pagamento',
+            'pendente de documentos' => 'pendente de documentos',
             'finalizado' => 'concluído',
             'finalizada' => 'concluído',
             'concluido' => 'concluído',
@@ -51,7 +58,8 @@ class DashboardProcessFormatter
             'orçamento pendente' => 'Orçamento Pendente',
             'serviço pendente' => 'Serviço Pendente',
             'serviço em andamento' => 'Serviço em Andamento',
-            'aguardando pagamento' => 'Aguardando pagamento',
+            'pendente de pagamento' => 'Pendente de pagamento',
+            'pendente de documentos' => 'Pendente de documentos',
             'concluído' => 'Concluído',
             'cancelado' => 'Cancelado',
         ];
@@ -67,7 +75,8 @@ class DashboardProcessFormatter
             'orçamento', 'orçamento pendente' => 'bg-blue-50 hover:bg-blue-100',
             'serviço pendente' => 'bg-orange-50 hover:bg-orange-100',
             'serviço em andamento' => 'bg-cyan-50 hover:bg-cyan-100',
-            'aguardando pagamento' => 'bg-indigo-50 hover:bg-indigo-100',
+            'pendente de pagamento' => 'bg-indigo-50 hover:bg-indigo-100',
+            'pendente de documentos' => 'bg-violet-50 hover:bg-violet-100',
             'concluído' => 'bg-purple-50 hover:bg-purple-100',
             'cancelado' => 'bg-red-50 hover:bg-red-100',
             default => 'hover:bg-gray-50',
@@ -95,7 +104,7 @@ class DashboardProcessFormatter
             return $descriptor;
         }
 
-        if (in_array($statusNormalized, ['cancelado', 'orçamento', 'orçamento pendente', 'aguardando pagamento'], true)) {
+        if (in_array($statusNormalized, ['cancelado', 'orçamento', 'orçamento pendente', 'pendente de pagamento', 'pendente de documentos'], true)) {
             $descriptor['label'] = 'N/A';
             $descriptor['class'] = $colors['inactive'];
             $descriptor['state'] = 'inactive';
@@ -159,19 +168,18 @@ class DashboardProcessFormatter
 
     public static function extractDeadlineDate(array $process): ?DateTimeImmutable
     {
-        if (!empty($process['traducao_prazo_data'])) {
-            return self::createImmutableDate($process['traducao_prazo_data']);
-        }
-
-        if (!empty($process['traducao_prazo_dias']) && !empty($process['data_inicio_traducao'])) {
-            $start = self::createImmutableDate($process['data_inicio_traducao']);
-            if ($start !== null) {
-                return $start->modify('+' . (int) $process['traducao_prazo_dias'] . ' days');
-            }
-        }
-
         if (!empty($process['data_previsao_entrega'])) {
             return self::createImmutableDate($process['data_previsao_entrega']);
+        }
+
+        if (!empty($process['prazo_dias'])) {
+            $baseDate = $process['data_criacao'] ?? $process['data_inicio_traducao'] ?? null;
+            if ($baseDate) {
+                $start = self::createImmutableDate($baseDate);
+                if ($start !== null) {
+                    return $start->modify('+' . (int) $process['prazo_dias'] . ' days');
+                }
+            }
         }
 
         return null;

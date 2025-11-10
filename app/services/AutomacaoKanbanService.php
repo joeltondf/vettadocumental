@@ -5,6 +5,7 @@ require_once __DIR__ . '/../models/AutomacaoModel.php';
 require_once __DIR__ . '/../models/Prospeccao.php';
 require_once __DIR__ . '/../models/Cliente.php';
 require_once __DIR__ . '/EmailService.php';
+require_once __DIR__ . '/../utils/PhoneUtils.php';
 
 class AutomacaoKanbanService
 {
@@ -58,10 +59,6 @@ class AutomacaoKanbanService
             return false;
         }
 
-        if (empty($client['telefone'])) {
-            return false;
-        }
-
         $campaignId = (int)$campaign['id'];
         $clientId = (int)$client['id'];
         $interval = (int)($campaign['intervalo_reenvio_dias'] ?? 0);
@@ -73,8 +70,21 @@ class AutomacaoKanbanService
         if ($this->automacaoModel->verificarSeEstaNaFila($campaignId, $clientId)) {
             return false;
         }
+        $ddiDigits = stripNonDigits((string)($client['telefone_ddi'] ?? ''));
+        $dddDigits = stripNonDigits((string)($client['telefone_ddd'] ?? ''));
+        $numeroDigits = stripNonDigits((string)($client['telefone_numero'] ?? ''));
 
-        return $this->automacaoModel->adicionarNaFila($campaignId, $clientId, $client['telefone']);
+        if ($dddDigits !== '' && $numeroDigits !== '') {
+            $numeroDestino = ($ddiDigits !== '' ? $ddiDigits : '55') . $dddDigits . $numeroDigits;
+        } else {
+            $numeroDestino = stripNonDigits((string)($client['telefone'] ?? ''));
+        }
+
+        if ($numeroDestino === '') {
+            return false;
+        }
+
+        return $this->automacaoModel->adicionarNaFila($campaignId, $clientId, $numeroDestino);
     }
 
     private function sendEmailIfAvailable(array $campaign, array $client, array $lead, string $stage): bool

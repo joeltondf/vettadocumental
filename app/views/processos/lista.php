@@ -20,7 +20,14 @@ if (!function_exists('process_list_normalize_status')) {
             'serviço em andamento' => 'serviço em andamento',
             'servico em andamento' => 'serviço em andamento',
             'em andamento' => 'serviço em andamento',
-            'aguardando pagamento' => 'aguardando pagamento',
+            'aguardando pagamento' => 'pendente de pagamento',
+            'aguardando pagamentos' => 'pendente de pagamento',
+            'aguardando documento' => 'pendente de documentos',
+            'aguardando documentos' => 'pendente de documentos',
+            'aguardando documentacao' => 'pendente de documentos',
+            'aguardando documentação' => 'pendente de documentos',
+            'pendente de pagamento' => 'pendente de pagamento',
+            'pendente de documentos' => 'pendente de documentos',
             'finalizado' => 'concluído',
             'finalizada' => 'concluído',
             'concluido' => 'concluído',
@@ -40,7 +47,8 @@ if (!function_exists('process_list_normalize_status')) {
             'orçamento pendente' => 'Orçamento Pendente',
             'serviço pendente' => 'Serviço Pendente',
             'serviço em andamento' => 'Serviço em Andamento',
-            'aguardando pagamento' => 'Aguardando pagamento',
+            'pendente de pagamento' => 'Pendente de pagamento',
+            'pendente de documentos' => 'Pendente de documentos',
             'concluído' => 'Concluído',
             'cancelado' => 'Cancelado',
         ];
@@ -56,6 +64,7 @@ require_once __DIR__ . '/../layouts/header.php';
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
+$baseAppUrl = defined('APP_URL') ? APP_URL : '';
 ?>
 
     <div class="flex justify-between items-center mb-6">
@@ -76,6 +85,7 @@ if (session_status() == PHP_SESSION_NONE) {
                     <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">OS</th>
                     <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Título</th>
                     <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Cliente</th>
+                    <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Prospecção</th>
                     <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
                     <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Data de Entrada</th>
                     <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Previsão de Entrega</th>
@@ -109,8 +119,11 @@ if (session_status() == PHP_SESSION_NONE) {
                                 case 'serviço em andamento':
                                     $statusClasses = 'bg-cyan-200 text-cyan-900';
                                     break;
-                                case 'aguardando pagamento':
+                                case 'pendente de pagamento':
                                     $statusClasses = 'bg-indigo-200 text-indigo-900';
+                                    break;
+                                case 'pendente de documentos':
+                                    $statusClasses = 'bg-violet-200 text-violet-900';
                                     break;
                                 case 'concluído':
                                     $statusClasses = 'bg-green-200 text-green-900';
@@ -129,6 +142,24 @@ if (session_status() == PHP_SESSION_NONE) {
                                 </td>
                                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-xs">
                                     <p class="text-gray-900 whitespace-no-wrap"><?php echo htmlspecialchars(mb_strtoupper($processo['nome_cliente'] ?? '')); ?></p>
+                                </td>
+                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-xs">
+                                    <?php
+                                        $prospectionId = isset($processo['prospeccao_id']) ? (int) $processo['prospeccao_id'] : 0;
+                                        $prospectionCode = trim((string) ($processo['prospeccao_codigo'] ?? ''));
+                                        $prospectionName = trim((string) ($processo['prospeccao_nome'] ?? ''));
+                                        $prospectionLabel = $prospectionCode !== ''
+                                            ? $prospectionCode
+                                            : ($prospectionId > 0 ? ('ID #' . $prospectionId) : '—');
+                                        if ($prospectionId > 0) {
+                                            $link = rtrim($baseAppUrl, '/') . '/crm/prospeccoes/detalhes.php?id=' . $prospectionId;
+                                            $title = $prospectionName !== '' ? $prospectionName : 'Abrir prospecção';
+                                            echo '<a href="' . htmlspecialchars($link) . '" class="text-blue-600 hover:text-blue-800" title="' . htmlspecialchars($title) . '">'
+                                                . htmlspecialchars($prospectionLabel) . '</a>';
+                                        } else {
+                                            echo '<span class="text-gray-400">—</span>';
+                                        }
+                                    ?>
                                 </td>
                                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-xs whitespace-nowrap">
                                     <span class="relative inline-block px-3 py-1 font-semibold leading-tight rounded-full <?php echo $statusClasses; ?>">

@@ -42,23 +42,63 @@
     };
 
     const setupDeadlineForm = (form) => {
-        const typeInputs = form.querySelectorAll('[data-deadline-type]');
-        const daysWrapper = form.querySelector('#deadline-days-wrapper');
-        const dateWrapper = form.querySelector('#deadline-date-wrapper');
+        const startInput = form.querySelector('#data_inicio_traducao');
+        const daysInput = form.querySelector('[data-deadline-days]');
+        const preview = form.querySelector('[data-deadline-display]');
+        const defaultMessage = preview ? preview.dataset.defaultMessage : '';
 
-        const toggleDeadlineInputs = () => {
-            const selected = form.querySelector('[data-deadline-type]:checked');
-            const type = selected ? selected.value : 'dias';
-            if (daysWrapper) {
-                daysWrapper.classList[type === 'dias' ? 'remove' : 'add']('hidden');
+        const formatDate = (date) => {
+            if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+                return null;
             }
-            if (dateWrapper) {
-                dateWrapper.classList[type === 'data' ? 'remove' : 'add']('hidden');
-            }
+
+            return new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(
+                new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())),
+            );
         };
 
-        typeInputs.forEach((input) => input.addEventListener('change', toggleDeadlineInputs));
-        toggleDeadlineInputs();
+        const renderPreview = () => {
+            if (!preview) {
+                return;
+            }
+
+            const baseDateValue = startInput ? startInput.value : '';
+            const daysValue = daysInput ? parseInt(daysInput.value, 10) : NaN;
+
+            if (!baseDateValue || Number.isNaN(daysValue) || daysValue < 0) {
+                preview.innerHTML = defaultMessage;
+                return;
+            }
+
+            const [year, month, day] = baseDateValue.split('-').map((part) => parseInt(part, 10));
+            if ([year, month, day].some(Number.isNaN)) {
+                preview.innerHTML = defaultMessage;
+                return;
+            }
+
+            const baseDate = new Date(Date.UTC(year, month - 1, day));
+            if (Number.isNaN(baseDate.getTime())) {
+                preview.innerHTML = defaultMessage;
+                return;
+            }
+
+            const deadline = new Date(baseDate);
+            deadline.setUTCDate(deadline.getUTCDate() + daysValue);
+            const formatted = formatDate(deadline);
+            preview.innerHTML = formatted
+                ? `Entrega prevista para <strong>${formatted}</strong>`
+                : defaultMessage;
+        };
+
+        if (startInput) {
+            startInput.addEventListener('change', renderPreview);
+        }
+
+        if (daysInput) {
+            daysInput.addEventListener('input', renderPreview);
+        }
+
+        renderPreview();
     };
 
     const setupPaymentForm = (form) => {

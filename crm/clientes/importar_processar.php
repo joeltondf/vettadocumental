@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
+require_once __DIR__ . '/../../app/utils/PhoneUtils.php';
+require_once __DIR__ . '/../../app/utils/DatabaseSchemaInspector.php';
 
 function insertImportedProspects(PDO $pdo, array $rows, ?int $assignedOwnerId): int
 {
@@ -8,25 +10,52 @@ function insertImportedProspects(PDO $pdo, array $rows, ?int $assignedOwnerId): 
         return 0;
     }
 
-    $insertSql = 'INSERT INTO clientes (
-            nome_cliente,
-            nome_responsavel,
-            email,
-            telefone,
-            canal_origem,
-            categoria,
-            is_prospect,
-            crmOwnerId
-        ) VALUES (
-            :nome_cliente,
-            :nome_responsavel,
-            :email,
-            :telefone,
-            :canal_origem,
-            :categoria,
-            1,
-            :crm_owner_id
-        )';
+    $hasPhoneDDI = DatabaseSchemaInspector::hasColumn($pdo, 'clientes', 'telefone_ddi');
+    $hasPhoneDDD = DatabaseSchemaInspector::hasColumn($pdo, 'clientes', 'telefone_ddd');
+    $hasPhoneNumero = DatabaseSchemaInspector::hasColumn($pdo, 'clientes', 'telefone_numero');
+
+    $columns = [
+        'nome_cliente',
+        'nome_responsavel',
+        'email',
+        'telefone',
+        'canal_origem',
+        'categoria',
+        'is_prospect',
+        'crmOwnerId',
+    ];
+
+    $placeholders = [
+        ':nome_cliente',
+        ':nome_responsavel',
+        ':email',
+        ':telefone',
+        ':canal_origem',
+        ':categoria',
+        '1',
+        ':crm_owner_id',
+    ];
+
+    if ($hasPhoneDDI) {
+        $columns[] = 'telefone_ddi';
+        $placeholders[] = ':telefone_ddi';
+    }
+
+    if ($hasPhoneDDD) {
+        $columns[] = 'telefone_ddd';
+        $placeholders[] = ':telefone_ddd';
+    }
+
+    if ($hasPhoneNumero) {
+        $columns[] = 'telefone_numero';
+        $placeholders[] = ':telefone_numero';
+    }
+
+    $insertSql = sprintf(
+        'INSERT INTO clientes (%s) VALUES (%s)',
+        implode(', ', $columns),
+        implode(', ', $placeholders)
+    );
 
     $insertStmt = $pdo->prepare($insertSql);
     $created = 0;
@@ -35,15 +64,36 @@ function insertImportedProspects(PDO $pdo, array $rows, ?int $assignedOwnerId): 
 
     try {
         foreach ($rows as $row) {
-            $insertStmt->execute([
+            $telefoneLegacy = null;
+            if (!empty($row['phone_combinado'])) {
+                $telefoneLegacy = $row['phone_combinado'];
+            } elseif (!empty($row['phone_raw'])) {
+                $telefoneLegacy = $row['phone_raw'];
+            }
+
+            $params = [
                 ':nome_cliente' => $row['company_name'],
                 ':nome_responsavel' => $row['contact_name'] !== '' ? $row['contact_name'] : null,
                 ':email' => $row['email'] !== '' ? $row['email'] : null,
-                ':telefone' => $row['phone'] !== '' ? $row['phone'] : null,
+                ':telefone' => $telefoneLegacy,
                 ':canal_origem' => $row['channel'],
                 ':categoria' => 'Entrada',
                 ':crm_owner_id' => $assignedOwnerId,
-            ]);
+            ];
+
+            if ($hasPhoneDDI) {
+                $params[':telefone_ddi'] = $row['phone_ddi'] ?? null;
+            }
+
+            if ($hasPhoneDDD) {
+                $params[':telefone_ddd'] = $row['phone_ddd'] ?? null;
+            }
+
+            if ($hasPhoneNumero) {
+                $params[':telefone_numero'] = $row['phone_numero'] ?? null;
+            }
+
+            $insertStmt->execute($params);
             $created++;
         }
 
@@ -146,14 +196,37 @@ try {
         fgetcsv($handle, 0, $delimiter);
     }
 
-    $duplicateSql = "SELECT id, nome_cliente, email, telefone
-                     FROM clientes
-                     WHERE is_prospect = 1 AND (
-                         (:email <> '' AND email = :email) OR
-                         (:telefone <> '' AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(telefone, '(', ''), ')', ''), '-', ''), ' ', ''), '.', ''), '+', '') = :telefone) OR
-                         (:nome_cliente <> '' AND LOWER(nome_cliente) = LOWER(:nome_cliente))
-                     )
-                     LIMIT 1";
+    $phoneColumns = ['telefone'];
+    $phoneConditions = [
+        "(:telefone <> '' AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(telefone, '(', ''), ')', ''), '-', ''), ' ', ''), '.', ''), '+', '') = :telefone)"
+    ];
+
+    $hasPhoneDDI = DatabaseSchemaInspector::hasColumn($pdo, 'clientes', 'telefone_ddi');
+    $hasPhoneDDD = DatabaseSchemaInspector::hasColumn($pdo, 'clientes', 'telefone_ddd');
+    $hasPhoneNumero = DatabaseSchemaInspector::hasColumn($pdo, 'clientes', 'telefone_numero');
+
+    if ($hasPhoneDDI) {
+        $phoneColumns[] = 'telefone_ddi';
+    }
+
+    if ($hasPhoneDDD) {
+        $phoneColumns[] = 'telefone_ddd';
+    }
+
+    if ($hasPhoneNumero) {
+        $phoneColumns[] = 'telefone_numero';
+    }
+
+    if ($hasPhoneDDD && $hasPhoneNumero) {
+        $phoneConditions[] = "(:telefone_numero <> '' AND telefone_numero = :telefone_numero AND telefone_ddd = :telefone_ddd)";
+    }
+
+    $duplicateSql = sprintf(
+        "SELECT id, nome_cliente, email, %s FROM clientes WHERE is_prospect = 1 AND ((:email <> '' AND email = :email) OR %s OR (:nome_cliente <> '' AND LOWER(nome_cliente) = LOWER(:nome_cliente))) LIMIT 1",
+        implode(', ', $phoneColumns),
+        implode(' OR ', $phoneConditions)
+    );
+
     $duplicateStmt = $pdo->prepare($duplicateSql);
 
     while (($data = fgetcsv($handle, 0, $delimiter)) !== false) {
@@ -176,13 +249,70 @@ try {
         }
 
         $email = filter_var($emailRaw, FILTER_VALIDATE_EMAIL) ? $emailRaw : '';
-        $telefoneDigits = preg_replace('/\D+/', '', $telefoneRaw);
 
-        $duplicateStmt->execute([
+        $telefoneData = [
+            'raw' => $telefoneRaw,
+            'ddi' => '55',
+            'ddd' => null,
+            'numero' => null,
+            'combinado' => '',
+            'valido' => false,
+            'erro' => null,
+        ];
+
+        if ($telefoneRaw !== '') {
+            try {
+                $digits = stripNonDigits($telefoneRaw);
+
+                $ddiDetectado = '55';
+                if (strlen($digits) > 11) {
+                    if (strncmp($digits, '55', 2) === 0 && strlen($digits) > 12) {
+                        $ddiDetectado = '55';
+                        $digits = substr($digits, 2);
+                    } elseif (strlen($digits) >= 13) {
+                        for ($ddiLen = 3; $ddiLen >= 1; $ddiLen--) {
+                            $possibleDDI = substr($digits, 0, $ddiLen);
+                            $remainingDigits = substr($digits, $ddiLen);
+
+                            if (strlen($remainingDigits) >= 10 && strlen($remainingDigits) <= 13) {
+                                $ddiDetectado = $possibleDDI;
+                                $digits = $remainingDigits;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                $parts = extractPhoneParts($digits);
+
+                $telefoneData['ddi'] = $ddiDetectado;
+                $telefoneData['ddd'] = $parts['ddd'];
+                $telefoneData['numero'] = $parts['phone'];
+
+                if ($parts['ddd'] !== null && $parts['phone'] !== null) {
+                    $telefoneData['combinado'] = $ddiDetectado . $parts['ddd'] . $parts['phone'];
+                    $telefoneData['valido'] = true;
+                }
+            } catch (InvalidArgumentException $e) {
+                $telefoneData['erro'] = $e->getMessage();
+                $telefoneData['combinado'] = stripNonDigits($telefoneRaw);
+            }
+        }
+
+        $telefoneDigits = $telefoneData['combinado'] !== '' ? $telefoneData['combinado'] : stripNonDigits($telefoneRaw);
+
+        $duplicateParams = [
             ':email' => $email,
             ':telefone' => $telefoneDigits,
             ':nome_cliente' => $nomeCliente,
-        ]);
+        ];
+
+        if ($hasPhoneDDD && $hasPhoneNumero) {
+            $duplicateParams[':telefone_numero'] = $telefoneData['numero'] ?? '';
+            $duplicateParams[':telefone_ddd'] = $telefoneData['ddd'] ?? '';
+        }
+
+        $duplicateStmt->execute($duplicateParams);
 
         $existingLead = $duplicateStmt->fetch(PDO::FETCH_ASSOC) ?: null;
 
@@ -191,13 +321,22 @@ try {
             'company_name' => $nomeCliente,
             'contact_name' => $nomeResponsavel,
             'email' => $email,
-            'phone' => $telefoneRaw,
+            'phone_raw' => $telefoneRaw,
+            'phone_ddi' => $telefoneData['ddi'],
+            'phone_ddd' => $telefoneData['ddd'],
+            'phone_numero' => $telefoneData['numero'],
+            'phone_combinado' => $telefoneData['combinado'],
+            'phone_valido' => $telefoneData['valido'],
+            'phone_erro' => $telefoneData['erro'],
             'channel' => $defaultChannel,
             'duplicate' => $existingLead ? [
                 'id' => (int) ($existingLead['id'] ?? 0),
                 'name' => $existingLead['nome_cliente'] ?? '',
                 'email' => $existingLead['email'] ?? '',
                 'phone' => $existingLead['telefone'] ?? '',
+                'phone_ddi' => $existingLead['telefone_ddi'] ?? null,
+                'phone_ddd' => $existingLead['telefone_ddd'] ?? null,
+                'phone_numero' => $existingLead['telefone_numero'] ?? null,
             ] : null,
         ];
 

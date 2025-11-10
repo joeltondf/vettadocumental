@@ -174,13 +174,17 @@ class Vendedor
      * @param int $vendedor_id O ID da tabela `vendedores`.
      * @return int|null O ID correspondente da tabela `users`.
      */
-    public function getUserIdByVendedorId(int $vendedor_id): ?int
+    public function getUserIdByVendedorId(?int $vendedor_id): ?int
     {
+        if ($vendedor_id === null) {
+            return null;
+        }
+
         $sql = "SELECT user_id FROM vendedores WHERE id = ?";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([$vendedor_id]);
         $result = $stmt->fetchColumn();
-        
+
         return $result ? (int)$result : null;
     }
 }

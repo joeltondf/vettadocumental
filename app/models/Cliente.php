@@ -106,6 +106,7 @@ class Cliente
                 'cep = ?',
                 'tipo_pessoa = ?',
                 'tipo_assessoria = ?',
+                'tipo_servico = ?',
                 'prazo_acordado_dias = ?',
                 'user_id = ?',
             ];
@@ -124,6 +125,7 @@ class Cliente
                 $data['cep'] ?? null,
                 $data['tipo_pessoa'] ?? 'Jurídica',
                 $data['tipo_assessoria'] ?? null,
+                $data['tipo_servico'] ?? 'Assessoria',
                 $prazoAcordadoDias,
                 $userId,
             ];
@@ -210,6 +212,41 @@ class Cliente
 
         if (!$needsConversion && !$shouldStampConversionDate) {
             return true;
+        }
+
+        $nomeCliente = trim((string)($cliente['nome_cliente'] ?? ''));
+        if ($nomeCliente === '') {
+            throw new Exception('Nome obrigatório.');
+        }
+
+        $email = trim((string)($cliente['email'] ?? ''));
+        $telefone = '';
+        if (isset($cliente['telefone'])) {
+            $telefone = trim((string)$cliente['telefone']);
+        }
+
+        if ($telefone === '') {
+            $telefoneParts = [
+                trim((string)($cliente['telefone_numero'] ?? '')),
+                trim((string)($cliente['telefone_ddd'] ?? '')),
+                trim((string)($cliente['telefone_ddi'] ?? '')),
+            ];
+
+            foreach ($telefoneParts as $part) {
+                if ($part !== '') {
+                    $telefone = $part;
+                    break;
+                }
+            }
+        }
+
+        if ($email === '' && $telefone === '') {
+            throw new Exception('Contato obrigatório (e-mail ou telefone).');
+        }
+
+        $cidade = trim((string)($cliente['cidade'] ?? ''));
+        if ($cidade === '') {
+            throw new Exception('Cidade obrigatória.');
         }
 
         $columnsToUpdate = [];
@@ -350,9 +387,39 @@ class Cliente
      *
      * @return array Lista de clientes com is_prospect = 0.
      */
-    public function getAppClients(): array
+    public function getAppClients(array $filters = []): array
     {
-        return $this->getAll();
+        $whereClauses = ['is_prospect = 0'];
+        $params = [];
+
+        $nome = trim((string) ($filters['busca_nome'] ?? ''));
+        if ($nome !== '') {
+            $whereClauses[] = 'nome_cliente LIKE :nome';
+            $params[':nome'] = '%' . $nome . '%';
+        }
+
+        $tipoPessoa = $filters['tipo_pessoa'] ?? '';
+        if ($tipoPessoa !== '') {
+            $whereClauses[] = 'tipo_pessoa = :tipo_pessoa';
+            $params[':tipo_pessoa'] = $tipoPessoa;
+        }
+
+        $tipoServico = $filters['tipo_servico'] ?? '';
+        if ($tipoServico !== '') {
+            $whereClauses[] = 'tipo_servico = :tipo_servico';
+            $params[':tipo_servico'] = $tipoServico;
+        }
+
+        $sql = 'SELECT * FROM clientes';
+        if (!empty($whereClauses)) {
+            $sql .= ' WHERE ' . implode(' AND ', $whereClauses);
+        }
+        $sql .= ' ORDER BY nome_cliente ASC';
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     /**
@@ -435,6 +502,7 @@ class Cliente
                 'cep',
                 'tipo_pessoa',
                 'tipo_assessoria',
+                'tipo_servico',
                 'prazo_acordado_dias',
                 'user_id',
                 'is_prospect',
@@ -454,6 +522,7 @@ class Cliente
                 ':cep',
                 ':tipo_pessoa',
                 ':tipo_assessoria',
+                ':tipo_servico',
                 ':prazo_acordado_dias',
                 ':user_id',
                 ':is_prospect',
@@ -473,6 +542,7 @@ class Cliente
                 ':cep' => $data['cep'] ?? null,
                 ':tipo_pessoa' => $data['tipo_pessoa'] ?? 'Jurídica',
                 ':tipo_assessoria' => $data['tipo_assessoria'] ?? null,
+                ':tipo_servico' => $data['tipo_servico'] ?? 'Assessoria',
                 ':prazo_acordado_dias' => $data['prazo_acordado_dias'] ?? null,
                 ':user_id' => $userId,
                 ':is_prospect' => 0,

@@ -113,7 +113,7 @@ if (empty($budgetItems) && $total > 0) {
 }
 
 $infoRows = [];
-$deadlineDate = $process['traducao_prazo_data'] ?? $process['data_previsao_entrega'] ?? null;
+$deadlineDate = $process['data_previsao_entrega'] ?? null;
 if (!empty($deadlineDate)) {
     $infoRows[] = ['Prazo estimado', $formatDate($deadlineDate)];
 }

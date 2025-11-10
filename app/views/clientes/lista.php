@@ -7,6 +7,14 @@ if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
+$filters = isset($filters) && is_array($filters)
+    ? $filters
+    : [
+        'busca_nome'   => $_GET['busca_nome'] ?? '',
+        'tipo_pessoa'  => $_GET['tipo_pessoa'] ?? '',
+        'tipo_servico' => $_GET['tipo_servico'] ?? '',
+    ];
+
 $formatClientPhone = static function (array $cliente): string {
     $rawPhone = $cliente['telefone'] ?? '';
     $ddiValue = $cliente['telefone_ddi'] ?? '';
@@ -57,6 +65,53 @@ $formatClientPhone = static function (array $cliente): string {
         <?php unset($_SESSION['error_message']); ?>
     <?php endif; ?>
 
+    <div class="bg-white shadow-md rounded-lg p-6 mb-6">
+        <form method="get" action="clientes.php" class="flex flex-col md:flex-row md:items-end gap-4">
+            <div class="flex-1">
+                <label for="busca_nome" class="block text-sm font-medium text-gray-700 mb-1">Buscar por nome:</label>
+                <input
+                    type="text"
+                    id="busca_nome"
+                    name="busca_nome"
+                    placeholder="Digite o nome do cliente..."
+                    value="<?php echo htmlspecialchars($filters['busca_nome'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+            </div>
+
+            <div class="md:w-48">
+                <label for="tipo_pessoa" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Cliente:</label>
+                <select
+                    id="tipo_pessoa"
+                    name="tipo_pessoa"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                    <option value="" <?php echo ($filters['tipo_pessoa'] ?? '') === '' ? 'selected' : ''; ?>>Todos</option>
+                    <option value="Física" <?php echo ($filters['tipo_pessoa'] ?? '') === 'Física' ? 'selected' : ''; ?>>Pessoa Física</option>
+                    <option value="Jurídica" <?php echo ($filters['tipo_pessoa'] ?? '') === 'Jurídica' ? 'selected' : ''; ?>>Pessoa Jurídica</option>
+                </select>
+            </div>
+
+            <div class="md:w-48">
+                <label for="tipo_servico" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Serviço:</label>
+                <select
+                    id="tipo_servico"
+                    name="tipo_servico"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                    <option value="" <?php echo ($filters['tipo_servico'] ?? '') === '' ? 'selected' : ''; ?>>Todos</option>
+                    <option value="Assessoria" <?php echo ($filters['tipo_servico'] ?? '') === 'Assessoria' ? 'selected' : ''; ?>>Assessoria</option>
+                    <option value="Balcão" <?php echo ($filters['tipo_servico'] ?? '') === 'Balcão' ? 'selected' : ''; ?>>Balcão</option>
+                </select>
+            </div>
+
+            <div class="flex gap-3 md:ml-auto">
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">Buscar</button>
+                <a href="clientes.php" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 transition">Limpar Filtros</a>
+            </div>
+        </form>
+    </div>
+
     <div class="bg-white shadow-md rounded-lg overflow-hidden">
         <table class="min-w-full leading-normal">
             <thead>
@@ -89,7 +144,20 @@ $formatClientPhone = static function (array $cliente): string {
                     <?php foreach ($clientes as $cliente): ?>
                         <tr>
                             <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                                <p class="text-gray-900 whitespace-no-wrap"><?php echo htmlspecialchars($cliente['nome_cliente'] ?? ''); ?></p>
+                                <p class="text-gray-900 whitespace-no-wrap flex items-center">
+                                    <?php echo htmlspecialchars($cliente['nome_cliente'] ?? ''); ?>
+                                    <?php
+                                        $tipoServicoCliente = trim((string) ($cliente['tipo_servico'] ?? ''));
+                                        if ($tipoServicoCliente !== ''):
+                                            $badgeClasses = $tipoServicoCliente === 'Balcão'
+                                                ? 'bg-yellow-100 text-yellow-800'
+                                                : 'bg-blue-100 text-blue-800';
+                                    ?>
+                                        <span class="ml-3 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold <?php echo $badgeClasses; ?>">
+                                            <?php echo htmlspecialchars($tipoServicoCliente); ?>
+                                        </span>
+                                    <?php endif; ?>
+                                </p>
                             </td>
                             <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                                 <p class="text-gray-900 whitespace-no-wrap"><?php echo htmlspecialchars($cliente['cpf_cnpj'] ?? ''); ?></p>

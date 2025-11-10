@@ -25,7 +25,14 @@ if (!function_exists('seller_normalize_status_info')) {
             'serviço em andamento' => 'serviço em andamento',
             'servico em andamento' => 'serviço em andamento',
             'em andamento' => 'serviço em andamento',
-            'aguardando pagamento' => 'aguardando pagamento',
+            'aguardando pagamento' => 'pendente de pagamento',
+            'aguardando pagamentos' => 'pendente de pagamento',
+            'aguardando documento' => 'pendente de documentos',
+            'aguardando documentos' => 'pendente de documentos',
+            'aguardando documentacao' => 'pendente de documentos',
+            'aguardando documentação' => 'pendente de documentos',
+            'pendente de pagamento' => 'pendente de pagamento',
+            'pendente de documentos' => 'pendente de documentos',
             'finalizado' => 'concluído',
             'finalizada' => 'concluído',
             'concluido' => 'concluído',
@@ -45,7 +52,8 @@ if (!function_exists('seller_normalize_status_info')) {
             'orçamento pendente' => 'Orçamento Pendente',
             'serviço pendente' => 'Serviço Pendente',
             'serviço em andamento' => 'Serviço em Andamento',
-            'aguardando pagamento' => 'Aguardando pagamento',
+            'pendente de pagamento' => 'Pendente de pagamento',
+            'pendente de documentos' => 'Pendente de documentos',
             'concluído' => 'Concluído',
             'cancelado' => 'Cancelado',
         ];
@@ -174,7 +182,7 @@ $nextLead = $nextLead ?? null;
                 <label for="status" class="text-sm font-semibold text-gray-700 mb-1 block">Status</label>
                 <select id="status" name="status" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg">
                     <option value="">Todos os Status</option>
-                    <?php $statusOptions = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Aguardando pagamento', 'Concluído', 'Cancelado']; foreach ($statusOptions as $option): ?>
+                    <?php $statusOptions = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Cancelado']; foreach ($statusOptions as $option): ?>
                         <?php $optionInfo = seller_normalize_status_info($option); ?>
                         <option value="<?php echo $optionInfo['label']; ?>" <?php echo ($selectedStatusNormalized === $optionInfo['normalized']) ? 'selected' : ''; ?>><?php echo $optionInfo['label']; ?></option>
                     <?php endforeach; ?>
@@ -235,8 +243,11 @@ $nextLead = $nextLead ?? null;
                                 case 'serviço pendente':
                                     $rowClass = 'bg-orange-50 hover:bg-orange-100';
                                     break;
-                                case 'aguardando pagamento':
+                                case 'pendente de pagamento':
                                     $rowClass = 'bg-indigo-50 hover:bg-indigo-100';
+                                    break;
+                                case 'pendente de documentos':
+                                    $rowClass = 'bg-violet-50 hover:bg-violet-100';
                                     break;
                                 case 'concluído':
                                     $rowClass = 'bg-green-50 hover:bg-green-100';
@@ -441,7 +452,8 @@ $nextLead = $nextLead ?? null;
                 'serviço em andamento': 'serviço em andamento',
                 'servico em andamento': 'serviço em andamento',
                 'em andamento': 'serviço em andamento',
-                'aguardando pagamento': 'aguardando pagamento',
+                'pendente de pagamento': 'pendente de pagamento',
+                'pendente de documentos': 'pendente de documentos',
                 'finalizado': 'concluído',
                 'finalizada': 'concluído',
                 'concluido': 'concluído',
@@ -463,8 +475,10 @@ $nextLead = $nextLead ?? null;
                     return 'bg-yellow-50 hover:bg-yellow-100';
                 case 'serviço em andamento':
                     return 'bg-indigo-50 hover:bg-indigo-100';
-                case 'aguardando pagamento':
+                case 'pendente de pagamento':
                     return 'bg-indigo-50 hover:bg-indigo-100';
+                case 'pendente de documentos':
+                    return 'bg-violet-50 hover:bg-violet-100';
                 case 'serviço pendente':
                     return 'bg-orange-50 hover:bg-orange-100';
                 case 'concluído':

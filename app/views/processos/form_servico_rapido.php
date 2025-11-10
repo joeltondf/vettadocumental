@@ -110,7 +110,8 @@ if (!empty($formData['categorias_servico'])) {
         $categoriasSelecionadas = array_filter(array_map('trim', explode(',', (string) $formData['categorias_servico'])));
     }
 }
-$prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
+$deadlineDaysValue = $formData['traducao_prazo_dias'] ?? $formData['prazo_dias'] ?? '';
+$deadlinePreview = $formData['data_previsao_entrega'] ?? '';
 
 
 ?>
@@ -171,7 +172,7 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
             </div>
             <div class="md:col-span-3">
                 <label class="block text-sm font-semibold text-gray-700">Serviços Contratados *</label>
-                <div class="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-4">
+                <div class="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
                     <?php
                     $servicos_lista = ['Tradução', 'CRC', 'Apostilamento', 'Postagem', 'Outros'];
                     $slug_map = ['Tradução' => 'tradução', 'CRC' => 'crc', 'Apostilamento' => 'apostilamento', 'Postagem' => 'postagem', 'Outros' => 'outros'];
@@ -215,23 +216,29 @@ $prazoTipoSelecionado = $formData['prazo_tipo'] ?? 'dias';
             <div class="md:col-span-1">
                 <label for="data_inicio_traducao" class="block text-sm font-medium text-gray-700">Data de Envio para Tradutor</label>
                 <input type="date" name="data_inicio_traducao" id="data_inicio_traducao" value="<?php echo htmlspecialchars($formData['data_inicio_traducao'] ?? date('Y-m-d')); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                <p class="mt-1 text-xs text-gray-500">Obrigatória apenas quando houver prazo de tradução maior que zero.</p>
             </div>
             <div class="md:col-span-1">
-                <label for="prazo_tipo" class="block text-sm font-medium text-gray-700">Definir Prazo Para Serviço</label>
-                <select name="prazo_tipo" id="prazo_tipo" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-                    <option value="dias" <?php echo ($prazoTipoSelecionado === 'dias') ? 'selected' : ''; ?>>Por Dias</option>
-                    <option value="data" <?php echo ($prazoTipoSelecionado === 'data') ? 'selected' : ''; ?>>Por Data</option>
-                </select>
+                <label for="traducao_prazo_dias" class="block text-sm font-medium text-gray-700">Quantidade de Dias Corridos</label>
+                <input
+                    type="number"
+                    name="traducao_prazo_dias"
+                    id="traducao_prazo_dias"
+                    placeholder="Ex: 5"
+                    value="<?php echo htmlspecialchars($deadlineDaysValue); ?>"
+                    class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm"
+                >
+                <p class="mt-1 text-xs text-gray-500">Informe um número inteiro de dias. Use zero ou deixe em branco para remover o prazo.</p>
             </div>
             <div class="md:col-span-1">
-                <div id="prazo_dias_container" class="<?php echo ($prazoTipoSelecionado === 'data') ? 'hidden' : ''; ?>">
-                    <label for="traducao_prazo_dias" class="block text-sm font-medium text-gray-700">Quantidade de Dias Corridos</label>
-                    <input type="number" name="traducao_prazo_dias" id="traducao_prazo_dias" placeholder="Ex: 5" value="<?php echo htmlspecialchars($formData['traducao_prazo_dias'] ?? ''); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" <?php echo ($prazoTipoSelecionado === 'data') ? 'disabled' : ''; ?>>
-                </div>
-                <div id="prazo_data_container" class="<?php echo ($prazoTipoSelecionado === 'data') ? '' : 'hidden'; ?>">
-                    <label for="traducao_prazo_data" class="block text-sm font-medium text-gray-700">Data da Entrega</label>
-                    <input type="date" name="traducao_prazo_data" id="traducao_prazo_data" value="<?php echo htmlspecialchars($formData['traducao_prazo_data'] ?? ''); ?>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" <?php echo ($prazoTipoSelecionado === 'data') ? '' : 'disabled'; ?>>
-                </div>
+                <span class="block text-sm font-medium text-gray-700">Previsão de Entrega</span>
+                <p class="mt-2 text-sm text-gray-600" data-deadline-display data-default-message="Informe a data de envio e a quantidade de dias para calcular a previsão automaticamente.">
+                    <?php if (!empty($deadlinePreview)) : ?>
+                        Entrega prevista para <strong><?php echo date('d/m/Y', strtotime($deadlinePreview)); ?></strong>
+                    <?php else : ?>
+                        Informe a data de envio e a quantidade de dias para calcular a previsão automaticamente.
+                    <?php endif; ?>
+                </p>
             </div>
         </div>
     </fieldset>
@@ -710,9 +717,9 @@ document.addEventListener('DOMContentLoaded', function () {
     let clienteCache = { tipo: 'À vista', servicos: [] };
     const billingTypeSelect = document.getElementById('billing_type');
     const billingSections = document.querySelectorAll('[data-billing-section]');
-    const prazoTipoSelect = document.getElementById('prazo_tipo');
+    const dataInicioInput = document.getElementById('data_inicio_traducao');
     const prazoDiasInput = document.getElementById('traducao_prazo_dias');
-    const prazoDataInput = document.getElementById('traducao_prazo_data');
+    const prazoPreviewElement = document.querySelector('[data-deadline-display]');
     let currentDeadlineDays = (() => {
         if (!prazoDiasInput) {
             return null;
@@ -1370,48 +1377,66 @@ document.addEventListener('DOMContentLoaded', function () {
     updateAllCalculations();
     evaluateValorMinimo();
 
-    const togglePrazoFields = () => {
-        const diasContainer = document.getElementById('prazo_dias_container');
-        const dataContainer = document.getElementById('prazo_data_container');
+    const defaultPrazoMessage = prazoPreviewElement ? prazoPreviewElement.dataset.defaultMessage : null;
 
-        if (!diasContainer || !dataContainer) {
-            return;
-        }
-
-        if (prazoTipoSelect && prazoTipoSelect.value === 'data') {
-            diasContainer.classList.add('hidden');
-            dataContainer.classList.remove('hidden');
-            if (prazoDiasInput) {
-                prazoDiasInput.setAttribute('disabled', 'disabled');
-            }
-            if (prazoDataInput) {
-                prazoDataInput.removeAttribute('disabled');
-            }
-            return;
+    const formatDateToBrazil = (date) => {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+            return null;
         }
 
-        dataContainer.classList.add('hidden');
-        diasContainer.classList.remove('hidden');
-        if (prazoDataInput) {
-            prazoDataInput.setAttribute('disabled', 'disabled');
-        }
-        if (prazoDiasInput) {
-            prazoDiasInput.removeAttribute('disabled');
-            prazoDiasInput.value = currentDeadlineDays !== null ? currentDeadlineDays : '';
-        }
+        return new Intl.DateTimeFormat('pt-BR', {
+            timeZone: 'UTC',
+        }).format(new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())));
     };
 
-    if (prazoTipoSelect) {
-        prazoTipoSelect.addEventListener('change', togglePrazoFields);
-        togglePrazoFields();
-    }
+    const updateDeadlinePreview = () => {
+        if (!prazoPreviewElement) {
+            return;
+        }
+
+        const baseDateValue = dataInicioInput ? dataInicioInput.value : '';
+        const daysRaw = prazoDiasInput ? parseInt(prazoDiasInput.value, 10) : NaN;
+
+        currentDeadlineDays = Number.isNaN(daysRaw) ? null : daysRaw;
+
+        if (!baseDateValue || currentDeadlineDays === null || currentDeadlineDays < 0) {
+            prazoPreviewElement.innerHTML = defaultPrazoMessage || '';
+            return;
+        }
+
+        const [year, month, day] = baseDateValue.split('-').map(part => parseInt(part, 10));
+        if ([year, month, day].some(Number.isNaN)) {
+            prazoPreviewElement.innerHTML = defaultPrazoMessage || '';
+            return;
+        }
+
+        const baseDate = new Date(Date.UTC(year, month - 1, day));
+        if (Number.isNaN(baseDate.getTime())) {
+            prazoPreviewElement.innerHTML = defaultPrazoMessage || '';
+            return;
+        }
+
+        const previewDate = new Date(baseDate);
+        previewDate.setUTCDate(previewDate.getUTCDate() + currentDeadlineDays);
+        const formatted = formatDateToBrazil(previewDate);
+
+        if (!formatted) {
+            prazoPreviewElement.innerHTML = defaultPrazoMessage || '';
+            return;
+        }
+
+        prazoPreviewElement.innerHTML = `Entrega prevista para <strong>${formatted}</strong>`;
+    };
 
     if (prazoDiasInput) {
-        prazoDiasInput.addEventListener('input', () => {
-            const parsedValue = parseInt(prazoDiasInput.value, 10);
-            currentDeadlineDays = Number.isNaN(parsedValue) ? null : parsedValue;
-        });
+        prazoDiasInput.addEventListener('input', updateDeadlinePreview);
     }
+
+    if (dataInicioInput) {
+        dataInicioInput.addEventListener('change', updateDeadlinePreview);
+    }
+
+    updateDeadlinePreview();
     
     updateAllCalculations(); // Execução inicial
 });

@@ -1,7 +1,8 @@
 <?php
 $formData = $formData ?? [];
 $processId = (int)($processo['id'] ?? 0);
-$deadlineType = $formData['traducao_prazo_tipo'] ?? 'dias';
+$deadlineDays = $formData['traducao_prazo_dias'] ?? $formData['prazo_dias'] ?? '';
+$deadlinePreview = $formData['data_previsao_entrega'] ?? '';
 
 $conversionSteps = [
     [
@@ -43,30 +44,32 @@ include __DIR__ . '/partials/conversion_steps.php';
             <div>
                 <label class="block text-sm font-semibold text-gray-700" for="data_inicio_traducao">Data de início</label>
                 <input type="date" id="data_inicio_traducao" name="data_inicio_traducao" value="<?php echo htmlspecialchars($formData['data_inicio_traducao'] ?? date('Y-m-d')); ?>" class="mt-2 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500">
+                <p class="mt-2 text-xs text-gray-500">Obrigatória apenas quando houver prazo de tradução maior que zero.</p>
             </div>
             <div>
-                <span class="block text-sm font-semibold text-gray-700">Tipo de prazo</span>
-                <div class="mt-3 flex space-x-6">
-                    <label class="inline-flex items-center space-x-2">
-                        <input type="radio" name="traducao_prazo_tipo" value="dias" <?php echo $deadlineType === 'data' ? '' : 'checked'; ?> data-deadline-type>
-                        <span class="text-sm text-gray-700">Dias</span>
-                    </label>
-                    <label class="inline-flex items-center space-x-2">
-                        <input type="radio" name="traducao_prazo_tipo" value="data" <?php echo $deadlineType === 'data' ? 'checked' : ''; ?> data-deadline-type>
-                        <span class="text-sm text-gray-700">Data específica</span>
-                    </label>
-                </div>
+                <label class="block text-sm font-semibold text-gray-700" for="traducao_prazo_dias">Dias para entrega</label>
+                <input
+                    type="number"
+                    id="traducao_prazo_dias"
+                    name="traducao_prazo_dias"
+                    value="<?php echo htmlspecialchars($deadlineDays); ?>"
+                    class="mt-2 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500"
+                    data-deadline-days
+                >
+                <p class="mt-2 text-xs text-gray-500">Informe um número inteiro de dias. Use zero ou deixe em branco para remover o prazo.</p>
             </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div id="deadline-days-wrapper" class="<?php echo $deadlineType === 'data' ? 'hidden' : ''; ?>">
-                <label class="block text-sm font-semibold text-gray-700" for="traducao_prazo_dias">Dias para entrega</label>
-                <input type="number" min="1" id="traducao_prazo_dias" name="traducao_prazo_dias" value="<?php echo htmlspecialchars($formData['traducao_prazo_dias'] ?? ''); ?>" class="mt-2 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500" data-deadline-days>
-            </div>
-            <div id="deadline-date-wrapper" class="<?php echo $deadlineType === 'data' ? '' : 'hidden'; ?>">
-                <label class="block text-sm font-semibold text-gray-700" for="traducao_prazo_data">Data de entrega</label>
-                <input type="date" id="traducao_prazo_data" name="traducao_prazo_data" value="<?php echo htmlspecialchars($formData['traducao_prazo_data'] ?? ''); ?>" class="mt-2 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-orange-500 focus:border-orange-500" data-deadline-date>
+            <div>
+                <span class="block text-sm font-semibold text-gray-700">Previsão de entrega</span>
+                <p class="mt-2 text-sm text-gray-600" data-deadline-display data-default-message="Informe a data de início e a quantidade de dias para calcular automaticamente a previsão de entrega.">
+                    <?php if (!empty($deadlinePreview)) : ?>
+                        Entrega prevista para <strong><?php echo date('d/m/Y', strtotime($deadlinePreview)); ?></strong>
+                    <?php else : ?>
+                        Informe a data de início e a quantidade de dias para calcular automaticamente a previsão de entrega.
+                    <?php endif; ?>
+                </p>
             </div>
         </div>
 

@@ -9,22 +9,112 @@ function has_service($processo, $service_name) {
     return in_array($service_name, $services, true);
 }
 
-function format_prazo_countdown($dateString) {
-    if (empty($dateString)) return '<span class="text-gray-500">Não definido</span>';
-    try {
-        $today = new DateTime(); $today->setTime(0, 0, 0);
-        $prazoDate = new DateTime($dateString); $prazoDate->setTime(0, 0, 0);
-        if ($prazoDate < $today) {
-            $diff = $today->diff($prazoDate);
-            return '<span class="font-bold text-red-500">Atrasado há ' . $diff->days . ' dia(s)</span>';
-        } elseif ($prazoDate == $today) {
-            return '<span class="font-bold text-blue-500">Entrega hoje</span>';
+if (!function_exists('process_calculate_deadline_context')) {
+    function process_calculate_deadline_context(array $processo, string $statusNormalized): array
+    {
+        $pauseLabels = [
+            'pendente de pagamento' => 'pausado/pagamento',
+            'pendente de documentos' => 'pausado/documento',
+        ];
+
+        $pauseLabel = $pauseLabels[$statusNormalized] ?? null;
+        $isPaused = $pauseLabel !== null;
+        $daysRemaining = null;
+
+        if ($statusNormalized === 'concluído') {
+            $daysRemaining = 0;
+        } elseif ($isPaused) {
+            $rawStored = $processo['prazo_dias_restantes'] ?? null;
+            if ($rawStored !== null && $rawStored !== '') {
+                $daysRemaining = (int) $rawStored;
+            }
         } else {
-            $diff = $today->diff($prazoDate);
-            return '<span class="font-bold text-green-600">Faltam ' . ($diff->days) . ' dia(s)</span>';
+            $deadline = null;
+
+            $rawDate = $processo['data_previsao_entrega'] ?? null;
+            if (!empty($rawDate)) {
+                try {
+                    $deadline = new DateTimeImmutable((string) $rawDate);
+                } catch (Throwable $exception) {
+                    $deadline = null;
+                }
+            }
+
+            if ($deadline === null && !empty($processo['traducao_prazo_dias']) && !empty($processo['data_inicio_traducao'])) {
+                try {
+                    $start = new DateTimeImmutable((string) $processo['data_inicio_traducao']);
+                    $deadline = $start->modify('+' . (int) $processo['traducao_prazo_dias'] . ' days');
+                } catch (Throwable $exception) {
+                    $deadline = null;
+                }
+            }
+
+            if ($deadline === null && !empty($processo['prazo_dias']) && !empty($processo['data_inicio_traducao'])) {
+                try {
+                    $start = new DateTimeImmutable((string) $processo['data_inicio_traducao']);
+                    $deadline = $start->modify('+' . (int) $processo['prazo_dias'] . ' days');
+                } catch (Throwable $exception) {
+                    $deadline = null;
+                }
+            }
+
+            if ($deadline instanceof DateTimeImmutable) {
+                $today = new DateTimeImmutable('today');
+                $daysRemaining = (int) $today->diff($deadline)->format('%r%a');
+            }
         }
-    } catch (Exception $e) {
-        return '<span class="text-gray-500">Data inválida</span>';
+
+        $display = '—';
+        $badgeClass = 'text-gray-500';
+
+        if ($daysRemaining !== null) {
+            $display = (string) $daysRemaining;
+
+            if ($isPaused) {
+                $badgeClass = 'bg-slate-200 text-slate-800';
+            } elseif ($daysRemaining <= 0) {
+                $badgeClass = 'bg-red-200 text-red-800';
+            } elseif ($daysRemaining <= 3) {
+                $badgeClass = 'bg-yellow-200 text-yellow-800';
+            } else {
+                $badgeClass = 'text-green-600';
+            }
+        }
+
+        return [
+            'display' => $display,
+            'class' => $badgeClass,
+            'is_paused' => $isPaused,
+            'pause_label' => $pauseLabel,
+        ];
+    }
+}
+
+if (!function_exists('process_render_deadline_badge')) {
+    function process_render_deadline_badge(array $context): string
+    {
+        $badgeClass = htmlspecialchars($context['class'] ?? 'text-gray-500', ENT_QUOTES, 'UTF-8');
+        $displayValue = htmlspecialchars($context['display'] ?? '—', ENT_QUOTES, 'UTF-8');
+        $pauseBadge = '';
+
+        if (!empty($context['is_paused']) && !empty($context['pause_label'])) {
+            $pauseBadge = '<span class="px-2 py-0.5 inline-flex items-center text-[10px] uppercase tracking-wide font-semibold rounded-full bg-slate-200 text-slate-800">'
+                . htmlspecialchars((string) $context['pause_label'], ENT_QUOTES, 'UTF-8')
+                . '</span>';
+        }
+
+        return '<div class="flex items-center gap-2">'
+            . '<span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ' . $badgeClass . '">' . $displayValue . '</span>'
+            . $pauseBadge
+            . '</div>';
+    }
+}
+
+if (!function_exists('format_prazo_countdown')) {
+    function format_prazo_countdown(array $processo, string $statusNormalized): string
+    {
+        $context = process_calculate_deadline_context($processo, $statusNormalized);
+        return process_render_deadline_badge($context);
     }
 }
 
@@ -45,7 +135,14 @@ function normalize_status_info(?string $status): array {
         'serviço em andamento' => 'serviço em andamento',
         'servico em andamento' => 'serviço em andamento',
         'em andamento' => 'serviço em andamento',
-        'aguardando pagamento' => 'aguardando pagamento',
+        'aguardando pagamento' => 'pendente de pagamento',
+        'aguardando pagamentos' => 'pendente de pagamento',
+        'aguardando documento' => 'pendente de documentos',
+        'aguardando documentos' => 'pendente de documentos',
+        'aguardando documentacao' => 'pendente de documentos',
+        'aguardando documentação' => 'pendente de documentos',
+        'pendente de pagamento' => 'pendente de pagamento',
+        'pendente de documentos' => 'pendente de documentos',
         'finalizado' => 'concluído',
         'finalizada' => 'concluído',
         'concluido' => 'concluído',
@@ -63,7 +160,8 @@ function normalize_status_info(?string $status): array {
         'orçamento pendente' => 'Orçamento Pendente',
         'serviço pendente' => 'Serviço Pendente',
         'serviço em andamento' => 'Serviço em Andamento',
-        'aguardando pagamento' => 'Aguardando pagamento',
+        'pendente de pagamento' => 'Pendente de pagamento',
+        'pendente de documentos' => 'Pendente de documentos',
         'concluído' => 'Concluído',
         'cancelado' => 'Cancelado',
     ];
@@ -89,8 +187,11 @@ switch ($statusNormalized) {
     case 'serviço em andamento':
         $status_classes = 'bg-cyan-100 text-cyan-800';
         break;
-    case 'aguardando pagamento':
+    case 'pendente de pagamento':
         $status_classes = 'bg-indigo-100 text-indigo-800';
+        break;
+    case 'pendente de documentos':
+        $status_classes = 'bg-violet-100 text-violet-800';
         break;
     case 'concluído':
         $status_classes = 'bg-green-100 text-green-800';
@@ -101,11 +202,18 @@ switch ($statusNormalized) {
 }
 $statusLabel = $statusLabel ?: 'N/A';
 $leadConversionContext = $leadConversionContext ?? ['shouldRender' => false];
-$isAprovadoOuSuperior = in_array($statusNormalized, ['serviço pendente', 'serviço em andamento', 'aguardando pagamento', 'concluído'], true);
+$isAprovadoOuSuperior = in_array($statusNormalized, ['serviço pendente', 'serviço em andamento', 'pendente de pagamento', 'pendente de documentos', 'concluído'], true);
 $isManager = in_array($_SESSION['user_perfil'] ?? '', ['admin', 'gerencia', 'supervisor'], true);
 $isBudgetPending = $statusNormalized === 'orçamento pendente';
 $shouldHideStatusPanel = $isManager && $isBudgetPending;
 $isServicePending = $statusNormalized === 'serviço pendente';
+$baseAppUrl = defined('APP_URL') ? APP_URL : '';
+$prospectionId = isset($processo['prospeccao_id']) ? (int) $processo['prospeccao_id'] : 0;
+$prospectionCode = trim((string) ($processo['prospeccao_codigo'] ?? ''));
+$prospectionName = trim((string) ($processo['prospeccao_nome'] ?? ''));
+$prospectionLabel = $prospectionCode !== ''
+    ? $prospectionCode
+    : ($prospectionId > 0 ? ('ID #' . $prospectionId) : null);
 ?>
 
 
@@ -164,6 +272,21 @@ $isServicePending = $statusNormalized === 'serviço pendente';
                 <div>
                     <p class="text-sm font-medium text-gray-500">Vendedor Responsável</p>
                     <p class="text-lg text-gray-800"><?php echo htmlspecialchars($processo['nome_vendedor'] ?? 'N/A'); ?></p>
+                </div>
+                <div class="md:col-span-2">
+                    <p class="text-sm font-medium text-gray-500">Prospecção de Origem</p>
+                    <?php if ($prospectionId > 0): ?>
+                        <?php $prospectionLink = rtrim($baseAppUrl, '/') . '/crm/prospeccoes/detalhes.php?id=' . $prospectionId; ?>
+                        <a
+                            href="<?php echo htmlspecialchars($prospectionLink); ?>"
+                            class="text-blue-600 hover:text-blue-800"
+                            title="<?php echo htmlspecialchars($prospectionName !== '' ? $prospectionName : 'Abrir prospecção'); ?>"
+                        >
+                            <?php echo htmlspecialchars($prospectionLabel ?? ('ID #' . $prospectionId)); ?>
+                        </a>
+                    <?php else: ?>
+                        <p class="text-lg text-gray-400">Não vinculado</p>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -293,22 +416,11 @@ $isServicePending = $statusNormalized === 'serviço pendente';
                 </div>
                 <div class="md:col-span-2">
                     <p class="font-medium text-gray-500">Prazo do Serviço</p>
-                    <div id="display-traducao_prazo_data_formatted">
+                    <p class="text-gray-800" id="display-prazo_dias">
                         <?php
-                            $data_previsao_final_str = null;
-                            // Verifica se o prazo é por data específica
-                            if (!empty($processo['traducao_prazo_data'])) {
-                                $data_previsao_final_str = $processo['traducao_prazo_data'];
-                            } 
-                            // Senão, calcula o prazo com base nos dias
-                            elseif (!empty($processo['traducao_prazo_dias']) && !empty($processo['data_inicio_traducao'])) {
-                                $data_previsao_final = new DateTime($processo['data_inicio_traducao']);
-                                $data_previsao_final->modify('+' . $processo['traducao_prazo_dias'] . ' days');
-                                $data_previsao_final_str = $data_previsao_final->format('Y-m-d');
-                            }
-                            echo format_prazo_countdown($data_previsao_final_str);
+                            echo format_prazo_countdown($processo, $statusNormalized);
                         ?>
-                    </div>
+                    </p>
                 </div>
 
             </div>
@@ -494,13 +606,11 @@ $isServicePending = $statusNormalized === 'serviço pendente';
                     <input type="hidden" name="id" value="<?php echo $processo['id']; ?>">
 
                     <input type="hidden" name="data_inicio_traducao" id="hidden_data_inicio_traducao" data-original-name="data_inicio_traducao">
-                    <input type="hidden" name="traducao_prazo_tipo" id="hidden_traducao_prazo_tipo" data-original-name="traducao_prazo_tipo">
-                    <input type="hidden" name="traducao_prazo_dias" id="hidden_traducao_prazo_dias" data-original-name="traducao_prazo_dias">
-                    <input type="hidden" name="traducao_prazo_data" id="hidden_traducao_prazo_data" data-original-name="traducao_prazo_data">
+                    <input type="hidden" name="prazo_dias" id="hidden_prazo_dias" data-original-name="prazo_dias">
                     <div>
                         <label for="status_processo" class="block text-sm font-medium text-gray-700">Mudar Status para:</label>
                         <select id="status_processo" name="status_processo" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                            <?php $statusOptions = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Aguardando pagamento', 'Concluído', 'Cancelado']; ?>
+                            <?php $statusOptions = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Cancelado']; ?>
                             <?php foreach ($statusOptions as $stat): ?>
                                 <?php $optionInfo = normalize_status_info($stat); ?>
                                 <option value="<?php echo $optionInfo['label']; ?>" <?php echo ($statusNormalized === $optionInfo['normalized']) ? 'selected' : ''; ?>>
@@ -623,40 +733,18 @@ $isServicePending = $statusNormalized === 'serviço pendente';
 
             <!-- Prazo do Serviço -->
             <div class="border-t border-gray-100 pt-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Prazo do Serviço <span class="text-red-500">*</span>
+                <label for="modal_req_prazo_dias" class="block text-sm font-medium text-gray-700 mb-1">
+                    Prazo do Serviço (dias) <span class="text-red-500">*</span>
                 </label>
-
-                <!-- Tipo do prazo -->
-                <div class="flex items-center gap-6">
-                    <label class="inline-flex items-center gap-2">
-                        <input type="radio" name="modal_req_prazo_tipo" value="dias" class="prazo-req-tipo-radio" checked>
-                        <span class="text-sm text-gray-800">Em dias</span>
-                    </label>
-                    <label class="inline-flex items-center gap-2">
-                        <input type="radio" name="modal_req_prazo_tipo" value="data" class="prazo-req-tipo-radio">
-                        <span class="text-sm text-gray-800">Data específica</span>
-                    </label>
-                </div>
-
-                <!-- Conteúdo dinâmico do prazo -->
-                <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                    <!-- Prazo em dias -->
-                    <div id="modal_req_prazo_dias_container">
-                        <label for="modal_req_traducao_prazo_dias" class="block text-sm font-medium text-gray-700 mb-1">
-                            Dias para Entrega <span class="text-red-500">*</span>
-                        </label>
-                        <input type="number" min="1" id="modal_req_traducao_prazo_dias" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-1 focus:ring-gray-400" placeholder="Ex.: 5" required>
-                    </div>
-
-                    <!-- Prazo por data específica -->
-                    <div id="modal_req_prazo_data_container" class="hidden">
-                        <label for="modal_req_traducao_prazo_data" class="block text-sm font-medium text-gray-700 mb-1">
-                            Data da Entrega <span class="text-red-500">*</span>
-                        </label>
-                        <input type="date" id="modal_req_traducao_prazo_data" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-1 focus:ring-gray-400">
-                    </div>
-                </div>
+                <input
+                    type="number"
+                    min="1"
+                    id="modal_req_prazo_dias"
+                    class="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-1 focus:ring-gray-400"
+                    placeholder="Ex.: 5"
+                    required
+                >
+                <p class="mt-1 text-xs text-gray-500">Informe o prazo em dias corridos.</p>
             </div>
         </div>
 
@@ -727,7 +815,7 @@ $isServicePending = $statusNormalized === 'serviço pendente';
         <!-- Data de envio para tradutor -->
         <div>
         <label for="modal_data_inicio_traducao" class="block text-sm font-medium text-gray-700 mb-1">
-            Data de Envio para Tradutor <span class="text-red-500">*</span>
+            Data de Envio para Tradutor
         </label>
         <input
             type="date"
@@ -735,72 +823,24 @@ $isServicePending = $statusNormalized === 'serviço pendente';
             id="modal_data_inicio_traducao"
             class="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-1 focus:ring-gray-400"
             value="<?php echo htmlspecialchars($processo['data_inicio_traducao'] ?? date('Y-m-d')); ?>"
-            required
         >
-        <p class="mt-1 text-xs text-gray-500">Preenche automaticamente com a data de hoje se ainda não houver data.</p>
+        <p class="mt-1 text-xs text-gray-500">Obrigatória apenas quando houver prazo de tradução maior que zero.</p>
         </div>
 
         <!-- Prazo do Serviço -->
         <div class="border-t border-gray-100 pt-4">
-        <label class="block text-sm font-medium text-gray-700 mb-2">
-            Prazo do Serviço <span class="text-red-500">*</span>
+        <label for="modal_traducao_prazo_dias" class="block text-sm font-medium text-gray-700 mb-2">
+            Prazo do Serviço (dias)
         </label>
-
-        <div class="flex items-center gap-6">
-            <label class="inline-flex items-center gap-2">
-            <input
-                type="radio"
-                class="prazo-tipo-traducao"
-                name="traducao_prazo_tipo"
-                value="dias"
-                id="prazo_tipo_dias"
-                <?php echo (($processo['traducao_prazo_tipo'] ?? 'dias') == 'dias') ? 'checked' : ''; ?>
-            >
-            <span class="text-sm text-gray-800">Em dias</span>
-            </label>
-
-            <label class="inline-flex items-center gap-2">
-            <input
-                type="radio"
-                class="prazo-tipo-traducao"
-                name="traducao_prazo_tipo"
-                value="data"
-                id="prazo_tipo_data"
-                <?php echo (($processo['traducao_prazo_tipo'] ?? '') == 'data') ? 'checked' : ''; ?>
-            >
-            <span class="text-sm text-gray-800">Data específica</span>
-            </label>
-        </div>
-
-        <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            <!-- Dias -->
-            <div id="prazo_dias_traducao_container">
-            <label for="traducao_prazo_dias" class="block text-sm font-medium text-gray-700 mb-1">Dias para Entrega</label>
-            <input
-                type="number"
-                name="traducao_prazo_dias"
-                id="traducao_prazo_dias"
-                min="1"
-                class="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-1 focus:ring-gray-400"
-                value="<?php echo htmlspecialchars($processo['traducao_prazo_dias'] ?? ''); ?>"
-                placeholder="Ex.: 5"
-            >
-            <p class="mt-1 text-xs text-gray-500">Informe um número inteiro de dias.</p>
-            </div>
-
-            <!-- Data específica -->
-            <div id="prazo_data_traducao_container" class="hidden">
-            <label for="traducao_prazo_data" class="block text-sm font-medium text-gray-700 mb-1">Data da Entrega</label>
-            <input
-                type="date"
-                name="traducao_prazo_data"
-                id="traducao_prazo_data"
-                class="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-1 focus:ring-gray-400"
-                value="<?php echo htmlspecialchars($processo['traducao_prazo_data'] ?? ''); ?>"
-            >
-            <p class="mt-1 text-xs text-gray-500">Selecione a data final para a entrega.</p>
-            </div>
-        </div>
+        <input
+            type="number"
+            name="traducao_prazo_dias"
+            id="modal_traducao_prazo_dias"
+            class="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-1 focus:ring-gray-400"
+            value="<?php echo htmlspecialchars($processo['traducao_prazo_dias'] ?? $processo['prazo_dias'] ?? ''); ?>"
+            placeholder="Ex.: 5"
+        >
+        <p class="mt-1 text-xs text-gray-500">Informe um número inteiro de dias. Use zero ou deixe em branco para remover o prazo.</p>
         </div>
 
         <!-- Ações -->
@@ -1049,10 +1089,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // hiddens do form principal (usados só na mudança de status)
   const hEnvio = $id('hidden_data_inicio_traducao');
-  const hTipo  = $id('hidden_traducao_prazo_tipo');
-  const hDias  = $id('hidden_traducao_prazo_dias');
-  const hData  = $id('hidden_traducao_prazo_data');
-  const hiddenDeadlineFields = [hEnvio, hTipo, hDias, hData];
+  const hPrazoDias = $id('hidden_prazo_dias');
+  const hiddenDeadlineFields = [hEnvio, hPrazoDias];
 
   const registerOriginalName = (field) => {
     if (!field) return;
@@ -1117,19 +1155,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
   if (confirmStatusChangeBtn) {
     confirmStatusChangeBtn.addEventListener('click', () => {
-      // Pega os valores do NOVO modal
-      const envio = $id('modal_req_data_inicio_traducao').value;
-      const tipo  = document.querySelector('input[name="modal_req_prazo_tipo"]:checked').value;
-      const dias  = $id('modal_req_traducao_prazo_dias').value;
-      const data  = $id('modal_req_traducao_prazo_data').value;
+      const envioCampo = $id('modal_req_data_inicio_traducao');
+      const prazoCampo = $id('modal_req_prazo_dias');
+      const envio = envioCampo ? envioCampo.value : '';
+      const prazoTexto = prazoCampo ? prazoCampo.value.trim() : '';
+      const prazoNumero = prazoTexto === '' ? null : parseInt(prazoTexto, 10);
 
-      // Validações
       const erros = [];
-      if (!envio) erros.push('Informe a Data de Envio para o Tradutor.');
-      if (tipo === 'dias') {
-        if (!dias || parseInt(dias, 10) <= 0) erros.push('Informe os dias de prazo (maior que zero).');
-      } else {
-        if (!data) erros.push('Informe a data específica do prazo.');
+      if (prazoTexto !== '' && Number.isNaN(prazoNumero)) {
+        erros.push('Informe um número inteiro válido para o prazo de tradução ou deixe o campo em branco.');
+      }
+      if (prazoNumero !== null && prazoNumero < 0) {
+        erros.push('O prazo de tradução não pode ser negativo.');
+      }
+      if (prazoNumero !== null && prazoNumero > 0 && !envio) {
+        erros.push('Informe a Data de Envio para o Tradutor.');
       }
 
       if (erros.length) {
@@ -1139,33 +1179,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
       disableHiddenDeadlineFields();
 
-      // Preenche os campos ocultos do formulário principal e o submete
       const fieldsToEnable = [];
       if (hEnvio) {
         hEnvio.value = envio;
         fieldsToEnable.push(hEnvio);
       }
-      if (hTipo) {
-        hTipo.value = tipo;
-        fieldsToEnable.push(hTipo);
-      }
-
-      if (tipo === 'dias') {
-        if (hDias) {
-          hDias.value = dias;
-          fieldsToEnable.push(hDias);
-        }
-        if (hData) {
-          hData.value = '';
-        }
-      } else {
-        if (hData) {
-          hData.value = data;
-          fieldsToEnable.push(hData);
-        }
-        if (hDias) {
-          hDias.value = '';
-        }
+      if (hPrazoDias) {
+        hPrazoDias.value = prazoTexto;
+        fieldsToEnable.push(hPrazoDias);
       }
 
       enableHiddenDeadlineFields(fieldsToEnable);
@@ -1173,33 +1194,6 @@ document.addEventListener('DOMContentLoaded', function() {
       statusForm?.submit();
     });
   }
-
-  // Lógica para alternar os campos de prazo DENTRO do novo modal
-  const reqPrazoRadios = document.querySelectorAll('.prazo-req-tipo-radio');
-  const reqPrazoDiasContainer = $id('modal_req_prazo_dias_container');
-  const reqPrazoDataContainer = $id('modal_req_prazo_data_container');
-  const reqPrazoDiasInput = $id('modal_req_traducao_prazo_dias');
-  const reqPrazoDataInput = $id('modal_req_traducao_prazo_data');
-
-  function toggleReqPrazoInputs() {
-      if (!reqPrazoDiasContainer) return; // safety check
-      const selected = document.querySelector('.prazo-req-tipo-radio:checked')?.value;
-      if (selected === 'dias') {
-          reqPrazoDiasContainer.classList.remove('hidden');
-          reqPrazoDataContainer.classList.add('hidden');
-          reqPrazoDiasInput.required = true;
-          reqPrazoDataInput.required = false;
-          reqPrazoDataInput.value = '';
-      } else {
-          reqPrazoDiasContainer.classList.add('hidden');
-          reqPrazoDataContainer.classList.remove('hidden');
-          reqPrazoDiasInput.required = false;
-          reqPrazoDataInput.required = true;
-          reqPrazoDiasInput.value = '';
-      }
-  }
-  reqPrazoRadios.forEach(radio => radio.addEventListener('change', toggleReqPrazoInputs));
-  toggleReqPrazoInputs(); // Chama na inicialização
 
   //-----------------------------------------------------
   // Lógica 2: Modais de Edição de Etapas (AJAX)
@@ -1366,39 +1360,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
   }
-
-  //-----------------------------------------------------
-  // Lógica 4: Prazos de Tradução (Modais de edição)
-  //-----------------------------------------------------
-  const prazoTipoRadios = document.querySelectorAll('.prazo-tipo-traducao');
-  const prazoDiasContainer = $id('prazo_dias_traducao_container');
-  const prazoDataContainer = $id('prazo_data_traducao_container');
-  const prazoDiasInput = $id('traducao_prazo_dias');
-  const prazoDataInput = $id('traducao_prazo_data');
-
-  function togglePrazoInputs() {
-    if (!prazoDiasContainer || !prazoDataContainer) return;
-    const selected = document.querySelector('.prazo-tipo-traducao:checked')?.value;
-    if (selected === 'dias') {
-      prazoDiasContainer.classList.remove('hidden');
-      prazoDataContainer.classList.add('hidden');
-      if (prazoDiasInput) prazoDiasInput.required = true;
-      if (prazoDataInput) {
-        prazoDataInput.required = false;
-        prazoDataInput.value = '';
-      }
-    } else {
-      prazoDiasContainer.classList.add('hidden');
-      prazoDataContainer.classList.remove('hidden');
-      if (prazoDataInput) prazoDataInput.required = true;
-      if (prazoDiasInput) {
-        prazoDiasInput.required = false;
-        prazoDiasInput.value = '';
-      }
-    }
-  }
-  prazoTipoRadios.forEach(radio => radio.addEventListener('change', togglePrazoInputs));
-  togglePrazoInputs();
 
 });
 </script>

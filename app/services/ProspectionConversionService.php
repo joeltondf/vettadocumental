@@ -2,18 +2,21 @@
 
 require_once __DIR__ . '/../models/Prospeccao.php';
 require_once __DIR__ . '/../models/User.php';
+require_once __DIR__ . '/../models/Cliente.php';
 
 class ProspectionConversionService
 {
     private PDO $pdo;
     private Prospeccao $prospectionModel;
     private User $userModel;
+    private Cliente $clientModel;
 
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
         $this->prospectionModel = new Prospeccao($pdo);
         $this->userModel = new User($pdo);
+        $this->clientModel = new Cliente($pdo);
     }
 
     public function convert(int $prospectionId, int $initiatorId, ?int $authorizedManagerId = null): string
@@ -36,6 +39,10 @@ class ProspectionConversionService
             );
             $updateStmt->bindValue(':id', $prospectionId, PDO::PARAM_INT);
             $updateStmt->execute();
+
+            if (!$this->clientModel->promoteProspectToClient($clientId)) {
+                throw new RuntimeException('Não foi possível promover o lead para cliente.');
+            }
 
             $managerName = '';
 
