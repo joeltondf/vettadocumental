@@ -1,6 +1,0 @@
-.vscode
-vendor/
-node_modules/
-coverage/
-*.log
-.env
