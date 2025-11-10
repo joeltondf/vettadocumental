@@ -74,7 +74,7 @@ try {
         SELECT p.*, u.nome_completo AS responsavel_nome, c.nome_cliente, c.nome_responsavel AS lead_responsavel_nome,
                c.telefone AS cliente_telefone, c.telefone_ddi AS cliente_telefone_ddi,
                c.telefone_ddd AS cliente_telefone_ddd, c.telefone_numero AS cliente_telefone_numero,
-               c.canal_origem AS cliente_canal_origem
+               c.canal_origem AS cliente_canal_origem, c.crmOwnerId AS cliente_crm_owner_id
         FROM prospeccoes p
         LEFT JOIN users u ON p.responsavel_id = u.id
         LEFT JOIN clientes c ON p.cliente_id = c.id
@@ -132,10 +132,16 @@ $redirectUrl = APP_URL . '/crm/prospeccoes/detalhes.php?id=' . $prospect['id'];
 $canManageVendor = in_array($user_perfil, $managementProfiles, true);
 $canScheduleInternal = in_array($user_perfil, ['sdr', 'admin', 'gerencia', 'supervisor'], true);
 $isVendorUser = ($user_perfil === 'vendedor');
-$isResponsibleVendor = ($isVendorUser && (int) ($prospect['responsavel_id'] ?? 0) === $loggedUserId);
-$showVendorConversionOption = $isResponsibleVendor;
+// O vendedor responsável pode estar definido diretamente na prospecção ou herdado do lead (crmOwnerId).
+$leadOwnerId = (int) ($prospect['responsavel_id'] ?? 0);
+if ($leadOwnerId <= 0) {
+    $leadOwnerId = (int) ($prospect['cliente_crm_owner_id'] ?? 0);
+}
+$isResponsibleVendor = ($isVendorUser && $leadOwnerId === $loggedUserId);
+$isConvertedLead = strtolower(trim((string) ($prospect['status'] ?? ''))) === 'convertido';
+$showVendorConversionOption = $isResponsibleVendor && !$isConvertedLead;
 $canRequestConversion = ($user_perfil === 'sdr');
-$hasAssignedVendor = (int) ($prospect['responsavel_id'] ?? 0) > 0;
+$hasAssignedVendor = $leadOwnerId > 0;
 
 $canScheduleMeeting = $hasAssignedVendor && (
     $isResponsibleVendor ||

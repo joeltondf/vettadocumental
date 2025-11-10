@@ -37,8 +37,13 @@ $managerProfiles = ['admin', 'gerencia', 'supervisor'];
 $authorizedManagerId = null;
 
 if ($userProfile === 'vendedor') {
-    $responsavelId = (int) ($prospection['responsavel_id'] ?? 0);
-    if ($responsavelId !== $userId) {
+    // Permite que o vendedor converta leads delegados diretamente a ele ou herdados do CRM (clientes.crmOwnerId).
+    $leadOwnerId = (int) ($prospection['responsavel_id'] ?? 0);
+    if ($leadOwnerId <= 0) {
+        $leadOwnerId = (int) ($prospection['cliente_crm_owner_id'] ?? 0);
+    }
+
+    if ($leadOwnerId !== $userId) {
         $_SESSION['error_message'] = 'Você não tem permissão para converter esta prospecção.';
         header('Location: ' . APP_URL . '/crm/prospeccoes/detalhes.php?id=' . $prospectionId);
         exit();

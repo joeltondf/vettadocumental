@@ -266,7 +266,10 @@ class Prospeccao
 
     public function getById(int $id)
     {
-        $sql = "SELECT p.*, c.nome_cliente AS cliente_nome
+        $sql = "SELECT
+                    p.*,
+                    c.nome_cliente AS cliente_nome,
+                    c.crmOwnerId AS cliente_crm_owner_id
                 FROM prospeccoes p
                 LEFT JOIN clientes c ON p.cliente_id = c.id
                 WHERE p.id = ?";
