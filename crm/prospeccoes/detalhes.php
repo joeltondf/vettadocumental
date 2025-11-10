@@ -131,9 +131,10 @@ $redirectUrl = APP_URL . '/crm/prospeccoes/detalhes.php?id=' . $prospect['id'];
 
 $canManageVendor = in_array($user_perfil, $managementProfiles, true);
 $canScheduleInternal = in_array($user_perfil, ['sdr', 'admin', 'gerencia', 'supervisor'], true);
-$canConvertDirectly = $canManageVendor;
+$isVendorUser = ($user_perfil === 'vendedor');
+$isResponsibleVendor = ($isVendorUser && (int) ($prospect['responsavel_id'] ?? 0) === $loggedUserId);
+$canConvertDirectly = $canManageVendor || $isResponsibleVendor;
 $canRequestConversion = ($user_perfil === 'sdr');
-$isResponsibleVendor = ($user_perfil === 'vendedor' && (int) ($prospect['responsavel_id'] ?? 0) === $loggedUserId);
 $hasAssignedVendor = (int) ($prospect['responsavel_id'] ?? 0) > 0;
 
 $canScheduleMeeting = $hasAssignedVendor && (
