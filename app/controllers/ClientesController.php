@@ -140,13 +140,12 @@ class ClientesController
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $data = $_POST;
             $returnTo = $data['return_to'] ?? 'clientes.php';
-            $isVendorUser = $this->isVendorUser();
 
             if (isset($data['tipo_pessoa']) && $data['tipo_pessoa'] === 'Física') {
                 $data['nome_responsavel'] = $data['nome_cliente'];
             }
 
-            $validationErrors = $this->validateClientData($data, !$isVendorUser);
+            $validationErrors = $this->validateClientData($data, true);
             if (!empty($validationErrors)) {
                 $_SESSION['error_message'] = implode('<br>', $validationErrors);
                 $this->rememberClientFormInput($_POST);
@@ -155,11 +154,6 @@ class ClientesController
             }
 
             $data = $this->normalizeClientFields($data);
-
-            if ($isVendorUser) {
-                // Atribui automaticamente a posse do cliente ao vendedor logado para futuras referências no CRM.
-                $data['crmOwnerId'] = $_SESSION['user_id'] ?? null;
-            }
 
             try {
                 $data = $this->normalizePhoneData($data);
@@ -287,8 +281,6 @@ class ClientesController
     private function validateClientData(array $data, bool $requirePhone = false): array
     {
         $errors = [];
-        $isVendorUser = $this->isVendorUser();
-        $shouldRequirePhone = $requirePhone && !$isVendorUser;
         $nomeCliente = trim((string) ($data['nome_cliente'] ?? ''));
         if ($nomeCliente === '') {
             $errors[] = 'Informe o nome do cliente.';
@@ -310,17 +302,13 @@ class ClientesController
 
         if ($tipoPessoa === 'Física') {
             if ($documento === '') {
-                if (!$isVendorUser) {
-                    $errors[] = 'Informe o CPF.';
-                }
+                $errors[] = 'Informe o CPF.';
             } elseif (!DocumentValidator::isValidCpf($documento)) {
                 $errors[] = 'Informe um CPF válido.';
             }
         } else {
             if ($documento === '') {
-                if (!$isVendorUser) {
-                    $errors[] = 'Informe o CNPJ.';
-                }
+                $errors[] = 'Informe o CNPJ.';
             } elseif (!DocumentValidator::isValidCnpj($documento)) {
                 $errors[] = 'Informe um CNPJ válido.';
             }
@@ -328,36 +316,28 @@ class ClientesController
 
         $email = trim((string) ($data['email'] ?? ''));
         if ($email === '') {
-            if (!$isVendorUser) {
-                $errors[] = 'Informe o e-mail.';
-            }
+            $errors[] = 'Informe o e-mail.';
         } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $errors[] = 'Informe um e-mail válido.';
         }
 
         $cep = DocumentValidator::sanitizeNumber((string) ($data['cep'] ?? ''));
         if ($cep === '') {
-            if (!$isVendorUser) {
-                $errors[] = 'Informe o CEP.';
-            }
+            $errors[] = 'Informe o CEP.';
         } elseif (strlen($cep) !== 8) {
             $errors[] = 'Informe um CEP válido.';
         }
 
         $endereco = trim((string) ($data['endereco'] ?? ''));
         if ($endereco === '') {
-            if (!$isVendorUser) {
-                $errors[] = 'Informe o endereço.';
-            }
+            $errors[] = 'Informe o endereço.';
         } elseif (mb_strlen($endereco, 'UTF-8') > 60) {
             $errors[] = 'O endereço deve ter no máximo 60 caracteres.';
         }
 
         $bairro = trim((string) ($data['bairro'] ?? ''));
         if ($bairro === '') {
-            if (!$isVendorUser) {
-                $errors[] = 'Informe o bairro.';
-            }
+            $errors[] = 'Informe o bairro.';
         }
 
         $cidade = trim((string) ($data['cidade'] ?? ''));
@@ -418,7 +398,7 @@ class ClientesController
 
         $hasPhoneInput = $telefone !== '' || $telefoneDddDigits !== '' || $telefoneNumeroDigits !== '';
 
-        if ($shouldRequirePhone && ($telefoneDddDigits === '' || $telefoneNumeroDigits === '')) {
+        if ($requirePhone && ($telefoneDddDigits === '' || $telefoneNumeroDigits === '')) {
             $errors[] = 'Informe o telefone completo (DDD e número).';
         }
 
@@ -444,13 +424,6 @@ class ClientesController
             }
         }
 
-        if ($isVendorUser) {
-            $hasValidEmail = $email !== '';
-            if (!$hasValidEmail && !$hasPhoneInput) {
-                $errors[] = 'Informe pelo menos um meio de contato (e-mail ou telefone).';
-            }
-        }
-
         if (isset($data['prazo_acordado_dias'])) {
             $prazoAcordado = trim((string) $data['prazo_acordado_dias']);
             if ($prazoAcordado !== '') {
@@ -461,15 +434,6 @@ class ClientesController
         }
 
         return $errors;
-    }
-
-    private function isVendorUser(): bool
-    {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
-        return ($_SESSION['user_perfil'] ?? '') === 'vendedor';
     }
 
     private function sanitizeTipoServico(?string $tipoServico): string
