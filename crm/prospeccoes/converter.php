@@ -37,8 +37,6 @@ $managerProfiles = ['admin', 'gerencia', 'supervisor'];
 $authorizedManagerId = null;
 
 if ($userProfile === 'vendedor') {
-    // Permite que o vendedor responsável finalize a conversão sem depender
-    // de autorização da gerência.
     $responsavelId = (int) ($prospection['responsavel_id'] ?? 0);
     if ($responsavelId !== $userId) {
         $_SESSION['error_message'] = 'Você não tem permissão para converter esta prospecção.';
