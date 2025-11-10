@@ -22,7 +22,7 @@ if ($userId <= 0 || !in_array($userProfile, $managerProfiles, true)) {
 
 try {
     $conversionService = new ProspectionConversionService($pdo);
-    $redirectUrl = $conversionService->convert($prospeccao_id, $userId, $userId, $userProfile);
+    $redirectUrl = $conversionService->convert($prospeccao_id, $userId, $userId);
     $_SESSION['success_message'] = 'Prospecção convertida com sucesso.';
     header('Location: ' . $redirectUrl);
     exit();

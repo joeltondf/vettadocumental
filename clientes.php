@@ -16,24 +16,14 @@ $id = $_GET['id'] ?? null;
 // ===================================================================
 // Verifica a permissão baseado na AÇÃO específica, em vez de bloquear o arquivo inteiro.
 switch ($action) {
-    case 'create':
-    case 'store':
-    case 'index':
-        // Permite que vendedores acessem a listagem e o formulário de criação de clientes.
-        require_permission(['admin', 'gerencia', 'supervisor', 'colaborador', 'vendedor']);
-        break;
-
     case 'edit':
     case 'update':
-        // Permite que vendedores editem clientes ligados ao seu fluxo de conversão.
+        // Apenas 'edit' e 'update' são permitidos para vendedores no fluxo da prospecção.
         require_permission(['admin', 'gerencia', 'supervisor', 'vendedor']);
         break;
 
-    case 'delete':
-        require_permission(['admin', 'gerencia', 'supervisor', 'colaborador']);
-        break;
-
     default:
+        // Todas as outras ações (listar, criar, deletar) continuam restritas.
         require_permission(['admin', 'gerencia', 'supervisor', 'colaborador']);
         break;
 }

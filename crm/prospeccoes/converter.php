@@ -3,6 +3,7 @@ require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../app/core/auth_check.php';
 require_once __DIR__ . '/../../app/services/ProspectionConversionService.php';
 require_once __DIR__ . '/../../app/models/Prospeccao.php';
+require_once __DIR__ . '/../../app/models/User.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: ' . APP_URL . '/crm/prospeccoes/lista.php');
@@ -12,14 +13,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $prospectionId = filter_input(INPUT_POST, 'prospeccao_id', FILTER_VALIDATE_INT);
 if (!$prospectionId) {
     $_SESSION['error_message'] = 'Prospecção inválida.';
-    header('Location: ' . APP_URL . '/crm/prospeccoes/lista.php');
-    exit();
-}
-
-$prospectionModel = new Prospeccao($pdo);
-$prospection = $prospectionModel->getById($prospectionId);
-if (!$prospection) {
-    $_SESSION['error_message'] = 'Prospecção não encontrada.';
     header('Location: ' . APP_URL . '/crm/prospeccoes/lista.php');
     exit();
 }
@@ -36,14 +29,7 @@ if ($userId <= 0) {
 $managerProfiles = ['admin', 'gerencia', 'supervisor'];
 $authorizedManagerId = null;
 
-if ($userProfile === 'vendedor') {
-    $responsavelId = (int) ($prospection['responsavel_id'] ?? 0);
-    if ($responsavelId !== $userId) {
-        $_SESSION['error_message'] = 'Você não tem permissão para converter esta prospecção.';
-        header('Location: ' . APP_URL . '/crm/prospeccoes/detalhes.php?id=' . $prospectionId);
-        exit();
-    }
-} elseif (in_array($userProfile, $managerProfiles, true)) {
+if (in_array($userProfile, $managerProfiles, true)) {
     $authorizedManagerId = $userId;
 } elseif ($userProfile === 'sdr') {
     $authorizationToken = $_POST['authorization_token'] ?? '';
@@ -104,7 +90,7 @@ if ($userProfile === 'vendedor') {
 $conversionService = new ProspectionConversionService($pdo);
 
 try {
-    $redirectUrl = $conversionService->convert($prospectionId, $userId, $authorizedManagerId, $userProfile);
+    $redirectUrl = $conversionService->convert($prospectionId, $userId, $authorizedManagerId);
     $_SESSION['success_message'] = 'Prospecção convertida com sucesso.';
     header('Location: ' . $redirectUrl);
     exit();
