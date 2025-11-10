@@ -133,7 +133,6 @@ $canManageVendor = in_array($user_perfil, $managementProfiles, true);
 $canScheduleInternal = in_array($user_perfil, ['sdr', 'admin', 'gerencia', 'supervisor'], true);
 $isVendorUser = ($user_perfil === 'vendedor');
 $isResponsibleVendor = ($isVendorUser && (int) ($prospect['responsavel_id'] ?? 0) === $loggedUserId);
-// Quando o vendedor é o responsável pelo lead, o botão de conversão deve ser exibido.
 $showVendorConversionOption = $isResponsibleVendor;
 $canRequestConversion = ($user_perfil === 'sdr');
 $hasAssignedVendor = (int) ($prospect['responsavel_id'] ?? 0) > 0;

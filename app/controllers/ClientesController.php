@@ -288,8 +288,6 @@ class ClientesController
     {
         $errors = [];
         $isVendorUser = $this->isVendorUser();
-        // Vendedores podem cadastrar clientes com dados mínimos, por isso diversas
-        // validações abaixo tornam-se opcionais quando esse perfil está ativo.
         $shouldRequirePhone = $requirePhone && !$isVendorUser;
         $nomeCliente = trim((string) ($data['nome_cliente'] ?? ''));
         if ($nomeCliente === '') {
