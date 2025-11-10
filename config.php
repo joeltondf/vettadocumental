@@ -9,15 +9,15 @@ date_default_timezone_set('America/Sao_Paulo');
 
 // 1. Configurações de Conexão com a Base de Dados
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'u371107598_teste');
-define('DB_USER', 'u371107598_testeu');
+define('DB_NAME', 'u371107598_dadosnovalis');
+define('DB_USER', 'u371107598_usernovalis');
 define('DB_PASS', '@Amora051307');
 // ADICIONAMOS A CONSTANTE QUE FALTAVA
 define('DB_CHARSET', 'utf8mb4'); 
 
 
 // 2. Configurações Gerais da Aplicação
-define('APP_URL', 'https://sbx.vettadocumental.com');
+define('APP_URL', 'https://app.vettadocumental.com');
 define('APP_NAME', 'Vetta Documental');
 
 // 3. Iniciar a Sessão
