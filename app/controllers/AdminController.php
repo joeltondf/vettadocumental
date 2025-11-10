@@ -722,7 +722,7 @@ class AdminController
                 'nome_completo' => $_POST['nome_completo'],
                 'email'         => $_POST['email'],
                 'perfil'        => $_POST['perfil'],
-                'ativo'         => isset($_POST['ativo']) ? 1 : 0
+                'ativo'         => isset($_POST['ativo']) ? (int) $_POST['ativo'] : 0
             ];
 
             $this->userModel->update($id, $data);
