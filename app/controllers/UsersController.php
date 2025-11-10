@@ -123,7 +123,7 @@ class UsersController
                 exit();
             }
             $data['perfil'] = $perfil;
-            $data['ativo'] = isset($data['ativo']) ? 1 : 0;
+            $data['ativo'] = isset($data['ativo']) ? (int) $data['ativo'] : 0;
             
             $passwordUpdated = false;
             $detailsUpdated = false;
