@@ -15,18 +15,14 @@ $loggedInVendedorId = $loggedInVendedorId ?? null;
 $loggedInVendedorName = $loggedInVendedorName ?? ($_SESSION['user_nome'] ?? '');
 $defaultVendorId = $defaultVendorId ?? null;
 
-$resolveVendedorNome = static function (array $vendedor) use ($defaultVendorId): string {
-    if ($defaultVendorId !== null && (int) ($vendedor['id'] ?? 0) === $defaultVendorId) {
-        return 'Sistema';
-    }
-
+$resolveVendedorNome = static function (array $vendedor): string {
     foreach (['nome_vendedor', 'nome_completo', 'nome'] as $campoNome) {
         if (!empty($vendedor[$campoNome])) {
             return (string) $vendedor[$campoNome];
         }
     }
 
-    return 'Sistema';
+    return '';
 };
 
 if ($isVendedor && $loggedInVendedorId === null && !empty($vendedores)) {

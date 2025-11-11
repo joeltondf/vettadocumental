@@ -1,15 +1,9 @@
 <?php
 // /app/models/Prospeccao.php
 
-require_once __DIR__ . '/Processo.php';
-
 class Prospeccao
 {
     private $pdo;
-    private ?int $defaultVendorId = null;
-    private bool $defaultVendorLoaded = false;
-    private ?int $defaultVendorUserId = null;
-    private bool $defaultVendorUserLoaded = false;
     private const ALLOWED_PAYMENT_PROFILES = ['mensalista', 'avista'];
 
     private const QUALIFICATION_FIT_SCORES = [
@@ -56,47 +50,6 @@ class Prospeccao
     public function __construct($pdo)
     {
         $this->pdo = $pdo;
-    }
-
-    private function getDefaultVendorId(): ?int
-    {
-        if (!$this->defaultVendorLoaded) {
-            $this->defaultVendorId = Processo::getDefaultVendorId($this->pdo);
-            $this->defaultVendorLoaded = true;
-        }
-
-        return $this->defaultVendorId;
-    }
-
-    private function getDefaultVendorUserId(): ?int
-    {
-        if (!$this->defaultVendorUserLoaded) {
-            $vendorId = $this->getDefaultVendorId();
-
-            if ($vendorId === null) {
-                $this->defaultVendorUserId = null;
-            } else {
-                $stmt = $this->pdo->prepare('SELECT user_id FROM vendedores WHERE id = :id');
-                $stmt->bindValue(':id', $vendorId, PDO::PARAM_INT);
-                $stmt->execute();
-
-                $userId = $stmt->fetchColumn();
-                $this->defaultVendorUserId = $userId !== false ? (int) $userId : null;
-            }
-
-            $this->defaultVendorUserLoaded = true;
-        }
-
-        return $this->defaultVendorUserId;
-    }
-
-    private function resolveResponsavelId($responsavelId): ?int
-    {
-        if ($responsavelId === null || $responsavelId === '' || (int) $responsavelId === 0) {
-            return $this->getDefaultVendorUserId();
-        }
-
-        return (int) $responsavelId;
     }
 
     public function logInteraction(int $prospectionId, int $userId, string $note, string $type = 'nota'): void
@@ -691,7 +644,6 @@ class Prospeccao
         }
 
         try {
-            $resolvedVendorId = $this->resolveResponsavelId($vendorId);
             $setClauses = ['responsavel_id = :vendorId', 'data_ultima_atualizacao = NOW()'];
 
             if ($sdrId !== null) {
@@ -709,10 +661,10 @@ class Prospeccao
             $sql = 'UPDATE prospeccoes SET ' . implode(', ', $setClauses) . ' WHERE id = :leadId';
             $stmt = $this->pdo->prepare($sql);
 
-            if ($resolvedVendorId === null) {
+            if ($vendorId === null) {
                 $stmt->bindValue(':vendorId', null, PDO::PARAM_NULL);
             } else {
-                $stmt->bindValue(':vendorId', $resolvedVendorId, PDO::PARAM_INT);
+                $stmt->bindValue(':vendorId', $vendorId, PDO::PARAM_INT);
             }
 
             $stmt->bindValue(':leadId', $leadId, PDO::PARAM_INT);
@@ -731,8 +683,8 @@ class Prospeccao
 
             $stmt->execute();
 
-            if ($resolvedVendorId !== null) {
-                $this->registerLeadDistribution($leadId, $resolvedVendorId, $sdrId);
+            if ($vendorId !== null) {
+                $this->registerLeadDistribution($leadId, $vendorId, $sdrId);
             }
 
             if ($useTransaction) {
@@ -1088,13 +1040,11 @@ class Prospeccao
                     data_ultima_atualizacao = NOW()
                 WHERE id = :id";
 
-        $resolvedResponsavelId = $this->resolveResponsavelId($responsavelId);
-
         $stmt = $this->pdo->prepare($sql);
-        if ($resolvedResponsavelId === null) {
+        if ($responsavelId === null) {
             $stmt->bindValue(':responsavel_id', null, PDO::PARAM_NULL);
         } else {
-            $stmt->bindValue(':responsavel_id', $resolvedResponsavelId, PDO::PARAM_INT);
+            $stmt->bindValue(':responsavel_id', $responsavelId, PDO::PARAM_INT);
         }
         $stmt->bindValue(':status', $status, PDO::PARAM_STR);
         $stmt->bindValue(':id', $prospeccaoId, PDO::PARAM_INT);
