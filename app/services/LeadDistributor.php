@@ -6,11 +6,6 @@ require_once __DIR__ . '/../models/User.php';
 class LeadDistributor
 {
     private const QUEUE_TABLE = 'lead_distribution_queue';
-    /**
-     * Identificador do usuário institucional da empresa (Vetta).
-     * Este registro não deve receber leads automaticamente.
-     */
-    private const COMPANY_PLACEHOLDER_USER_ID = 17;
 
     private PDO $pdo;
     private Prospeccao $prospectionModel;
@@ -24,15 +19,10 @@ class LeadDistributor
     }
 
     /**
-     * @return array{leadId:int,vendorId:int,vendorName:string}|null
+     * @return array{leadId:int,vendorId:int,vendorName:?string}|null
      */
     public function distributeToNextSalesperson(int $leadId, ?int $sdrId = null): ?array
     {
-        $activeVendors = $this->indexActiveVendors();
-        if (empty($activeVendors)) {
-            return null;
-        }
-
         $ownsTransaction = !$this->pdo->inTransaction();
 
         if ($ownsTransaction) {
@@ -41,6 +31,7 @@ class LeadDistributor
 
         try {
             $queue = $this->fetchQueueForUpdate();
+            $activeVendors = $this->indexActiveVendors();
             $queue = $this->syncQueueWithActiveVendors($queue, $activeVendors);
 
             if (empty($queue)) {
@@ -71,7 +62,7 @@ class LeadDistributor
             return [
                 'leadId' => $leadId,
                 'vendorId' => $vendorId,
-                'vendorName' => $activeVendors[$vendorId]['nome_completo'] ?? 'Vendedor'
+                'vendorName' => $activeVendors[$vendorId]['nome_completo'] ?? null
             ];
         } catch (Throwable $exception) {
             if ($ownsTransaction && $this->pdo->inTransaction()) {
@@ -124,11 +115,6 @@ class LeadDistributor
 
     public function previewNextSalesperson(): ?array
     {
-        $activeVendors = $this->indexActiveVendors();
-        if (empty($activeVendors)) {
-            return null;
-        }
-
         $ownsTransaction = !$this->pdo->inTransaction();
 
         if ($ownsTransaction) {
@@ -137,6 +123,7 @@ class LeadDistributor
 
         try {
             $queue = $this->fetchQueueForUpdate();
+            $activeVendors = $this->indexActiveVendors();
             $queue = $this->syncQueueWithActiveVendors($queue, $activeVendors);
             $this->persistQueue($queue);
             if ($ownsTransaction) {
@@ -274,10 +261,6 @@ class LeadDistributor
 
         foreach ($vendors as $vendor) {
             $vendorId = (int) $vendor['id'];
-            if ($vendorId === self::COMPANY_PLACEHOLDER_USER_ID) {
-                continue;
-            }
-
             $indexed[$vendorId] = $vendor;
         }
 

@@ -10,6 +10,7 @@ $notesValue = $lead['qualification_notes'] ?? '';
 $decisionValue = mb_strtolower((string) ($lead['qualification_decision'] ?? ''), 'UTF-8');
 $qualificationScore = (int) ($lead['qualification_score'] ?? 0);
 $qualificationDate = $lead['qualification_date'] ?? null;
+$hasActiveVendor = !empty($nextVendor);
 ?>
 
 <div class="flex items-center justify-between mb-6">
@@ -27,11 +28,16 @@ $qualificationDate = $lead['qualification_date'] ?? null;
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
     <div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-md border border-gray-200">
         <form action="<?php echo $actionUrl; ?>" method="POST" id="qualification-form" class="space-y-6">
+            <?php if (!$hasActiveVendor): ?>
+                <div class="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+                    Nenhum vendedor ativo está disponível no momento. Finalize a qualificação e aguarde a redistribuição manual ou automática.
+                </div>
+            <?php endif; ?>
             <section>
                 <h2 class="text-lg font-semibold text-gray-800 mb-4">Critérios de qualificação</h2>
                 <div class="flex items-center justify-between bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-3 mb-4">
                     <div>
-                        <p class="text-xs font-semibold text-indigo-600 uppercase tracking-wide">Pontuação estimada</p>
+                        <p class="text-xs font-semibold text-indigo-600 uppercase tracking-wide">Score de qualificação</p>
                         <p class="text-sm text-indigo-700">Ajuste os campos BANT para priorizar este lead.</p>
                         <?php if (!empty($qualificationDate)): ?>
                             <p class="text-[11px] text-indigo-500 mt-1">Última atualização em <?php echo date('d/m/Y H:i', strtotime($qualificationDate)); ?></p>
@@ -44,7 +50,7 @@ $qualificationDate = $lead['qualification_date'] ?? null;
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label for="fit_icp" class="block text-sm font-medium text-gray-700 mb-1">Fit com ICP</label>
+                        <label for="fit_icp" class="block text-sm font-medium text-gray-700 mb-1">Ajuste ao perfil ideal (ICP)</label>
                         <select name="fit_icp" id="fit_icp" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" required>
                             <option value="">Selecione</option>
                             <option value="Alto" <?php echo $fitValue === 'Alto' ? 'selected' : ''; ?>>Alto</option>
@@ -53,7 +59,7 @@ $qualificationDate = $lead['qualification_date'] ?? null;
                         </select>
                     </div>
                     <div>
-                        <label for="budget" class="block text-sm font-medium text-gray-700 mb-1">Orçamento</label>
+                        <label for="budget" class="block text-sm font-medium text-gray-700 mb-1">Orçamento do cliente</label>
                         <select name="budget" id="budget" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" required>
                             <option value="">Selecione</option>
                             <option value="Disponível" <?php echo $budgetValue === 'Disponível' ? 'selected' : ($budgetValue === 'Disponivel' ? 'selected' : ''); ?>>Disponível</option>
@@ -62,7 +68,7 @@ $qualificationDate = $lead['qualification_date'] ?? null;
                         </select>
                     </div>
                     <div>
-                        <label for="authority" class="block text-sm font-medium text-gray-700 mb-1">Autoridade</label>
+                        <label for="authority" class="block text-sm font-medium text-gray-700 mb-1">Nível de autoridade</label>
                         <select name="authority" id="authority" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" required>
                             <option value="">Selecione</option>
                             <option value="Decisor" <?php echo $authorityValue === 'Decisor' ? 'selected' : ''; ?>>Decisor</option>
@@ -71,7 +77,7 @@ $qualificationDate = $lead['qualification_date'] ?? null;
                         </select>
                     </div>
                     <div>
-                        <label for="timing" class="block text-sm font-medium text-gray-700 mb-1">Tempo</label>
+                        <label for="timing" class="block text-sm font-medium text-gray-700 mb-1">Prazo para decisão</label>
                         <select name="timing" id="timing" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" required>
                             <option value="">Selecione</option>
                             <option value="Imediato" <?php echo $timingValue === 'Imediato' ? 'selected' : ''; ?>>Imediato</option>
@@ -103,11 +109,11 @@ $qualificationDate = $lead['qualification_date'] ?? null;
             </section>
 
             <section id="handoff-section" class="hidden">
-                <h2 class="text-lg font-semibold text-gray-800 mb-4">Handoff para vendas</h2>
+                <h2 class="text-lg font-semibold text-gray-800 mb-4">Transferência para vendedor</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="md:col-span-2 space-y-3">
                         <p class="text-sm font-medium text-gray-700">Próximo vendedor na fila</p>
-                        <?php if (!empty($nextVendor)): ?>
+                        <?php if ($hasActiveVendor && !empty($nextVendor)): ?>
                             <div class="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-3" data-vendor-card data-vendor-id="<?php echo (int) $nextVendor['vendorId']; ?>">
                                 <div>
                                     <p class="text-sm text-blue-700">Vendedor</p>
@@ -119,31 +125,31 @@ $qualificationDate = $lead['qualification_date'] ?? null;
                                 <i class="fas fa-sync-alt text-blue-500 text-xl"></i>
                             </div>
                         <?php else: ?>
-                            <div id="vendor-warning" class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                                Nenhum vendedor ativo está disponível na fila. Entre em contato com a coordenação antes de finalizar a qualificação.
+                            <div id="vendor-warning" class="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+                                Não há vendedores ativos no momento. Você pode finalizar a qualificação e a atribuição será feita manualmente.
                             </div>
                         <?php endif; ?>
                         <input type="hidden" name="preview_vendor_id" value="<?php echo isset($nextVendor['vendorId']) ? (int) $nextVendor['vendorId'] : ''; ?>">
                     </div>
                     <div>
                         <label for="meeting_title" class="block text-sm font-medium text-gray-700 mb-1">Título da reunião</label>
-                        <input type="text" name="meeting_title" id="meeting_title" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" value="Reunião de Qualificação">
+                        <input type="text" name="meeting_title" id="meeting_title" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" value="Reunião de Qualificação" data-meeting-field <?php echo $hasActiveVendor ? '' : 'disabled'; ?>>
                     </div>
                     <div>
                         <label for="meeting_date" class="block text-sm font-medium text-gray-700 mb-1">Data</label>
-                        <input type="date" name="meeting_date" id="meeting_date" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                        <input type="date" name="meeting_date" id="meeting_date" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" data-meeting-field <?php echo $hasActiveVendor ? '' : 'disabled'; ?>>
                     </div>
                     <div>
                         <label for="meeting_time" class="block text-sm font-medium text-gray-700 mb-1">Hora</label>
-                        <input type="time" name="meeting_time" id="meeting_time" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                        <input type="time" name="meeting_time" id="meeting_time" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" data-meeting-field <?php echo $hasActiveVendor ? '' : 'disabled'; ?>>
                     </div>
                     <div>
                         <label for="meeting_link" class="block text-sm font-medium text-gray-700 mb-1">Link / Local</label>
-                        <input type="text" name="meeting_link" id="meeting_link" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" placeholder="URL ou endereço da reunião">
+                        <input type="text" name="meeting_link" id="meeting_link" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" placeholder="URL ou endereço da reunião" data-meeting-field <?php echo $hasActiveVendor ? '' : 'disabled'; ?>>
                     </div>
                     <div>
                         <label for="meeting_notes" class="block text-sm font-medium text-gray-700 mb-1">Notas internas</label>
-                        <textarea name="meeting_notes" id="meeting_notes" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Compartilhe detalhes relevantes para o vendedor."></textarea>
+                        <textarea name="meeting_notes" id="meeting_notes" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Compartilhe detalhes relevantes para o vendedor." data-meeting-field <?php echo $hasActiveVendor ? '' : 'disabled'; ?>></textarea>
                     </div>
                 </div>
                 <p class="text-xs text-gray-500 mt-2">Informe data e hora para gerar o agendamento automaticamente.</p>
@@ -188,7 +194,6 @@ $qualificationDate = $lead['qualification_date'] ?? null;
         const handoffSection = document.getElementById('handoff-section');
         const vendorCard = document.querySelector('[data-vendor-card]');
         const vendorWarning = document.getElementById('vendor-warning');
-        const submitButton = document.querySelector('[data-submit-button]');
         const scoreOutput = document.querySelector('[data-score-value]');
         const scoreFields = [
             document.getElementById('fit_icp'),
@@ -196,6 +201,7 @@ $qualificationDate = $lead['qualification_date'] ?? null;
             document.getElementById('authority'),
             document.getElementById('timing')
         ];
+        const meetingFields = Array.from(document.querySelectorAll('[data-meeting-field]'));
 
         const toggleHandoffSection = () => {
             const selectedDecision = document.querySelector('input[name="decision"]:checked');
@@ -203,14 +209,23 @@ $qualificationDate = $lead['qualification_date'] ?? null;
                 handoffSection.classList.remove('hidden');
                 const hasVendor = Boolean(vendorCard && vendorCard.dataset.vendorId !== '');
                 if (!hasVendor) {
-                    submitButton?.setAttribute('disabled', 'disabled');
                     vendorWarning?.classList.remove('hidden');
+                    meetingFields.forEach(field => {
+                        field.setAttribute('disabled', 'disabled');
+                        field.classList.add('bg-gray-100', 'cursor-not-allowed');
+                    });
                 } else {
-                    submitButton?.removeAttribute('disabled');
+                    meetingFields.forEach(field => {
+                        field.removeAttribute('disabled');
+                        field.classList.remove('bg-gray-100', 'cursor-not-allowed');
+                    });
                 }
             } else {
                 handoffSection.classList.add('hidden');
-                submitButton?.removeAttribute('disabled');
+                meetingFields.forEach(field => {
+                    field.removeAttribute('disabled');
+                    field.classList.remove('bg-gray-100', 'cursor-not-allowed');
+                });
             }
         };
 

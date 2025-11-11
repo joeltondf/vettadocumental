@@ -173,7 +173,6 @@ class User
                 FROM users
                 WHERE perfil = 'vendedor'
                   AND ativo = 1
-                  AND id <> 17
                 ORDER BY nome_completo ASC";
 
         $stmt = $this->pdo->prepare($sql);
@@ -188,8 +187,7 @@ class User
                 FROM users
                 WHERE id = :id
                   AND perfil = 'vendedor'
-                  AND ativo = 1
-                  AND id <> 17";
+                  AND ativo = 1";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->bindValue(':id', $vendorId, PDO::PARAM_INT);

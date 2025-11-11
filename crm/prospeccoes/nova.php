@@ -70,7 +70,7 @@ try {
 
     if ($leadRecord) {
         $leadVendorId = (int) ($leadRecord['crmOwnerId'] ?? 0);
-        if ($leadVendorId <= 0 || $leadVendorId === 17) {
+        if ($leadVendorId <= 0) {
             $leadVendorId = null;
         }
 
