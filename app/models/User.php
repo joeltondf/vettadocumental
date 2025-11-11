@@ -181,6 +181,7 @@ class User
         // Nota: historicamente alguns vendedores foram criados com o campo `ativo` = NULL.
         // Esse valor deve ser interpretado como ativo para manter a compatibilidade
         // com registros legados, por isso a consulta aceita NULL como indicador de atividade.
+        // Importante: não há mais filtro excluindo um ID específico; qualquer vendedor ativo será retornado.
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute();
@@ -196,6 +197,7 @@ class User
                   AND perfil = 'vendedor'
                   AND (ativo = 1 OR ativo IS NULL)";
 
+        // Nenhum ID fixo é excluído aqui; qualquer vendedor ativo correspondente ao ID informado será retornado.
         $stmt = $this->pdo->prepare($sql);
         $stmt->bindValue(':id', $vendorId, PDO::PARAM_INT);
         $stmt->execute();
