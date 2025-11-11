@@ -1269,6 +1269,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.updated_data) {
               for (const [key, value] of Object.entries(data.updated_data)) {
                 if (key.startsWith('status_')) continue;
+                if (key === 'prazo_html') continue;
                 const displayElement = $id(`display-${key}`);
                 if (displayElement) displayElement.innerHTML = value;
               }
@@ -1276,6 +1277,12 @@ document.addEventListener('DOMContentLoaded', function() {
               if (statusBadge && data.updated_data.status_processo) {
                 statusBadge.textContent = data.updated_data.status_processo;
                 statusBadge.className = `px-3 py-1.5 inline-flex text-sm leading-5 font-semibold rounded-full ${data.updated_data.status_processo_classes}`;
+              }
+              if (data.updated_data.prazo_html) {
+                const prazoDisplay = $id('display-prazo_dias');
+                if (prazoDisplay) {
+                  prazoDisplay.innerHTML = data.updated_data.prazo_html;
+                }
               }
             }
             closeModal(modal);
