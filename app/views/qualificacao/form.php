@@ -2,6 +2,14 @@
 $baseAppUrl = rtrim(APP_URL, '/');
 $actionUrl = $baseAppUrl . '/qualificacao.php?action=store&id=' . (int) ($lead['id'] ?? 0);
 $backUrl = $baseAppUrl . '/sdr_dashboard.php';
+$fitValue = $lead['fit_icp'] ?? '';
+$budgetValue = $lead['budget'] ?? '';
+$authorityValue = $lead['authority'] ?? '';
+$timingValue = $lead['timing'] ?? '';
+$notesValue = $lead['qualification_notes'] ?? '';
+$decisionValue = mb_strtolower((string) ($lead['qualification_decision'] ?? ''), 'UTF-8');
+$qualificationScore = (int) ($lead['qualification_score'] ?? 0);
+$qualificationDate = $lead['qualification_date'] ?? null;
 ?>
 
 <div class="flex items-center justify-between mb-6">
@@ -21,42 +29,55 @@ $backUrl = $baseAppUrl . '/sdr_dashboard.php';
         <form action="<?php echo $actionUrl; ?>" method="POST" id="qualification-form" class="space-y-6">
             <section>
                 <h2 class="text-lg font-semibold text-gray-800 mb-4">Critérios de qualificação</h2>
+                <div class="flex items-center justify-between bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-3 mb-4">
+                    <div>
+                        <p class="text-xs font-semibold text-indigo-600 uppercase tracking-wide">Pontuação estimada</p>
+                        <p class="text-sm text-indigo-700">Ajuste os campos BANT para priorizar este lead.</p>
+                        <?php if (!empty($qualificationDate)): ?>
+                            <p class="text-[11px] text-indigo-500 mt-1">Última atualização em <?php echo date('d/m/Y H:i', strtotime($qualificationDate)); ?></p>
+                        <?php endif; ?>
+                    </div>
+                    <div class="flex items-baseline gap-1">
+                        <span class="text-3xl font-bold text-indigo-700" data-score-value><?php echo $qualificationScore; ?></span>
+                        <span class="text-sm font-semibold text-indigo-500">/ 12</span>
+                    </div>
+                </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label for="fit_icp" class="block text-sm font-medium text-gray-700 mb-1">Fit com ICP</label>
                         <select name="fit_icp" id="fit_icp" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" required>
                             <option value="">Selecione</option>
-                            <option value="Alto">Alto</option>
-                            <option value="Médio">Médio</option>
-                            <option value="Baixo">Baixo</option>
+                            <option value="Alto" <?php echo $fitValue === 'Alto' ? 'selected' : ''; ?>>Alto</option>
+                            <option value="Médio" <?php echo $fitValue === 'Médio' ? 'selected' : ($fitValue === 'Medio' ? 'selected' : ''); ?>>Médio</option>
+                            <option value="Baixo" <?php echo $fitValue === 'Baixo' ? 'selected' : ''; ?>>Baixo</option>
                         </select>
                     </div>
                     <div>
                         <label for="budget" class="block text-sm font-medium text-gray-700 mb-1">Orçamento</label>
                         <select name="budget" id="budget" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" required>
                             <option value="">Selecione</option>
-                            <option value="Disponível">Disponível</option>
-                            <option value="Parcial">Parcial</option>
-                            <option value="Indefinido">Indefinido</option>
+                            <option value="Disponível" <?php echo $budgetValue === 'Disponível' ? 'selected' : ($budgetValue === 'Disponivel' ? 'selected' : ''); ?>>Disponível</option>
+                            <option value="Parcial" <?php echo $budgetValue === 'Parcial' ? 'selected' : ''; ?>>Parcial</option>
+                            <option value="Indefinido" <?php echo $budgetValue === 'Indefinido' ? 'selected' : ''; ?>>Indefinido</option>
                         </select>
                     </div>
                     <div>
                         <label for="authority" class="block text-sm font-medium text-gray-700 mb-1">Autoridade</label>
                         <select name="authority" id="authority" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" required>
                             <option value="">Selecione</option>
-                            <option value="Decisor">Decisor</option>
-                            <option value="Influenciador">Influenciador</option>
-                            <option value="Pesquisador">Pesquisador</option>
+                            <option value="Decisor" <?php echo $authorityValue === 'Decisor' ? 'selected' : ''; ?>>Decisor</option>
+                            <option value="Influenciador" <?php echo $authorityValue === 'Influenciador' ? 'selected' : ''; ?>>Influenciador</option>
+                            <option value="Pesquisador" <?php echo $authorityValue === 'Pesquisador' ? 'selected' : ''; ?>>Pesquisador</option>
                         </select>
                     </div>
                     <div>
                         <label for="timing" class="block text-sm font-medium text-gray-700 mb-1">Tempo</label>
                         <select name="timing" id="timing" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" required>
                             <option value="">Selecione</option>
-                            <option value="Imediato">Imediato</option>
-                            <option value="Curto prazo">Curto prazo</option>
-                            <option value="Médio prazo">Médio prazo</option>
-                            <option value="Longo prazo">Longo prazo</option>
+                            <option value="Imediato" <?php echo $timingValue === 'Imediato' ? 'selected' : ''; ?>>Imediato</option>
+                            <option value="Curto prazo" <?php echo $timingValue === 'Curto prazo' ? 'selected' : ''; ?>>Curto prazo</option>
+                            <option value="Médio prazo" <?php echo ($timingValue === 'Médio prazo' || $timingValue === 'Medio prazo') ? 'selected' : ''; ?>>Médio prazo</option>
+                            <option value="Longo prazo" <?php echo $timingValue === 'Longo prazo' ? 'selected' : ''; ?>>Longo prazo</option>
                         </select>
                     </div>
                 </div>
@@ -64,18 +85,18 @@ $backUrl = $baseAppUrl . '/sdr_dashboard.php';
 
             <section>
                 <h2 class="text-lg font-semibold text-gray-800 mb-4">Observações</h2>
-                <textarea name="notes" id="notes" rows="4" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Resuma os principais pontos da conversa."></textarea>
+                <textarea name="notes" id="notes" rows="4" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Resuma os principais pontos da conversa."><?php echo htmlspecialchars($notesValue); ?></textarea>
             </section>
 
             <section>
                 <h2 class="text-lg font-semibold text-gray-800 mb-4">Resultado da análise</h2>
                 <div class="flex flex-col sm:flex-row gap-4">
                     <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
-                        <input type="radio" name="decision" value="qualificado" class="text-blue-600 focus:ring-blue-500" required>
+                        <input type="radio" name="decision" value="qualificado" class="text-blue-600 focus:ring-blue-500" required <?php echo $decisionValue === 'qualificado' ? 'checked' : ''; ?>>
                         Lead qualificado
                     </label>
                     <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
-                        <input type="radio" name="decision" value="descartado" class="text-blue-600 focus:ring-blue-500" required>
+                        <input type="radio" name="decision" value="descartado" class="text-blue-600 focus:ring-blue-500" required <?php echo $decisionValue === 'descartado' ? 'checked' : ''; ?>>
                         Lead descartado
                     </label>
                 </div>
@@ -168,6 +189,13 @@ $backUrl = $baseAppUrl . '/sdr_dashboard.php';
         const vendorCard = document.querySelector('[data-vendor-card]');
         const vendorWarning = document.getElementById('vendor-warning');
         const submitButton = document.querySelector('[data-submit-button]');
+        const scoreOutput = document.querySelector('[data-score-value]');
+        const scoreFields = [
+            document.getElementById('fit_icp'),
+            document.getElementById('budget'),
+            document.getElementById('authority'),
+            document.getElementById('timing')
+        ];
 
         const toggleHandoffSection = () => {
             const selectedDecision = document.querySelector('input[name="decision"]:checked');
@@ -191,5 +219,79 @@ $backUrl = $baseAppUrl . '/sdr_dashboard.php';
         });
 
         toggleHandoffSection();
+
+        const scoreMatrix = {
+            fit_icp: {
+                alto: 3,
+                medio: 2,
+                baixo: 1
+            },
+            budget: {
+                disponivel: 3,
+                parcial: 2,
+                indefinido: 1
+            },
+            authority: {
+                decisor: 3,
+                influenciador: 2,
+                pesquisador: 1
+            },
+            timing: {
+                imediato: 3,
+                'curto prazo': 2,
+                curtoprazo: 2,
+                'medio prazo': 2,
+                'médio prazo': 2,
+                medioprazo: 2,
+                'longo prazo': 1,
+                longoprazo: 1
+            }
+        };
+
+        const normalize = (value) => {
+            if (!value) {
+                return '';
+            }
+            return value
+                .toString()
+                .trim()
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '');
+        };
+
+        const computeScore = () => {
+            let total = 0;
+            const fit = normalize(scoreFields[0]?.value ?? '');
+            const budget = normalize(scoreFields[1]?.value ?? '');
+            const authority = normalize(scoreFields[2]?.value ?? '');
+            const timing = normalize(scoreFields[3]?.value ?? '');
+
+            if (fit && scoreMatrix.fit_icp[fit] !== undefined) {
+                total += scoreMatrix.fit_icp[fit];
+            }
+
+            if (budget && scoreMatrix.budget[budget] !== undefined) {
+                total += scoreMatrix.budget[budget];
+            }
+
+            if (authority && scoreMatrix.authority[authority] !== undefined) {
+                total += scoreMatrix.authority[authority];
+            }
+
+            if (timing && scoreMatrix.timing[timing] !== undefined) {
+                total += scoreMatrix.timing[timing];
+            }
+
+            if (scoreOutput) {
+                scoreOutput.textContent = total.toString();
+            }
+        };
+
+        scoreFields.forEach(select => {
+            select?.addEventListener('change', computeScore);
+        });
+
+        computeScore();
     });
 </script>

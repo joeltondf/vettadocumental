@@ -6,6 +6,47 @@ class Prospeccao
     private $pdo;
     private const ALLOWED_PAYMENT_PROFILES = ['mensalista', 'avista'];
 
+    private const QUALIFICATION_FIT_SCORES = [
+        'alto' => 3,
+        'médio' => 2,
+        'medio' => 2,
+        'média' => 2,
+        'media' => 2,
+        'baixo' => 1,
+    ];
+
+    private const QUALIFICATION_BUDGET_SCORES = [
+        'disponível' => 3,
+        'disponivel' => 3,
+        'parcial' => 2,
+        'indefinido' => 1,
+        'sem orçamento' => 1,
+        'sem orcamento' => 1,
+        'sem-bud' => 1,
+    ];
+
+    private const QUALIFICATION_AUTHORITY_SCORES = [
+        'decisor' => 3,
+        'tomador de decisão' => 3,
+        'tomador de decisao' => 3,
+        'influenciador' => 2,
+        'avaliador' => 2,
+        'pesquisador' => 1,
+        'analista' => 1,
+    ];
+
+    private const QUALIFICATION_TIMING_SCORES = [
+        'imediato' => 3,
+        'curto prazo' => 2,
+        'curtoprazo' => 2,
+        'médio prazo' => 2,
+        'medio prazo' => 2,
+        'medioprazo' => 2,
+        'longoprazo' => 1,
+        'longo prazo' => 1,
+        'sem prazo' => 1,
+    ];
+
     public function __construct($pdo)
     {
         $this->pdo = $pdo;
@@ -72,6 +113,58 @@ class Prospeccao
         $normalized = mb_strtolower(trim($profile), 'UTF-8');
 
         return in_array($normalized, self::ALLOWED_PAYMENT_PROFILES, true) ? $normalized : null;
+    }
+
+    private function sanitizeQualificationValue(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+
+        return $trimmed === '' ? null : $trimmed;
+    }
+
+    private function mapQualificationScore(?string $value, array $scoreMap): int
+    {
+        if ($value === null) {
+            return 0;
+        }
+
+        $normalized = mb_strtolower(trim($value), 'UTF-8');
+        $normalized = str_replace(['á', 'à', 'â', 'ã'], 'a', $normalized);
+        $normalized = str_replace(['é', 'ê'], 'e', $normalized);
+        $normalized = str_replace(['í'], 'i', $normalized);
+        $normalized = str_replace(['ó', 'ô', 'õ'], 'o', $normalized);
+        $normalized = str_replace(['ú'], 'u', $normalized);
+        $normalized = preg_replace('/\s+/', ' ', $normalized ?? '');
+
+        if (isset($scoreMap[$normalized])) {
+            return (int) $scoreMap[$normalized];
+        }
+
+        if (is_numeric($value)) {
+            $numericValue = (int) $value;
+            if ($numericValue < 0) {
+                return 0;
+            }
+
+            return min($numericValue, 3);
+        }
+
+        return 0;
+    }
+
+    private function calculateQualificationScore(?string $fit, ?string $budget, ?string $authority, ?string $timing): int
+    {
+        $score = 0;
+        $score += $this->mapQualificationScore($fit, self::QUALIFICATION_FIT_SCORES);
+        $score += $this->mapQualificationScore($budget, self::QUALIFICATION_BUDGET_SCORES);
+        $score += $this->mapQualificationScore($authority, self::QUALIFICATION_AUTHORITY_SCORES);
+        $score += $this->mapQualificationScore($timing, self::QUALIFICATION_TIMING_SCORES);
+
+        return $score;
     }
 
     /**
@@ -220,10 +313,11 @@ class Prospeccao
             $params[] = $user_id;
         }
 
-        $sql = "SELECT p.id, p.nome_prospecto, DATEDIFF(NOW(), p.data_ultima_atualizacao) as dias_sem_contato
+        $sql = "SELECT p.id, p.nome_prospecto, p.qualification_score, DATEDIFF(NOW(), p.data_ultima_atualizacao) as dias_sem_contato
                 FROM prospeccoes p
                 WHERE " . $sql_conditions . "
-                ORDER BY p.data_ultima_atualizacao ASC
+                ORDER BY p.qualification_score DESC,
+                         p.data_ultima_atualizacao ASC
                 LIMIT ?";
 
         $stmt = $this->pdo->prepare($sql);
@@ -310,6 +404,12 @@ class Prospeccao
                     p.sdrId,
                     p.perfil_pagamento,
                     p.data_ultima_atualizacao,
+                    p.qualification_score,
+                    p.qualification_decision,
+                    p.fit_icp,
+                    p.budget,
+                    p.authority,
+                    p.timing,
                     c.nome_cliente,
                     u.nome_completo AS responsavel_nome
                 FROM prospeccoes p
@@ -518,21 +618,44 @@ class Prospeccao
 
     public function assignLeadToVendor(int $leadId, ?int $vendorId, ?int $sdrId = null, bool $useTransaction = true): bool
     {
+        $leadSnapshot = $this->getById($leadId);
+        $qualificationDecision = '';
+        $qualificationScore = 0;
+        if (is_array($leadSnapshot)) {
+            $qualificationDecision = mb_strtolower((string) ($leadSnapshot['qualification_decision'] ?? ''), 'UTF-8');
+            $qualificationScore = (int) ($leadSnapshot['qualification_score'] ?? 0);
+        }
+
+        $leadCategoryToApply = null;
+        $statusToApply = null;
+
+        if ($qualificationDecision === 'descartado') {
+            $leadCategoryToApply = 'Perdido';
+            $statusToApply = 'Descartado';
+        } elseif ($qualificationScore > 0) {
+            $leadCategoryToApply = 'Qualificação';
+            if ($qualificationDecision === 'qualificado') {
+                $statusToApply = 'Qualificado';
+            }
+        }
+
         if ($useTransaction) {
             $this->pdo->beginTransaction();
         }
 
         try {
             $setClauses = ['responsavel_id = :vendorId', 'data_ultima_atualizacao = NOW()'];
-            $params = [':leadId' => $leadId];
-
-            if ($vendorId !== null) {
-                $params[':vendorId'] = $vendorId;
-            }
 
             if ($sdrId !== null) {
                 $setClauses[] = 'sdrId = :sdrId';
-                $params[':sdrId'] = $sdrId;
+            }
+
+            if ($statusToApply !== null) {
+                $setClauses[] = 'status = :status';
+            }
+
+            if ($leadCategoryToApply !== null) {
+                $setClauses[] = 'leadCategory = :leadCategory';
             }
 
             $sql = 'UPDATE prospeccoes SET ' . implode(', ', $setClauses) . ' WHERE id = :leadId';
@@ -544,12 +667,18 @@ class Prospeccao
                 $stmt->bindValue(':vendorId', $vendorId, PDO::PARAM_INT);
             }
 
-            foreach ($params as $key => $value) {
-                if ($key === ':vendorId') {
-                    continue;
-                }
+            $stmt->bindValue(':leadId', $leadId, PDO::PARAM_INT);
 
-                $stmt->bindValue($key, $value, PDO::PARAM_INT);
+            if ($sdrId !== null) {
+                $stmt->bindValue(':sdrId', $sdrId, PDO::PARAM_INT);
+            }
+
+            if ($statusToApply !== null) {
+                $stmt->bindValue(':status', $statusToApply, PDO::PARAM_STR);
+            }
+
+            if ($leadCategoryToApply !== null) {
+                $stmt->bindValue(':leadCategory', $leadCategoryToApply, PDO::PARAM_STR);
             }
 
             $stmt->execute();
@@ -835,43 +964,72 @@ class Prospeccao
         ]);
     }
 
-    public function saveQualification(int $prospeccaoId, array $data): int
+    public function qualifyLead(int $prospeccaoId, array $data): array
     {
-        $sql = "INSERT INTO prospeccao_qualificacoes (
-                    prospeccaoId,
-                    sdrId,
-                    fitIcp,
-                    budget,
-                    authority,
-                    timing,
-                    decision,
-                    notes,
-                    createdAt
-                ) VALUES (
-                    :prospeccaoId,
-                    :sdrId,
-                    :fitIcp,
-                    :budget,
-                    :authority,
-                    :timing,
-                    :decision,
-                    :notes,
-                    NOW()
-                )";
+        $fit = $this->sanitizeQualificationValue($data['fitIcp'] ?? null);
+        $budget = $this->sanitizeQualificationValue($data['budget'] ?? null);
+        $authority = $this->sanitizeQualificationValue($data['authority'] ?? null);
+        $timing = $this->sanitizeQualificationValue($data['timing'] ?? null);
+        $notes = $this->sanitizeQualificationValue($data['notes'] ?? null);
+        $decisionRaw = $this->sanitizeQualificationValue($data['decision'] ?? null);
+        $sdrId = isset($data['sdrId']) ? (int) $data['sdrId'] : null;
+
+        $decision = $decisionRaw !== null ? mb_strtolower($decisionRaw, 'UTF-8') : '';
+        if (!in_array($decision, ['qualificado', 'descartado'], true)) {
+            throw new \InvalidArgumentException('invalid_decision');
+        }
+
+        $score = $this->calculateQualificationScore($fit, $budget, $authority, $timing);
+
+        $leadCategory = $decision === 'qualificado' ? 'Qualificação' : 'Perdido';
+        $status = $decision === 'qualificado' ? 'Qualificado' : 'Descartado';
+
+        $setClauses = [
+            'fit_icp = :fit_icp',
+            'budget = :budget',
+            'authority = :authority',
+            'timing = :timing',
+            'qualification_notes = :notes',
+            'qualification_decision = :decision',
+            'qualification_score = :score',
+            'qualification_sdr_id = :sdr_id',
+            'qualification_date = NOW()',
+            'leadCategory = :lead_category',
+            'status = :status',
+            'data_ultima_atualizacao = NOW()'
+        ];
+
+        if ($decision === 'descartado') {
+            $setClauses[] = 'responsavel_id = NULL';
+        }
+
+        $sql = 'UPDATE prospeccoes SET ' . implode(', ', $setClauses) . ' WHERE id = :id';
 
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([
-            ':prospeccaoId' => $prospeccaoId,
-            ':sdrId' => $data['sdrId'],
-            ':fitIcp' => $data['fitIcp'],
-            ':budget' => $data['budget'],
-            ':authority' => $data['authority'],
-            ':timing' => $data['timing'],
-            ':decision' => $data['decision'],
-            ':notes' => $data['notes'] ?? null
-        ]);
+        $stmt->bindValue(':fit_icp', $fit, $fit !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+        $stmt->bindValue(':budget', $budget, $budget !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+        $stmt->bindValue(':authority', $authority, $authority !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+        $stmt->bindValue(':timing', $timing, $timing !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+        $stmt->bindValue(':notes', $notes, $notes !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+        $stmt->bindValue(':decision', $decisionRaw, PDO::PARAM_STR);
+        $stmt->bindValue(':score', $score, PDO::PARAM_INT);
 
-        return (int) $this->pdo->lastInsertId();
+        if ($sdrId !== null && $sdrId > 0) {
+            $stmt->bindValue(':sdr_id', $sdrId, PDO::PARAM_INT);
+        } else {
+            $stmt->bindValue(':sdr_id', null, PDO::PARAM_NULL);
+        }
+
+        $stmt->bindValue(':lead_category', $leadCategory, PDO::PARAM_STR);
+        $stmt->bindValue(':status', $status, PDO::PARAM_STR);
+        $stmt->bindValue(':id', $prospeccaoId, PDO::PARAM_INT);
+
+        $stmt->execute();
+
+        return [
+            'score' => $score,
+            'decision' => $decision
+        ];
     }
 
     public function updateResponsavelAndStatus(int $prospeccaoId, ?int $responsavelId, string $status): bool
@@ -896,10 +1054,12 @@ class Prospeccao
 
     public function getLeadsWithoutResponsible(): array
     {
-        $sql = "SELECT id, sdrId
+        $sql = "SELECT id, sdrId, qualification_score
                 FROM prospeccoes
                 WHERE responsavel_id IS NULL OR responsavel_id = 0
-                ORDER BY id ASC";
+                ORDER BY qualification_score DESC,
+                         data_ultima_atualizacao DESC,
+                         id ASC";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute();
@@ -951,6 +1111,7 @@ class Prospeccao
                        p.nome_prospecto,
                        p.status,
                        p.data_ultima_atualizacao,
+                       p.qualification_score,
                        COALESCE(u.nome_completo, 'Aguardando vendedor') AS vendor_name,
                        c.nome_cliente,
                        p.valor_proposto,
@@ -960,7 +1121,7 @@ class Prospeccao
                 LEFT JOIN users u ON p.responsavel_id = u.id
                 LEFT JOIN clientes c ON p.cliente_id = c.id
                 WHERE p.sdrId = :sdrId
-                ORDER BY p.data_ultima_atualizacao DESC, p.id DESC";
+                ORDER BY p.qualification_score DESC, p.data_ultima_atualizacao DESC, p.id DESC";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->bindValue(':sdrId', $sdrId, PDO::PARAM_INT);
@@ -978,13 +1139,14 @@ class Prospeccao
                        p.nome_prospecto,
                        p.status,
                        p.data_ultima_atualizacao,
+                       p.qualification_score,
                        c.nome_cliente,
                        p.cliente_id,
                        p.responsavel_id
                 FROM prospeccoes p
                 LEFT JOIN clientes c ON p.cliente_id = c.id
                 WHERE p.responsavel_id = :vendorId
-                ORDER BY p.data_ultima_atualizacao DESC, p.id DESC";
+                ORDER BY p.qualification_score DESC, p.data_ultima_atualizacao DESC, p.id DESC";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->bindValue(':vendorId', $vendorId, PDO::PARAM_INT);
@@ -999,6 +1161,7 @@ class Prospeccao
                        p.nome_prospecto,
                        p.status,
                        p.data_ultima_atualizacao,
+                       p.qualification_score,
                        c.nome_cliente,
                        COALESCE(dl.lastAssignedAt, p.data_ultima_atualizacao) AS distributed_at
                 FROM prospeccoes p
@@ -1012,6 +1175,7 @@ class Prospeccao
                   AND (p.status IS NULL OR p.status NOT IN ('Descartado', 'Convertido', 'Inativo'))
                 ORDER BY dl.lastAssignedAt IS NULL DESC,
                          distributed_at ASC,
+                         p.qualification_score DESC,
                          p.id ASC
                 LIMIT 1";
 

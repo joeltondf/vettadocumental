@@ -114,7 +114,7 @@ if (in_array($user_perfil, $managementProfiles, true)) {
 $configModel = new Configuracao($pdo);
 $hasManagementPassword = trim((string) ($configModel->get('prospection_management_password_hash') ?? '')) !== '';
 
-$leadCategories = ['Entrada', 'Qualificado', 'Com Orçamento', 'Em Negociação', 'Cliente Ativo', 'Sem Interesse'];
+$leadCategories = ['Entrada', 'Qualificado', 'Qualificação', 'Com Orçamento', 'Em Negociação', 'Cliente Ativo', 'Sem Interesse', 'Perdido'];
 $currentLeadCategory = $prospect['leadCategory'] ?? 'Entrada';
 if (!in_array($currentLeadCategory, $leadCategories, true)) {
     $currentLeadCategory = 'Entrada';
@@ -174,7 +174,64 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                     $clienteTelefone = formatLeadInternationalPhone($prospect);
                     $canalOrigem = $prospect['cliente_canal_origem'] ?? '';
                     $statusAtual = $prospect['status'] ?? '';
+                    $qualificationDecisionRaw = trim((string) ($prospect['qualification_decision'] ?? ''));
+                    $qualificationDecisionNormalized = mb_strtolower($qualificationDecisionRaw, 'UTF-8');
+                    $qualificationScore = (int) ($prospect['qualification_score'] ?? 0);
+                    $qualificationDate = $prospect['qualification_date'] ?? null;
+                    $fitQualification = $prospect['fit_icp'] ?? '';
+                    $budgetQualification = $prospect['budget'] ?? '';
+                    $authorityQualification = $prospect['authority'] ?? '';
+                    $timingQualification = $prospect['timing'] ?? '';
+                    $qualificationNotes = $prospect['qualification_notes'] ?? '';
                 ?>
+                <?php if ($qualificationDecisionRaw !== ''): ?>
+                    <div class="mb-6 bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                            <div>
+                                <p class="text-xs font-semibold text-indigo-600 uppercase tracking-wide">Decisão da qualificação</p>
+                                <h3 class="text-xl font-bold text-indigo-900">
+                                    <?php echo $qualificationDecisionNormalized === 'qualificado' ? 'Lead qualificado' : 'Lead descartado'; ?>
+                                </h3>
+                                <?php if (!empty($qualificationDate)): ?>
+                                    <p class="text-xs text-indigo-500 mt-1">
+                                        Atualizado em <?php echo date('d/m/Y H:i', strtotime($qualificationDate)); ?>
+                                    </p>
+                                <?php endif; ?>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm text-indigo-600 font-semibold">Pontuação</span>
+                                <span class="inline-flex items-center justify-center px-3 py-1 rounded-full bg-white text-indigo-700 text-lg font-bold">
+                                    <?php echo $qualificationScore; ?>
+                                </span>
+                                <span class="text-xs text-indigo-500">/ 12</span>
+                            </div>
+                        </div>
+                        <dl class="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-indigo-900">
+                            <div>
+                                <dt class="font-semibold text-indigo-700">Fit ICP</dt>
+                                <dd class="mt-1 bg-white rounded-md px-3 py-2 shadow-sm"><?php echo htmlspecialchars($fitQualification !== '' ? $fitQualification : 'Não informado'); ?></dd>
+                            </div>
+                            <div>
+                                <dt class="font-semibold text-indigo-700">Orçamento</dt>
+                                <dd class="mt-1 bg-white rounded-md px-3 py-2 shadow-sm"><?php echo htmlspecialchars($budgetQualification !== '' ? $budgetQualification : 'Não informado'); ?></dd>
+                            </div>
+                            <div>
+                                <dt class="font-semibold text-indigo-700">Autoridade</dt>
+                                <dd class="mt-1 bg-white rounded-md px-3 py-2 shadow-sm"><?php echo htmlspecialchars($authorityQualification !== '' ? $authorityQualification : 'Não informado'); ?></dd>
+                            </div>
+                            <div>
+                                <dt class="font-semibold text-indigo-700">Tempo</dt>
+                                <dd class="mt-1 bg-white rounded-md px-3 py-2 shadow-sm"><?php echo htmlspecialchars($timingQualification !== '' ? $timingQualification : 'Não informado'); ?></dd>
+                            </div>
+                        </dl>
+                        <?php if (trim((string) $qualificationNotes) !== ''): ?>
+                            <div class="mt-4">
+                                <p class="text-xs font-semibold text-indigo-700 uppercase tracking-wide">Notas do SDR</p>
+                                <p class="mt-1 text-sm text-indigo-900 whitespace-pre-line bg-white rounded-md px-3 py-3 shadow-sm"><?php echo nl2br(htmlspecialchars($qualificationNotes)); ?></p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
                 <div class="flex justify-between items-start mb-6">
                     <?php
                         $leadResponsavelNome = $prospect['lead_responsavel_nome'] ?? $prospect['nome_prospecto'] ?? '';

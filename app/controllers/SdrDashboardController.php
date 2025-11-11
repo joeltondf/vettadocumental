@@ -81,6 +81,21 @@ class SdrDashboardController
             $leadsByStatus[$status][] = $lead;
         }
 
+        foreach ($leadsByStatus as &$statusLeads) {
+            usort($statusLeads, static function (array $a, array $b): int {
+                $scoreA = (int) ($a['qualification_score'] ?? 0);
+                $scoreB = (int) ($b['qualification_score'] ?? 0);
+                if ($scoreA === $scoreB) {
+                    $updatedA = $a['data_ultima_atualizacao'] ?? '';
+                    $updatedB = $b['data_ultima_atualizacao'] ?? '';
+                    return strcmp((string) $updatedB, (string) $updatedA);
+                }
+
+                return $scoreB <=> $scoreA;
+            });
+        }
+        unset($statusLeads);
+
         $pageTitle = 'Painel SDR';
         $totalLeads = array_sum($statusCounts);
         $kanbanEditUrl = APP_URL . '/sdr_dashboard.php?action=update_columns';
@@ -348,6 +363,7 @@ class SdrDashboardController
                 'vendorId' => $vendorLabelId,
                 'vendorName' => $vendorName,
                 'updatedAt' => $lead['data_ultima_atualizacao'] ?? null,
+                'qualificationScore' => (int) ($lead['qualification_score'] ?? 0),
             ],
             'assignedLeadCount' => $assignedCount,
             'unassignedLeadCount' => $unassignedCount,

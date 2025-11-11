@@ -28,6 +28,12 @@ $leads = $leads ?? [];
                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Lead</th>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Cliente</th>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
+                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">
+                        <button type="button" class="inline-flex items-center gap-1 text-gray-500 hover:text-gray-700" data-sort-score>
+                            Pontuação
+                            <i class="fas fa-sort-amount-down-alt text-xs" aria-hidden="true"></i>
+                        </button>
+                    </th>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Vendedor</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Atualização</th>
                     <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Ações</th>
@@ -36,7 +42,7 @@ $leads = $leads ?? [];
             <tbody class="bg-white divide-y divide-gray-200" data-lead-body>
                 <?php if (empty($leads)): ?>
                     <tr>
-                        <td colspan="6" class="px-4 py-6 text-center text-gray-500 text-sm">Nenhum lead atribuído.</td>
+                        <td colspan="7" class="px-4 py-6 text-center text-gray-500 text-sm">Nenhum lead atribuído.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($leads as $lead): ?>
@@ -48,8 +54,9 @@ $leads = $leads ?? [];
                             $vendor = $lead['vendor_name'] ?? 'Aguardando vendedor';
                             $updatedAt = isset($lead['data_ultima_atualizacao']) ? date('d/m/Y H:i', strtotime($lead['data_ultima_atualizacao'])) : '--';
                             $value = isset($lead['valor_proposto']) ? number_format((float) $lead['valor_proposto'], 2, ',', '.') : null;
+                            $score = (int) ($lead['qualification_score'] ?? 0);
                         ?>
-                        <tr data-lead-row>
+                        <tr data-lead-row data-score="<?php echo $score; ?>">
                             <td class="px-4 py-3 text-sm font-semibold text-gray-700">
                                 <div><?php echo htmlspecialchars($leadName); ?></div>
                                 <?php if ($value !== null): ?>
@@ -59,6 +66,11 @@ $leads = $leads ?? [];
                             <td class="px-4 py-3 text-sm text-gray-600"><?php echo htmlspecialchars($clientName); ?></td>
                             <td class="px-4 py-3 text-sm">
                                 <span class="inline-flex items-center px-2 py-1 rounded-full bg-blue-50 text-blue-600" data-lead-status><?php echo htmlspecialchars($status); ?></span>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-center">
+                                <span class="inline-flex items-center justify-center px-2 py-1 rounded-full bg-indigo-50 text-indigo-600 font-semibold">
+                                    <?php echo $score; ?>
+                                </span>
                             </td>
                             <td class="px-4 py-3 text-sm text-gray-600"><?php echo htmlspecialchars($vendor); ?></td>
                             <td class="px-4 py-3 text-sm text-right text-gray-600"><?php echo $updatedAt; ?></td>
@@ -84,6 +96,9 @@ $leads = $leads ?? [];
     document.addEventListener('DOMContentLoaded', () => {
         const searchInput = document.getElementById('lead-search');
         const rows = Array.from(document.querySelectorAll('#lead-table [data-lead-row]'));
+        const tbody = document.querySelector('#lead-table tbody');
+        const sortButton = document.querySelector('[data-sort-score]');
+        let sortDescending = true;
         const statusClasses = {
             Qualificado: 'bg-green-50 text-green-600',
             'Primeiro Contato': 'bg-indigo-50 text-indigo-600',
@@ -108,6 +123,27 @@ $leads = $leads ?? [];
                 const haystack = row.innerText.toLowerCase();
                 row.classList.toggle('hidden', term !== '' && !haystack.includes(term));
             });
+        });
+
+        sortButton?.addEventListener('click', () => {
+            if (!tbody) {
+                return;
+            }
+
+            const sortedRows = rows.slice().sort((a, b) => {
+                const scoreA = parseInt(a.dataset.score ?? '0', 10);
+                const scoreB = parseInt(b.dataset.score ?? '0', 10);
+                return sortDescending ? scoreB - scoreA : scoreA - scoreB;
+            });
+
+            sortedRows.forEach(row => tbody.appendChild(row));
+            sortDescending = !sortDescending;
+
+            const icon = sortButton.querySelector('i');
+            if (icon) {
+                icon.classList.toggle('fa-sort-amount-down-alt', sortDescending);
+                icon.classList.toggle('fa-sort-amount-up-alt', !sortDescending);
+            }
         });
     });
 </script>

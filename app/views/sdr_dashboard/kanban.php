@@ -131,7 +131,8 @@ $kanbanConfigEndpoint = $kanbanEditUrl ?? ($baseAppUrl . '/sdr_dashboard.php?act
                                      data-lead-id="<?php echo (int) $lead['id']; ?>"
                                      data-current-status="<?php echo htmlspecialchars($lead['status'] ?? ''); ?>"
                                      data-current-vendor="<?php echo (int) ($lead['responsavel_id'] ?? 0); ?>">
-                                <div class="flex items-start justify-between">
+                                <?php $leadScore = (int) ($lead['qualification_score'] ?? 0); ?>
+                                <div class="flex items-start justify-between gap-3">
                                     <div>
                                         <h3 class="text-base font-semibold text-gray-800">
                                             <?php echo htmlspecialchars($lead['nome_prospecto'] ?? 'Lead'); ?>
@@ -145,10 +146,15 @@ $kanbanConfigEndpoint = $kanbanEditUrl ?? ($baseAppUrl . '/sdr_dashboard.php?act
                                             </p>
                                         <?php endif; ?>
                                     </div>
-                                    <span class="bg-blue-100 text-blue-600 px-2 py-1 rounded-full text-xs font-semibold"
-                                          data-vendor-label="<?php echo (int) $lead['id']; ?>">
-                                        <?php echo htmlspecialchars($lead['responsavel_nome'] ?? 'SDR'); ?>
-                                    </span>
+                                    <div class="flex flex-col items-end text-right gap-1">
+                                        <span class="bg-blue-100 text-blue-600 px-2 py-1 rounded-full text-xs font-semibold"
+                                              data-vendor-label="<?php echo (int) $lead['id']; ?>">
+                                            <?php echo htmlspecialchars($lead['responsavel_nome'] ?? 'SDR'); ?>
+                                        </span>
+                                        <span class="inline-flex items-center justify-center px-2 py-1 rounded-full bg-indigo-50 text-indigo-600 text-xs font-semibold">
+                                            Pontuação: <?php echo $leadScore; ?>
+                                        </span>
+                                    </div>
                                 </div>
                                 <div class="mt-3">
                                     <label class="block text-[11px] uppercase tracking-wide text-gray-500 mb-1">Delegar para vendedor</label>
@@ -461,17 +467,23 @@ foreach ($vendorOptions as $vendorOption) {
             const vendorName = escapeHtml(lead.vendorName ?? 'Aguardando vendedor');
             const updatedLabel = formatDateTime(lead.updatedAt);
             const vendorDatasetValue = lead.vendorId ? String(lead.vendorId) : '';
+            const leadScore = Number(lead.qualificationScore ?? 0);
 
             card.innerHTML = `
-                <div class="flex items-start justify-between">
+                <div class="flex items-start justify-between gap-3">
                     <div>
                         <h3 class="text-base font-semibold text-gray-800">${prospectName}</h3>
                         <p class="text-xs text-gray-500 mt-1">Cliente: ${clientName}</p>
                         ${updatedLabel ? `<p class="text-[11px] text-gray-400 mt-1">Atualizado em ${updatedLabel}</p>` : ''}
                     </div>
-                    <span class="bg-blue-100 text-blue-600 px-2 py-1 rounded-full text-xs font-semibold" data-vendor-label="${lead.id}">
-                        ${vendorName}
-                    </span>
+                    <div class="flex flex-col items-end text-right gap-1">
+                        <span class="bg-blue-100 text-blue-600 px-2 py-1 rounded-full text-xs font-semibold" data-vendor-label="${lead.id}">
+                            ${vendorName}
+                        </span>
+                        <span class="inline-flex items-center justify-center px-2 py-1 rounded-full bg-indigo-50 text-indigo-600 text-xs font-semibold">
+                            Pontuação: ${leadScore}
+                        </span>
+                    </div>
                 </div>
                 <div class="mt-3">
                     <label class="block text-[11px] uppercase tracking-wide text-gray-500 mb-1">Delegar para vendedor</label>

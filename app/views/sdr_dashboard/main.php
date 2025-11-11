@@ -74,6 +74,7 @@ if (!$hasUnassigned) {
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Lead</th>
+                        <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Pontuação</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Dias sem contato</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Ações</th>
                     </tr>
@@ -81,13 +82,18 @@ if (!$hasUnassigned) {
                 <tbody class="bg-white divide-y divide-gray-200">
                     <?php if (empty($urgentLeads)): ?>
                         <tr>
-                            <td colspan="3" class="px-4 py-6 text-center text-gray-500">Nenhum lead urgente no momento.</td>
+                            <td colspan="4" class="px-4 py-6 text-center text-gray-500">Nenhum lead urgente no momento.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($urgentLeads as $lead): ?>
                             <tr class="hover:bg-gray-50">
                                 <td class="px-4 py-3 text-sm font-semibold text-gray-700">
                                     <?php echo htmlspecialchars($lead['nome_prospecto'] ?? 'Lead'); ?>
+                                </td>
+                                <td class="px-4 py-3 text-sm text-center">
+                                    <span class="inline-flex items-center justify-center px-2 py-1 rounded-full bg-indigo-50 text-indigo-600 font-semibold">
+                                        <?php echo (int) ($lead['qualification_score'] ?? 0); ?>
+                                    </span>
                                 </td>
                                 <td class="px-4 py-3 text-sm text-gray-600">
                                     <?php echo (int)($lead['dias_sem_contato'] ?? 0); ?> dia(s)
