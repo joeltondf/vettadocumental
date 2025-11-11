@@ -7,6 +7,9 @@ if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
+$currentUserPerfil = $_SESSION['user_perfil'] ?? '';
+$isVendor = $currentUserPerfil === 'vendedor';
+
 $filters = isset($filters) && is_array($filters)
     ? $filters
     : [
@@ -170,7 +173,9 @@ $formatClientPhone = static function (array $cliente): string {
                             </td>
                             <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                                 <a href="clientes.php?action=edit&id=<?php echo $cliente['id']; ?>" class="text-indigo-600 hover:text-indigo-900 mr-4">Editar</a>
-                                <a href="clientes.php?action=delete&id=<?php echo $cliente['id']; ?>" class="text-red-600 hover:text-red-900" onclick="return confirm('Tem certeza que deseja excluir este cliente?');">Excluir</a>
+                                <?php if (!$isVendor): ?>
+                                    <a href="clientes.php?action=delete&id=<?php echo $cliente['id']; ?>" class="text-red-600 hover:text-red-900" onclick="return confirm('Tem certeza que deseja excluir este cliente?');">Excluir</a>
+                                <?php endif; ?>
                             </td>
                         </tr>
                     <?php endforeach; ?>
