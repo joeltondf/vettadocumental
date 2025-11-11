@@ -5,6 +5,7 @@ $hasFilters = !empty($activeFilters);
 $initialProcessLimit = 50;
 $baseAppUrl = rtrim(APP_URL, '/');
 $dashboardVendedorUrl = $baseAppUrl . '/dashboard_vendedor.php';
+$currentUserPerfil = $_SESSION['user_perfil'] ?? '';
 
 if (!function_exists('seller_normalize_status_info')) {
     function seller_normalize_status_info(?string $status): array
@@ -78,6 +79,11 @@ $nextLead = $nextLead ?? null;
         <a href="<?php echo $baseAppUrl; ?>/processos.php?action=create&amp;return_to=<?php echo urlencode($dashboardVendedorUrl); ?>" class="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors">
             <i class="fas fa-file-signature mr-2"></i> Criar Orçamento
         </a>
+        <?php if ($currentUserPerfil === 'vendedor'): ?>
+            <a href="<?php echo $baseAppUrl; ?>/clientes.php?action=create&amp;return_to=<?php echo urlencode($dashboardVendedorUrl); ?>" class="inline-flex items-center bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors">
+                <i class="fas fa-user-plus mr-2"></i> Novo Cliente
+            </a>
+        <?php endif; ?>
         <a href="<?php echo $dashboardVendedorUrl; ?>?status=Orçamento" class="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors">
             <i class="fas fa-list-ul mr-2"></i> Meus Orçamentos
         </a>

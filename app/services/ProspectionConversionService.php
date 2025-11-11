@@ -36,8 +36,13 @@ class ProspectionConversionService
         $initiatorName = trim((string) ($initiatorData['nome_completo'] ?? 'Usuário'));
 
         if ($resolvedProfile === 'vendedor') {
-            $responsavelId = (int) ($prospection['responsavel_id'] ?? 0);
-            if ($responsavelId !== $initiatorId) {
+            // A posse do lead pode estar registrada na prospecção ou no cadastro do cliente (crmOwnerId).
+            $leadOwnerId = (int) ($prospection['responsavel_id'] ?? 0);
+            if ($leadOwnerId <= 0) {
+                $leadOwnerId = (int) ($prospection['cliente_crm_owner_id'] ?? 0);
+            }
+
+            if ($leadOwnerId !== $initiatorId) {
                 throw new RuntimeException('Somente o vendedor responsável pode converter este lead.');
             }
         }

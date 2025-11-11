@@ -41,6 +41,10 @@ class ClientesController
     {
         $pageTitle = "Gestão de Clientes";
         $filters = $this->getIndexFilters();
+        if ($this->isVendorUser()) {
+            // Garantimos que o vendedor enxergará apenas os clientes vinculados a ele via crmOwnerId.
+            $filters['ownerId'] = (int) ($_SESSION['user_id'] ?? 0);
+        }
         $clientes = $this->clienteModel->getAppClients($filters);
         require __DIR__ . '/../views/layouts/header.php';
         require __DIR__ . '/../views/clientes/lista.php';

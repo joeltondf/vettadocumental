@@ -415,6 +415,17 @@ class Cliente
             $params[':tipo_servico'] = $tipoServico;
         }
 
+        if (array_key_exists('ownerId', $filters)) {
+            $ownerId = (int) $filters['ownerId'];
+            if ($ownerId > 0) {
+                $whereClauses[] = 'crmOwnerId = :ownerId';
+                $params[':ownerId'] = $ownerId;
+            } else {
+                // Quando não há proprietário válido, evitamos retornar registros não permitidos ao vendedor.
+                $whereClauses[] = '1 = 0';
+            }
+        }
+
         $sql = 'SELECT * FROM clientes';
         if (!empty($whereClauses)) {
             $sql .= ' WHERE ' . implode(' AND ', $whereClauses);
