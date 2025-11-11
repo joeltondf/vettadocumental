@@ -124,6 +124,7 @@ class VendedorDashboardController
         $prospeccoesPorStatus = $prospeccaoModel->getProspeccoesCountByStatus($userId);
         $proximosAgendamentos = $prospeccaoModel->getProximosAgendamentos($userId, 5);
         $nextLead = $prospeccaoModel->getNextLeadForVendor($userId);
+        $vendorLeads = $prospeccaoModel->getVendorLeads($userId);
         $labels_funil = json_encode(array_keys($prospeccoesPorStatus));
         $valores_funil = json_encode(array_values($prospeccoesPorStatus));
         

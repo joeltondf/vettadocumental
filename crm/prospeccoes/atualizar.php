@@ -156,7 +156,7 @@ try {
 
     } elseif ($action === 'update_prospect') {
 
-        $allowedLeadCategories = ['Entrada', 'Qualificado', 'Com Orçamento', 'Em Negociação', 'Cliente Ativo', 'Sem Interesse'];
+        $allowedLeadCategories = ['Entrada', 'Qualificado', 'Qualificação', 'Com Orçamento', 'Em Negociação', 'Cliente Ativo', 'Sem Interesse', 'Perdido'];
         $leadCategory = $_POST['lead_category'] ?? 'Entrada';
         if (!in_array($leadCategory, $allowedLeadCategories, true)) {
             $leadCategory = 'Entrada';

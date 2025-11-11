@@ -86,7 +86,8 @@ class QualificacaoController
         $this->pdo->beginTransaction();
 
         try {
-            $this->prospectionModel->saveQualification($prospeccaoId, $qualificationPayload);
+            $qualificationResult = $this->prospectionModel->qualifyLead($prospeccaoId, $qualificationPayload);
+            $qualificationScore = (int) ($qualificationResult['score'] ?? 0);
 
             if ($decision === 'qualificado') {
                 $distribution = $this->leadDistributor->distributeToNextSalesperson(
@@ -110,16 +111,13 @@ class QualificacaoController
                 $meetingNotes = trim($_POST['meeting_notes'] ?? '');
                 $meetingDateTime = $this->buildDateTime($meetingDate, $meetingTime);
 
-                $this->prospectionModel->updateLeadStatus($prospeccaoId, 'Qualificado');
                 if ($meetingDateTime instanceof \DateTimeImmutable) {
                     $this->createMeeting($lead, $vendorId, $meetingTitle, $meetingDateTime, $meetingLink, $meetingNotes);
                 }
-            } else {
-                $this->prospectionModel->updateResponsavelAndStatus($prospeccaoId, null, 'Descartado');
             }
 
             $this->pdo->commit();
-            $_SESSION['success_message'] = 'Qualificação registrada com sucesso.';
+            $_SESSION['success_message'] = sprintf('Qualificação registrada com sucesso. Pontuação: %d.', $qualificationScore);
             header('Location: ' . APP_URL . '/sdr_dashboard.php');
             exit();
         } catch (\Throwable $exception) {

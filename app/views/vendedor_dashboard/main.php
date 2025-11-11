@@ -108,6 +108,7 @@ if (!function_exists('seller_format_date_br')) {
 $selectedStatusInfo = seller_normalize_status_info($filters['status'] ?? '');
 $selectedStatusNormalized = $selectedStatusInfo['normalized'];
 $nextLead = $nextLead ?? null;
+$vendorLeads = $vendorLeads ?? [];
 ?>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
@@ -140,6 +141,9 @@ $nextLead = $nextLead ?? null;
                     <h3 class="text-xl font-bold text-gray-800"><?php echo htmlspecialchars($nextLead['nome_prospecto'] ?? 'Lead'); ?></h3>
                     <p class="text-sm text-gray-500 mt-1">Cliente: <?php echo htmlspecialchars($nextLead['nome_cliente'] ?? 'Não informado'); ?></p>
                     <p class="text-xs text-gray-400 mt-1">Distribuído em <?php echo !empty($nextLead['distributed_at']) ? date('d/m/Y H:i', strtotime($nextLead['distributed_at'])) : '--'; ?></p>
+                    <div class="mt-2 inline-flex items-center gap-2 bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-semibold">
+                        Pontuação: <?php echo (int) ($nextLead['qualification_score'] ?? 0); ?>
+                    </div>
                 </div>
                 <div class="flex items-center gap-2">
                     <a href="<?php echo $baseAppUrl; ?>/crm/prospeccoes/detalhes.php?id=<?php echo (int) ($nextLead['id'] ?? 0); ?>" class="px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-colors text-sm">Abrir lead</a>
@@ -148,6 +152,62 @@ $nextLead = $nextLead ?? null;
             </div>
         <?php else: ?>
             <p class="text-sm text-gray-500">Nenhum lead pendente para atendimento imediato.</p>
+        <?php endif; ?>
+    </div>
+</div>
+
+<div class="mb-8">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
+        <h2 class="text-lg font-semibold text-gray-700">Leads em acompanhamento</h2>
+        <?php if (!empty($vendorLeads)): ?>
+            <button type="button" class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800" data-sort-vendor-score>
+                Ordenar por pontuação
+                <i class="fas fa-sort-amount-down-alt text-xs"></i>
+            </button>
+        <?php endif; ?>
+    </div>
+    <div class="bg-white p-5 rounded-lg shadow-md border border-gray-200">
+        <?php if (empty($vendorLeads)): ?>
+            <p class="text-sm text-gray-500 text-center py-6">Nenhum lead atribuído para você no momento.</p>
+        <?php else: ?>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 text-sm" id="vendor-leads-table">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Lead</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-4 py-3 text-center font-medium text-gray-500 uppercase tracking-wider">Pontuação</th>
+                            <th class="px-4 py-3 text-right font-medium text-gray-500 uppercase tracking-wider">Atualização</th>
+                            <th class="px-4 py-3 text-center font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <?php foreach ($vendorLeads as $leadRow): ?>
+                            <?php
+                                $vendorLeadScore = (int) ($leadRow['qualification_score'] ?? 0);
+                                $vendorLeadUpdated = isset($leadRow['data_ultima_atualizacao'])
+                                    ? date('d/m/Y H:i', strtotime($leadRow['data_ultima_atualizacao']))
+                                    : '--';
+                            ?>
+                            <tr data-lead-row data-score="<?php echo $vendorLeadScore; ?>">
+                                <td class="px-4 py-3 font-semibold text-gray-700"><?php echo htmlspecialchars($leadRow['nome_prospecto'] ?? 'Lead'); ?></td>
+                                <td class="px-4 py-3 text-gray-600"><?php echo htmlspecialchars($leadRow['nome_cliente'] ?? 'Cliente não informado'); ?></td>
+                                <td class="px-4 py-3 text-gray-600"><?php echo htmlspecialchars($leadRow['status'] ?? 'Sem status'); ?></td>
+                                <td class="px-4 py-3 text-center">
+                                    <span class="inline-flex items-center justify-center px-2 py-1 rounded-full bg-indigo-50 text-indigo-600 font-semibold"><?php echo $vendorLeadScore; ?></span>
+                                </td>
+                                <td class="px-4 py-3 text-right text-gray-600"><?php echo $vendorLeadUpdated; ?></td>
+                                <td class="px-4 py-3 text-center">
+                                    <a href="<?php echo $baseAppUrl; ?>/crm/prospeccoes/detalhes.php?id=<?php echo (int) ($leadRow['id'] ?? 0); ?>" class="inline-flex items-center px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs">
+                                        Abrir
+                                    </a>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
         <?php endif; ?>
     </div>
 </div>
@@ -400,7 +460,7 @@ $nextLead = $nextLead ?? null;
         <h3 class="text-lg font-medium leading-6 text-gray-900"><?php echo $hasFilters ? 'Resultados da Busca' : 'Meus Últimos Processos'; ?></h3>
     </div>
     <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
+        <table id="processos-table" class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
                     <th class="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase">Família</th>
@@ -528,12 +588,36 @@ $nextLead = $nextLead ?? null;
             });
         }
 
+        const vendorSortButton = document.querySelector('[data-sort-vendor-score]');
+        const vendorTableBody = document.querySelector('#vendor-leads-table tbody');
+        if (vendorSortButton && vendorTableBody) {
+            const vendorRows = Array.from(vendorTableBody.querySelectorAll('[data-lead-row]'));
+            let vendorSortDescending = true;
+
+            vendorSortButton.addEventListener('click', () => {
+                const sortedRows = vendorRows.slice().sort((a, b) => {
+                    const scoreA = parseInt(a.dataset.score ?? '0', 10);
+                    const scoreB = parseInt(b.dataset.score ?? '0', 10);
+                    return vendorSortDescending ? scoreB - scoreA : scoreA - scoreB;
+                });
+
+                sortedRows.forEach(row => vendorTableBody.appendChild(row));
+                vendorSortDescending = !vendorSortDescending;
+
+                const icon = vendorSortButton.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('fa-sort-amount-down-alt', vendorSortDescending);
+                    icon.classList.toggle('fa-sort-amount-up-alt', !vendorSortDescending);
+                }
+            });
+        }
+
         const loadMoreBtn = document.getElementById('load-more-btn');
-        const tableBody = document.querySelector('tbody');
+        const tableBody = document.querySelector('#processos-table tbody');
         let offset = <?php echo count($processos); ?>;
         const totalProcesses = <?php echo $totalProcessesCount; ?>;
 
-        if (loadMoreBtn) {
+        if (loadMoreBtn && tableBody) {
             loadMoreBtn.addEventListener('click', function () {
                 loadMoreBtn.textContent = 'Carregando...';
                 loadMoreBtn.disabled = true;
