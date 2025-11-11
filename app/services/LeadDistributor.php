@@ -284,10 +284,19 @@ class LeadDistributor
      */
     private function buildQueueFromActiveVendors(array $activeVendors): array
     {
+        $vendors = array_values($activeVendors);
+
+        usort($vendors, static function (array $left, array $right): int {
+            $leftName = mb_strtolower((string) ($left['nome_completo'] ?? ''), 'UTF-8');
+            $rightName = mb_strtolower((string) ($right['nome_completo'] ?? ''), 'UTF-8');
+
+            return $leftName <=> $rightName;
+        });
+
         $queue = [];
 
         $position = 1;
-        foreach ($activeVendors as $vendor) {
+        foreach ($vendors as $vendor) {
             $queue[] = [
                 'vendor_id' => (int) $vendor['id'],
                 'position' => $position,

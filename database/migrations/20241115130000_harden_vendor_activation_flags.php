@@ -57,11 +57,18 @@ class HardenVendorActivationFlagsMigration
 
     private function retirePlaceholderVendor(): void
     {
-        $this->pdo->exec("DELETE FROM vendedores WHERE user_id = 17 OR id = 17");
+        $placeholderId = 17;
 
-        $stmt = $this->pdo->prepare('UPDATE users SET ativo = 0 WHERE id = :id');
-        $stmt->execute(['id' => 17]);
+        $stmt = $this->pdo->prepare('UPDATE prospeccoes SET responsavel_id = NULL WHERE responsavel_id = :id');
+        $stmt->execute(['id' => $placeholderId]);
 
-        $this->pdo->exec('DELETE FROM lead_distribution_queue WHERE vendor_id = 17');
+        $stmt = $this->pdo->prepare('DELETE FROM lead_distribution_queue WHERE vendor_id = :id');
+        $stmt->execute(['id' => $placeholderId]);
+
+        $stmt = $this->pdo->prepare('DELETE FROM vendedores WHERE user_id = :id OR id = :id');
+        $stmt->execute(['id' => $placeholderId]);
+
+        $stmt = $this->pdo->prepare('DELETE FROM users WHERE id = :id');
+        $stmt->execute(['id' => $placeholderId]);
     }
 }
