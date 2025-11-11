@@ -152,12 +152,20 @@ $formatClientPhone = static function (array $cliente): string {
                                     <?php
                                         $tipoServicoCliente = trim((string) ($cliente['tipo_servico'] ?? ''));
                                         if ($tipoServicoCliente !== ''):
-                                            $badgeClasses = $tipoServicoCliente === 'Balcão'
-                                                ? 'bg-yellow-100 text-yellow-800'
+                                            $tipoServicoMinusculo = mb_strtolower($tipoServicoCliente, 'UTF-8');
+                                            $tipoServicoTransliterado = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $tipoServicoMinusculo);
+                                            $tipoServicoComparacao = $tipoServicoTransliterado !== false && $tipoServicoTransliterado !== null
+                                                ? strtolower($tipoServicoTransliterado)
+                                                : $tipoServicoMinusculo;
+
+                                            $isBalcao = $tipoServicoComparacao === 'balcao';
+                                            $tipoServicoLabel = $isBalcao ? 'Balcão' : 'Assessoria';
+                                            $badgeClasses = $isBalcao
+                                                ? 'bg-green-100 text-green-800'
                                                 : 'bg-blue-100 text-blue-800';
                                     ?>
                                         <span class="ml-3 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold <?php echo $badgeClasses; ?>">
-                                            <?php echo htmlspecialchars($tipoServicoCliente); ?>
+                                            <?php echo htmlspecialchars($tipoServicoLabel, ENT_QUOTES, 'UTF-8'); ?>
                                         </span>
                                     <?php endif; ?>
                                 </p>
