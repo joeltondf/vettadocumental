@@ -749,7 +749,7 @@ class ProcessosController
                     'nome_tradutor' => htmlspecialchars($processo['nome_tradutor'] ?? 'FATTO'),
                     'data_inicio_traducao' => isset($processo['data_inicio_traducao']) ? date('d/m/Y', strtotime($processo['data_inicio_traducao'])) : 'Pendente',
                     'traducao_modalidade' => htmlspecialchars($processo['traducao_modalidade'] ?? 'N/A'),
-                    'data_previsao_entrega_formatted' => $this->getPrazoCountdown($processo['data_previsao_entrega'] ?? null),
+                    'data_previsao_entrega_formatted' => $this->getPrazoCountdown($processo['data_previsao_entrega']),
                     'assinatura_tipo' => htmlspecialchars($processo['assinatura_tipo'] ?? 'N/A'),
                     'data_envio_assinatura' => isset($processo['data_envio_assinatura']) ? date('d/m/Y', strtotime($processo['data_envio_assinatura'])) : 'Pendente',
                     'data_devolucao_assinatura' => isset($processo['data_devolucao_assinatura']) ? date('d/m/Y', strtotime($processo['data_devolucao_assinatura'])) : 'Pendente',
@@ -759,7 +759,6 @@ class ProcessosController
                     'status_processo_classes' => $this->getStatusClasses($processo['status_processo']),
                     'prazo_pausado_em' => $processo['prazo_pausado_em'] ?? null,
                     'prazo_dias_restantes' => $processo['prazo_dias_restantes'] ?? null,
-                    'prazo_html' => $this->formatDeadlineDisplay($processo),
                 ];
                 echo json_encode(['success' => true, 'message' => 'Etapas atualizadas com sucesso!', 'updated_data' => $updated_data]);
             } else {
