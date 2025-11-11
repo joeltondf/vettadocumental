@@ -758,7 +758,7 @@ public function create($data, $files)
                     p.valor_total, p.prospeccao_id,
                     pr.id_texto AS prospeccao_codigo,
                     pr.nome_prospecto AS prospeccao_nome,
-                    p.categorias_servico, c.nome_cliente, t.nome_tradutor, p.os_numero_omie, p.os_numero_conta_azul,
+                    p.categorias_servico, c.nome_cliente, c.tipo_servico AS tipo_servico, t.nome_tradutor, p.os_numero_omie, p.os_numero_conta_azul,
                     p.data_inicio_traducao, p.data_previsao_entrega AS prazo_data, p.prazo_dias, p.traducao_modalidade, p.assinatura_tipo,
                     p.data_envio_assinatura, p.data_devolucao_assinatura, p.data_envio_cartorio,
                     v.nome_completo as nome_vendedor,

@@ -559,8 +559,30 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                                     <?php echo htmlspecialchars(mb_strtoupper(mb_strimwidth($processo['titulo'] ?? 'N/A', 0, 25, "..."))); ?>
                                 </a>
                             </td>
-                            <td class="px-3 py-0.5 whitespace-nowrap text-xs text-gray-500 truncate" title="<?php echo htmlspecialchars(mb_strtoupper($processo['nome_cliente'] ?? 'N/A')); ?>">
-                                <?php echo htmlspecialchars(mb_strtoupper(mb_strimwidth($processo['nome_cliente'] ?? 'N/A', 0, 20, "..."))); ?>
+                            <?php
+                                $clienteNomeCompleto = mb_strtoupper($processo['nome_cliente'] ?? 'N/A', 'UTF-8');
+                                $clienteNomeTruncado = mb_strtoupper(mb_strimwidth($processo['nome_cliente'] ?? 'N/A', 0, 20, '...'), 'UTF-8');
+                                $tipoServicoRaw = trim((string) ($processo['tipo_servico'] ?? ''));
+                                $tipoServicoMinusculo = mb_strtolower($tipoServicoRaw, 'UTF-8');
+                                $tipoServicoTransliterado = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $tipoServicoMinusculo);
+                                $tipoServicoComparacao = $tipoServicoTransliterado !== false && $tipoServicoTransliterado !== null
+                                    ? strtolower($tipoServicoTransliterado)
+                                    : $tipoServicoMinusculo;
+                                $isBalcao = $tipoServicoComparacao === 'balcao';
+                                $abrv = $isBalcao ? '(B)' : '(A)';
+                                $abrvClasses = $isBalcao
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-blue-100 text-blue-800';
+                            ?>
+                            <td class="px-3 py-0.5 whitespace-nowrap text-xs text-gray-500" title="<?php echo htmlspecialchars($clienteNomeCompleto); ?>">
+                                <div class="flex items-center gap-1">
+                                    <span class="truncate">
+                                        <?php echo htmlspecialchars($clienteNomeTruncado); ?>
+                                    </span>
+                                    <span class="ml-1 px-1 py-0.5 text-xs font-semibold rounded <?php echo $abrvClasses; ?>">
+                                        <?php echo htmlspecialchars($abrv, ENT_QUOTES, 'UTF-8'); ?>
+                                    </span>
+                                </div>
                             </td>
                             <td class="px-3 py-0.5 whitespace-nowrap text-xs text-gray-500 text-center">
                                 <?php echo $processo['total_documentos_soma']; ?>
@@ -1172,6 +1194,25 @@ document.addEventListener('DOMContentLoaded', () => {
                             });
                         }
 
+                        // Lógica para o tipo de serviço e abreviação do cliente
+                        const tipoServicoRaw = (processo.tipo_servico ?? '').toString().trim();
+                        const tipoServicoNormalizado = tipoServicoRaw
+                            ? (tipoServicoRaw.normalize ? tipoServicoRaw.normalize('NFD') : tipoServicoRaw)
+                                .replace(/[\u0300-\u036f]/g, '')
+                                .toLowerCase()
+                            : '';
+                        const isBalcao = tipoServicoNormalizado === 'balcao';
+                        const abrv = isBalcao ? '(B)' : '(A)';
+                        const abrvClasses = isBalcao
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-blue-100 text-blue-800';
+
+                        const clienteNomeOriginal = (processo.nome_cliente ?? 'N/A').toString();
+                        const clienteNomeMaiusculo = clienteNomeOriginal.toLocaleUpperCase('pt-BR');
+                        const clienteNomeTruncado = clienteNomeMaiusculo.length > 20
+                            ? `${clienteNomeMaiusculo.substring(0, 20)}...`
+                            : clienteNomeMaiusculo;
+
                         // Lógica para o prazo (replicada do PHP)
                         const normalizedStatus = normalizeStatus(processo.status_processo);
                         const prazoContext = computeDeadlineContext(processo, normalizedStatus);
@@ -1191,7 +1232,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         html += `
                             <tr>
                                 <td class="px-3 py-2 whitespace-nowrap text-xs font-medium"><a href="processos.php?action=view&id=${processo.id}" class="text-blue-600 hover:text-blue-800 hover:underline truncate" title="${processo.titulo ?? 'N/A'}">${(processo.titulo || 'N/A').substring(0, 25)}${(processo.titulo && processo.titulo.length > 25) ? '...' : ''}</a></td>
-                                <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500 truncate" title="${processo.nome_cliente ?? 'N/A'}">${(processo.nome_cliente || 'N/A').substring(0, 20)}${(processo.nome_cliente && processo.nome_cliente.length > 20) ? '...' : ''}</td>
+                                <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500" title="${clienteNomeMaiusculo}">
+                                    <div class="flex items-center gap-1">
+                                        <span class="truncate">${clienteNomeTruncado}</span>
+                                        <span class="ml-1 px-1 py-0.5 text-xs font-semibold rounded ${abrvClasses}">${abrv}</span>
+                                    </div>
+                                </td>
                                 <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500 text-center">${processo.total_documentos_soma}</td>
                                 <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500">${processo.os_numero_omie || 'Aguardando Omie'}</td>
                                 <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500">${servicosHtml}</td>
