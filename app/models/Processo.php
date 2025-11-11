@@ -14,6 +14,7 @@ class Processo
     private $pdo;
     private array $processColumns = [];
     private ?int $defaultVendorId = null;
+    private bool $defaultVendorLoaded = false;
 
     public function __construct($pdo)
     {
@@ -21,15 +22,31 @@ class Processo
         $this->loadProcessColumns();
     }
 
-    private function getDefaultVendorId(): ?int
+    public static function getDefaultVendorId(?PDO $connection = null): ?int
     {
-        if ($this->defaultVendorId !== null) {
-            return $this->defaultVendorId;
+        if ($connection === null) {
+            global $pdo;
+            if ($pdo instanceof PDO) {
+                $connection = $pdo;
+            }
         }
 
-        $configuracao = new Configuracao($this->pdo);
+        if (!$connection instanceof PDO) {
+            return null;
+        }
+
+        $configuracao = new Configuracao($connection);
         $value = $configuracao->get('default_vendedor_id');
-        $this->defaultVendorId = $value !== null && $value !== '' ? (int)$value : null;
+
+        return $value !== null && $value !== '' ? (int) $value : null;
+    }
+
+    private function getCachedDefaultVendorId(): ?int
+    {
+        if (!$this->defaultVendorLoaded) {
+            $this->defaultVendorId = self::getDefaultVendorId($this->pdo);
+            $this->defaultVendorLoaded = true;
+        }
 
         return $this->defaultVendorId;
     }
@@ -41,10 +58,30 @@ class Processo
     {
         $vendorId = $data['vendedor_id'] ?? $data['id_vendedor'] ?? null;
         if (empty($vendorId)) {
-            return $this->getDefaultVendorId();
+            return $this->getCachedDefaultVendorId();
         }
 
         return (int)$vendorId;
+    }
+
+    private function normalizeVendorReference(array &$row, string $vendorIdKey = 'vendedor_id', string $vendorNameKey = 'nome_vendedor'): void
+    {
+        $defaultVendorId = $this->getCachedDefaultVendorId();
+
+        $currentVendorId = $row[$vendorIdKey] ?? null;
+        if ($defaultVendorId !== null && ($currentVendorId === null || (int) $currentVendorId === 0)) {
+            $row[$vendorIdKey] = $defaultVendorId;
+            $currentVendorId = $defaultVendorId;
+        }
+
+        $vendorName = $row[$vendorNameKey] ?? null;
+        if (
+            ($defaultVendorId !== null && (int) $currentVendorId === $defaultVendorId)
+            || $vendorName === null
+            || $vendorName === ''
+        ) {
+            $row[$vendorNameKey] = 'Sistema';
+        }
     }
 	
     public function parseCurrency($value) {
@@ -388,6 +425,8 @@ public function create($data, $files)
         if (!$processo) {
             return false;
         }
+
+        $this->normalizeVendorReference($processo);
 
         // Busca os documentos associados (esta parte permanece a mesma)
         $docStmt = $this->pdo->prepare("SELECT * FROM documentos WHERE processo_id = ?");
@@ -741,7 +780,15 @@ public function create($data, $files)
                 WHERE p.status_processo NOT IN ('Cancelado', 'Recusado')
                 ORDER BY p.id DESC";
         $stmt = $this->pdo->query($sql);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rows as &$row) {
+            $this->normalizeVendorReference($row);
+        }
+
+        unset($row);
+
+        return $rows;
     }
     
     /**
@@ -753,7 +800,9 @@ public function create($data, $files)
      */
     public function getFilteredProcesses(array $filters = [], int $limit = 50, int $offset = 0): array
     {
-        $select_part = "SELECT
+    $defaultVendorId = $this->getCachedDefaultVendorId();
+
+    $select_part = "SELECT
                     p.id, p.titulo, p.status_processo, p.data_criacao, p.data_previsao_entrega,
                     p.valor_total, p.prospeccao_id,
                     pr.id_texto AS prospeccao_codigo,
@@ -810,8 +859,14 @@ public function create($data, $files)
 
     // Lógica de Filtros
     if (!empty($filters['vendedor_id'])) {
-        $where_clauses[] = "p.vendedor_id = :vendedor_id";
-        $params[':vendedor_id'] = $filters['vendedor_id'];
+        $vendorFilterValue = (int) $filters['vendedor_id'];
+        $clause = "p.vendedor_id = :vendedor_id";
+        if ($defaultVendorId !== null && $vendorFilterValue === $defaultVendorId) {
+            $clause = "(p.vendedor_id = :vendedor_id OR p.vendedor_id IS NULL)";
+        }
+
+        $where_clauses[] = $clause;
+        $params[':vendedor_id'] = $vendorFilterValue;
     }
     if (!empty($filters['status'])) {
         $statusValue = mb_strtolower($filters['status']);
@@ -892,7 +947,15 @@ public function create($data, $files)
         $stmt->bindValue(':limit', (int) $limit, PDO::PARAM_INT);
         $stmt->bindValue(':offset', (int) $offset, PDO::PARAM_INT);
         $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rows as &$row) {
+            $this->normalizeVendorReference($row);
+        }
+
+        unset($row);
+
+        return $rows;
     } catch (PDOException $e) {
         error_log("Erro ao buscar processos filtrados: " . $e->getMessage());
         return [];
@@ -1375,17 +1438,27 @@ public function create($data, $files)
 
         $processFilters = $conditions ? ' AND ' . implode(' AND ', $conditions) : '';
 
+        $defaultVendorId = $this->getCachedDefaultVendorId();
+        $defaultVendorJoin = '';
+        if ($defaultVendorId !== null) {
+            $defaultVendorJoin = ' OR (p.vendedor_id IS NULL AND v.id = :defaultVendorForJoin)';
+            $params[':defaultVendorForJoin'] = $defaultVendorId;
+        }
+
         $sql = "SELECT
                     v.id AS vendorId,
                     u.id AS userId,
-                    u.nome_completo AS vendorName,
+                    CASE
+                        WHEN :defaultVendorForName IS NOT NULL AND v.id = :defaultVendorForName THEN 'Sistema'
+                        ELSE COALESCE(u.nome_completo, 'Sistema')
+                    END AS vendorName,
                     COALESCE(v.percentual_comissao, 0) AS commissionPercent,
                     COUNT(DISTINCT p.id) AS dealsCount,
                     SUM(COALESCE(p.valor_total, 0)) AS totalSales,
                     SUM(COALESCE(comm.total_comissao_vendedor, 0)) AS totalCommission
                 FROM vendedores v
                 JOIN users u ON u.id = v.user_id
-                LEFT JOIN processos p ON p.vendedor_id = v.id$processFilters
+                LEFT JOIN processos p ON (p.vendedor_id = v.id{$defaultVendorJoin})$processFilters
                 LEFT JOIN (
                     SELECT venda_id,
                            SUM(CASE WHEN tipo_comissao = 'vendedor' THEN valor_comissao ELSE 0 END) AS total_comissao_vendedor
@@ -1396,6 +1469,7 @@ public function create($data, $files)
                 ORDER BY totalCommission DESC, vendorName ASC";
 
         $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(':defaultVendorForName', $defaultVendorId, $defaultVendorId !== null ? PDO::PARAM_INT : PDO::PARAM_NULL);
         $stmt->execute($params);
 
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -1414,6 +1488,11 @@ public function create($data, $files)
     public function getVendorBudgetsByMonth(int $vendorId, string $monthStart, string $monthEnd): array
     {
         $sdrExpression = $this->getSdrIdSelectExpression();
+        $defaultVendorId = $this->getCachedDefaultVendorId();
+        $vendorFilter = 'p.vendedor_id = :vendorId';
+        if ($defaultVendorId !== null && $vendorId === $defaultVendorId) {
+            $vendorFilter = '(p.vendedor_id = :vendorId OR p.vendedor_id IS NULL)';
+        }
 
         $sql = "SELECT
                     p.id,
@@ -1427,7 +1506,7 @@ public function create($data, $files)
                     c.nome_cliente
                 FROM processos p
                 INNER JOIN clientes c ON c.id = p.cliente_id
-                WHERE p.vendedor_id = :vendorId
+                WHERE {$vendorFilter}
                   AND p.status_processo IN ('Orçamento', 'Orçamento Pendente')
                   AND p.data_criacao BETWEEN :monthStart AND :monthEnd
                 ORDER BY p.data_criacao DESC";
@@ -1444,6 +1523,11 @@ public function create($data, $files)
     public function getVendorServicesByMonth(int $vendorId, string $monthStart, string $monthEnd): array
     {
         $sdrExpression = $this->getSdrIdSelectExpression();
+        $defaultVendorId = $this->getCachedDefaultVendorId();
+        $vendorFilter = 'p.vendedor_id = :vendorId';
+        if ($defaultVendorId !== null && $vendorId === $defaultVendorId) {
+            $vendorFilter = '(p.vendedor_id = :vendorId OR p.vendedor_id IS NULL)';
+        }
 
         $sql = "SELECT
                     p.id,
@@ -1457,7 +1541,7 @@ public function create($data, $files)
                     c.nome_cliente
                 FROM processos p
                 INNER JOIN clientes c ON c.id = p.cliente_id
-                WHERE p.vendedor_id = :vendorId
+                WHERE {$vendorFilter}
                   AND p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado', 'Concluído', 'Finalizado')
                   AND p.data_criacao BETWEEN :monthStart AND :monthEnd
                 ORDER BY p.data_criacao DESC";
@@ -1486,7 +1570,20 @@ public function create($data, $files)
             'Pendente de Documentos'
         ];
 
-        $placeholders = implode(',', array_fill(0, count($activeStatuses), '?'));
+        $statusPlaceholders = [];
+        $statusParams = [];
+        foreach ($activeStatuses as $index => $status) {
+            $placeholder = ':status' . $index;
+            $statusPlaceholders[] = $placeholder;
+            $statusParams[$placeholder] = $status;
+        }
+
+        $statusList = implode(',', $statusPlaceholders);
+
+        $vendorFilter = 'p.vendedor_id = :vendorId';
+        if ($defaultVendorId !== null && $vendorId === $defaultVendorId) {
+            $vendorFilter = '(p.vendedor_id = :vendorId OR p.vendedor_id IS NULL)';
+        }
 
         $sql = "SELECT
                     p.id,
@@ -1500,20 +1597,20 @@ public function create($data, $files)
                     c.nome_cliente
                 FROM processos p
                 INNER JOIN clientes c ON c.id = p.cliente_id
-                WHERE p.vendedor_id = ?
-                  AND p.status_processo IN ({$placeholders})
-                  AND p.data_criacao BETWEEN ? AND ?
+                WHERE {$vendorFilter}
+                  AND p.status_processo IN ({$statusList})
+                  AND p.data_criacao BETWEEN :lastMonthStart AND :lastMonthEnd
                 ORDER BY p.data_criacao DESC";
 
         $stmt = $this->pdo->prepare($sql);
 
-        $bindIndex = 1;
-        $stmt->bindValue($bindIndex++, $vendorId, PDO::PARAM_INT);
-        foreach ($activeStatuses as $status) {
-            $stmt->bindValue($bindIndex++, $status);
+        $stmt->bindValue(':vendorId', $vendorId, PDO::PARAM_INT);
+        $stmt->bindValue(':lastMonthStart', $lastMonthStart);
+        $stmt->bindValue(':lastMonthEnd', $lastMonthEnd);
+
+        foreach ($statusParams as $placeholder => $value) {
+            $stmt->bindValue($placeholder, $value, PDO::PARAM_STR);
         }
-        $stmt->bindValue($bindIndex++, $lastMonthStart);
-        $stmt->bindValue($bindIndex, $lastMonthEnd);
 
         $stmt->execute();
 
@@ -1954,7 +2051,19 @@ public function create($data, $files)
                 ORDER BY u.nome_completo";
         try {
             $stmt = $this->pdo->query($sql);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $defaultVendorId = $this->getCachedDefaultVendorId();
+            if ($defaultVendorId !== null) {
+                foreach ($rows as &$row) {
+                    if ((int) ($row['id'] ?? 0) === $defaultVendorId) {
+                        $row['nome_vendedor'] = 'Sistema';
+                    }
+                }
+                unset($row);
+            }
+
+            return $rows;
         } catch (PDOException $e) {
             error_log("Erro ao buscar todos os vendedores: " . $e->getMessage());
             return [];
@@ -2237,31 +2346,40 @@ public function create($data, $files)
         }
 }
         public function getSalesByFilter($filters) {
-            // A consulta principal une processos com vendedores e soma os documentos de cada processo
-            $sql = "SELECT 
+            $defaultVendorId = $this->getCachedDefaultVendorId();
+
+            $sql = "SELECT
                         p.id,
+                        p.vendedor_id,
                         p.titulo,
                         p.data_criacao,
                         p.valor_total,
                         p.status_processo,
                         u.nome_completo AS nome_vendedor,
                         c.nome_cliente,
-                        (SELECT SUM(d.quantidade) FROM documentos d WHERE d.processo_id = p.id) as total_documentos
+                        (SELECT SUM(d.quantidade) FROM documentos d WHERE d.processo_id = p.id) AS total_documentos
                     FROM processos p
-                    JOIN vendedores v ON p.vendedor_id = v.id
-                    JOIN users u ON v.user_id = u.id
+                    LEFT JOIN vendedores v ON p.vendedor_id = v.id
+                    LEFT JOIN users u ON v.user_id = u.id
                     JOIN clientes c ON p.cliente_id = c.id
-                    WHERE p.valor_total > 0 
-                      AND p.vendedor_id IS NOT NULL
-                      AND p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Finalizado')"; // Apenas status que contam como venda
-        
+                    WHERE p.valor_total > 0
+                      AND p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Finalizado')";
+
             $params = [];
-        
-            // Aplica os filtros
+
             if (!empty($filters['vendedor_id'])) {
-                $sql .= " AND p.vendedor_id = :vendedor_id";
-                $params[':vendedor_id'] = $filters['vendedor_id'];
+                $vendorFilterValue = (int) $filters['vendedor_id'];
+                if ($defaultVendorId !== null && $vendorFilterValue === $defaultVendorId) {
+                    $sql .= " AND (p.vendedor_id = :vendedor_id OR p.vendedor_id IS NULL)";
+                } else {
+                    $sql .= " AND p.vendedor_id = :vendedor_id";
+                }
+                $params[':vendedor_id'] = $vendorFilterValue;
+            } elseif ($defaultVendorId !== null) {
+                $sql .= ' AND (p.vendedor_id IS NOT NULL OR :defaultVendorIdFilter IS NOT NULL)';
+                $params[':defaultVendorIdFilter'] = $defaultVendorId;
             }
+
             if (!empty($filters['data_inicio'])) {
                 $sql .= " AND p.data_criacao >= :data_inicio";
                 $params[':data_inicio'] = $filters['data_inicio'] . ' 00:00:00';
@@ -2270,12 +2388,19 @@ public function create($data, $files)
                 $sql .= " AND p.data_criacao <= :data_fim";
                 $params[':data_fim'] = $filters['data_fim'] . ' 23:59:59';
             }
-        
+
             $sql .= " ORDER BY p.data_criacao DESC";
-            
+
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute($params);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($rows as &$row) {
+                $this->normalizeVendorReference($row);
+            }
+            unset($row);
+
+            return $rows;
         }
         
 /**

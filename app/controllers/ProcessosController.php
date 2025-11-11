@@ -3278,13 +3278,19 @@ class ProcessosController
 
     private function extractVendorName(array $vendedor, ?string $fallback = null): string
     {
+        $defaultVendorId = $this->getDefaultVendorId();
+
+        if ($defaultVendorId !== null && (int) ($vendedor['id'] ?? 0) === $defaultVendorId) {
+            return 'Sistema';
+        }
+
         foreach (['nome_vendedor', 'nome_completo', 'nome'] as $campoNome) {
             if (!empty($vendedor[$campoNome])) {
                 return (string) $vendedor[$campoNome];
             }
         }
 
-        return $fallback ?? '';
+        return $fallback ?? ($defaultVendorId !== null ? 'Sistema' : '');
     }
 
     private function normalizeVendorId($value): ?int
