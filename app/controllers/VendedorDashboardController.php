@@ -4,7 +4,8 @@
 require_once __DIR__ . '/../models/Processo.php';
 require_once __DIR__ . '/../models/Vendedor.php';
 require_once __DIR__ . '/../models/Cliente.php';
-require_once __DIR__ . '/../models/Prospeccao.php'; 
+require_once __DIR__ . '/../models/Prospeccao.php';
+require_once __DIR__ . '/../models/Comissao.php';
 
 class VendedorDashboardController
 {
@@ -22,6 +23,7 @@ class VendedorDashboardController
         $vendedorModel = new Vendedor($this->pdo);
         $clienteModel = new Cliente($this->pdo);
         $prospeccaoModel = new Prospeccao($this->pdo);
+        $comissaoModel = new Comissao($this->pdo);
 
         // 2. Pega os dados do vendedor logado
         $userPerfil = $_SESSION['user_perfil'] ?? '';
@@ -41,6 +43,36 @@ class VendedorDashboardController
             $vendedorId        = $vendedor['id'];
             $percentualComissao = $vendedor['percentual_comissao'];
         }
+
+        $timezone = new DateTimeZone('America/Sao_Paulo');
+        $now = new DateTime('now', $timezone);
+        $currentMonthStart = (clone $now)->modify('first day of this month')->setTime(0, 0, 0);
+        $currentMonthEnd = (clone $currentMonthStart)->modify('last day of this month')->setTime(23, 59, 59);
+        $lastMonthStart = (clone $currentMonthStart)->modify('-1 month');
+        $lastMonthEnd = (clone $currentMonthStart)->modify('-1 second');
+
+        $monthStartStr = $currentMonthStart->format('Y-m-d H:i:s');
+        $monthEndStr = $currentMonthEnd->format('Y-m-d H:i:s');
+        $lastMonthStartStr = $lastMonthStart->format('Y-m-d H:i:s');
+        $lastMonthEndStr = $lastMonthEnd->format('Y-m-d H:i:s');
+
+        $orcamentosMesAtual = $processoModel->getVendorBudgetsByMonth($vendedorId, $monthStartStr, $monthEndStr);
+        $servicosMesAtual = $processoModel->getVendorServicesByMonth($vendedorId, $monthStartStr, $monthEndStr);
+        $servicosAtivosMesAnterior = $processoModel->getVendorActiveServicesFromLastMonth($vendedorId, $lastMonthStartStr, $lastMonthEndStr);
+
+        foreach ($servicosMesAtual as &$processoAtual) {
+            $processoAtual['comissaoVendedor'] = $comissaoModel->getCommissionByProcessAndUser((int)($processoAtual['id'] ?? 0), $vendedorId);
+            $sdrId = isset($processoAtual['sdr_id']) ? (int)$processoAtual['sdr_id'] : null;
+            $processoAtual['comissaoSdr'] = $sdrId ? $comissaoModel->getCommissionByProcessAndUser((int)$processoAtual['id'], $sdrId) : 0.0;
+        }
+        unset($processoAtual);
+
+        foreach ($servicosAtivosMesAnterior as &$processoAnterior) {
+            $processoAnterior['comissaoVendedor'] = $comissaoModel->getCommissionByProcessAndUser((int)($processoAnterior['id'] ?? 0), $vendedorId);
+            $sdrId = isset($processoAnterior['sdr_id']) ? (int)$processoAnterior['sdr_id'] : null;
+            $processoAnterior['comissaoSdr'] = $sdrId ? $comissaoModel->getCommissionByProcessAndUser((int)$processoAnterior['id'], $sdrId) : 0.0;
+        }
+        unset($processoAnterior);
 
 
         // 3. Busca de dados de Processos (Vendas)
