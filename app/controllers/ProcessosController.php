@@ -741,24 +741,9 @@ class ProcessosController
             $payload['prazo_dias'] = $prazoDias;
             $payload['traducao_prazo_dias'] = $prazoDias;
 
-            $predictedDeadline = $this->calculateTranslationDeadline(
-                $payload['data_inicio_traducao'],
-                $prazoDias
-            );
-
-            $payload['traducao_prazo_tipo'] = $prazoDias !== null ? 'dias' : null;
-            $payload['traducao_prazo_data'] = $predictedDeadline;
-
             if ($this->processoModel->updateEtapas($id, $payload)) {
                 $processoData = $this->processoModel->getById($id);
                 $processo = $processoData['processo'];
-
-                $translationDeadline = $this->resolveTranslationDeadline(
-                    $processo['traducao_prazo_data'] ?? null,
-                    $predictedDeadline
-                );
-
-                $translationDeadlineHtml = $this->formatTranslationDeadlineResponse($translationDeadline);
 
                 $updated_data = [
                     'nome_tradutor' => htmlspecialchars($processo['nome_tradutor'] ?? 'FATTO'),
@@ -774,13 +759,8 @@ class ProcessosController
                     'status_processo_classes' => $this->getStatusClasses($processo['status_processo']),
                     'prazo_pausado_em' => $processo['prazo_pausado_em'] ?? null,
                     'prazo_dias_restantes' => $processo['prazo_dias_restantes'] ?? null,
-                    'traducao_prazo_data_formatted' => $translationDeadlineHtml,
-                    'prazo_dias' => '<span id="display-traducao_prazo_data_formatted">' . $translationDeadlineHtml . '</span>',
                 ];
-                echo json_encode(
-                    ['success' => true, 'message' => 'Etapas atualizadas com sucesso!', 'updated_data' => $updated_data],
-                    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-                );
+                echo json_encode(['success' => true, 'message' => 'Etapas atualizadas com sucesso!', 'updated_data' => $updated_data]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'Erro ao atualizar as etapas.']);
             }
@@ -3153,47 +3133,6 @@ class ProcessosController
         } catch (Exception $e) {
             return '<span class="text-gray-500">Data inválida</span>';
         }
-    }
-
-    private function formatTranslationDeadlineResponse(?string $deadline): string
-    {
-        if (empty($deadline)) {
-            return $this->getPrazoCountdown(null);
-        }
-
-        $countdown = $this->getPrazoCountdown($deadline);
-
-        try {
-            $deadlineDate = new DateTime($deadline);
-            $formattedDate = $deadlineDate->format('d/m/Y');
-            return $countdown . '<br><span class="text-gray-500">Data prevista: ' . $formattedDate . '</span>';
-        } catch (Throwable $exception) {
-            return $countdown;
-        }
-    }
-
-    private function calculateTranslationDeadline(?string $startDate, ?int $prazoDias): ?string
-    {
-        if (empty($startDate) || $prazoDias === null) {
-            return null;
-        }
-
-        try {
-            $date = new DateTime($startDate);
-            $date->modify('+' . $prazoDias . ' days');
-            return $date->format('Y-m-d');
-        } catch (Throwable $exception) {
-            return null;
-        }
-    }
-
-    private function resolveTranslationDeadline(?string $storedDeadline, ?string $freshDeadline): ?string
-    {
-        if (!empty($storedDeadline)) {
-            return $storedDeadline;
-        }
-
-        return $freshDeadline ?: null;
     }
 
     /**
