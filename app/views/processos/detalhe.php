@@ -124,6 +124,42 @@ if (!function_exists('format_prazo_countdown')) {
     }
 }
 
+if (!function_exists('render_translation_deadline_html')) {
+    function render_translation_deadline_html(array $processo): string
+    {
+        $rawDate = $processo['traducao_prazo_data']
+            ?? $processo['data_previsao_entrega']
+            ?? null;
+
+        if (empty($rawDate)) {
+            return '<span class="text-gray-500">Não definido</span>';
+        }
+
+        try {
+            $deadline = new DateTimeImmutable((string) $rawDate);
+        } catch (Throwable $exception) {
+            return '<span class="text-gray-500">Data inválida</span>';
+        }
+
+        $deadline = $deadline->setTime(0, 0, 0);
+        $today = (new DateTimeImmutable('today'))->setTime(0, 0, 0);
+
+        if ($deadline < $today) {
+            $diff = $today->diff($deadline);
+            $countdown = '<span class="font-bold text-red-500">Atrasado há ' . $diff->days . ' dia(s)</span>';
+        } elseif ($deadline == $today) {
+            $countdown = '<span class="font-bold text-blue-500">Entrega hoje</span>';
+        } else {
+            $diff = $today->diff($deadline);
+            $countdown = '<span class="font-bold text-green-600">Faltam ' . $diff->days . ' dia(s)</span>';
+        }
+
+        $formattedDate = $deadline->format('d/m/Y');
+
+        return $countdown . '<br><span class="text-gray-500">Data prevista: ' . $formattedDate . '</span>';
+    }
+}
+
 function normalize_status_info(?string $status): array {
     $normalized = mb_strtolower(trim((string)$status));
 
@@ -423,9 +459,9 @@ $prospectionLabel = $prospectionCode !== ''
                 <div class="md:col-span-2">
                     <p class="font-medium text-gray-500">Prazo do Serviço</p>
                     <p class="text-gray-800" id="display-prazo_dias">
-                        <?php
-                            echo format_prazo_countdown($processo, $statusNormalized);
-                        ?>
+                        <span id="display-traducao_prazo_data_formatted">
+                            <?php echo render_translation_deadline_html($processo); ?>
+                        </span>
                     </p>
                 </div>
 
