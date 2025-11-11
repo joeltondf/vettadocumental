@@ -131,6 +131,21 @@ class Processo
         return "GREATEST(COALESCE(p.valor_total, 0) - {$valorRecebido}, 0)";
     }
 
+    private function getSdrIdSelectExpression(): string
+    {
+        $this->loadProcessColumns();
+
+        if ($this->hasProcessColumn('sdr_id')) {
+            return 'p.sdr_id';
+        }
+
+        if ($this->hasProcessColumn('sdrId')) {
+            return 'p.sdrId';
+        }
+
+        return 'NULL';
+    }
+
     private function getStatusFinanceiroSelectExpression(): string
     {
         if ($this->hasProcessColumn('status_financeiro')) {
@@ -1384,6 +1399,115 @@ public function create($data, $files)
         unset($row);
 
         return $rows;
+    }
+
+    public function getVendorBudgetsByMonth(int $vendorId, string $monthStart, string $monthEnd): array
+    {
+        $sdrExpression = $this->getSdrIdSelectExpression();
+
+        $sql = "SELECT
+                    p.id,
+                    p.orcamento_numero,
+                    p.titulo,
+                    p.categorias_servico,
+                    p.status_processo,
+                    p.data_criacao,
+                    p.valor_total,
+                    {$sdrExpression} AS sdr_id,
+                    c.nome_cliente
+                FROM processos p
+                INNER JOIN clientes c ON c.id = p.cliente_id
+                WHERE p.vendedor_id = :vendorId
+                  AND p.status_processo IN ('Orçamento', 'Orçamento Pendente')
+                  AND p.data_criacao BETWEEN :monthStart AND :monthEnd
+                ORDER BY p.data_criacao DESC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(':vendorId', $vendorId, PDO::PARAM_INT);
+        $stmt->bindValue(':monthStart', $monthStart);
+        $stmt->bindValue(':monthEnd', $monthEnd);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function getVendorServicesByMonth(int $vendorId, string $monthStart, string $monthEnd): array
+    {
+        $sdrExpression = $this->getSdrIdSelectExpression();
+
+        $sql = "SELECT
+                    p.id,
+                    p.orcamento_numero,
+                    p.titulo,
+                    p.categorias_servico,
+                    p.status_processo,
+                    p.data_criacao,
+                    p.valor_total,
+                    {$sdrExpression} AS sdr_id,
+                    c.nome_cliente
+                FROM processos p
+                INNER JOIN clientes c ON c.id = p.cliente_id
+                WHERE p.vendedor_id = :vendorId
+                  AND p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado', 'Concluído', 'Finalizado')
+                  AND p.data_criacao BETWEEN :monthStart AND :monthEnd
+                ORDER BY p.data_criacao DESC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(':vendorId', $vendorId, PDO::PARAM_INT);
+        $stmt->bindValue(':monthStart', $monthStart);
+        $stmt->bindValue(':monthEnd', $monthEnd);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function getVendorActiveServicesFromLastMonth(int $vendorId, string $lastMonthStart, string $lastMonthEnd): array
+    {
+        $sdrExpression = $this->getSdrIdSelectExpression();
+
+        $activeStatuses = [
+            'Serviço Pendente',
+            'Serviço pendente',
+            'Serviço em Andamento',
+            'Serviço em andamento',
+            'Pendente de pagamento',
+            'Pendente de Pagamento',
+            'Pendente de documentos',
+            'Pendente de Documentos'
+        ];
+
+        $placeholders = implode(',', array_fill(0, count($activeStatuses), '?'));
+
+        $sql = "SELECT
+                    p.id,
+                    p.orcamento_numero,
+                    p.titulo,
+                    p.categorias_servico,
+                    p.status_processo,
+                    p.data_criacao,
+                    p.valor_total,
+                    {$sdrExpression} AS sdr_id,
+                    c.nome_cliente
+                FROM processos p
+                INNER JOIN clientes c ON c.id = p.cliente_id
+                WHERE p.vendedor_id = ?
+                  AND p.status_processo IN ({$placeholders})
+                  AND p.data_criacao BETWEEN ? AND ?
+                ORDER BY p.data_criacao DESC";
+
+        $stmt = $this->pdo->prepare($sql);
+
+        $bindIndex = 1;
+        $stmt->bindValue($bindIndex++, $vendorId, PDO::PARAM_INT);
+        foreach ($activeStatuses as $status) {
+            $stmt->bindValue($bindIndex++, $status);
+        }
+        $stmt->bindValue($bindIndex++, $lastMonthStart);
+        $stmt->bindValue($bindIndex, $lastMonthEnd);
+
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
     public function getAggregatedFinancialTotals(string $startDate, string $endDate, array $filters = [], string $groupBy = 'month'): array

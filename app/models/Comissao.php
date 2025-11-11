@@ -99,6 +99,26 @@ class Comissao
         }
     }
 
+    public function getCommissionByProcessAndUser(int $processId, ?int $userId): float
+    {
+        if (empty($userId)) {
+            return 0.0;
+        }
+
+        $sql = "SELECT COALESCE(SUM(valor_comissao), 0) AS total
+                FROM comissoes
+                WHERE venda_id = :processId AND vendedor_id = :userId";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(':processId', $processId, PDO::PARAM_INT);
+        $stmt->bindValue(':userId', $userId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        $total = $stmt->fetchColumn();
+
+        return (float) ($total !== false ? $total : 0);
+    }
+
     private function fetchCommissionPercentages(): array
     {
         $defaults = [
