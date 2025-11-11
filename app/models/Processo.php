@@ -1757,7 +1757,6 @@ public function create($data, $files)
         // Lista de todas as colunas que esta função tem permissão para atualizar.
         $allowed_fields = [
             'status_processo', 'tradutor_id', 'data_inicio_traducao', 'traducao_modalidade',
-            'traducao_prazo_tipo', 'traducao_prazo_data',
             'prazo_dias', 'traducao_prazo_dias', 'data_previsao_entrega',
             'assinatura_tipo', 'data_envio_assinatura', 'data_devolucao_assinatura',
             'finalizacao_tipo', 'data_envio_cartorio', 'os_numero_conta_azul', 'os_numero_omie',
