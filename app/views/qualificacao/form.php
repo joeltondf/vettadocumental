@@ -10,7 +10,8 @@ $notesValue = $lead['qualification_notes'] ?? '';
 $decisionValue = mb_strtolower((string) ($lead['qualification_decision'] ?? ''), 'UTF-8');
 $qualificationScore = (int) ($lead['qualification_score'] ?? 0);
 $qualificationDate = $lead['qualification_date'] ?? null;
-$hasActiveVendor = !empty($nextVendor);
+$hasActiveVendors = isset($hasActiveVendors) ? (bool) $hasActiveVendors : !empty($nextVendor);
+$hasQueuedVendor = !empty($nextVendor);
 ?>
 
 <div class="flex items-center justify-between mb-6">
@@ -28,7 +29,7 @@ $hasActiveVendor = !empty($nextVendor);
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
     <div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-md border border-gray-200">
         <form action="<?php echo $actionUrl; ?>" method="POST" id="qualification-form" class="space-y-6">
-            <?php if (!$hasActiveVendor): ?>
+            <?php if (!$hasActiveVendors): ?>
                 <div class="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
                     Nenhum vendedor ativo está disponível no momento. Finalize a qualificação e aguarde a redistribuição manual ou automática.
                 </div>
@@ -113,7 +114,7 @@ $hasActiveVendor = !empty($nextVendor);
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="md:col-span-2 space-y-3">
                         <p class="text-sm font-medium text-gray-700">Próximo vendedor na fila</p>
-                        <?php if ($hasActiveVendor && !empty($nextVendor)): ?>
+                        <?php if ($hasQueuedVendor && !empty($nextVendor)): ?>
                             <div class="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-3" data-vendor-card data-vendor-id="<?php echo (int) $nextVendor['vendorId']; ?>">
                                 <div>
                                     <p class="text-sm text-blue-700">Vendedor</p>
@@ -124,6 +125,10 @@ $hasActiveVendor = !empty($nextVendor);
                                 </div>
                                 <i class="fas fa-sync-alt text-blue-500 text-xl"></i>
                             </div>
+                        <?php elseif ($hasActiveVendors): ?>
+                            <div id="vendor-warning" class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                                Nenhum vendedor estava posicionado na fila, mas o primeiro vendedor ativo receberá o lead quando você finalizar a qualificação.
+                            </div>
                         <?php else: ?>
                             <div id="vendor-warning" class="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
                                 Não há vendedores ativos no momento. Você pode finalizar a qualificação e a atribuição será feita manualmente.
@@ -133,23 +138,23 @@ $hasActiveVendor = !empty($nextVendor);
                     </div>
                     <div>
                         <label for="meeting_title" class="block text-sm font-medium text-gray-700 mb-1">Título da reunião</label>
-                        <input type="text" name="meeting_title" id="meeting_title" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" value="Reunião de Qualificação" data-meeting-field <?php echo $hasActiveVendor ? '' : 'disabled'; ?>>
+                        <input type="text" name="meeting_title" id="meeting_title" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" value="Reunião de Qualificação" data-meeting-field <?php echo $hasActiveVendors ? '' : 'disabled'; ?>>
                     </div>
                     <div>
                         <label for="meeting_date" class="block text-sm font-medium text-gray-700 mb-1">Data</label>
-                        <input type="date" name="meeting_date" id="meeting_date" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" data-meeting-field <?php echo $hasActiveVendor ? '' : 'disabled'; ?>>
+                        <input type="date" name="meeting_date" id="meeting_date" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" data-meeting-field <?php echo $hasActiveVendors ? '' : 'disabled'; ?>>
                     </div>
                     <div>
                         <label for="meeting_time" class="block text-sm font-medium text-gray-700 mb-1">Hora</label>
-                        <input type="time" name="meeting_time" id="meeting_time" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" data-meeting-field <?php echo $hasActiveVendor ? '' : 'disabled'; ?>>
+                        <input type="time" name="meeting_time" id="meeting_time" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" data-meeting-field <?php echo $hasActiveVendors ? '' : 'disabled'; ?>>
                     </div>
                     <div>
                         <label for="meeting_link" class="block text-sm font-medium text-gray-700 mb-1">Link / Local</label>
-                        <input type="text" name="meeting_link" id="meeting_link" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" placeholder="URL ou endereço da reunião" data-meeting-field <?php echo $hasActiveVendor ? '' : 'disabled'; ?>>
+                        <input type="text" name="meeting_link" id="meeting_link" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" placeholder="URL ou endereço da reunião" data-meeting-field <?php echo $hasActiveVendors ? '' : 'disabled'; ?>>
                     </div>
                     <div>
                         <label for="meeting_notes" class="block text-sm font-medium text-gray-700 mb-1">Notas internas</label>
-                        <textarea name="meeting_notes" id="meeting_notes" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Compartilhe detalhes relevantes para o vendedor." data-meeting-field <?php echo $hasActiveVendor ? '' : 'disabled'; ?>></textarea>
+                        <textarea name="meeting_notes" id="meeting_notes" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Compartilhe detalhes relevantes para o vendedor." data-meeting-field <?php echo $hasActiveVendors ? '' : 'disabled'; ?>></textarea>
                     </div>
                 </div>
                 <p class="text-xs text-gray-500 mt-2">Informe data e hora para gerar o agendamento automaticamente.</p>

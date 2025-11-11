@@ -59,12 +59,15 @@ class Vendedor
         $this->pdo->beginTransaction();
 
         try {
+            $ativo = isset($data['ativo']) ? (int) $data['ativo'] : 1;
+            $ativo = $ativo === 1 ? 1 : 0;
+
             $userId = $this->userModel->create(
                 $data['nome_completo'],
                 $data['email'],
                 $data['senha'],
                 'vendedor',
-                $data['ativo'] ?? 1
+                $ativo
             );
 
             if (!$userId) {
@@ -81,7 +84,7 @@ class Vendedor
                 ':user_id' => $userId,
                 ':percentual_comissao' => $data['percentual_comissao'] ?? 0,
                 ':data_contratacao' => !empty($data['data_contratacao']) ? $data['data_contratacao'] : null,
-                ':ativo' => $data['ativo'] ?? 1
+                ':ativo' => $ativo
             ]);
 
             $this->pdo->commit();

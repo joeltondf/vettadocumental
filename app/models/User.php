@@ -30,17 +30,20 @@ class User
      * @param string $email O email do utilizador (usado para login).
      * @param string $senha A senha em texto plano (será hasheada antes de salvar).
      * @param string $perfil O perfil de acesso do utilizador (ex: 'admin', 'vendedor').
+     * @param int $ativo Flag de ativo (1 = ativo, 0 = inativo). Para vendedores, o padrão é manter 1.
      * @return string|false Retorna o ID do novo utilizador em caso de sucesso, ou 'false' em caso de erro.
-     */
-    public function create(string $nome_completo, string $email, string $senha, string $perfil)
+    */
+    public function create(string $nome_completo, string $email, string $senha, string $perfil, int $ativo = 1)
     {
         // Gera o hash da senha para armazenamento seguro.
         $senhaHash = password_hash($senha, PASSWORD_DEFAULT);
-        $sql = "INSERT INTO users (nome_completo, email, senha, perfil) VALUES (?, ?, ?, ?)";
+        $sql = "INSERT INTO users (nome_completo, email, senha, perfil, ativo) VALUES (?, ?, ?, ?, ?)";
         $stmt = $this->pdo->prepare($sql);
-        
+
         try {
-            if ($stmt->execute([$nome_completo, $email, $senhaHash, $perfil])) {
+            $ativoFlag = $ativo === 1 ? 1 : 0;
+
+            if ($stmt->execute([$nome_completo, $email, $senhaHash, $perfil, $ativoFlag])) {
                 return $this->pdo->lastInsertId();
             }
             return false;
@@ -172,8 +175,12 @@ class User
         $sql = "SELECT id, nome_completo
                 FROM users
                 WHERE perfil = 'vendedor'
-                  AND ativo = 1
+                  AND (ativo = 1 OR ativo IS NULL)
                 ORDER BY nome_completo ASC";
+
+        // Nota: historicamente alguns vendedores foram criados com o campo `ativo` = NULL.
+        // Esse valor deve ser interpretado como ativo para manter a compatibilidade
+        // com registros legados, por isso a consulta aceita NULL como indicador de atividade.
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute();
@@ -187,7 +194,7 @@ class User
                 FROM users
                 WHERE id = :id
                   AND perfil = 'vendedor'
-                  AND ativo = 1";
+                  AND (ativo = 1 OR ativo IS NULL)";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->bindValue(':id', $vendorId, PDO::PARAM_INT);
