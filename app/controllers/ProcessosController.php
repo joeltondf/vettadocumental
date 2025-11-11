@@ -33,11 +33,6 @@ class ProcessosController
     private const SESSION_KEY_PROCESS_FORM = 'process_form_data';
     private const SESSION_KEY_SERVICO_FORM = 'servico_rapido_form_data';
     private const SESSION_KEY_CLIENT_FORM = 'cliente_form_data';
-    /**
-     * Identificador do usuário institucional da empresa (Vetta).
-     * Este registro permanece no sistema apenas como representante jurídico e não deve assumir fluxos regulares de vendas.
-     */
-    private const COMPANY_VENDOR_ID = 17;
     private const MISSING_VENDOR_MESSAGE = 'Selecione um vendedor responsável antes de enviar o orçamento.';
 
     private $pdo;
@@ -3270,7 +3265,6 @@ class ProcessosController
             $candidate = (int) $configValue;
             if (
                 $candidate > 0
-                && $candidate !== self::COMPANY_VENDOR_ID
                 && $this->vendedorModel->getById($candidate)
             ) {
                 $this->defaultVendorIdCache = $candidate;

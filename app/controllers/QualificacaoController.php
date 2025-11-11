@@ -88,36 +88,41 @@ class QualificacaoController
         try {
             $qualificationResult = $this->prospectionModel->qualifyLead($prospeccaoId, $qualificationPayload);
             $qualificationScore = (int) ($qualificationResult['score'] ?? 0);
+            $previewVendorId = isset($_POST['preview_vendor_id']) ? (int) $_POST['preview_vendor_id'] : 0;
+            $assignedVendorId = null;
 
             if ($decision === 'qualificado') {
-                $distribution = $this->leadDistributor->distributeToNextSalesperson(
-                    $prospeccaoId,
-                    (int) ($_SESSION['user_id'] ?? 0)
-                );
+                if ($previewVendorId > 0) {
+                    $distribution = $this->leadDistributor->distributeToNextSalesperson(
+                        $prospeccaoId,
+                        (int) ($_SESSION['user_id'] ?? 0)
+                    );
 
-                if ($distribution === null) {
-                    throw new \RuntimeException('Não há vendedores disponíveis para receber este lead no momento.');
+                    if ($distribution !== null) {
+                        $assignedVendorId = (int) ($distribution['vendorId'] ?? 0);
+                    }
                 }
 
-                $vendorId = (int) ($distribution['vendorId'] ?? 0);
-                if ($vendorId <= 0) {
-                    throw new \RuntimeException('Não foi possível identificar o próximo vendedor na fila.');
-                }
+                if ($assignedVendorId !== null && $assignedVendorId > 0) {
+                    $meetingTitle = trim($_POST['meeting_title'] ?? 'Reunião de Qualificação');
+                    $meetingDate = trim($_POST['meeting_date'] ?? '');
+                    $meetingTime = trim($_POST['meeting_time'] ?? '');
+                    $meetingLink = trim($_POST['meeting_link'] ?? '');
+                    $meetingNotes = trim($_POST['meeting_notes'] ?? '');
+                    $meetingDateTime = $this->buildDateTime($meetingDate, $meetingTime);
 
-                $meetingTitle = trim($_POST['meeting_title'] ?? 'Reunião de Qualificação');
-                $meetingDate = trim($_POST['meeting_date'] ?? '');
-                $meetingTime = trim($_POST['meeting_time'] ?? '');
-                $meetingLink = trim($_POST['meeting_link'] ?? '');
-                $meetingNotes = trim($_POST['meeting_notes'] ?? '');
-                $meetingDateTime = $this->buildDateTime($meetingDate, $meetingTime);
-
-                if ($meetingDateTime instanceof \DateTimeImmutable) {
-                    $this->createMeeting($lead, $vendorId, $meetingTitle, $meetingDateTime, $meetingLink, $meetingNotes);
+                    if ($meetingDateTime instanceof \DateTimeImmutable) {
+                        $this->createMeeting($lead, $assignedVendorId, $meetingTitle, $meetingDateTime, $meetingLink, $meetingNotes);
+                    }
                 }
             }
 
             $this->pdo->commit();
-            $_SESSION['success_message'] = sprintf('Qualificação registrada com sucesso. Pontuação: %d.', $qualificationScore);
+            if ($decision === 'qualificado' && ($assignedVendorId === null || $assignedVendorId <= 0)) {
+                $_SESSION['success_message'] = 'Qualificação registrada, aguardando atribuição de vendedor.';
+            } else {
+                $_SESSION['success_message'] = sprintf('Qualificação registrada com sucesso. Pontuação: %d.', $qualificationScore);
+            }
             header('Location: ' . APP_URL . '/sdr_dashboard.php');
             exit();
         } catch (\Throwable $exception) {

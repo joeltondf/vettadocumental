@@ -62,7 +62,7 @@ try {
     }
 
     $predefinedVendorId = (int) ($cliente['crmOwnerId'] ?? 0);
-    if ($predefinedVendorId <= 0 || $predefinedVendorId === 17) {
+    if ($predefinedVendorId <= 0) {
         $predefinedVendorId = null;
     }
 
