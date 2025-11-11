@@ -13,17 +13,16 @@ if (!function_exists('process_calculate_deadline_context')) {
     function process_calculate_deadline_context(array $processo, string $statusNormalized): array
     {
         $pauseLabels = [
-            'pendente de pagamento' => 'pausado/pagamento',
-            'pendente de documentos' => 'pausado/documento',
+            'pendente de pagamento' => 'Aguardando Pagamento',
+            'pendente de documentos' => 'Aguardando Documentos',
         ];
 
         $pauseLabel = $pauseLabels[$statusNormalized] ?? null;
-        $isPaused = $pauseLabel !== null;
         $daysRemaining = null;
 
         if ($statusNormalized === 'concluído') {
             $daysRemaining = 0;
-        } elseif ($isPaused) {
+        } elseif ($pauseLabel !== null) {
             $rawStored = $processo['prazo_dias_restantes'] ?? null;
             if ($rawStored !== null && $rawStored !== '') {
                 $daysRemaining = (int) $rawStored;
@@ -64,19 +63,36 @@ if (!function_exists('process_calculate_deadline_context')) {
             }
         }
 
-        $display = '—';
-        $badgeClass = 'text-gray-500';
+        $formatDays = static function (int $days): string {
+            $absolute = abs($days);
+            $label = $absolute === 1 ? 'dia' : 'dias';
 
-        if ($daysRemaining !== null) {
-            $display = (string) $daysRemaining;
+            return $absolute . ' ' . $label;
+        };
 
-            if ($isPaused) {
-                $badgeClass = 'bg-slate-200 text-slate-800';
-            } elseif ($daysRemaining <= 0) {
+        $display = 'Aguardando data';
+        $badgeClass = 'bg-gray-200 text-gray-800';
+
+        if ($pauseLabel !== null) {
+            $display = $pauseLabel;
+            $badgeClass = $statusNormalized === 'pendente de documentos'
+                ? 'bg-violet-200 text-violet-800'
+                : 'bg-slate-200 text-slate-800';
+        } elseif ($statusNormalized === 'concluído') {
+            $display = 'Concluído';
+            $badgeClass = 'text-green-600';
+        } elseif ($daysRemaining !== null) {
+            if ($daysRemaining < 0) {
+                $display = 'Atrasado há ' . $formatDays($daysRemaining);
                 $badgeClass = 'bg-red-200 text-red-800';
+            } elseif ($daysRemaining === 0) {
+                $display = 'Vence hoje';
+                $badgeClass = 'bg-yellow-200 text-yellow-800';
             } elseif ($daysRemaining <= 3) {
+                $display = 'Restam ' . $formatDays($daysRemaining);
                 $badgeClass = 'bg-yellow-200 text-yellow-800';
             } else {
+                $display = 'Restam ' . $formatDays($daysRemaining);
                 $badgeClass = 'text-green-600';
             }
         }
@@ -84,8 +100,6 @@ if (!function_exists('process_calculate_deadline_context')) {
         return [
             'display' => $display,
             'class' => $badgeClass,
-            'is_paused' => $isPaused,
-            'pause_label' => $pauseLabel,
         ];
     }
 }
@@ -95,17 +109,9 @@ if (!function_exists('process_render_deadline_badge')) {
     {
         $badgeClass = htmlspecialchars($context['class'] ?? 'text-gray-500', ENT_QUOTES, 'UTF-8');
         $displayValue = htmlspecialchars($context['display'] ?? '—', ENT_QUOTES, 'UTF-8');
-        $pauseBadge = '';
-
-        if (!empty($context['is_paused']) && !empty($context['pause_label'])) {
-            $pauseBadge = '<span class="px-2 py-0.5 inline-flex items-center text-[10px] uppercase tracking-wide font-semibold rounded-full bg-slate-200 text-slate-800">'
-                . htmlspecialchars((string) $context['pause_label'], ENT_QUOTES, 'UTF-8')
-                . '</span>';
-        }
 
         return '<div class="flex items-center gap-2">'
             . '<span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ' . $badgeClass . '">' . $displayValue . '</span>'
-            . $pauseBadge
             . '</div>';
     }
 }
