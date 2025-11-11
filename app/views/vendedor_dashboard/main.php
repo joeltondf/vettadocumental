@@ -124,9 +124,6 @@ $nextLead = $nextLead ?? null;
                 <i class="fas fa-user-plus mr-2"></i> Novo Cliente
             </a>
         <?php endif; ?>
-        <a href="<?php echo $dashboardVendedorUrl; ?>?status=Orçamento" class="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors">
-            <i class="fas fa-list-ul mr-2"></i> Meus Orçamentos
-        </a>
         <a href="<?php echo $baseAppUrl; ?>/crm/prospeccoes/lista.php" class="inline-flex items-center bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors">
             <i class="fas fa-bullseye mr-2"></i> Ver Prospecções
         </a>
