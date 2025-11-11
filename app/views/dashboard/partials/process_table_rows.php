@@ -9,6 +9,7 @@ $allowLinks = $allowLinks ?? true;
 foreach ($processes as $processo):
     $statusInfo = DashboardProcessFormatter::normalizeStatusInfo($processo['status_processo'] ?? '');
     $statusNormalized = $statusInfo['normalized'];
+    $statusBadgeLabel = $statusInfo['badge_label'] ?? null;
     $rowClass = DashboardProcessFormatter::getRowClass($statusNormalized);
     $deadlineDescriptor = DashboardProcessFormatter::buildDeadlineDescriptor($processo, $deadlineColors);
     $serviceBadges = DashboardProcessFormatter::getServiceBadges($processo['categorias_servico'] ?? '');
@@ -18,6 +19,25 @@ foreach ($processes as $processo):
 
     if ($highlightAnimations && in_array($deadlineDescriptor['state'], ['overdue', 'due_today'], true)) {
         $rowHighlight = 'animate-pulse';
+    }
+
+    $statusLabelClass = match ($statusNormalized) {
+        'orçamento', 'orçamento pendente' => 'text-blue-700',
+        'serviço pendente' => 'text-orange-700',
+        'serviço em andamento' => 'text-cyan-700',
+        'concluído' => 'text-purple-700',
+        'cancelado' => 'text-red-700',
+        default => 'text-gray-700',
+    };
+
+    $badgeClassMap = [
+        'pendente de pagamento' => 'bg-indigo-100 text-indigo-800',
+        'pendente de documentos' => 'bg-violet-100 text-violet-800',
+    ];
+    $statusBadgeClass = null;
+    if ($statusBadgeLabel !== null) {
+        $badgeKey = mb_strtolower($statusBadgeLabel);
+        $statusBadgeClass = $badgeClassMap[$badgeKey] ?? 'bg-indigo-100 text-indigo-800';
     }
 ?>
 <tr class="<?php echo trim($rowClass . ' ' . $rowHighlight); ?>" data-process-id="<?php echo (int) ($processo['id'] ?? 0); ?>">
@@ -29,6 +49,14 @@ foreach ($processes as $processo):
         <span class="block truncate" title="<?php echo $fullTitle; ?>">
             <?php echo $shortTitle; ?>
         </span>
+        <div class="mt-1 flex flex-wrap items-center gap-1 text-[11px] font-semibold <?php echo $statusLabelClass; ?>">
+            <span><?php echo htmlspecialchars($statusInfo['label']); ?></span>
+            <?php if ($statusBadgeLabel !== null): ?>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo $statusBadgeClass; ?>">
+                    <?php echo htmlspecialchars($statusBadgeLabel); ?>
+                </span>
+            <?php endif; ?>
+        </div>
     </td>
     <td class="px-3 py-1 whitespace-nowrap text-xs text-gray-500 truncate" title="<?php echo htmlspecialchars(mb_strtoupper($processo['nome_cliente'] ?? 'N/A')); ?>">
         <?php echo htmlspecialchars(mb_strtoupper(mb_strimwidth($processo['nome_cliente'] ?? 'N/A', 0, 20, '...'))); ?>

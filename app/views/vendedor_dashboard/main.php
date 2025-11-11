@@ -1,5 +1,7 @@
 <?php
 // --- Configurações Iniciais ---
+require_once __DIR__ . '/../../utils/DashboardProcessFormatter.php';
+
 $activeFilters = array_filter($filters ?? []);
 $hasFilters = !empty($activeFilters);
 $initialProcessLimit = 50;
@@ -10,58 +12,39 @@ $currentUserPerfil = $_SESSION['user_perfil'] ?? '';
 if (!function_exists('seller_normalize_status_info')) {
     function seller_normalize_status_info(?string $status): array
     {
-        $normalized = mb_strtolower(trim((string)$status));
+        return DashboardProcessFormatter::normalizeStatusInfo($status);
+    }
+}
 
-        if ($normalized === '') {
-            return ['normalized' => '', 'label' => 'N/A'];
+if (!function_exists('seller_status_label_class')) {
+    function seller_status_label_class(string $normalized): string
+    {
+        return match ($normalized) {
+            'orçamento', 'orçamento pendente' => 'text-blue-700',
+            'serviço pendente' => 'text-orange-700',
+            'serviço em andamento' => 'text-cyan-700',
+            'concluído' => 'text-purple-700',
+            'cancelado' => 'text-red-700',
+            default => 'text-gray-700',
+        };
+    }
+}
+
+if (!function_exists('seller_status_badge_class')) {
+    function seller_status_badge_class(?string $badgeLabel): string
+    {
+        if ($badgeLabel === null || $badgeLabel === '') {
+            return '';
         }
 
-        $aliases = [
-            'orcamento' => 'orçamento',
-            'orcamento pendente' => 'orçamento pendente',
-            'serviço pendente' => 'serviço pendente',
-            'servico pendente' => 'serviço pendente',
-            'pendente' => 'serviço pendente',
-            'aprovado' => 'serviço pendente',
-            'serviço em andamento' => 'serviço em andamento',
-            'servico em andamento' => 'serviço em andamento',
-            'em andamento' => 'serviço em andamento',
-            'aguardando pagamento' => 'pendente de pagamento',
-            'aguardando pagamentos' => 'pendente de pagamento',
-            'aguardando documento' => 'pendente de documentos',
-            'aguardando documentos' => 'pendente de documentos',
-            'aguardando documentacao' => 'pendente de documentos',
-            'aguardando documentação' => 'pendente de documentos',
-            'pendente de pagamento' => 'pendente de pagamento',
-            'pendente de documentos' => 'pendente de documentos',
-            'finalizado' => 'concluído',
-            'finalizada' => 'concluído',
-            'concluido' => 'concluído',
-            'concluida' => 'concluído',
-            'arquivado' => 'cancelado',
-            'arquivada' => 'cancelado',
-            'recusado' => 'cancelado',
-            'recusada' => 'cancelado',
+        $map = [
+            'pendente de pagamento' => 'bg-indigo-100 text-indigo-800',
+            'pendente de documentos' => 'bg-violet-100 text-violet-800',
         ];
 
-        if (isset($aliases[$normalized])) {
-            $normalized = $aliases[$normalized];
-        }
+        $key = mb_strtolower($badgeLabel);
 
-        $labels = [
-            'orçamento' => 'Orçamento',
-            'orçamento pendente' => 'Orçamento Pendente',
-            'serviço pendente' => 'Serviço Pendente',
-            'serviço em andamento' => 'Serviço em Andamento',
-            'pendente de pagamento' => 'Pendente de pagamento',
-            'pendente de documentos' => 'Pendente de documentos',
-            'concluído' => 'Concluído',
-            'cancelado' => 'Cancelado',
-        ];
-
-        $label = $labels[$normalized] ?? ($status === '' ? 'N/A' : $status);
-
-        return ['normalized' => $normalized, 'label' => $label];
+        return $map[$key] ?? 'bg-indigo-100 text-indigo-800';
     }
 }
 
@@ -290,6 +273,8 @@ $vendorLeads = $vendorLeads ?? [];
                                 <?php
                                     $codigo = !empty($orcamento['orcamento_numero']) ? $orcamento['orcamento_numero'] : $orcamento['id'];
                                     $statusInfo = seller_normalize_status_info($orcamento['status_processo'] ?? '');
+                                    $statusLabelClass = seller_status_label_class($statusInfo['normalized']);
+                                    $statusBadgeClass = seller_status_badge_class($statusInfo['badge_label'] ?? null);
                                 ?>
                                 <tr class="hover:bg-gray-50">
                                     <td class="px-3 py-2 whitespace-nowrap font-mono text-gray-700">#<?php echo htmlspecialchars($codigo); ?></td>
@@ -299,7 +284,16 @@ $vendorLeads = $vendorLeads ?? [];
                                         </a>
                                     </td>
                                     <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($orcamento['nome_cliente'] ?? '—'); ?></td>
-                                    <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($statusInfo['label']); ?></td>
+                                    <td class="px-3 py-2 whitespace-nowrap">
+                                        <div class="flex flex-wrap items-center gap-1 text-xs font-semibold <?php echo $statusLabelClass; ?>">
+                                            <span><?php echo htmlspecialchars($statusInfo['label']); ?></span>
+                                            <?php if (!empty($statusInfo['badge_label'])): ?>
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo $statusBadgeClass; ?>">
+                                                    <?php echo htmlspecialchars($statusInfo['badge_label']); ?>
+                                                </span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </td>
                                     <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo seller_format_date_br($orcamento['data_criacao'] ?? null); ?></td>
                                     <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($orcamento['valor_total'] ?? 0); ?></td>
                                 </tr>
@@ -338,6 +332,8 @@ $vendorLeads = $vendorLeads ?? [];
                                 <?php
                                     $codigo = !empty($servico['orcamento_numero']) ? $servico['orcamento_numero'] : $servico['id'];
                                     $statusInfo = seller_normalize_status_info($servico['status_processo'] ?? '');
+                                    $statusLabelClass = seller_status_label_class($statusInfo['normalized']);
+                                    $statusBadgeClass = seller_status_badge_class($statusInfo['badge_label'] ?? null);
                                 ?>
                                 <tr class="hover:bg-gray-50">
                                     <td class="px-3 py-2 whitespace-nowrap font-mono text-gray-700">#<?php echo htmlspecialchars($codigo); ?></td>
@@ -347,7 +343,16 @@ $vendorLeads = $vendorLeads ?? [];
                                         </a>
                                     </td>
                                     <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($servico['nome_cliente'] ?? '—'); ?></td>
-                                    <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($statusInfo['label']); ?></td>
+                                    <td class="px-3 py-2 whitespace-nowrap">
+                                        <div class="flex flex-wrap items-center gap-1 text-xs font-semibold <?php echo $statusLabelClass; ?>">
+                                            <span><?php echo htmlspecialchars($statusInfo['label']); ?></span>
+                                            <?php if (!empty($statusInfo['badge_label'])): ?>
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo $statusBadgeClass; ?>">
+                                                    <?php echo htmlspecialchars($statusInfo['badge_label']); ?>
+                                                </span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </td>
                                     <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo seller_format_date_br($servico['data_criacao'] ?? null); ?></td>
                                     <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($servico['valor_total'] ?? 0); ?></td>
                                     <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($servico['comissaoVendedor'] ?? 0); ?></td>
@@ -388,6 +393,8 @@ $vendorLeads = $vendorLeads ?? [];
                                 <?php
                                     $codigo = !empty($servicoAnterior['orcamento_numero']) ? $servicoAnterior['orcamento_numero'] : $servicoAnterior['id'];
                                     $statusInfo = seller_normalize_status_info($servicoAnterior['status_processo'] ?? '');
+                                    $statusLabelClass = seller_status_label_class($statusInfo['normalized']);
+                                    $statusBadgeClass = seller_status_badge_class($statusInfo['badge_label'] ?? null);
                                 ?>
                                 <tr class="hover:bg-gray-50">
                                     <td class="px-3 py-2 whitespace-nowrap font-mono text-gray-700">#<?php echo htmlspecialchars($codigo); ?></td>
@@ -397,7 +404,16 @@ $vendorLeads = $vendorLeads ?? [];
                                         </a>
                                     </td>
                                     <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($servicoAnterior['nome_cliente'] ?? '—'); ?></td>
-                                    <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($statusInfo['label']); ?></td>
+                                    <td class="px-3 py-2 whitespace-nowrap">
+                                        <div class="flex flex-wrap items-center gap-1 text-xs font-semibold <?php echo $statusLabelClass; ?>">
+                                            <span><?php echo htmlspecialchars($statusInfo['label']); ?></span>
+                                            <?php if (!empty($statusInfo['badge_label'])): ?>
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo $statusBadgeClass; ?>">
+                                                    <?php echo htmlspecialchars($statusInfo['badge_label']); ?>
+                                                </span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </td>
                                     <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo seller_format_date_br($servicoAnterior['data_criacao'] ?? null); ?></td>
                                     <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($servicoAnterior['valor_total'] ?? 0); ?></td>
                                     <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($servicoAnterior['comissaoVendedor'] ?? 0); ?></td>
@@ -434,8 +450,14 @@ $vendorLeads = $vendorLeads ?? [];
                 <select id="status" name="status" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg">
                     <option value="">Todos os Status</option>
                     <?php $statusOptions = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Cancelado']; foreach ($statusOptions as $option): ?>
-                        <?php $optionInfo = seller_normalize_status_info($option); ?>
-                        <option value="<?php echo $optionInfo['label']; ?>" <?php echo ($selectedStatusNormalized === $optionInfo['normalized']) ? 'selected' : ''; ?>><?php echo $optionInfo['label']; ?></option>
+                        <?php
+                            $optionInfo = seller_normalize_status_info($option);
+                            $optionLabel = $optionInfo['label'];
+                            if (!empty($optionInfo['badge_label'])) {
+                                $optionLabel .= ' (' . $optionInfo['badge_label'] . ')';
+                            }
+                        ?>
+                        <option value="<?php echo htmlspecialchars($option, ENT_QUOTES, 'UTF-8'); ?>" <?php echo ($selectedStatusNormalized === $optionInfo['normalized']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($optionLabel); ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -494,12 +516,6 @@ $vendorLeads = $vendorLeads ?? [];
                                 case 'serviço pendente':
                                     $rowClass = 'bg-orange-50 hover:bg-orange-100';
                                     break;
-                                case 'pendente de pagamento':
-                                    $rowClass = 'bg-indigo-50 hover:bg-indigo-100';
-                                    break;
-                                case 'pendente de documentos':
-                                    $rowClass = 'bg-violet-50 hover:bg-violet-100';
-                                    break;
                                 case 'concluído':
                                     $rowClass = 'bg-green-50 hover:bg-green-100';
                                     break;
@@ -507,12 +523,23 @@ $vendorLeads = $vendorLeads ?? [];
                                     $rowClass = 'bg-red-50 hover:bg-red-100';
                                     break;
                             }
+
+                            $statusLabelClass = seller_status_label_class($statusAtual);
+                            $statusBadgeClass = seller_status_badge_class($statusInfo['badge_label'] ?? null);
                         ?>
                         <tr class="<?php echo $rowClass; ?>">
                             <td class="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-800">
                                 <a href="processos.php?action=view&amp;id=<?php echo $processo['id']; ?>" class="text-blue-600 hover:underline">
                                     <?php echo htmlspecialchars($processo['titulo']); ?>
                                 </a>
+                                <div class="mt-1 flex flex-wrap items-center gap-1 text-xs font-semibold <?php echo $statusLabelClass; ?>">
+                                    <span><?php echo htmlspecialchars($statusInfo['label']); ?></span>
+                                    <?php if (!empty($statusInfo['badge_label'])): ?>
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo $statusBadgeClass; ?>">
+                                            <?php echo htmlspecialchars($statusInfo['badge_label']); ?>
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
                             </td>
                             <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($processo['nome_cliente']); ?></td>
                             <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500 text-center"><?php echo $processo['total_documentos_soma']; ?></td>
@@ -631,12 +658,25 @@ $vendorLeads = $vendorLeads ?? [];
                     .then(data => {
                         if (data.length > 0) {
                             data.forEach(processo => {
+                                const statusInfo = normalizeStatus(processo.status_processo);
+                                const rowClass = resolveRowClass(statusInfo);
+                                const statusLabelClass = resolveStatusLabelClass(statusInfo.normalized);
+                                const badgeKey = (statusInfo.badgeLabel ?? '').toLowerCase();
+                                const statusBadgeClass = badgeClassByStatus[badgeKey] ?? 'bg-indigo-100 text-indigo-800';
+                                const statusBadgeHtml = statusInfo.badgeLabel
+                                    ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium ${statusBadgeClass}">${escapeHTML(statusInfo.badgeLabel)}</span>`
+                                    : '';
+
                                 const row = `
-                                    <tr class="${resolveRowClass(processo.status_processo)}">
+                                    <tr class="${rowClass}">
                                         <td class="px-3 py-2 whitespace-nowrap text-sm font-medium">
                                             <a href="processos.php?action=view&id=${processo.id}" class="text-blue-600 hover:underline">
                                                 ${escapeHTML(processo.titulo)}
                                             </a>
+                                            <div class="mt-1 flex flex-wrap items-center gap-1 text-xs font-semibold ${statusLabelClass}">
+                                                <span>${escapeHTML(statusInfo.label)}</span>
+                                                ${statusBadgeHtml}
+                                            </div>
                                         </td>
                                         <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">${escapeHTML(processo.nome_cliente)}</td>
                                         <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500 text-center">${processo.total_documentos_soma}</td>
@@ -716,7 +756,7 @@ $vendorLeads = $vendorLeads ?? [];
         }
 
         const normalizeStatus = (status) => {
-            const normalized = (status || '').toLowerCase();
+            const normalizedInput = (status ?? '').toString().trim().toLowerCase();
             const aliases = {
                 'orcamento': 'orçamento',
                 'orcamento pendente': 'orçamento pendente',
@@ -727,6 +767,12 @@ $vendorLeads = $vendorLeads ?? [];
                 'serviço em andamento': 'serviço em andamento',
                 'servico em andamento': 'serviço em andamento',
                 'em andamento': 'serviço em andamento',
+                'aguardando pagamento': 'pendente de pagamento',
+                'aguardando pagamentos': 'pendente de pagamento',
+                'aguardando documento': 'pendente de documentos',
+                'aguardando documentos': 'pendente de documentos',
+                'aguardando documentacao': 'pendente de documentos',
+                'aguardando documentação': 'pendente de documentos',
                 'pendente de pagamento': 'pendente de pagamento',
                 'pendente de documentos': 'pendente de documentos',
                 'finalizado': 'concluído',
@@ -738,11 +784,64 @@ $vendorLeads = $vendorLeads ?? [];
                 'recusado': 'cancelado',
                 'recusada': 'cancelado'
             };
-            return aliases[normalized] ?? normalized;
+
+            const labelMap = {
+                'orçamento': 'Orçamento',
+                'orçamento pendente': 'Orçamento Pendente',
+                'serviço pendente': 'Serviço Pendente',
+                'serviço em andamento': 'Serviço em Andamento',
+                'concluído': 'Concluído',
+                'cancelado': 'Cancelado',
+            };
+
+            const badgeLabels = {
+                'pendente de pagamento': 'Pendente de pagamento',
+                'pendente de documentos': 'Pendente de documentos',
+            };
+
+            let normalized = aliases[normalizedInput] ?? normalizedInput;
+            let badgeLabel = null;
+
+            if (badgeLabels[normalized]) {
+                badgeLabel = badgeLabels[normalized];
+                normalized = 'serviço em andamento';
+            }
+
+            const label = labelMap[normalized] ?? (status || 'N/A');
+
+            return {
+                normalized,
+                label,
+                badgeLabel,
+            };
+        };
+
+        const badgeClassByStatus = {
+            'pendente de pagamento': 'bg-indigo-100 text-indigo-800',
+            'pendente de documentos': 'bg-violet-100 text-violet-800',
+        };
+
+        const resolveStatusLabelClass = (normalized) => {
+            switch (normalized) {
+                case 'orçamento':
+                case 'orçamento pendente':
+                    return 'text-blue-700';
+                case 'serviço pendente':
+                    return 'text-orange-700';
+                case 'serviço em andamento':
+                    return 'text-cyan-700';
+                case 'concluído':
+                    return 'text-purple-700';
+                case 'cancelado':
+                    return 'text-red-700';
+                default:
+                    return 'text-gray-700';
+            }
         };
 
         function resolveRowClass(status) {
-            const normalized = normalizeStatus(status);
+            const statusInfo = typeof status === 'object' ? status : normalizeStatus(status);
+            const normalized = statusInfo.normalized;
             switch (normalized) {
                 case 'orçamento':
                     return 'bg-blue-50 hover:bg-blue-100';
@@ -750,10 +849,6 @@ $vendorLeads = $vendorLeads ?? [];
                     return 'bg-yellow-50 hover:bg-yellow-100';
                 case 'serviço em andamento':
                     return 'bg-indigo-50 hover:bg-indigo-100';
-                case 'pendente de pagamento':
-                    return 'bg-indigo-50 hover:bg-indigo-100';
-                case 'pendente de documentos':
-                    return 'bg-violet-50 hover:bg-violet-100';
                 case 'serviço pendente':
                     return 'bg-orange-50 hover:bg-orange-100';
                 case 'concluído':

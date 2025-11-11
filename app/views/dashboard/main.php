@@ -2,6 +2,8 @@
 
 // app/views/dashboard/main.php
 
+require_once __DIR__ . '/../../utils/DashboardProcessFormatter.php';
+
 // --- Configurações Iniciais ---
 $hasFilters = $hasFilters ?? false;
 $defaultStatusApplied = $defaultStatusApplied ?? false;
@@ -13,58 +15,7 @@ $initialProcessLimit = 50; // Altere este valor conforme necessário
 if (!function_exists('dashboard_normalize_status_info')) {
     function dashboard_normalize_status_info(?string $status): array
     {
-        $normalized = mb_strtolower(trim((string)$status));
-
-        if ($normalized === '') {
-            return ['normalized' => '', 'label' => 'N/A'];
-        }
-
-        $aliases = [
-            'orcamento' => 'orçamento',
-            'orcamento pendente' => 'orçamento pendente',
-            'serviço pendente' => 'serviço pendente',
-            'servico pendente' => 'serviço pendente',
-            'pendente' => 'serviço pendente',
-            'aprovado' => 'serviço pendente',
-            'serviço em andamento' => 'serviço em andamento',
-            'servico em andamento' => 'serviço em andamento',
-            'em andamento' => 'serviço em andamento',
-            'aguardando pagamento' => 'pendente de pagamento',
-            'aguardando pagamentos' => 'pendente de pagamento',
-            'aguardando documento' => 'pendente de documentos',
-            'aguardando documentos' => 'pendente de documentos',
-            'aguardando documentacao' => 'pendente de documentos',
-            'aguardando documentação' => 'pendente de documentos',
-            'pendente de pagamento' => 'pendente de pagamento',
-            'pendente de documentos' => 'pendente de documentos',
-            'finalizado' => 'concluído',
-            'finalizada' => 'concluído',
-            'concluido' => 'concluído',
-            'concluida' => 'concluído',
-            'arquivado' => 'cancelado',
-            'arquivada' => 'cancelado',
-            'recusado' => 'cancelado',
-            'recusada' => 'cancelado',
-        ];
-
-        if (isset($aliases[$normalized])) {
-            $normalized = $aliases[$normalized];
-        }
-
-        $labels = [
-            'orçamento' => 'Orçamento',
-            'orçamento pendente' => 'Orçamento Pendente',
-            'serviço pendente' => 'Serviço Pendente',
-            'serviço em andamento' => 'Serviço em Andamento',
-            'pendente de pagamento' => 'Pendente de pagamento',
-            'pendente de documentos' => 'Pendente de documentos',
-            'concluído' => 'Concluído',
-            'cancelado' => 'Cancelado',
-        ];
-
-        $label = $labels[$normalized] ?? ($status === '' ? 'N/A' : $status);
-
-        return ['normalized' => $normalized, 'label' => $label];
+        return DashboardProcessFormatter::normalizeStatusInfo($status);
     }
 }
 
@@ -153,14 +104,24 @@ if (!function_exists('dashboard_card_classes')) {
 }
 
 if (!function_exists('dashboard_calculate_deadline_context')) {
-    function dashboard_calculate_deadline_context(array $processo, string $statusNormalized): array
+    function dashboard_calculate_deadline_context(array $processo, array $statusInfo): array
     {
+        $statusNormalized = $statusInfo['normalized'] ?? '';
+        $badgeLabel = $statusInfo['badge_label'] ?? null;
+        $badgeKey = $badgeLabel !== null ? mb_strtolower($badgeLabel) : null;
+
         $pauseLabels = [
             'pendente de pagamento' => 'Aguardando Pagamento',
             'pendente de documentos' => 'Aguardando Documentos',
         ];
 
-        $pauseLabel = $pauseLabels[$statusNormalized] ?? null;
+        $pauseClasses = [
+            'pendente de pagamento' => 'bg-slate-200 text-slate-800',
+            'pendente de documentos' => 'bg-violet-200 text-violet-800',
+        ];
+
+        $pauseLabel = $badgeKey !== null ? ($pauseLabels[$badgeKey] ?? null) : null;
+        $pauseClass = $badgeKey !== null ? ($pauseClasses[$badgeKey] ?? 'bg-slate-200 text-slate-800') : null;
         $daysRemaining = null;
 
         if ($statusNormalized === 'concluído') {
@@ -209,9 +170,7 @@ if (!function_exists('dashboard_calculate_deadline_context')) {
 
         if ($pauseLabel !== null) {
             $display = $pauseLabel;
-            $badgeClass = $statusNormalized === 'pendente de documentos'
-                ? 'bg-violet-200 text-violet-800'
-                : 'bg-slate-200 text-slate-800';
+            $badgeClass = $pauseClass ?? 'bg-slate-200 text-slate-800';
         } elseif ($statusNormalized === 'concluído') {
             $display = 'Concluído';
             $badgeClass = 'text-green-600';
@@ -451,9 +410,15 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                     <select id="status" name="status" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition duration-200">
                         <option value="">Todos os Status</option>
                     <?php $statusOptions = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Cancelado']; foreach ($statusOptions as $option): ?>
-                            <?php $optionInfo = dashboard_normalize_status_info($option); ?>
-                            <option value="<?php echo $optionInfo['label']; ?>" <?php echo ($selectedStatusNormalized === $optionInfo['normalized']) ? 'selected' : ''; ?>><?php echo $optionInfo['label']; ?></option>
-                        <?php endforeach; ?>
+                            <?php
+                                $optionInfo = dashboard_normalize_status_info($option);
+                                $optionLabel = $optionInfo['label'];
+                                if (!empty($optionInfo['badge_label'])) {
+                                    $optionLabel .= ' (' . $optionInfo['badge_label'] . ')';
+                                }
+                            ?>
+                            <option value="<?php echo htmlspecialchars($option, ENT_QUOTES, 'UTF-8'); ?>" <?php echo ($selectedStatusNormalized === $optionInfo['normalized']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($optionLabel); ?></option>
+                    <?php endforeach; ?>
                     </select>
                 </div>
                 <div class="flex flex-col">
@@ -528,6 +493,7 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                             $rowClass = 'hover:bg-gray-50';
                             $statusInfo = dashboard_normalize_status_info($processo['status_processo'] ?? '');
                             $statusNormalized = $statusInfo['normalized'];
+                            $statusBadgeLabel = $statusInfo['badge_label'] ?? null;
                             switch ($statusNormalized) {
                                 case 'orçamento':
                                 case 'orçamento pendente':
@@ -539,12 +505,6 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                                 case 'serviço em andamento':
                                     $rowClass = 'bg-cyan-50 hover:bg-cyan-100';
                                     break;
-                                case 'pendente de pagamento':
-                                    $rowClass = 'bg-indigo-50 hover:bg-indigo-100';
-                                    break;
-                                case 'pendente de documentos':
-                                    $rowClass = 'bg-violet-50 hover:bg-violet-100';
-                                    break;
                                 case 'concluído':
                                     $rowClass = 'bg-purple-50 hover:bg-purple-100';
                                     break;
@@ -552,12 +512,39 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                                     $rowClass = 'bg-red-50 hover:bg-red-100';
                                     break;
                             }
+
+                            $statusLabelClass = match ($statusNormalized) {
+                                'orçamento', 'orçamento pendente' => 'text-blue-700',
+                                'serviço pendente' => 'text-orange-700',
+                                'serviço em andamento' => 'text-cyan-700',
+                                'concluído' => 'text-purple-700',
+                                'cancelado' => 'text-red-700',
+                                default => 'text-gray-700',
+                            };
+
+                            $badgeClassMap = [
+                                'pendente de pagamento' => 'bg-indigo-100 text-indigo-800',
+                                'pendente de documentos' => 'bg-violet-100 text-violet-800',
+                            ];
+                            $statusBadgeClass = null;
+                            if ($statusBadgeLabel !== null) {
+                                $badgeKey = mb_strtolower($statusBadgeLabel);
+                                $statusBadgeClass = $badgeClassMap[$badgeKey] ?? 'bg-indigo-100 text-indigo-800';
+                            }
                         ?>
                         <tr class="<?php echo $rowClass; ?>">
                             <td class="px-3 py-0.5 whitespace-nowrap text-xs font-medium">
                                 <a href="processos.php?action=view&id=<?php echo $processo['id']; ?>" class="text-blue-600 hover:text-blue-800 hover:underline truncate" title="<?php echo htmlspecialchars(mb_strtoupper($processo['titulo'] ?? 'N/A')); ?>">
                                     <?php echo htmlspecialchars(mb_strtoupper(mb_strimwidth($processo['titulo'] ?? 'N/A', 0, 25, "..."))); ?>
                                 </a>
+                                <div class="mt-1 flex flex-wrap items-center gap-1 text-xs font-semibold <?php echo $statusLabelClass; ?>">
+                                    <span><?php echo htmlspecialchars($statusInfo['label']); ?></span>
+                                    <?php if ($statusBadgeLabel !== null): ?>
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo $statusBadgeClass; ?>">
+                                            <?php echo htmlspecialchars($statusBadgeLabel); ?>
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
                             </td>
                             <?php
                                 $clienteNomeCompleto = mb_strtoupper($processo['nome_cliente'] ?? 'N/A', 'UTF-8');
@@ -617,7 +604,7 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                             <td class="px-3 py-0.5 whitespace-nowrap text-xs text-gray-500"><?php echo isset($processo['data_inicio_traducao']) ? date('d/m/Y', strtotime($processo['data_inicio_traducao'])) : 'N/A'; ?></td>
                             <td class="px-3 py-0.5 whitespace-nowrap text-xs font-medium">
                                 <?php
-                                $deadlineContext = dashboard_calculate_deadline_context($processo, $statusNormalized);
+                                $deadlineContext = dashboard_calculate_deadline_context($processo, $statusInfo);
                                 echo dashboard_render_deadline_badge($deadlineContext);
                                 ?>
                             </td>
@@ -1001,7 +988,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const processesTableBody = document.getElementById('processes-table-body');
     let currentLoadedProcesses = processesTableBody.children.length;
     const normalizeStatus = (status) => {
-        const normalized = (status || '').toLowerCase();
+        const normalizedInput = (status ?? '').toString().trim().toLowerCase();
         const aliases = {
             'orcamento': 'orçamento',
             'orcamento pendente': 'orçamento pendente',
@@ -1012,6 +999,12 @@ document.addEventListener('DOMContentLoaded', () => {
             'serviço em andamento': 'serviço em andamento',
             'servico em andamento': 'serviço em andamento',
             'em andamento': 'serviço em andamento',
+            'aguardando pagamento': 'pendente de pagamento',
+            'aguardando pagamentos': 'pendente de pagamento',
+            'aguardando documento': 'pendente de documentos',
+            'aguardando documentos': 'pendente de documentos',
+            'aguardando documentacao': 'pendente de documentos',
+            'aguardando documentação': 'pendente de documentos',
             'pendente de pagamento': 'pendente de pagamento',
             'pendente de documentos': 'pendente de documentos',
             'finalizado': 'concluído',
@@ -1023,17 +1016,87 @@ document.addEventListener('DOMContentLoaded', () => {
             'recusado': 'cancelado',
             'recusada': 'cancelado'
         };
-        return aliases[normalized] ?? normalized;
+
+        const labelMap = {
+            'orçamento': 'Orçamento',
+            'orçamento pendente': 'Orçamento Pendente',
+            'serviço pendente': 'Serviço Pendente',
+            'serviço em andamento': 'Serviço em Andamento',
+            'concluído': 'Concluído',
+            'cancelado': 'Cancelado',
+        };
+
+        const badgeLabels = {
+            'pendente de pagamento': 'Pendente de pagamento',
+            'pendente de documentos': 'Pendente de documentos',
+        };
+
+        let normalized = aliases[normalizedInput] ?? normalizedInput;
+        let badgeLabel = null;
+
+        if (badgeLabels[normalized]) {
+            badgeLabel = badgeLabels[normalized];
+            normalized = 'serviço em andamento';
+        }
+
+        const label = labelMap[normalized] ?? (status || 'N/A');
+
+        return {
+            normalized,
+            label,
+            badgeLabel,
+        };
     };
 
-    const pauseLabelByStatus = {
+    const pauseLabelByBadge = {
         'pendente de pagamento': 'Aguardando Pagamento',
         'pendente de documentos': 'Aguardando Documentos',
     };
 
-    const pauseClassByStatus = {
+    const pauseClassByBadge = {
         'pendente de pagamento': 'bg-slate-200 text-slate-800',
         'pendente de documentos': 'bg-violet-200 text-violet-800',
+    };
+
+    const badgeClassByStatus = {
+        'pendente de pagamento': 'bg-indigo-100 text-indigo-800',
+        'pendente de documentos': 'bg-violet-100 text-violet-800',
+    };
+
+    const resolveStatusLabelClass = (normalizedStatus) => {
+        switch (normalizedStatus) {
+            case 'orçamento':
+            case 'orçamento pendente':
+                return 'text-blue-700';
+            case 'serviço pendente':
+                return 'text-orange-700';
+            case 'serviço em andamento':
+                return 'text-cyan-700';
+            case 'concluído':
+                return 'text-purple-700';
+            case 'cancelado':
+                return 'text-red-700';
+            default:
+                return 'text-gray-700';
+        }
+    };
+
+    const resolveRowClass = (normalizedStatus) => {
+        switch (normalizedStatus) {
+            case 'orçamento':
+            case 'orçamento pendente':
+                return 'bg-blue-50 hover:bg-blue-100';
+            case 'serviço pendente':
+                return 'bg-orange-50 hover:bg-orange-100';
+            case 'serviço em andamento':
+                return 'bg-cyan-50 hover:bg-cyan-100';
+            case 'concluído':
+                return 'bg-purple-50 hover:bg-purple-100';
+            case 'cancelado':
+                return 'bg-red-50 hover:bg-red-100';
+            default:
+                return 'hover:bg-gray-50';
+        }
     };
 
     const buildDateOnly = (value) => {
@@ -1049,8 +1112,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
     };
 
-    const computeDeadlineContext = (processo, normalizedStatus) => {
-        const pauseLabel = pauseLabelByStatus[normalizedStatus] ?? null;
+    const computeDeadlineContext = (processo, statusInfo) => {
+        const normalizedStatus = statusInfo.normalized;
+        const badgeKey = (statusInfo.badgeLabel ?? '').toLowerCase();
+        const pauseLabel = badgeKey ? (pauseLabelByBadge[badgeKey] ?? null) : null;
+        const pauseClass = badgeKey ? (pauseClassByBadge[badgeKey] ?? 'bg-slate-200 text-slate-800') : null;
         let daysRemaining = null;
 
         if (normalizedStatus === 'concluído') {
@@ -1105,7 +1171,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (pauseLabel) {
             display = pauseLabel;
-            cssClass = pauseClassByStatus[normalizedStatus] ?? 'bg-slate-200 text-slate-800';
+            cssClass = pauseClass ?? 'bg-slate-200 text-slate-800';
         } else if (normalizedStatus === 'concluído') {
             display = 'Concluído';
             cssClass = 'text-green-600';
@@ -1214,8 +1280,15 @@ document.addEventListener('DOMContentLoaded', () => {
                             : clienteNomeMaiusculo;
 
                         // Lógica para o prazo (replicada do PHP)
-                        const normalizedStatus = normalizeStatus(processo.status_processo);
-                        const prazoContext = computeDeadlineContext(processo, normalizedStatus);
+                        const statusInfo = normalizeStatus(processo.status_processo);
+                        const prazoContext = computeDeadlineContext(processo, statusInfo);
+                        const rowClass = resolveRowClass(statusInfo.normalized);
+                        const statusLabelClass = resolveStatusLabelClass(statusInfo.normalized);
+                        const badgeKey = (statusInfo.badgeLabel ?? '').toLowerCase();
+                        const statusBadgeClass = badgeClassByStatus[badgeKey] ?? 'bg-indigo-100 text-indigo-800';
+                        const statusBadgeHtml = statusInfo.badgeLabel
+                            ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium ${statusBadgeClass}">${statusInfo.badgeLabel}</span>`
+                            : '';
 
                         // Conteúdo HTML do tooltip para o data-attribute (JSON.stringify necessário)
                         const tooltip_html_content_for_js = `
@@ -1230,8 +1303,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         `;
 
                         html += `
-                            <tr>
-                                <td class="px-3 py-2 whitespace-nowrap text-xs font-medium"><a href="processos.php?action=view&id=${processo.id}" class="text-blue-600 hover:text-blue-800 hover:underline truncate" title="${processo.titulo ?? 'N/A'}">${(processo.titulo || 'N/A').substring(0, 25)}${(processo.titulo && processo.titulo.length > 25) ? '...' : ''}</a></td>
+                            <tr class="${rowClass}">
+                                <td class="px-3 py-2 whitespace-nowrap text-xs font-medium">
+                                    <a href="processos.php?action=view&id=${processo.id}" class="text-blue-600 hover:text-blue-800 hover:underline truncate" title="${processo.titulo ?? 'N/A'}">${(processo.titulo || 'N/A').substring(0, 25)}${(processo.titulo && processo.titulo.length > 25) ? '...' : ''}</a>
+                                    <div class="mt-1 flex flex-wrap items-center gap-1 text-xs font-semibold ${statusLabelClass}">
+                                        <span>${statusInfo.label}</span>
+                                        ${statusBadgeHtml}
+                                    </div>
+                                </td>
                                 <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500" title="${clienteNomeMaiusculo}">
                                     <div class="flex items-center gap-1">
                                         <span class="truncate">${clienteNomeTruncado}</span>

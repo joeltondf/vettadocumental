@@ -786,11 +786,11 @@ public function create($data, $files)
     if (!empty($filters['filtro_card'])) {
         $deadlineDateExpression = "COALESCE(\n            p.data_previsao_entrega,\n            CASE\n                WHEN p.traducao_prazo_dias IS NOT NULL AND p.data_inicio_traducao IS NOT NULL\n                    THEN DATE_ADD(p.data_inicio_traducao, INTERVAL p.traducao_prazo_dias DAY)\n                WHEN p.prazo_dias IS NOT NULL AND p.data_inicio_traducao IS NOT NULL\n                    THEN DATE_ADD(p.data_inicio_traducao, INTERVAL p.prazo_dias DAY)\n                ELSE NULL\n            END\n        )";
 
-        $deadlineDiffExpression = "CASE\n            WHEN LOWER(p.status_processo) IN ('pendente de pagamento', 'pendente de documentos') AND p.prazo_dias_restantes IS NOT NULL THEN p.prazo_dias_restantes\n            WHEN {$deadlineDateExpression} IS NOT NULL THEN DATEDIFF({$deadlineDateExpression}, CURDATE())\n            ELSE NULL\n        END";
+        $deadlineDiffExpression = "CASE\n            WHEN LOWER(p.status_processo) IN ('pendente de pagamento', 'pendente de documentos', 'aguardando pagamento', 'aguardando pagamentos', 'aguardando documento', 'aguardando documentos', 'aguardando documentacao', 'aguardando documentação') AND p.prazo_dias_restantes IS NOT NULL THEN p.prazo_dias_restantes\n            WHEN {$deadlineDateExpression} IS NOT NULL THEN DATEDIFF({$deadlineDateExpression}, CURDATE())\n            ELSE NULL\n        END";
 
         switch ($filters['filtro_card']) {
             case 'ativos':
-                $where_clauses[] = "p.status_processo IN ('Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos')";
+                $where_clauses[] = "LOWER(p.status_processo) IN ('serviço em andamento', 'servico em andamento', 'pendente de pagamento', 'pendente de documentos', 'aguardando pagamento', 'aguardando pagamentos', 'aguardando documento', 'aguardando documentos', 'aguardando documentacao', 'aguardando documentação')";
                 break;
             case 'pendentes':
                 $where_clauses[] = "p.status_processo IN ('Serviço Pendente', 'Serviço pendente')";
@@ -802,7 +802,7 @@ public function create($data, $files)
                 $where_clauses[] = "p.status_processo IN ('Concluído', 'Finalizado') AND MONTH(p.data_finalizacao_real) = MONTH(CURDATE()) AND YEAR(p.data_finalizacao_real) = YEAR(CURDATE())";
                 break;
             case 'atrasados':
-                $where_clauses[] = "p.data_previsao_entrega < CURDATE() AND p.status_processo NOT IN ('Concluído', 'Finalizado', 'Arquivado', 'Cancelado', 'Recusado', 'Pendente de pagamento', 'Pendente de documentos')";
+                $where_clauses[] = "p.data_previsao_entrega < CURDATE() AND LOWER(p.status_processo) NOT IN ('concluído', 'concluido', 'finalizado', 'finalizada', 'arquivado', 'arquivada', 'cancelado', 'recusado', 'recusada', 'pendente de pagamento', 'pendente de documentos', 'aguardando pagamento', 'aguardando pagamentos', 'aguardando documento', 'aguardando documentos', 'aguardando documentacao', 'aguardando documentação')";
                 break;
         }
     }
@@ -814,8 +814,13 @@ public function create($data, $files)
         $params[':vendedor_id'] = $filters['vendedor_id'];
     }
     if (!empty($filters['status'])) {
-        $where_clauses[] = "p.status_processo = :status";
-        $params[':status'] = $filters['status'];
+        $statusValue = mb_strtolower($filters['status']);
+        if (in_array($statusValue, ['serviço em andamento', 'servico em andamento'], true)) {
+            $where_clauses[] = "LOWER(p.status_processo) IN ('serviço em andamento', 'servico em andamento', 'pendente de pagamento', 'pendente de documentos', 'aguardando pagamento', 'aguardando pagamentos', 'aguardando documento', 'aguardando documentos', 'aguardando documentacao', 'aguardando documentação')";
+        } else {
+            $where_clauses[] = "p.status_processo = :status";
+            $params[':status'] = $filters['status'];
+        }
     }
     if (!empty($filters['titulo'])) {
         $where_clauses[] = "p.titulo LIKE :titulo";
@@ -915,12 +920,12 @@ public function create($data, $files)
 
         $deadlineDateExpression = "COALESCE(\n            p.data_previsao_entrega,\n            CASE\n                WHEN p.traducao_prazo_dias IS NOT NULL AND p.data_inicio_traducao IS NOT NULL\n                    THEN DATE_ADD(p.data_inicio_traducao, INTERVAL p.traducao_prazo_dias DAY)\n                WHEN p.prazo_dias IS NOT NULL AND p.data_inicio_traducao IS NOT NULL\n                    THEN DATE_ADD(p.data_inicio_traducao, INTERVAL p.prazo_dias DAY)\n                ELSE NULL\n            END\n        )";
 
-        $deadlineDiffExpression = "CASE\n            WHEN LOWER(p.status_processo) IN ('pendente de pagamento', 'pendente de documentos') AND p.prazo_dias_restantes IS NOT NULL THEN p.prazo_dias_restantes\n            WHEN {$deadlineDateExpression} IS NOT NULL THEN DATEDIFF({$deadlineDateExpression}, CURDATE())\n            ELSE NULL\n        END";
+        $deadlineDiffExpression = "CASE\n            WHEN LOWER(p.status_processo) IN ('pendente de pagamento', 'pendente de documentos', 'aguardando pagamento', 'aguardando pagamentos', 'aguardando documento', 'aguardando documentos', 'aguardando documentacao', 'aguardando documentação') AND p.prazo_dias_restantes IS NOT NULL THEN p.prazo_dias_restantes\n            WHEN {$deadlineDateExpression} IS NOT NULL THEN DATEDIFF({$deadlineDateExpression}, CURDATE())\n            ELSE NULL\n        END";
 
         if (!empty($filters['filtro_card'])) {
             switch ($filters['filtro_card']) {
                 case 'ativos':
-                    $where_clauses[] = "p.status_processo IN ('Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos')";
+                    $where_clauses[] = "LOWER(p.status_processo) IN ('serviço em andamento', 'servico em andamento', 'pendente de pagamento', 'pendente de documentos', 'aguardando pagamento', 'aguardando pagamentos', 'aguardando documento', 'aguardando documentos', 'aguardando documentacao', 'aguardando documentação')";
                     break;
                 case 'pendentes':
                     $where_clauses[] = "p.status_processo IN ('Serviço Pendente', 'Serviço pendente')";
@@ -932,7 +937,7 @@ public function create($data, $files)
                     $where_clauses[] = "p.status_processo IN ('Concluído', 'Finalizado') AND MONTH(p.data_finalizacao_real) = MONTH(CURDATE()) AND YEAR(p.data_finalizacao_real) = YEAR(CURDATE())";
                     break;
                 case 'atrasados':
-                    $where_clauses[] = "p.data_previsao_entrega < CURDATE() AND p.status_processo NOT IN ('Concluído', 'Finalizado', 'Arquivado', 'Cancelado', 'Recusado', 'Pendente de pagamento', 'Pendente de documentos')";
+                    $where_clauses[] = "p.data_previsao_entrega < CURDATE() AND LOWER(p.status_processo) NOT IN ('concluído', 'concluido', 'finalizado', 'finalizada', 'arquivado', 'arquivada', 'cancelado', 'recusado', 'recusada', 'pendente de pagamento', 'pendente de documentos', 'aguardando pagamento', 'aguardando pagamentos', 'aguardando documento', 'aguardando documentos', 'aguardando documentacao', 'aguardando documentação')";
                     break;
             }
         }
@@ -943,8 +948,13 @@ public function create($data, $files)
         $params[':vendedor_id'] = $filters['vendedor_id'];
     }
     if (!empty($filters['status'])) {
-        $where_clauses[] = "p.status_processo = :status";
-        $params[':status'] = $filters['status'];
+        $statusValue = mb_strtolower($filters['status']);
+        if (in_array($statusValue, ['serviço em andamento', 'servico em andamento'], true)) {
+            $where_clauses[] = "LOWER(p.status_processo) IN ('serviço em andamento', 'servico em andamento', 'pendente de pagamento', 'pendente de documentos', 'aguardando pagamento', 'aguardando pagamentos', 'aguardando documento', 'aguardando documentos', 'aguardando documentacao', 'aguardando documentação')";
+        } else {
+            $where_clauses[] = "p.status_processo = :status";
+            $params[':status'] = $filters['status'];
+        }
     }
     if (!empty($filters['titulo'])) {
         $where_clauses[] = "p.titulo LIKE :titulo";
@@ -1693,11 +1703,11 @@ public function create($data, $files)
         $deadlineExpression = "COALESCE(\n            p.data_previsao_entrega,\n            CASE\n                WHEN p.traducao_prazo_dias IS NOT NULL AND p.data_inicio_traducao IS NOT NULL\n                    THEN DATE_ADD(p.data_inicio_traducao, INTERVAL p.traducao_prazo_dias DAY)\n                WHEN p.prazo_dias IS NOT NULL AND p.data_inicio_traducao IS NOT NULL\n                    THEN DATE_ADD(p.data_inicio_traducao, INTERVAL p.prazo_dias DAY)\n                ELSE NULL\n            END\n        )";
 
         $sql = "SELECT
-            COUNT(CASE WHEN status_processo IN ('Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos') THEN 1 END) as processos_ativos,
-            COUNT(CASE WHEN status_processo IN ('Serviço Pendente', 'Serviço pendente') THEN 1 END) as servicos_pendentes,
-            COUNT(CASE WHEN status_processo IN ('Orçamento', 'Orçamento Pendente') THEN 1 END) as orcamentos_pendentes,
-            COUNT(CASE WHEN status_processo IN ('Concluído', 'Finalizado') AND MONTH(data_finalizacao_real) = MONTH(CURDATE()) AND YEAR(data_finalizacao_real) = YEAR(CURDATE()) THEN 1 END) as finalizados_mes,
-            COUNT(CASE WHEN data_previsao_entrega < CURDATE() AND status_processo NOT IN ('Concluído', 'Finalizado', 'Arquivado', 'Cancelado', 'Recusado', 'Pendente de pagamento', 'Pendente de documentos') THEN 1 END) as processos_atrasados
+            COUNT(CASE WHEN LOWER(status_processo) IN ('serviço em andamento', 'servico em andamento', 'pendente de pagamento', 'pendente de documentos', 'aguardando pagamento', 'aguardando pagamentos', 'aguardando documento', 'aguardando documentos', 'aguardando documentacao', 'aguardando documentação') THEN 1 END) as processos_ativos,
+            COUNT(CASE WHEN LOWER(status_processo) IN ('serviço pendente', 'servico pendente') THEN 1 END) as servicos_pendentes,
+            COUNT(CASE WHEN LOWER(status_processo) IN ('orçamento', 'orcamento', 'orçamento pendente', 'orcamento pendente') THEN 1 END) as orcamentos_pendentes,
+            COUNT(CASE WHEN LOWER(status_processo) IN ('concluído', 'concluido', 'finalizado', 'finalizada') AND MONTH(data_finalizacao_real) = MONTH(CURDATE()) AND YEAR(data_finalizacao_real) = YEAR(CURDATE()) THEN 1 END) as finalizados_mes,
+            COUNT(CASE WHEN data_previsao_entrega < CURDATE() AND LOWER(status_processo) NOT IN ('concluído', 'concluido', 'finalizado', 'finalizada', 'arquivado', 'arquivada', 'cancelado', 'recusado', 'recusada', 'pendente de pagamento', 'pendente de documentos', 'aguardando pagamento', 'aguardando pagamentos', 'aguardando documento', 'aguardando documentos', 'aguardando documentacao', 'aguardando documentação') THEN 1 END) as processos_atrasados
         FROM processos";
         try {
             $stmt = $this->pdo->prepare($sql);
