@@ -16,6 +16,7 @@ class GerenteDashboardController
         $vendedorModel  = new Vendedor($this->pdo);
         $processoModel  = new Processo($this->pdo);
         $prospeccaoModel= new Prospeccao($this->pdo);
+        $defaultVendorId = Processo::getDefaultVendorId($this->pdo);
 
         // Filtros de datas (opcionais)
         $dataInicio = $_GET['data_inicio'] ?? null;
@@ -55,7 +56,7 @@ class GerenteDashboardController
 
             $performance[] = [
                 'id'              => $vId,
-                'nome'            => $vendedor['nome_vendedor'],
+                'nome'            => $this->normalizeVendorDisplayName((int) $vId, $vendedor['nome_vendedor'] ?? null, $defaultVendorId),
                 'total_vendas'    => $totalVendas,
                 'novos_leads_mes' => $prospecStats['novos_leads_mes'],
                 'taxa_conversao'  => $prospecStats['taxa_conversao'],
@@ -72,6 +73,10 @@ class GerenteDashboardController
             ");
             $stmt->execute();
             $dadosLeads = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($dadosLeads as &$leadRow) {
+                $leadRow['nome_vendedor'] = $this->normalizeVendorDisplayName((int) ($leadRow['id'] ?? 0), $leadRow['nome_vendedor'] ?? null, $defaultVendorId);
+            }
+            unset($leadRow);
             $labelsLeads  = array_column($dadosLeads, 'nome_vendedor');
             $valoresLeads = array_column($dadosLeads, 'total_leads');
 
@@ -89,6 +94,10 @@ class GerenteDashboardController
             ");
             $stmt->execute();
             $dadosAprovados = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($dadosAprovados as &$aprovadoRow) {
+                $aprovadoRow['nome_vendedor'] = $this->normalizeVendorDisplayName((int) ($aprovadoRow['id'] ?? 0), $aprovadoRow['nome_vendedor'] ?? null, $defaultVendorId);
+            }
+            unset($aprovadoRow);
             $labelsAprovados  = array_column($dadosAprovados, 'nome_vendedor');
             $valoresAprovados = array_column($dadosAprovados, 'total_aprovados');
 
@@ -106,6 +115,10 @@ class GerenteDashboardController
             ");
             $stmt->execute();
             $dadosFinalizados = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($dadosFinalizados as &$finalizadoRow) {
+                $finalizadoRow['nome_vendedor'] = $this->normalizeVendorDisplayName((int) ($finalizadoRow['id'] ?? 0), $finalizadoRow['nome_vendedor'] ?? null, $defaultVendorId);
+            }
+            unset($finalizadoRow);
             $labelsFinalizados  = array_column($dadosFinalizados, 'nome_vendedor');
             $valoresFinalizados = array_column($dadosFinalizados, 'total_finalizados');
 
@@ -122,6 +135,10 @@ class GerenteDashboardController
             ");
             $stmt->execute();
             $dadosPrevistos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($dadosPrevistos as &$previstoRow) {
+                $previstoRow['nome_vendedor'] = $this->normalizeVendorDisplayName((int) ($previstoRow['id'] ?? 0), $previstoRow['nome_vendedor'] ?? null, $defaultVendorId);
+            }
+            unset($previstoRow);
             $labelsPrevisto  = array_column($dadosPrevistos, 'nome_vendedor');
             $valoresPrevisto = array_column($dadosPrevistos, 'valor_previsto');
 
@@ -149,5 +166,16 @@ class GerenteDashboardController
         $parsed = \DateTime::createFromFormat('Y-m-d', $date);
 
         return $parsed instanceof \DateTime ? $parsed->format('Y-m-d') : null;
+    }
+
+    private function normalizeVendorDisplayName(int $vendorId, ?string $name, ?int $defaultVendorId): string
+    {
+        if ($defaultVendorId !== null && $vendorId === $defaultVendorId) {
+            return 'Sistema';
+        }
+
+        $trimmed = trim((string) ($name ?? ''));
+
+        return $trimmed !== '' ? $trimmed : 'Sistema';
     }
 }

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/User.php';
+require_once __DIR__ . '/Processo.php';
 
 class Vendedor
 {
@@ -26,7 +27,19 @@ class Vendedor
                 JOIN users AS u ON v.user_id = u.id
                 ORDER BY u.nome_completo ASC";
         $stmt = $this->pdo->query($sql);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $defaultVendorId = Processo::getDefaultVendorId($this->pdo);
+        if ($defaultVendorId !== null) {
+            foreach ($rows as &$row) {
+                if ((int) ($row['id'] ?? 0) === $defaultVendorId) {
+                    $row['nome_vendedor'] = 'Sistema';
+                }
+            }
+            unset($row);
+        }
+
+        return $rows;
     }
 
     public function getById($vendedor_id)
@@ -44,7 +57,14 @@ class Vendedor
                 WHERE v.id = :vendedor_id";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute(['vendedor_id' => $vendedor_id]);
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        $vendor = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $defaultVendorId = Processo::getDefaultVendorId($this->pdo);
+        if ($vendor && $defaultVendorId !== null && (int) ($vendor['id'] ?? 0) === $defaultVendorId) {
+            $vendor['nome_vendedor'] = 'Sistema';
+        }
+
+        return $vendor;
     }
     
     public function getByUserId($user_id)
@@ -151,21 +171,90 @@ class Vendedor
 }
 
 
+    private function tableExists(string $table): bool
+    {
+        $stmt = $this->pdo->prepare('SHOW TABLES LIKE :table');
+        $stmt->execute([':table' => $table]);
+
+        return (bool) $stmt->fetchColumn();
+    }
+
+    private function tableHasColumn(string $table, string $column): bool
+    {
+        if (!$this->tableExists($table)) {
+            return false;
+        }
+
+        $stmt = $this->pdo->prepare("SHOW COLUMNS FROM {$table} LIKE :column");
+        $stmt->execute([':column' => $column]);
+
+        return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
     public function delete($vendedor_id)
     {
         $this->pdo->beginTransaction();
         try {
             $vendedor = $this->getById($vendedor_id);
-            if ($vendedor) {
-                $stmt = $this->pdo->prepare("DELETE FROM vendedores WHERE id = :id");
-                $stmt->execute(['id' => $vendedor_id]);
-                
-                $this->userModel->delete($vendedor['user_id']);
+            if (!$vendedor) {
+                $this->pdo->rollBack();
+                return false;
             }
+
+            $defaultVendorId = Processo::getDefaultVendorId($this->pdo);
+
+            if ($defaultVendorId === null) {
+                throw new RuntimeException('Vendedor padrão não configurado.');
+            }
+
+            if ((int) $vendedor_id === (int) $defaultVendorId) {
+                throw new RuntimeException('Não é possível excluir o vendedor padrão.');
+            }
+
+            $defaultVendor = $this->getById($defaultVendorId);
+            if (!$defaultVendor || empty($defaultVendor['user_id'])) {
+                throw new RuntimeException('Usuário do vendedor padrão não encontrado.');
+            }
+
+            $defaultVendorUserId = (int) $defaultVendor['user_id'];
+            $deletedVendorUserId = (int) ($vendedor['user_id'] ?? 0);
+
+            $updateMap = [
+                ['table' => 'processos', 'column' => 'vendedor_id', 'target' => $defaultVendorId, 'match' => (int) $vendedor_id],
+                ['table' => 'prospeccoes', 'column' => 'responsavel_id', 'target' => $defaultVendorUserId, 'match' => $deletedVendorUserId],
+                ['table' => 'orcamentos', 'column' => 'vendedor_id', 'target' => $defaultVendorId, 'match' => (int) $vendedor_id],
+                ['table' => 'clientes', 'column' => 'crmOwnerId', 'target' => $defaultVendorUserId, 'match' => $deletedVendorUserId],
+                ['table' => 'comissoes', 'column' => 'usuario_id', 'target' => $defaultVendorUserId, 'match' => $deletedVendorUserId],
+            ];
+
+            foreach ($updateMap as $entry) {
+                $table = $entry['table'];
+                $column = $entry['column'];
+                $targetValue = $entry['target'];
+                $matchValue = $entry['match'];
+
+                if (!$this->tableHasColumn($table, $column)) {
+                    continue;
+                }
+
+                $sql = "UPDATE {$table} SET {$column} = :defaultVendor WHERE {$column} = :vendor";
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute([
+                    ':defaultVendor' => $targetValue,
+                    ':vendor' => $matchValue,
+                ]);
+            }
+
+            $stmt = $this->pdo->prepare('DELETE FROM vendedores WHERE id = :id');
+            $stmt->execute([':id' => $vendedor_id]);
+
+            $this->userModel->delete($vendedor['user_id']);
+
             $this->pdo->commit();
             return true;
         } catch (Exception $e) {
             $this->pdo->rollBack();
+            $_SESSION['error_message'] = $_SESSION['error_message'] ?? $e->getMessage();
             return false;
         }
     }
