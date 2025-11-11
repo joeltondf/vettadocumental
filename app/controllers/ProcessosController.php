@@ -749,7 +749,7 @@ class ProcessosController
                     'nome_tradutor' => htmlspecialchars($processo['nome_tradutor'] ?? 'FATTO'),
                     'data_inicio_traducao' => isset($processo['data_inicio_traducao']) ? date('d/m/Y', strtotime($processo['data_inicio_traducao'])) : 'Pendente',
                     'traducao_modalidade' => htmlspecialchars($processo['traducao_modalidade'] ?? 'N/A'),
-                    'data_previsao_entrega_formatted' => $this->getPrazoCountdown($processo['data_previsao_entrega'] ?? null),
+                    'data_previsao_entrega_formatted' => $this->getPrazoCountdown($processo['data_previsao_entrega']),
                     'assinatura_tipo' => htmlspecialchars($processo['assinatura_tipo'] ?? 'N/A'),
                     'data_envio_assinatura' => isset($processo['data_envio_assinatura']) ? date('d/m/Y', strtotime($processo['data_envio_assinatura'])) : 'Pendente',
                     'data_devolucao_assinatura' => isset($processo['data_devolucao_assinatura']) ? date('d/m/Y', strtotime($processo['data_devolucao_assinatura'])) : 'Pendente',
@@ -759,7 +759,6 @@ class ProcessosController
                     'status_processo_classes' => $this->getStatusClasses($processo['status_processo']),
                     'prazo_pausado_em' => $processo['prazo_pausado_em'] ?? null,
                     'prazo_dias_restantes' => $processo['prazo_dias_restantes'] ?? null,
-                    'prazo_html' => $this->formatDeadlineDisplay($processo),
                 ];
                 echo json_encode(['success' => true, 'message' => 'Etapas atualizadas com sucesso!', 'updated_data' => $updated_data]);
             } else {
@@ -3091,97 +3090,49 @@ class ProcessosController
     private function formatDeadlineDisplay(array $processo): string
     {
         $statusNormalized = $this->normalizeStatusName($processo['status_processo'] ?? '');
-        $pauseLabels = [
-            'pendente de pagamento' => 'Aguardando Pagamento',
-            'pendente de documentos' => 'Aguardando Documentos',
-        ];
+        $isPaused = in_array($statusNormalized, ['pendente de pagamento', 'pendente de documentos'], true);
 
-        $pauseLabel = $pauseLabels[$statusNormalized] ?? null;
-        $daysRemaining = null;
+        if ($isPaused && !empty($processo['prazo_pausado_em'])) {
+            $remainingDays = $processo['prazo_dias_restantes'] ?? null;
 
-        if ($statusNormalized === 'concluído') {
-            $daysRemaining = 0;
-        } elseif ($pauseLabel !== null) {
-            $rawStored = $processo['prazo_dias_restantes'] ?? null;
-            if ($rawStored !== null && $rawStored !== '') {
-                $daysRemaining = (int) $rawStored;
-            }
-        } else {
-            $deadline = null;
+            if ($remainingDays !== null) {
+                $days = max((int)$remainingDays, 0);
+                $label = $days === 1 ? '1 dia restante' : sprintf('%d dias restantes', $days);
 
-            $rawDate = $processo['data_previsao_entrega'] ?? null;
-            if (!empty($rawDate)) {
-                try {
-                    $deadline = new DateTimeImmutable((string) $rawDate);
-                } catch (Throwable $exception) {
-                    $deadline = null;
-                }
+                return '<span class="font-bold text-indigo-600">Prazo pausado — ' . $label . '</span>';
             }
 
-            if ($deadline === null && !empty($processo['traducao_prazo_dias']) && !empty($processo['data_inicio_traducao'])) {
-                try {
-                    $start = new DateTimeImmutable((string) $processo['data_inicio_traducao']);
-                    $deadline = $start->modify('+' . (int) $processo['traducao_prazo_dias'] . ' days');
-                } catch (Throwable $exception) {
-                    $deadline = null;
-                }
-            }
-
-            if ($deadline === null && !empty($processo['prazo_dias']) && !empty($processo['data_inicio_traducao'])) {
-                try {
-                    $start = new DateTimeImmutable((string) $processo['data_inicio_traducao']);
-                    $deadline = $start->modify('+' . (int) $processo['prazo_dias'] . ' days');
-                } catch (Throwable $exception) {
-                    $deadline = null;
-                }
-            }
-
-            if ($deadline instanceof DateTimeImmutable) {
-                $today = new DateTimeImmutable('today');
-                $daysRemaining = (int) $today->diff($deadline)->format('%r%a');
-            }
+            return '<span class="font-bold text-indigo-600">Prazo pausado</span>';
         }
 
-        $formatDays = static function (int $days): string {
-            $absolute = abs($days);
-            $label = $absolute === 1 ? 'dia' : 'dias';
+        return $this->getPrazoCountdown($processo['data_previsao_entrega'] ?? null);
+    }
 
-            return $absolute . ' ' . $label;
-        };
-
-        $display = 'Aguardando data';
-        $badgeClass = 'bg-gray-200 text-gray-800';
-
-        if ($pauseLabel !== null) {
-            $display = $pauseLabel;
-            $badgeClass = $statusNormalized === 'pendente de documentos'
-                ? 'bg-violet-200 text-violet-800'
-                : 'bg-slate-200 text-slate-800';
-        } elseif ($statusNormalized === 'concluído') {
-            $display = 'Concluído';
-            $badgeClass = 'text-green-600';
-        } elseif ($daysRemaining !== null) {
-            if ($daysRemaining < 0) {
-                $display = 'Atrasado há ' . $formatDays($daysRemaining);
-                $badgeClass = 'bg-red-200 text-red-800';
-            } elseif ($daysRemaining === 0) {
-                $display = 'Vence hoje';
-                $badgeClass = 'bg-yellow-200 text-yellow-800';
-            } elseif ($daysRemaining <= 3) {
-                $display = 'Restam ' . $formatDays($daysRemaining);
-                $badgeClass = 'bg-yellow-200 text-yellow-800';
+    /**
+     * Calcula contagem regressiva para um prazo e retorna string formatada.
+     */
+    private function getPrazoCountdown($dateString)
+    {
+        if (empty($dateString)) {
+            return '<span class="text-gray-500">Não definido</span>';
+        }
+        try {
+            $today = new DateTime();
+            $today->setTime(0, 0, 0);
+            $prazoDate = new DateTime($dateString);
+            $prazoDate->setTime(0, 0, 0);
+            if ($prazoDate < $today) {
+                $diff = $today->diff($prazoDate);
+                return '<span class="font-bold text-red-500">Atrasado há ' . $diff->days . ' dia(s)</span>';
+            } elseif ($prazoDate == $today) {
+                return '<span class="font-bold text-blue-500">Entrega hoje</span>';
             } else {
-                $display = 'Restam ' . $formatDays($daysRemaining);
-                $badgeClass = 'text-green-600';
+                $diff = $today->diff($prazoDate);
+                return '<span class="font-bold text-green-600">Faltam ' . ($diff->days) . ' dia(s)</span>';
             }
+        } catch (Exception $e) {
+            return '<span class="text-gray-500">Data inválida</span>';
         }
-
-        $badgeClassEscaped = htmlspecialchars($badgeClass, ENT_QUOTES, 'UTF-8');
-        $displayEscaped = htmlspecialchars($display, ENT_QUOTES, 'UTF-8');
-
-        return '<div class="flex items-center gap-2">'
-            . '<span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ' . $badgeClassEscaped . '">' . $displayEscaped . '</span>'
-            . '</div>';
     }
 
     /**
