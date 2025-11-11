@@ -13,60 +13,88 @@ class DashboardProcessFormatter
         'no_deadline' => 'text-gray-500',
     ];
 
+    private const STATUS_ALIASES = [
+        'orcamento' => 'orçamento',
+        'orcamento pendente' => 'orçamento pendente',
+        'serviço pendente' => 'serviço pendente',
+        'servico pendente' => 'serviço pendente',
+        'pendente' => 'serviço pendente',
+        'aprovado' => 'serviço pendente',
+        'serviço em andamento' => 'serviço em andamento',
+        'servico em andamento' => 'serviço em andamento',
+        'em andamento' => 'serviço em andamento',
+        'aguardando pagamento' => 'pendente de pagamento',
+        'aguardando pagamentos' => 'pendente de pagamento',
+        'aguardando documento' => 'pendente de documentos',
+        'aguardando documentos' => 'pendente de documentos',
+        'aguardando documentacao' => 'pendente de documentos',
+        'aguardando documentação' => 'pendente de documentos',
+        'pendente de pagamento' => 'pendente de pagamento',
+        'pendente de documentos' => 'pendente de documentos',
+        'finalizado' => 'concluído',
+        'finalizada' => 'concluído',
+        'concluido' => 'concluído',
+        'concluida' => 'concluído',
+        'arquivado' => 'cancelado',
+        'arquivada' => 'cancelado',
+        'recusado' => 'cancelado',
+        'recusada' => 'cancelado',
+    ];
+
+    private const BADGE_LABELS = [
+        'pendente de pagamento' => 'Pendente de pagamento',
+        'pendente de documentos' => 'Pendente de documentos',
+    ];
+
+    private const STATUS_LABELS = [
+        'orçamento' => 'Orçamento',
+        'orçamento pendente' => 'Orçamento Pendente',
+        'serviço pendente' => 'Serviço Pendente',
+        'serviço em andamento' => 'Serviço em Andamento',
+        'concluído' => 'Concluído',
+        'cancelado' => 'Cancelado',
+    ];
+
+    public static function normalizeStatusForDashboard(?string $status): array
+    {
+        $normalizedInput = mb_strtolower(trim((string) $status));
+
+        if ($normalizedInput === '') {
+            return ['normalized' => '', 'badge_label' => null];
+        }
+
+        $normalized = self::STATUS_ALIASES[$normalizedInput] ?? $normalizedInput;
+        $badgeLabel = self::BADGE_LABELS[$normalized] ?? null;
+
+        if ($badgeLabel !== null) {
+            $normalized = 'serviço em andamento';
+        }
+
+        return [
+            'normalized' => $normalized,
+            'badge_label' => $badgeLabel,
+        ];
+    }
+
     public static function normalizeStatusInfo(?string $status): array
     {
-        $normalized = mb_strtolower(trim((string) $status));
+        $statusString = trim((string) $status);
 
-        if ($normalized === '') {
-            return ['normalized' => '', 'label' => 'N/A'];
+        if ($statusString === '') {
+            return ['normalized' => '', 'label' => 'N/A', 'badge_label' => null];
         }
 
-        $aliases = [
-            'orcamento' => 'orçamento',
-            'orcamento pendente' => 'orçamento pendente',
-            'serviço pendente' => 'serviço pendente',
-            'servico pendente' => 'serviço pendente',
-            'pendente' => 'serviço pendente',
-            'aprovado' => 'serviço pendente',
-            'serviço em andamento' => 'serviço em andamento',
-            'servico em andamento' => 'serviço em andamento',
-            'em andamento' => 'serviço em andamento',
-            'aguardando pagamento' => 'pendente de pagamento',
-            'aguardando pagamentos' => 'pendente de pagamento',
-            'aguardando documento' => 'pendente de documentos',
-            'aguardando documentos' => 'pendente de documentos',
-            'aguardando documentacao' => 'pendente de documentos',
-            'aguardando documentação' => 'pendente de documentos',
-            'pendente de pagamento' => 'pendente de pagamento',
-            'pendente de documentos' => 'pendente de documentos',
-            'finalizado' => 'concluído',
-            'finalizada' => 'concluído',
-            'concluido' => 'concluído',
-            'concluida' => 'concluído',
-            'arquivado' => 'cancelado',
-            'arquivada' => 'cancelado',
-            'recusado' => 'cancelado',
-            'recusada' => 'cancelado',
+        $baseInfo = self::normalizeStatusForDashboard($statusString);
+        $normalized = $baseInfo['normalized'];
+        $badgeLabel = $baseInfo['badge_label'];
+
+        $label = self::STATUS_LABELS[$normalized] ?? $statusString;
+
+        return [
+            'normalized' => $normalized,
+            'label' => $label,
+            'badge_label' => $badgeLabel,
         ];
-
-        if (isset($aliases[$normalized])) {
-            $normalized = $aliases[$normalized];
-        }
-
-        $labels = [
-            'orçamento' => 'Orçamento',
-            'orçamento pendente' => 'Orçamento Pendente',
-            'serviço pendente' => 'Serviço Pendente',
-            'serviço em andamento' => 'Serviço em Andamento',
-            'pendente de pagamento' => 'Pendente de pagamento',
-            'pendente de documentos' => 'Pendente de documentos',
-            'concluído' => 'Concluído',
-            'cancelado' => 'Cancelado',
-        ];
-
-        $label = $labels[$normalized] ?? ($status === '' ? 'N/A' : $status);
-
-        return ['normalized' => $normalized, 'label' => $label];
     }
 
     public static function getRowClass(string $statusNormalized): string
@@ -75,8 +103,6 @@ class DashboardProcessFormatter
             'orçamento', 'orçamento pendente' => 'bg-blue-50 hover:bg-blue-100',
             'serviço pendente' => 'bg-orange-50 hover:bg-orange-100',
             'serviço em andamento' => 'bg-cyan-50 hover:bg-cyan-100',
-            'pendente de pagamento' => 'bg-indigo-50 hover:bg-indigo-100',
-            'pendente de documentos' => 'bg-violet-50 hover:bg-violet-100',
             'concluído' => 'bg-purple-50 hover:bg-purple-100',
             'cancelado' => 'bg-red-50 hover:bg-red-100',
             default => 'hover:bg-gray-50',
@@ -88,6 +114,7 @@ class DashboardProcessFormatter
         $colors = array_merge(self::DEFAULT_COLORS, $colors);
         $statusInfo = self::normalizeStatusInfo($process['status_processo'] ?? '');
         $statusNormalized = $statusInfo['normalized'];
+        $badgeLabel = $statusInfo['badge_label'] ?? null;
 
         $descriptor = [
             'label' => 'A definir',
@@ -104,7 +131,10 @@ class DashboardProcessFormatter
             return $descriptor;
         }
 
-        if (in_array($statusNormalized, ['cancelado', 'orçamento', 'orçamento pendente', 'pendente de pagamento', 'pendente de documentos'], true)) {
+        $pausedStatuses = ['cancelado', 'orçamento', 'orçamento pendente'];
+        $isPaused = $badgeLabel !== null;
+
+        if (in_array($statusNormalized, $pausedStatuses, true) || $isPaused) {
             $descriptor['label'] = 'N/A';
             $descriptor['class'] = $colors['inactive'];
             $descriptor['state'] = 'inactive';

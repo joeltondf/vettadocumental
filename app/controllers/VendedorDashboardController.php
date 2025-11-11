@@ -6,6 +6,7 @@ require_once __DIR__ . '/../models/Vendedor.php';
 require_once __DIR__ . '/../models/Cliente.php';
 require_once __DIR__ . '/../models/Prospeccao.php';
 require_once __DIR__ . '/../models/Comissao.php';
+require_once __DIR__ . '/../utils/DashboardProcessFormatter.php';
 
 class VendedorDashboardController
 {
@@ -94,7 +95,7 @@ class VendedorDashboardController
         $anoCorrente = date('Y');
 
         foreach ($todosOsProcessosDoVendedor as $processo) {
-            $statusInfo = $this->normalizeStatusData($processo['status_processo'] ?? '');
+            $statusInfo = DashboardProcessFormatter::normalizeStatusInfo($processo['status_processo'] ?? '');
             $statusNormalized = $statusInfo['normalized'];
             if (in_array($statusNormalized, ['serviço pendente', 'serviço em andamento'], true)) {
                 $stats['processos_ativos']++;
@@ -174,61 +175,11 @@ class VendedorDashboardController
         }
 
         if (!empty($filters['status'])) {
-            $statusInfo = $this->normalizeStatusData($filters['status']);
+            $statusInfo = DashboardProcessFormatter::normalizeStatusInfo($filters['status']);
             $filters['status'] = $statusInfo['label'];
         }
 
         return $filters;
-    }
-
-    private function normalizeStatusData(?string $status): array
-    {
-        $normalized = mb_strtolower(trim((string)$status));
-
-        if ($normalized === '') {
-            return ['normalized' => '', 'label' => ''];
-        }
-
-        $aliases = [
-            'orcamento' => 'orçamento',
-            'orcamento pendente' => 'orçamento pendente',
-            'serviço pendente' => 'serviço pendente',
-            'servico pendente' => 'serviço pendente',
-            'pendente' => 'serviço pendente',
-            'aprovado' => 'serviço pendente',
-            'serviço em andamento' => 'serviço em andamento',
-            'servico em andamento' => 'serviço em andamento',
-            'em andamento' => 'serviço em andamento',
-            'pendente de pagamento' => 'pendente de pagamento',
-            'pendente de documentos' => 'pendente de documentos',
-            'finalizado' => 'concluído',
-            'finalizada' => 'concluído',
-            'concluido' => 'concluído',
-            'concluida' => 'concluído',
-            'arquivado' => 'cancelado',
-            'arquivada' => 'cancelado',
-            'recusado' => 'cancelado',
-            'recusada' => 'cancelado',
-        ];
-
-        if (isset($aliases[$normalized])) {
-            $normalized = $aliases[$normalized];
-        }
-
-        $labels = [
-            'orçamento' => 'Orçamento',
-            'orçamento pendente' => 'Orçamento Pendente',
-            'serviço pendente' => 'Serviço Pendente',
-            'serviço em andamento' => 'Serviço em Andamento',
-            'pendente de pagamento' => 'Pendente de pagamento',
-            'pendente de documentos' => 'Pendente de documentos',
-            'concluído' => 'Concluído',
-            'cancelado' => 'Cancelado',
-        ];
-
-        $label = $labels[$normalized] ?? ($status === '' ? 'N/A' : $status);
-
-        return ['normalized' => $normalized, 'label' => $label];
     }
 
     private function cleanFilterValues(array $request): array
@@ -247,7 +198,7 @@ class VendedorDashboardController
             }
 
             if ($key === 'status') {
-                $statusInfo = $this->normalizeStatusData($trimmed);
+                $statusInfo = DashboardProcessFormatter::normalizeStatusInfo($trimmed);
                 $result[$key] = $statusInfo['label'];
                 continue;
             }
