@@ -31,12 +31,21 @@ class QualificacaoController
         }
 
         $nextVendor = null;
+        $activeVendors = [];
 
         try {
             $nextVendor = $this->leadDistributor->previewNextSalesperson();
         } catch (Throwable $exception) {
             error_log('Erro ao pré-visualizar vendedor: ' . $exception->getMessage());
         }
+
+        try {
+            $activeVendors = $this->userModel->getActiveVendors();
+        } catch (Throwable $exception) {
+            error_log('Erro ao carregar vendedores ativos: ' . $exception->getMessage());
+        }
+
+        $hasActiveVendors = !empty($activeVendors);
         $pageTitle = 'Qualificação de Lead';
 
         require_once __DIR__ . '/../views/layouts/header.php';

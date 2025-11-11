@@ -34,6 +34,10 @@ class LeadDistributor
             $activeVendors = $this->indexActiveVendors();
             $queue = $this->syncQueueWithActiveVendors($queue, $activeVendors);
 
+            if (empty($queue) && !empty($activeVendors)) {
+                $queue = $this->buildQueueFromActiveVendors($activeVendors);
+            }
+
             if (empty($queue)) {
                 $this->persistQueue($queue);
                 if ($ownsTransaction) {
@@ -125,6 +129,11 @@ class LeadDistributor
             $queue = $this->fetchQueueForUpdate();
             $activeVendors = $this->indexActiveVendors();
             $queue = $this->syncQueueWithActiveVendors($queue, $activeVendors);
+
+            if (empty($queue) && !empty($activeVendors)) {
+                $queue = $this->buildQueueFromActiveVendors($activeVendors);
+            }
+
             $this->persistQueue($queue);
             if ($ownsTransaction) {
                 $this->pdo->commit();
@@ -265,6 +274,30 @@ class LeadDistributor
         }
 
         return $indexed;
+    }
+
+    /**
+     * Reconstrói a fila a partir da lista de vendedores ativos, preservando a ordem alfabética.
+     *
+     * @param array<int, array<string, mixed>> $activeVendors
+     * @return array<int, array{vendor_id:int,position:int,last_assigned_at:?string}>
+     */
+    private function buildQueueFromActiveVendors(array $activeVendors): array
+    {
+        $queue = [];
+
+        $position = 1;
+        foreach ($activeVendors as $vendor) {
+            $queue[] = [
+                'vendor_id' => (int) $vendor['id'],
+                'position' => $position,
+                'last_assigned_at' => null
+            ];
+
+            $position++;
+        }
+
+        return $queue;
     }
 
     private function ensureQueueTableExists(): void
