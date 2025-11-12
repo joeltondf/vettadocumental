@@ -12,9 +12,9 @@ foreach ($processes as $processo):
     $statusBadgeLabel = $statusInfo['badge_label'] ?? null;
     $rowClass = DashboardProcessFormatter::getRowClass($statusNormalized);
     $deadlineDescriptor = DashboardProcessFormatter::buildDeadlineDescriptor($processo, $deadlineColors);
-    $statusDescriptor = DashboardProcessFormatter::buildStatusDescriptor($processo, $statusInfo, $deadlineColors);
-    $originalDeadlineValue = DashboardProcessFormatter::formatOriginalDeadlineValue($processo);
     $serviceBadges = DashboardProcessFormatter::getServiceBadges($processo['categorias_servico'] ?? '');
+    $deadlineClass = $deadlineDescriptor['class'];
+    $deadlineLabel = $deadlineDescriptor['label'];
     $rowHighlight = '';
 
     if ($highlightAnimations && in_array($deadlineDescriptor['state'], ['overdue', 'due_today'], true)) {
@@ -83,14 +83,9 @@ foreach ($processes as $processo):
         <?php echo !empty($processo['data_inicio_traducao']) ? date('d/m/Y', strtotime($processo['data_inicio_traducao'])) : 'N/A'; ?>
     </td>
     <td class="px-3 py-1 whitespace-nowrap text-xs font-medium">
-        <?php $statusClass = htmlspecialchars($statusDescriptor['class'] ?? 'text-gray-500', ENT_QUOTES, 'UTF-8'); ?>
-        <?php $statusDisplay = htmlspecialchars($statusDescriptor['display'] ?? '—', ENT_QUOTES, 'UTF-8'); ?>
-        <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $statusClass; ?>">
-            <?php echo $statusDisplay; ?>
+        <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $deadlineClass; ?>">
+            <?php echo htmlspecialchars($deadlineLabel); ?>
         </span>
-    </td>
-    <td class="px-3 py-1 whitespace-nowrap text-xs text-gray-500">
-        <?php echo htmlspecialchars($originalDeadlineValue, ENT_QUOTES, 'UTF-8'); ?>
     </td>
     <?php if ($showActions): ?>
     <td class="px-3 py-1 whitespace-nowrap text-center text-xs font-medium">
@@ -98,15 +93,21 @@ foreach ($processes as $processo):
             <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"
                  data-tooltip-trigger data-process-id="<?php echo (int) ($processo['id'] ?? 0); ?>"
                  data-tooltip-content-json='<?php
+                    $statusAssinaturaTexto = 'Pendente';
+                    $statusAssinaturaClasse = 'bg-yellow-100 text-yellow-800';
+                    if (!empty($processo['data_devolucao_assinatura'])) {
+                        $statusAssinaturaTexto = 'Enviado';
+                        $statusAssinaturaClasse = 'bg-green-100 text-green-800';
+                    }
                     $nomeTradutor = htmlspecialchars($processo['nome_tradutor'] ?? 'Não definido', ENT_QUOTES, 'UTF-8');
                     $modalidadeTraducao = htmlspecialchars($processo['traducao_modalidade'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
-                    $modalidadePagamento = htmlspecialchars(DashboardProcessFormatter::normalizePaymentMethod($processo['orcamento_forma_pagamento'] ?? null), ENT_QUOTES, 'UTF-8');
-                    $envioCartorio = !empty($processo['data_envio_cartorio']) ? date('d/m/Y', strtotime($processo['data_envio_cartorio'])) : '—';
+                    $envioCartorio = !empty($processo['data_envio_cartorio']) ? date('d/m/Y', strtotime($processo['data_envio_cartorio'])) : 'Pendente';
                     $tooltipHtml = '<div class="space-y-1 text-left whitespace-nowrap">'
                         . '<div><span class="font-semibold">Tradutor:</span> ' . $nomeTradutor . '</div>'
-                        . '<div><span class="font-semibold">Modalidade da tradução:</span> ' . $modalidadeTraducao . '</div>'
-                        . '<div><span class="font-semibold">Modalidade de pagamento:</span> ' . $modalidadePagamento . '</div>'
-                        . '<div><span class="font-semibold">Envio para o cartório:</span> ' . $envioCartorio . '</div>'
+                        . '<div><span class="font-semibold">Modalidade:</span> ' . $modalidadeTraducao . '</div>'
+                        . '<div><span class="font-semibold">Assinatura:</span> <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full '
+                        . $statusAssinaturaClasse . '">' . $statusAssinaturaTexto . '</span></div>'
+                        . '<div><span class="font-semibold">Envio Cartório:</span> ' . $envioCartorio . '</div>'
                         . '</div>';
                     echo $tooltipHtml;
                  ?>'>
