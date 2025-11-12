@@ -7,6 +7,7 @@ require_once __DIR__ . '/../../utils/DashboardProcessFormatter.php';
 // --- Configurações Iniciais ---
 $hasFilters = $hasFilters ?? false;
 $defaultStatusApplied = $defaultStatusApplied ?? false;
+$highlightAnimations = $highlightAnimations ?? false;
 $listTitle = $listTitle ?? ($hasFilters ? 'Resultados da Busca' : 'Todos os Serviços');
 
 // Definir o limite inicial de processos para exibir no dashboard
@@ -103,97 +104,17 @@ if (!function_exists('dashboard_card_classes')) {
     }
 }
 
-if (!function_exists('dashboard_calculate_deadline_context')) {
-    function dashboard_calculate_deadline_context(array $processo, array $statusInfo): array
+if (!function_exists('dashboard_get_status_label_class')) {
+    function dashboard_get_status_label_class(string $statusNormalized): string
     {
-        $statusNormalized = $statusInfo['normalized'] ?? '';
-        $badgeLabel = $statusInfo['badge_label'] ?? null;
-        $badgeKey = $badgeLabel !== null ? mb_strtolower($badgeLabel) : null;
+        return DashboardProcessFormatter::getStatusLabelClass($statusNormalized);
+    }
+}
 
-        $pauseLabels = [
-            'pendente de pagamento' => 'Aguardando Pagamento',
-            'pendente de documentos' => 'Aguardando Documentos',
-        ];
-
-        $pauseClasses = [
-            'pendente de pagamento' => 'bg-slate-200 text-slate-800',
-            'pendente de documentos' => 'bg-violet-200 text-violet-800',
-        ];
-
-        $pauseLabel = $badgeKey !== null ? ($pauseLabels[$badgeKey] ?? null) : null;
-        $pauseClass = $badgeKey !== null ? ($pauseClasses[$badgeKey] ?? 'bg-slate-200 text-slate-800') : null;
-        $daysRemaining = null;
-
-        if ($statusNormalized === 'concluído') {
-            $daysRemaining = 0;
-        } elseif ($pauseLabel !== null) {
-            $rawStored = $processo['prazo_dias_restantes'] ?? null;
-            if ($rawStored !== null && $rawStored !== '') {
-                $daysRemaining = (int) $rawStored;
-            }
-        } else {
-            $deadline = null;
-
-            $rawDate = $processo['data_previsao_entrega'] ?? null;
-            if (!empty($rawDate)) {
-                try {
-                    $deadline = new DateTimeImmutable((string) $rawDate);
-                } catch (Throwable $exception) {
-                    $deadline = null;
-                }
-            }
-
-            if ($deadline === null && !empty($processo['traducao_prazo_dias']) && !empty($processo['data_inicio_traducao'])) {
-                try {
-                    $startDate = new DateTimeImmutable((string) $processo['data_inicio_traducao']);
-                    $deadline = $startDate->modify('+' . (int) $processo['traducao_prazo_dias'] . ' days');
-                } catch (Throwable $exception) {
-                    $deadline = null;
-                }
-            }
-
-            if ($deadline instanceof DateTimeImmutable) {
-                $today = new DateTimeImmutable('today');
-                $daysRemaining = (int) $today->diff($deadline)->format('%r%a');
-            }
-        }
-
-        $formatDays = static function (int $days): string {
-            $absolute = abs($days);
-            $label = $absolute === 1 ? 'dia' : 'dias';
-
-            return $absolute . ' ' . $label;
-        };
-
-        $display = 'Aguardando data';
-        $badgeClass = 'bg-gray-200 text-gray-800';
-
-        if ($pauseLabel !== null) {
-            $display = $pauseLabel;
-            $badgeClass = $pauseClass ?? 'bg-slate-200 text-slate-800';
-        } elseif ($statusNormalized === 'concluído') {
-            $display = 'Concluído';
-            $badgeClass = 'text-green-600';
-        } elseif ($daysRemaining !== null) {
-            if ($daysRemaining < 0) {
-                $display = 'Atrasado há ' . $formatDays($daysRemaining);
-                $badgeClass = 'bg-red-200 text-red-800';
-            } elseif ($daysRemaining === 0) {
-                $display = 'Vence hoje';
-                $badgeClass = 'bg-yellow-200 text-yellow-800';
-            } elseif ($daysRemaining <= 3) {
-                $display = 'Restam ' . $formatDays($daysRemaining);
-                $badgeClass = 'bg-yellow-200 text-yellow-800';
-            } else {
-                $display = 'Restam ' . $formatDays($daysRemaining);
-                $badgeClass = 'text-green-600';
-            }
-        }
-
-        return [
-            'display' => $display,
-            'class' => $badgeClass,
-        ];
+if (!function_exists('dashboard_build_deadline_descriptor')) {
+    function dashboard_build_deadline_descriptor(array $processo, array $statusInfo): array
+    {
+        return DashboardProcessFormatter::buildStatusDescriptor($processo, $statusInfo);
     }
 }
 
@@ -201,11 +122,9 @@ if (!function_exists('dashboard_render_deadline_badge')) {
     function dashboard_render_deadline_badge(array $context): string
     {
         $badgeClass = htmlspecialchars($context['class'] ?? 'text-gray-500', ENT_QUOTES, 'UTF-8');
-        $displayValue = htmlspecialchars($context['display'] ?? '—', ENT_QUOTES, 'UTF-8');
+        $displayValue = htmlspecialchars($context['label'] ?? $context['display'] ?? '—', ENT_QUOTES, 'UTF-8');
 
-        return '<div class="flex items-center gap-2">'
-            . '<span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ' . $badgeClass . '">' . $displayValue . '</span>'
-            . '</div>';
+        return '<span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ' . $badgeClass . '">' . $displayValue . '</span>';
     }
 }
 
@@ -481,8 +400,9 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                             <?php echo dashboard_render_sortable_header('Entrada', 'dataEntrada', $filters, $currentSort, $currentDirection); ?>
                         </th>
                         <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" aria-sort="<?php echo dashboard_get_aria_sort('dataEnvio', $currentSort, $currentDirection); ?>">
-                            <?php echo dashboard_render_sortable_header('Envio', 'dataEnvio', $filters, $currentSort, $currentDirection); ?>
+                            <?php echo dashboard_render_sortable_header('Conversão', 'dataEnvio', $filters, $currentSort, $currentDirection); ?>
                         </th>
+                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prazo</th>
                         <th scope="col" class="relative px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                     </tr>
@@ -494,6 +414,7 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                             $statusInfo = dashboard_normalize_status_info($processo['status_processo'] ?? '');
                             $statusNormalized = $statusInfo['normalized'];
                             $statusBadgeLabel = $statusInfo['badge_label'] ?? null;
+
                             switch ($statusNormalized) {
                                 case 'orçamento':
                                 case 'orçamento pendente':
@@ -513,38 +434,20 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                                     break;
                             }
 
-                            $statusLabelClass = match ($statusNormalized) {
-                                'orçamento', 'orçamento pendente' => 'text-blue-700',
-                                'serviço pendente' => 'text-orange-700',
-                                'serviço em andamento' => 'text-cyan-700',
-                                'concluído' => 'text-purple-700',
-                                'cancelado' => 'text-red-700',
-                                default => 'text-gray-700',
-                            };
+                            $statusLabelClass = dashboard_get_status_label_class($statusNormalized);
+                            $statusBadgeClass = $statusInfo['badge_color_classes'] ?? null;
+                            $deadlineDescriptor = dashboard_build_deadline_descriptor($processo, $statusInfo);
+                            $rowHighlight = '';
 
-                            $badgeClassMap = [
-                                'pendente de pagamento' => 'bg-indigo-100 text-indigo-800',
-                                'pendente de documentos' => 'bg-violet-100 text-violet-800',
-                            ];
-                            $statusBadgeClass = null;
-                            if ($statusBadgeLabel !== null) {
-                                $badgeKey = mb_strtolower($statusBadgeLabel);
-                                $statusBadgeClass = $badgeClassMap[$badgeKey] ?? 'bg-indigo-100 text-indigo-800';
+                            if ($highlightAnimations && in_array($deadlineDescriptor['state'], ['overdue', 'due_today'], true)) {
+                                $rowHighlight = 'animate-pulse';
                             }
                         ?>
-                        <tr class="<?php echo $rowClass; ?>">
+                        <tr class="<?php echo trim($rowClass . ' ' . $rowHighlight); ?>">
                             <td class="px-3 py-0.5 whitespace-nowrap text-xs font-medium">
                                 <a href="processos.php?action=view&id=<?php echo $processo['id']; ?>" class="text-blue-600 hover:text-blue-800 hover:underline truncate" title="<?php echo htmlspecialchars(mb_strtoupper($processo['titulo'] ?? 'N/A')); ?>">
                                     <?php echo htmlspecialchars(mb_strtoupper(mb_strimwidth($processo['titulo'] ?? 'N/A', 0, 25, "..."))); ?>
                                 </a>
-                                <div class="mt-1 flex flex-wrap items-center gap-1 text-xs font-semibold <?php echo $statusLabelClass; ?>">
-                                    <span><?php echo htmlspecialchars($statusInfo['label']); ?></span>
-                                    <?php if ($statusBadgeLabel !== null): ?>
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo $statusBadgeClass; ?>">
-                                            <?php echo htmlspecialchars($statusBadgeLabel); ?>
-                                        </span>
-                                    <?php endif; ?>
-                                </div>
                             </td>
                             <?php
                                 $clienteNomeCompleto = mb_strtoupper($processo['nome_cliente'] ?? 'N/A', 'UTF-8');
@@ -603,10 +506,19 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                             <td class="px-3 py-0.5 whitespace-nowrap text-xs text-gray-500"><?php echo isset($processo['data_criacao']) ? date('d/m/Y', strtotime($processo['data_criacao'])) : 'N/A'; ?></td>
                             <td class="px-3 py-0.5 whitespace-nowrap text-xs text-gray-500"><?php echo isset($processo['data_inicio_traducao']) ? date('d/m/Y', strtotime($processo['data_inicio_traducao'])) : 'N/A'; ?></td>
                             <td class="px-3 py-0.5 whitespace-nowrap text-xs font-medium">
-                                <?php
-                                $deadlineContext = dashboard_calculate_deadline_context($processo, $statusInfo);
-                                echo dashboard_render_deadline_badge($deadlineContext);
-                                ?>
+                                <div class="flex items-center gap-2">
+                                    <span class="<?php echo htmlspecialchars($statusLabelClass, ENT_QUOTES, 'UTF-8'); ?> font-semibold">
+                                        <?php echo htmlspecialchars($statusInfo['label']); ?>
+                                    </span>
+                                    <?php if ($statusBadgeLabel !== null && $statusBadgeClass !== null): ?>
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo htmlspecialchars($statusBadgeClass, ENT_QUOTES, 'UTF-8'); ?>">
+                                            <?php echo htmlspecialchars($statusBadgeLabel); ?>
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
+                            <td class="px-3 py-0.5 whitespace-nowrap text-xs font-medium">
+                                <?php echo dashboard_render_deadline_badge($deadlineDescriptor); ?>
                             </td>
                             <td class="px-3 py-0.5 whitespace-nowrap text-center text-xs font-medium">
                                 <div class="relative inline-block p-1">
@@ -614,22 +526,17 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                                          data-tooltip-trigger
                                          data-process-id="<?php echo $processo['id']; ?>"
                                          data-tooltip-content-json='<?php
-                                            $status_assinatura_texto = 'Pendente';
-                                            $status_assinatura_classe = 'bg-yellow-100 text-yellow-800';
-                                            if (!empty($processo['data_devolucao_assinatura'])) {
-                                                $status_assinatura_texto = 'Enviado';
-                                                $status_assinatura_classe = 'bg-green-100 text-green-800';
-                                            }
-                                            $js_nome_tradutor = str_replace("'", "\'", htmlspecialchars($processo['nome_tradutor'] ?? 'Não definido'));
-                                            $js_traducao_modalidade = str_replace("'", "\'", htmlspecialchars($processo['traducao_modalidade'] ?? 'N/A'));
-                                            $js_envio_cartorio = isset($processo['data_envio_cartorio']) ? date('d/m/Y', strtotime($processo['data_envio_cartorio'])) : 'Pendente';
+                                            $js_nome_tradutor = str_replace("'", "\'", htmlspecialchars($processo['nome_tradutor'] ?? 'Não definido', ENT_QUOTES, 'UTF-8'));
+                                            $js_traducao_modalidade = str_replace("'", "\'", htmlspecialchars($processo['traducao_modalidade'] ?? 'N/A', ENT_QUOTES, 'UTF-8'));
+                                            $js_modalidade_pagamento = str_replace("'", "\'", htmlspecialchars(DashboardProcessFormatter::normalizePaymentMethod($processo['orcamento_forma_pagamento'] ?? null), ENT_QUOTES, 'UTF-8'));
+                                            $js_envio_cartorio = !empty($processo['data_envio_cartorio']) ? date('d/m/Y', strtotime($processo['data_envio_cartorio'])) : 'Pendente';
                                             $tooltip_html_content =
                                                 '<div class="flex flex-col gap-2 text-left whitespace-normal leading-relaxed text-sm">' .
                                                 '   <p class="font-semibold text-xs uppercase tracking-wide text-gray-200 border-b border-gray-600 pb-2">Detalhes Rápidos</p>' .
                                                 '   <p><strong>Tradutor:</strong> ' . $js_nome_tradutor . '</p>' .
-                                                '   <p><strong>Modalidade:</strong> ' . $js_traducao_modalidade . '</p>' .
-                                                '   <p><strong>Status Ass.:</strong> <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ' . $status_assinatura_classe . ' mr-1">' . $status_assinatura_texto . '</span></p>' .
-                                                '   <p><strong>Envio Cartório:</strong> ' . $js_envio_cartorio . '</p>' .
+                                                '   <p><strong>Modalidade da tradução:</strong> ' . $js_traducao_modalidade . '</p>' .
+                                                '   <p><strong>Modalidade de pagamento:</strong> ' . $js_modalidade_pagamento . '</p>' .
+                                                '   <p><strong>Envio para o cartório:</strong> ' . $js_envio_cartorio . '</p>' .
                                                 '</div>' .
                                                 '<div class="tooltip-arrow" data-tooltip-arrow></div>';
                                             echo json_encode($tooltip_html_content);
@@ -987,6 +894,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadMoreButton = document.getElementById('load-more-processes');
     const processesTableBody = document.getElementById('processes-table-body');
     let currentLoadedProcesses = processesTableBody.children.length;
+    const badgeClassByStatus = {
+        'pendente de pagamento': 'bg-indigo-100 text-indigo-800',
+        'pendente de documentos': 'bg-violet-100 text-violet-800',
+    };
+
     const normalizeStatus = (status) => {
         const normalizedInput = (status ?? '').toString().trim().toLowerCase();
         const aliases = {
@@ -1033,9 +945,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let normalized = aliases[normalizedInput] ?? normalizedInput;
         let badgeLabel = null;
+        let badgeColorClasses = null;
 
         if (badgeLabels[normalized]) {
             badgeLabel = badgeLabels[normalized];
+            badgeColorClasses = badgeClassByStatus[normalized] ?? 'bg-indigo-100 text-indigo-800';
             normalized = 'serviço em andamento';
         }
 
@@ -1045,6 +959,7 @@ document.addEventListener('DOMContentLoaded', () => {
             normalized,
             label,
             badgeLabel,
+            badgeColorClasses,
         };
     };
 
@@ -1056,11 +971,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const pauseClassByBadge = {
         'pendente de pagamento': 'bg-slate-200 text-slate-800',
         'pendente de documentos': 'bg-violet-200 text-violet-800',
-    };
-
-    const badgeClassByStatus = {
-        'pendente de pagamento': 'bg-indigo-100 text-indigo-800',
-        'pendente de documentos': 'bg-violet-100 text-violet-800',
     };
 
     const resolveStatusLabelClass = (normalizedStatus) => {
@@ -1112,7 +1022,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
     };
 
-    const computeDeadlineContext = (processo, statusInfo) => {
+    const computeDeadlineDescriptor = (processo, statusInfo) => {
         const normalizedStatus = statusInfo.normalized;
         const badgeKey = (statusInfo.badgeLabel ?? '').toLowerCase();
         const pauseLabel = badgeKey ? (pauseLabelByBadge[badgeKey] ?? null) : null;
@@ -1166,36 +1076,69 @@ document.addEventListener('DOMContentLoaded', () => {
             return `${absolute} ${label}`;
         };
 
-        let display = 'Aguardando data';
+        let label = 'Aguardando data';
         let cssClass = 'bg-gray-200 text-gray-800';
+        let state = 'no_deadline';
 
         if (pauseLabel) {
-            display = pauseLabel;
+            label = pauseLabel;
             cssClass = pauseClass ?? 'bg-slate-200 text-slate-800';
+            state = badgeKey;
         } else if (normalizedStatus === 'concluído') {
-            display = 'Concluído';
+            label = 'Concluído';
             cssClass = 'text-green-600';
+            state = 'completed';
         } else if (typeof daysRemaining === 'number' && !Number.isNaN(daysRemaining)) {
             if (daysRemaining < 0) {
-                display = `Atrasado há ${formatDays(daysRemaining)}`;
+                label = `Atrasado há ${formatDays(daysRemaining)}`;
                 cssClass = 'bg-red-200 text-red-800';
+                state = 'overdue';
             } else if (daysRemaining === 0) {
-                display = 'Vence hoje';
+                label = 'Vence hoje';
                 cssClass = 'bg-yellow-200 text-yellow-800';
+                state = 'due_today';
             } else if (daysRemaining <= 3) {
-                display = `Restam ${formatDays(daysRemaining)}`;
+                label = `Restam ${formatDays(daysRemaining)}`;
                 cssClass = 'bg-yellow-200 text-yellow-800';
+                state = 'due_soon';
             } else {
-                display = `Restam ${formatDays(daysRemaining)}`;
+                label = `Restam ${formatDays(daysRemaining)}`;
                 cssClass = 'text-green-600';
+                state = 'on_track';
             }
+        } else if (normalizedStatus === 'concluído') {
+            state = 'completed';
+        } else if (badgeKey) {
+            state = badgeKey;
         }
 
         return {
-            display,
+            label,
             cssClass,
+            state,
         };
     };
+
+    const normalizePaymentMethod = (method) => {
+        const normalized = (method ?? '').toString().trim().toLowerCase();
+
+        switch (normalized) {
+            case 'pagamento parcelado':
+            case 'parcelado':
+                return 'Pagamento parcelado';
+            case 'pagamento mensal':
+            case 'mensal':
+                return 'Pagamento mensal';
+            case 'pagamento único':
+            case 'pagamento unico':
+            case 'à vista':
+            case 'a vista':
+                return 'Pagamento único';
+            default:
+                return 'Pagamento único';
+        }
+    };
+
     // O PHP já deve ter fornecido $totalProcessesCount para o JS
     const totalAvailableProcesses = <?php echo $totalProcessesCount; ?>;
 
@@ -1232,14 +1175,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (newProcesses && newProcesses.length > 0) {
                     let html = '';
                     newProcesses.forEach(processo => {
-                        // Lógica para determinar o status da assinatura (replicada do PHP)
-                        let status_assinatura_texto_js = 'Pendente';
-                        let status_assinatura_classe_js = 'bg-yellow-100 text-yellow-800';
-                        if (processo.data_devolucao_assinatura) {
-                            status_assinatura_texto_js = 'Enviado';
-                            status_assinatura_classe_js = 'bg-green-100 text-green-800';
-                        }
-
                         // Lógica para os serviços (replicada do PHP)
                         let servicosHtml = '';
                         if (processo.categorias_servico) {
@@ -1279,25 +1214,28 @@ document.addEventListener('DOMContentLoaded', () => {
                             ? `${clienteNomeMaiusculo.substring(0, 20)}...`
                             : clienteNomeMaiusculo;
 
-                        // Lógica para o prazo (replicada do PHP)
                         const statusInfo = normalizeStatus(processo.status_processo);
-                        const prazoContext = computeDeadlineContext(processo, statusInfo);
+                        const deadlineDescriptor = computeDeadlineDescriptor(processo, statusInfo);
+                        const paymentMethodNormalized = normalizePaymentMethod(processo.orcamento_forma_pagamento);
                         const rowClass = resolveRowClass(statusInfo.normalized);
                         const statusLabelClass = resolveStatusLabelClass(statusInfo.normalized);
                         const badgeKey = (statusInfo.badgeLabel ?? '').toLowerCase();
-                        const statusBadgeClass = badgeClassByStatus[badgeKey] ?? 'bg-indigo-100 text-indigo-800';
-                        const statusBadgeHtml = statusInfo.badgeLabel
+                        const statusBadgeClass = statusInfo.badgeColorClasses ?? (badgeKey ? (badgeClassByStatus[badgeKey] ?? 'bg-indigo-100 text-indigo-800') : null);
+                        const statusBadgeHtml = statusInfo.badgeLabel && statusBadgeClass
                             ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium ${statusBadgeClass}">${statusInfo.badgeLabel}</span>`
                             : '';
+                        const deadlineBadgeHtml = `<span class='px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${deadlineDescriptor.cssClass}'>${deadlineDescriptor.label}</span>`;
+                        const envioCartorio = processo.data_envio_cartorio
+                            ? new Date(processo.data_envio_cartorio).toLocaleDateString('pt-BR')
+                            : 'Pendente';
 
-                        // Conteúdo HTML do tooltip para o data-attribute (JSON.stringify necessário)
                         const tooltip_html_content_for_js = `
                             <div class="flex flex-col gap-2 text-left whitespace-normal leading-relaxed text-sm">
                                 <p class="font-semibold text-xs uppercase tracking-wide text-gray-200 border-b border-gray-600 pb-2">Detalhes Rápidos</p>
                                 <p><strong>Tradutor:</strong> ${processo.nome_tradutor ?? 'Não definido'}</p>
-                                <p><strong>Modalidade:</strong> ${processo.traducao_modalidade ?? 'N/A'}</p>
-                                <p><strong>Status Ass.:</strong> <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${status_assinatura_classe_js} mr-1">${status_assinatura_texto_js}</span></p>
-                                <p><strong>Envio Cartório:</strong> ${processo.data_envio_cartorio ? new Date(processo.data_envio_cartorio).toLocaleDateString('pt-BR') : 'Pendente'}</p>
+                                <p><strong>Modalidade da tradução:</strong> ${processo.traducao_modalidade ?? 'N/A'}</p>
+                                <p><strong>Modalidade de pagamento:</strong> ${paymentMethodNormalized}</p>
+                                <p><strong>Envio para o cartório:</strong> ${envioCartorio}</p>
                             </div>
                             <div class="tooltip-arrow" data-tooltip-arrow></div>
                         `;
@@ -1306,10 +1244,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             <tr class="${rowClass}">
                                 <td class="px-3 py-2 whitespace-nowrap text-xs font-medium">
                                     <a href="processos.php?action=view&id=${processo.id}" class="text-blue-600 hover:text-blue-800 hover:underline truncate" title="${processo.titulo ?? 'N/A'}">${(processo.titulo || 'N/A').substring(0, 25)}${(processo.titulo && processo.titulo.length > 25) ? '...' : ''}</a>
-                                    <div class="mt-1 flex flex-wrap items-center gap-1 text-xs font-semibold ${statusLabelClass}">
-                                        <span>${statusInfo.label}</span>
-                                        ${statusBadgeHtml}
-                                    </div>
                                 </td>
                                 <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500" title="${clienteNomeMaiusculo}">
                                     <div class="flex items-center gap-1">
@@ -1324,9 +1258,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500">${processo.data_inicio_traducao ? new Date(processo.data_inicio_traducao).toLocaleDateString('pt-BR') : 'N/A'}</td>
                                 <td class="px-3 py-2 whitespace-nowrap text-xs font-medium">
                                     <div class="flex items-center gap-2">
-                                        <span class='px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${prazoContext.cssClass}'>${prazoContext.display}</span>
+                                        <span class="${statusLabelClass} font-semibold">${statusInfo.label}</span>
+                                        ${statusBadgeHtml}
                                     </div>
                                 </td>
+                                <td class="px-3 py-2 whitespace-nowrap text-xs font-medium">${deadlineBadgeHtml}</td>
                                 <td class="px-3 py-2 whitespace-nowrap text-center text-xs font-medium">
                                     <div class="relative inline-block p-1">
                                         <svg id="tooltip-trigger-${processo.id}" class="w-6 h-6 text-gray-500 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24"
