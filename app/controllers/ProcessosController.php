@@ -869,7 +869,7 @@ class ProcessosController
             try {
                 $this->pdo->beginTransaction();
 
-                if (!$this->processoModel->updateFromLeadConversion($processId, ['cliente_id' => $returnedClientId])) {
+                if (!$this->processoModel->updateFromLeadConversion($processId, ['cliente_id' => $returnedClientId], [])) {
                     throw new RuntimeException('Falha ao vincular o cliente ao processo.');
                 }
 
@@ -962,7 +962,7 @@ class ProcessosController
                     'traducao_prazo_dias' => $prazoDias,
                 ];
 
-                if (!$this->processoModel->updateFromLeadConversion($processId, $payload)) {
+                if (!$this->processoModel->updateFromLeadConversion($processId, $payload, [])) {
                     throw new RuntimeException('Falha ao salvar o prazo do serviço.');
                 }
 
@@ -1078,20 +1078,28 @@ class ProcessosController
 
             $this->validateWizardProcessData($process, $input, $leadConversionRequested);
 
-            $paymentProofs = $this->processPaymentProofUploads($processId);
-            $uploadedProofs = array_values($paymentProofs);
+            $uploadedProofs = [];
+            if (array_key_exists('paymentProofFiles', $_FILES)) {
+                $paymentProofData = $this->processPaymentProofUploads($processId);
+                $uploadedProofs = $paymentProofData['attachments'] ?? [];
+            }
 
-            $payload = $this->buildProcessUpdatePayload($process, $input, $customerId, $newStatus, $paymentProofs);
+            $payload = $this->buildProcessUpdatePayload($process, $input, $customerId, $newStatus, $uploadedProofs);
 
-            if (!$this->processoModel->updateFromLeadConversion($processId, $payload)) {
+            if (!$this->processoModel->updateFromLeadConversion($processId, $payload, $uploadedProofs)) {
                 throw new RuntimeException('Falha ao atualizar o processo.');
             }
 
             $this->pdo->commit();
         } catch (Throwable $exception) {
             $this->pdo->rollBack();
-            foreach ($uploadedProofs as $path) {
+            foreach ($uploadedProofs as $attachment) {
+                $path = $attachment['caminho_arquivo'] ?? null;
+                if (!$path) {
+                    continue;
+                }
                 $this->removeUploadedFile($path);
+                $this->removePaymentProofRecord($processId, $path);
             }
             throw $exception;
         }
@@ -2461,91 +2469,41 @@ class ProcessosController
 
     private function processPaymentProofUploads(int $processoId): array
     {
-        $comprovanteMap = [
-            'comprovante_pagamento_unico' => ['categoria' => 'comprovante_unico', 'dataField' => 'data_pagamento_1'],
-            'comprovante_pagamento_entrada' => ['categoria' => 'comprovante_entrada', 'dataField' => 'data_pagamento_1'],
-            'comprovante_pagamento_saldo' => ['categoria' => 'comprovante_saldo', 'dataField' => 'data_pagamento_2'],
-        ];
+        $files = $_FILES['paymentProofFiles'] ?? null;
 
-        $columnMapping = [
-            'comprovante_pagamento_unico' => 'comprovante_pagamento_1',
-            'comprovante_pagamento_entrada' => 'comprovante_pagamento_1',
-            'comprovante_pagamento_saldo' => 'comprovante_pagamento_2',
-        ];
-
-        $resultado = [];
-
-        foreach ($comprovanteMap as $input => $config) {
-            if (!isset($_FILES[$input]) || !is_array($_FILES[$input])) {
-                continue;
-            }
-
-            $file = $_FILES[$input];
-            $errorCode = $file['error'] ?? UPLOAD_ERR_NO_FILE;
-
-            if ($errorCode === UPLOAD_ERR_NO_FILE) {
-                continue;
-            }
-
-            if ($errorCode !== UPLOAD_ERR_OK) {
-                throw new RuntimeException('Falha ao enviar o comprovante de pagamento.');
-            }
-
-            $categoria = $config['categoria'];
-            $relativePath = $this->storePaymentProofAttachment($processoId, $file, $categoria);
-
-            if (isset($columnMapping[$input])) {
-                $resultado[$columnMapping[$input]] = $relativePath;
-            }
+        if (!$this->hasValidPaymentProofUpload($files)) {
+            throw new InvalidArgumentException('Anexe o comprovante de pagamento antes de finalizar a conversão.');
         }
 
-        return $resultado;
+        $storageContext = $this->processoModel->determineStorageContextKey($processoId);
+        $storedProofs = $this->processoModel->salvarArquivos($processoId, $files, 'comprovante', $storageContext);
+
+        if (empty($storedProofs)) {
+            throw new RuntimeException('Não foi possível salvar os comprovantes de pagamento.');
+        }
+
+        return ['attachments' => $storedProofs];
     }
 
-    private function storePaymentProofAttachment(int $processoId, array $file, string $categoria): string
+    private function hasValidPaymentProofUpload($files): bool
     {
-        $allowedExtensions = ['pdf', 'png', 'jpg', 'jpeg', 'webp'];
-        $originalName = $file['name'] ?? 'comprovante';
-        $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-
-        if ($extension === '' || !in_array($extension, $allowedExtensions, true)) {
-            throw new InvalidArgumentException('Formato de arquivo não suportado para comprovantes de pagamento.');
+        if (empty($files) || !is_array($files)) {
+            return false;
         }
 
-        $dateSegment = date('m/d');
-        $relativeDirectory = sprintf('uploads/%s/comprovantes/processo-%d/', $dateSegment, $processoId);
-        $absoluteDirectory = rtrim(dirname(__DIR__, 2), '/') . '/' . $relativeDirectory;
+        $errors = $files['error'] ?? null;
+        $tmpNames = $files['tmp_name'] ?? null;
 
-        if (!is_dir($absoluteDirectory) && !mkdir($absoluteDirectory, 0755, true) && !is_dir($absoluteDirectory)) {
-            throw new RuntimeException('Não foi possível criar o diretório de comprovantes de pagamento.');
+        if (is_array($errors)) {
+            foreach ($errors as $index => $error) {
+                if ((int)$error === UPLOAD_ERR_OK && !empty($tmpNames[$index])) {
+                    return true;
+                }
+            }
+            return false;
         }
 
-        $novoNome = uniqid($categoria . '_', true) . '.' . $extension;
-        $destino = $absoluteDirectory . $novoNome;
-
-        if (!move_uploaded_file($file['tmp_name'], $destino)) {
-            throw new RuntimeException('Não foi possível mover o arquivo de comprovante de pagamento.');
-        }
-
-        $relativePath = $relativeDirectory . $novoNome;
-
-        $sql = 'INSERT INTO processo_anexos (processo_id, categoria, nome_arquivo_sistema, nome_arquivo_original, caminho_arquivo, data_upload) VALUES (:processoId, :categoria, :nomeSistema, :nomeOriginal, :caminhoArquivo, :dataUpload)';
-        $stmt = $this->pdo->prepare($sql);
-        $params = [
-            ':processoId' => $processoId,
-            ':categoria' => $categoria,
-            ':nomeSistema' => $novoNome,
-            ':nomeOriginal' => $originalName,
-            ':caminhoArquivo' => $relativePath,
-            ':dataUpload' => date('Y-m-d H:i:s'),
-        ];
-
-        if (!$stmt->execute($params)) {
-            $this->removeUploadedFile($relativePath);
-            throw new RuntimeException('Não foi possível registrar o comprovante de pagamento no banco de dados.');
-        }
-
-        return $relativePath;
+        return (int)$errors === UPLOAD_ERR_OK && !empty($tmpNames);
     }
 
     private function removeUploadedFile(string $relativePath): void
@@ -2554,6 +2512,15 @@ class ProcessosController
         if (is_file($absolutePath)) {
             @unlink($absolutePath);
         }
+    }
+
+    private function removePaymentProofRecord(int $processoId, string $relativePath): void
+    {
+        $stmt = $this->pdo->prepare('DELETE FROM processo_anexos WHERE processo_id = :id AND caminho_arquivo = :path');
+        $stmt->execute([
+            ':id' => $processoId,
+            ':path' => $relativePath,
+        ]);
     }
 
     private function buildProcessUpdatePayload(array $processo, array $input, int $clienteId, string $novoStatus, array $paymentProofs): array
@@ -2634,8 +2601,14 @@ class ProcessosController
             $dados['cliente_id'] = $clienteId;
         }
 
-        foreach ($paymentProofs as $column => $path) {
-            $dados[$column] = $path;
+        if (!empty($paymentProofs)) {
+            $proofPaths = array_column($paymentProofs, 'caminho_arquivo');
+            if (!empty($proofPaths[0])) {
+                $dados['comprovante_pagamento_1'] = $proofPaths[0];
+            }
+            if (!empty($proofPaths[1])) {
+                $dados['comprovante_pagamento_2'] = $proofPaths[1];
+            }
         }
 
         return $dados;
