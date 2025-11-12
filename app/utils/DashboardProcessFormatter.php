@@ -46,6 +46,21 @@ class DashboardProcessFormatter
         'pendente de documentos' => 'Pendente de documentos',
     ];
 
+    private const BADGE_COLOR_CLASSES = [
+        'pendente de pagamento' => 'bg-indigo-100 text-indigo-800',
+        'pendente de documentos' => 'bg-violet-100 text-violet-800',
+    ];
+
+    private const PAUSE_LABELS = [
+        'pendente de pagamento' => 'Aguardando Pagamento',
+        'pendente de documentos' => 'Aguardando Documentos',
+    ];
+
+    private const PAUSE_CLASSES = [
+        'pendente de pagamento' => 'bg-slate-200 text-slate-800',
+        'pendente de documentos' => 'bg-violet-200 text-violet-800',
+    ];
+
     private const STATUS_LABELS = [
         'orçamento' => 'Orçamento',
         'orçamento pendente' => 'Orçamento Pendente',
@@ -53,6 +68,15 @@ class DashboardProcessFormatter
         'serviço em andamento' => 'Serviço em Andamento',
         'concluído' => 'Concluído',
         'cancelado' => 'Cancelado',
+    ];
+
+    private const STATUS_LABEL_CLASSES = [
+        'orçamento' => 'text-blue-700',
+        'orçamento pendente' => 'text-blue-700',
+        'serviço pendente' => 'text-orange-700',
+        'serviço em andamento' => 'text-cyan-700',
+        'concluído' => 'text-purple-700',
+        'cancelado' => 'text-red-700',
     ];
 
     public static function normalizeStatusForDashboard(?string $status): array
@@ -87,13 +111,18 @@ class DashboardProcessFormatter
         $baseInfo = self::normalizeStatusForDashboard($statusString);
         $normalized = $baseInfo['normalized'];
         $badgeLabel = $baseInfo['badge_label'];
+        $badgeKey = $badgeLabel !== null ? mb_strtolower($badgeLabel) : null;
 
         $label = self::STATUS_LABELS[$normalized] ?? $statusString;
+        $badgeClasses = $badgeKey !== null
+            ? (self::BADGE_COLOR_CLASSES[$badgeKey] ?? 'bg-indigo-100 text-indigo-800')
+            : null;
 
         return [
             'normalized' => $normalized,
             'label' => $label,
             'badge_label' => $badgeLabel,
+            'badge_color_classes' => $badgeClasses,
         ];
     }
 
@@ -107,6 +136,11 @@ class DashboardProcessFormatter
             'cancelado' => 'bg-red-50 hover:bg-red-100',
             default => 'hover:bg-gray-50',
         };
+    }
+
+    public static function getStatusLabelClass(string $statusNormalized): string
+    {
+        return self::STATUS_LABEL_CLASSES[$statusNormalized] ?? 'text-gray-700';
     }
 
     public static function buildDeadlineDescriptor(array $process, array $colors = []): array
@@ -171,6 +205,84 @@ class DashboardProcessFormatter
             $descriptor['state'] = 'on_track';
         }
 
+        $descriptor['display'] = $descriptor['label'];
+
+        return $descriptor;
+    }
+
+    public static function buildStatusDescriptor(array $process, ?array $statusInfo = null, array $colors = []): array
+    {
+        $statusInfo = $statusInfo ?? self::normalizeStatusInfo($process['status_processo'] ?? '');
+        $statusNormalized = $statusInfo['normalized'] ?? '';
+        $badgeLabel = $statusInfo['badge_label'] ?? null;
+        $badgeKey = $badgeLabel !== null ? mb_strtolower($badgeLabel) : null;
+
+        $descriptor = [
+            'label' => 'Aguardando data',
+            'class' => 'bg-gray-200 text-gray-800',
+            'state' => 'no_deadline',
+            'days' => null,
+        ];
+
+        if ($statusNormalized === 'concluído') {
+            $descriptor['label'] = 'Concluído';
+            $descriptor['class'] = 'text-green-600';
+            $descriptor['state'] = 'completed';
+            $descriptor['days'] = 0;
+            return $descriptor;
+        }
+
+        if ($badgeKey !== null) {
+            $descriptor['label'] = self::PAUSE_LABELS[$badgeKey] ?? 'Aguardando data';
+            $descriptor['class'] = self::PAUSE_CLASSES[$badgeKey] ?? 'bg-slate-200 text-slate-800';
+            $descriptor['state'] = $badgeKey;
+            $stored = $process['prazo_dias_restantes'] ?? null;
+            if ($stored !== null && $stored !== '') {
+                $descriptor['days'] = (int) $stored;
+            }
+
+            return $descriptor;
+        }
+
+        $deadlineDescriptor = self::buildDeadlineDescriptor($process, $colors);
+        $descriptor['state'] = $deadlineDescriptor['state'] ?? 'no_deadline';
+        $descriptor['days'] = $deadlineDescriptor['days'] ?? null;
+
+        $formatDays = static function (?int $value): string {
+            $value = $value ?? 0;
+            $absolute = abs($value);
+            $label = $absolute === 1 ? 'dia' : 'dias';
+
+            return $absolute . ' ' . $label;
+        };
+
+        switch ($deadlineDescriptor['state'] ?? 'no_deadline') {
+            case 'overdue':
+                $descriptor['label'] = 'Atrasado há ' . $formatDays($deadlineDescriptor['days'] ?? null);
+                $descriptor['class'] = 'bg-red-200 text-red-800';
+                break;
+            case 'due_today':
+                $descriptor['label'] = 'Vence hoje';
+                $descriptor['class'] = 'bg-yellow-200 text-yellow-800';
+                break;
+            case 'due_soon':
+                $descriptor['label'] = 'Restam ' . $formatDays($deadlineDescriptor['days'] ?? null);
+                $descriptor['class'] = 'bg-yellow-200 text-yellow-800';
+                break;
+            case 'on_track':
+                $descriptor['label'] = 'Restam ' . $formatDays($deadlineDescriptor['days'] ?? null);
+                $descriptor['class'] = 'text-green-600';
+                break;
+            case 'completed':
+                $descriptor['label'] = 'Concluído';
+                $descriptor['class'] = 'text-green-600';
+                break;
+            default:
+                $descriptor['label'] = 'Aguardando data';
+                $descriptor['class'] = 'bg-gray-200 text-gray-800';
+                break;
+        }
+
         return $descriptor;
     }
 
@@ -222,5 +334,39 @@ class DashboardProcessFormatter
         } catch (Exception $exception) {
             return null;
         }
+    }
+
+    public static function formatOriginalDeadlineValue(array $process): string
+    {
+        $rawDays = $process['traducao_prazo_dias'] ?? $process['prazo_dias'] ?? null;
+
+        if ($rawDays !== null && $rawDays !== '') {
+            $days = (int) $rawDays;
+            $label = abs($days) === 1 ? 'dia' : 'dias';
+
+            return $days . ' ' . $label;
+        }
+
+        $rawDate = $process['data_previsao_entrega'] ?? null;
+        if (!empty($rawDate)) {
+            $date = self::createImmutableDate((string) $rawDate);
+            if ($date instanceof DateTimeImmutable) {
+                return $date->format('d/m/Y');
+            }
+        }
+
+        return '—';
+    }
+
+    public static function normalizePaymentMethod(?string $method): string
+    {
+        $normalized = mb_strtolower(trim((string) $method));
+
+        return match ($normalized) {
+            'pagamento parcelado', 'parcelado' => 'Pagamento parcelado',
+            'pagamento mensal', 'mensal' => 'Pagamento mensal',
+            'pagamento único', 'pagamento unico', 'à vista', 'a vista' => 'Pagamento único',
+            default => 'Pagamento único',
+        };
     }
 }

@@ -11,34 +11,15 @@ foreach ($processes as $processo):
     $statusNormalized = $statusInfo['normalized'];
     $statusBadgeLabel = $statusInfo['badge_label'] ?? null;
     $rowClass = DashboardProcessFormatter::getRowClass($statusNormalized);
-    $deadlineDescriptor = DashboardProcessFormatter::buildDeadlineDescriptor($processo, $deadlineColors);
+    $statusDescriptor = DashboardProcessFormatter::buildStatusDescriptor($processo, $statusInfo, $deadlineColors);
     $serviceBadges = DashboardProcessFormatter::getServiceBadges($processo['categorias_servico'] ?? '');
-    $deadlineClass = $deadlineDescriptor['class'];
-    $deadlineLabel = $deadlineDescriptor['label'];
     $rowHighlight = '';
 
-    if ($highlightAnimations && in_array($deadlineDescriptor['state'], ['overdue', 'due_today'], true)) {
+    if ($highlightAnimations && in_array($statusDescriptor['state'], ['overdue', 'due_today'], true)) {
         $rowHighlight = 'animate-pulse';
     }
-
-    $statusLabelClass = match ($statusNormalized) {
-        'orçamento', 'orçamento pendente' => 'text-blue-700',
-        'serviço pendente' => 'text-orange-700',
-        'serviço em andamento' => 'text-cyan-700',
-        'concluído' => 'text-purple-700',
-        'cancelado' => 'text-red-700',
-        default => 'text-gray-700',
-    };
-
-    $badgeClassMap = [
-        'pendente de pagamento' => 'bg-indigo-100 text-indigo-800',
-        'pendente de documentos' => 'bg-violet-100 text-violet-800',
-    ];
-    $statusBadgeClass = null;
-    if ($statusBadgeLabel !== null) {
-        $badgeKey = mb_strtolower($statusBadgeLabel);
-        $statusBadgeClass = $badgeClassMap[$badgeKey] ?? 'bg-indigo-100 text-indigo-800';
-    }
+    $statusLabelClass = DashboardProcessFormatter::getStatusLabelClass($statusNormalized);
+    $statusBadgeClass = $statusInfo['badge_color_classes'] ?? null;
 ?>
 <tr class="<?php echo trim($rowClass . ' ' . $rowHighlight); ?>" data-process-id="<?php echo (int) ($processo['id'] ?? 0); ?>">
     <td class="px-3 py-1 whitespace-nowrap text-xs font-medium">
@@ -49,14 +30,6 @@ foreach ($processes as $processo):
         <span class="block truncate" title="<?php echo $fullTitle; ?>">
             <?php echo $shortTitle; ?>
         </span>
-        <div class="mt-1 flex flex-wrap items-center gap-1 text-[11px] font-semibold <?php echo $statusLabelClass; ?>">
-            <span><?php echo htmlspecialchars($statusInfo['label']); ?></span>
-            <?php if ($statusBadgeLabel !== null): ?>
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo $statusBadgeClass; ?>">
-                    <?php echo htmlspecialchars($statusBadgeLabel); ?>
-                </span>
-            <?php endif; ?>
-        </div>
     </td>
     <td class="px-3 py-1 whitespace-nowrap text-xs text-gray-500 truncate" title="<?php echo htmlspecialchars(mb_strtoupper($processo['nome_cliente'] ?? 'N/A')); ?>">
         <?php echo htmlspecialchars(mb_strtoupper(mb_strimwidth($processo['nome_cliente'] ?? 'N/A', 0, 20, '...'))); ?>
@@ -83,8 +56,22 @@ foreach ($processes as $processo):
         <?php echo !empty($processo['data_inicio_traducao']) ? date('d/m/Y', strtotime($processo['data_inicio_traducao'])) : 'N/A'; ?>
     </td>
     <td class="px-3 py-1 whitespace-nowrap text-xs font-medium">
+        <div class="flex items-center gap-2">
+            <span class="<?php echo htmlspecialchars($statusLabelClass, ENT_QUOTES, 'UTF-8'); ?> font-semibold">
+                <?php echo htmlspecialchars($statusInfo['label']); ?>
+            </span>
+            <?php if ($statusBadgeLabel !== null && $statusBadgeClass !== null): ?>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo htmlspecialchars($statusBadgeClass, ENT_QUOTES, 'UTF-8'); ?>">
+                    <?php echo htmlspecialchars($statusBadgeLabel); ?>
+                </span>
+            <?php endif; ?>
+        </div>
+    </td>
+    <td class="px-3 py-1 whitespace-nowrap text-xs font-medium">
+        <?php $deadlineClass = htmlspecialchars($statusDescriptor['class'] ?? 'text-gray-500', ENT_QUOTES, 'UTF-8'); ?>
+        <?php $deadlineLabel = htmlspecialchars($statusDescriptor['label'] ?? $statusDescriptor['display'] ?? '—', ENT_QUOTES, 'UTF-8'); ?>
         <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $deadlineClass; ?>">
-            <?php echo htmlspecialchars($deadlineLabel); ?>
+            <?php echo $deadlineLabel; ?>
         </span>
     </td>
     <?php if ($showActions): ?>
@@ -93,21 +80,15 @@ foreach ($processes as $processo):
             <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"
                  data-tooltip-trigger data-process-id="<?php echo (int) ($processo['id'] ?? 0); ?>"
                  data-tooltip-content-json='<?php
-                    $statusAssinaturaTexto = 'Pendente';
-                    $statusAssinaturaClasse = 'bg-yellow-100 text-yellow-800';
-                    if (!empty($processo['data_devolucao_assinatura'])) {
-                        $statusAssinaturaTexto = 'Enviado';
-                        $statusAssinaturaClasse = 'bg-green-100 text-green-800';
-                    }
                     $nomeTradutor = htmlspecialchars($processo['nome_tradutor'] ?? 'Não definido', ENT_QUOTES, 'UTF-8');
                     $modalidadeTraducao = htmlspecialchars($processo['traducao_modalidade'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+                    $modalidadePagamento = htmlspecialchars(DashboardProcessFormatter::normalizePaymentMethod($processo['orcamento_forma_pagamento'] ?? null), ENT_QUOTES, 'UTF-8');
                     $envioCartorio = !empty($processo['data_envio_cartorio']) ? date('d/m/Y', strtotime($processo['data_envio_cartorio'])) : 'Pendente';
                     $tooltipHtml = '<div class="space-y-1 text-left whitespace-nowrap">'
                         . '<div><span class="font-semibold">Tradutor:</span> ' . $nomeTradutor . '</div>'
-                        . '<div><span class="font-semibold">Modalidade:</span> ' . $modalidadeTraducao . '</div>'
-                        . '<div><span class="font-semibold">Assinatura:</span> <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full '
-                        . $statusAssinaturaClasse . '">' . $statusAssinaturaTexto . '</span></div>'
-                        . '<div><span class="font-semibold">Envio Cartório:</span> ' . $envioCartorio . '</div>'
+                        . '<div><span class="font-semibold">Modalidade da tradução:</span> ' . $modalidadeTraducao . '</div>'
+                        . '<div><span class="font-semibold">Modalidade de pagamento:</span> ' . $modalidadePagamento . '</div>'
+                        . '<div><span class="font-semibold">Envio para o cartório:</span> ' . $envioCartorio . '</div>'
                         . '</div>';
                     echo $tooltipHtml;
                  ?>'>
