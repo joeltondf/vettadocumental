@@ -155,9 +155,9 @@ $parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balan
                                 id="payment_unique_receipt"
                                 accept=".pdf,.png,.jpg,.jpeg,.webp"
                                 class="hidden"
-                                data-field-name="comprovante_pagamento_unico"
+                                data-field-name="paymentProofFiles[]"
                                 data-upload-display="payment_unique_receipt"
-                                <?php echo $paymentMethod === 'Pagamento único' ? 'name="comprovante_pagamento_unico"' : 'disabled'; ?>
+                                <?php echo $paymentMethod === 'Pagamento único' ? '' : 'disabled'; ?>
                             >
                         </div>
                     </div>
@@ -203,9 +203,9 @@ $parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balan
                                 id="payment_installment_receipt_1"
                                 accept=".pdf,.png,.jpg,.jpeg,.webp"
                                 class="hidden"
-                                data-field-name="comprovante_pagamento_entrada"
+                                data-field-name="paymentProofFiles[]"
                                 data-upload-display="payment_installment_receipt_1"
-                                <?php echo $paymentMethod === 'Pagamento parcelado' ? 'name="comprovante_pagamento_entrada"' : 'disabled'; ?>
+                                <?php echo $paymentMethod === 'Pagamento parcelado' ? '' : 'disabled'; ?>
                             >
                         </div>
                     </div>
@@ -246,9 +246,9 @@ $parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balan
                                 id="payment_installment_receipt_2"
                                 accept=".pdf,.png,.jpg,.jpeg,.webp"
                                 class="hidden"
-                                data-field-name="comprovante_pagamento_saldo"
+                                data-field-name="paymentProofFiles[]"
                                 data-upload-display="payment_installment_receipt_2"
-                                <?php echo $paymentMethod === 'Pagamento parcelado' ? 'name="comprovante_pagamento_saldo"' : 'disabled'; ?>
+                                <?php echo $paymentMethod === 'Pagamento parcelado' ? '' : 'disabled'; ?>
                             >
                         </div>
                     </div>

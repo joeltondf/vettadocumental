@@ -577,7 +577,7 @@ public function create($data, $files)
         }
     }
 
-    public function updateFromLeadConversion(int $processoId, array $data): bool
+    public function updateFromLeadConversion(int $processoId, array $data, array $paymentProofFiles = []): bool
     {
         $allowedFields = [
             'status_processo',
@@ -653,6 +653,28 @@ public function create($data, $files)
             }
 
             $setParts[] = "data_previsao_entrega = CASE\n                WHEN :prazo_dias IS NULL THEN NULL\n                WHEN COALESCE(:data_inicio_traducao, data_inicio_traducao) IS NOT NULL THEN DATE_ADD(COALESCE(:data_inicio_traducao, data_inicio_traducao), INTERVAL :prazo_dias DAY)\n                ELSE DATE_ADD(data_criacao, INTERVAL :prazo_dias DAY)\n            END";
+        }
+
+        if (!empty($paymentProofFiles)) {
+            $proofPaths = array_column($paymentProofFiles, 'caminho_arquivo');
+            $legacyMap = [
+                'comprovante_pagamento_1' => $proofPaths[0] ?? null,
+                'comprovante_pagamento_2' => $proofPaths[1] ?? null,
+            ];
+
+            foreach ($legacyMap as $column => $path) {
+                if ($path === null || $path === '') {
+                    continue;
+                }
+
+                $placeholder = ':' . $column;
+                $assignment = "`{$column}` = {$placeholder}";
+                $params[$placeholder] = $path;
+
+                if (!in_array($assignment, $setParts, true)) {
+                    $setParts[] = $assignment;
+                }
+            }
         }
 
         if (empty($setParts)) {
@@ -2469,7 +2491,7 @@ public function create($data, $files)
     /**
      * Salva arquivos enviados para um processo em diretórios estruturados por data.
      */
-    private function salvarArquivos(int $processoId, ?array $files, string $categoria, string $storageContext, ?string $month = null, ?string $day = null): array
+    public function salvarArquivos(int $processoId, ?array $files, string $categoria, string $storageContext, ?string $month = null, ?string $day = null): array
     {
         $uploadedFiles = $this->normalizeUploadedFiles($files);
         if (empty($uploadedFiles)) {
@@ -2578,7 +2600,7 @@ public function create($data, $files)
         );
     }
 
-    private function determineStorageContextKey(int $processoId, ?string $status = null, ?string $orcamentoNumero = null): string
+    public function determineStorageContextKey(int $processoId, ?string $status = null, ?string $orcamentoNumero = null): string
     {
         if ($status === null || $orcamentoNumero === null) {
             $stmt = $this->pdo->prepare('SELECT status_processo, orcamento_numero FROM processos WHERE id = ?');

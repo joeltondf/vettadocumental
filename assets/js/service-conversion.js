@@ -137,18 +137,26 @@
                 return;
             }
 
+            const desiredName = field.dataset.fieldName || null;
+
             if (enabled) {
                 field.disabled = false;
-                field.name = field.dataset.fieldName || field.name;
+                if (desiredName) {
+                    field.name = desiredName;
+                }
             } else {
                 field.disabled = true;
-                field.removeAttribute('name');
-                if (field.matches('[data-entry-value]')) {
-                    field.value = '';
-                }
                 if (field.type === 'file') {
+                    if (!field.name && desiredName) {
+                        field.name = desiredName;
+                    }
                     field.value = '';
                     updateFileTileDisplay(field);
+                } else {
+                    field.removeAttribute('name');
+                    if (field.matches('[data-entry-value]')) {
+                        field.value = '';
+                    }
                 }
             }
         };
