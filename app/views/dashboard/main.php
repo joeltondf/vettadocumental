@@ -7,6 +7,7 @@ require_once __DIR__ . '/../../utils/DashboardProcessFormatter.php';
 // --- Configurações Iniciais ---
 $hasFilters = $hasFilters ?? false;
 $defaultStatusApplied = $defaultStatusApplied ?? false;
+$highlightAnimations = $highlightAnimations ?? false;
 $listTitle = $listTitle ?? ($hasFilters ? 'Resultados da Busca' : 'Todos os Serviços');
 
 // Definir o limite inicial de processos para exibir no dashboard
