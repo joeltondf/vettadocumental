@@ -20,6 +20,8 @@ foreach ($processes as $processo):
     }
     $statusLabelClass = DashboardProcessFormatter::getStatusLabelClass($statusNormalized);
     $statusBadgeClass = $statusInfo['badge_color_classes'] ?? null;
+    $statusTagClass = trim('inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold border border-current ' . $statusLabelClass);
+    $remainingDaysDisplay = DashboardProcessFormatter::formatRemainingDaysValue($processo, $statusDescriptor);
 ?>
 <tr class="<?php echo trim($rowClass . ' ' . $rowHighlight); ?>" data-process-id="<?php echo (int) ($processo['id'] ?? 0); ?>">
     <td class="px-3 py-1 whitespace-nowrap text-xs font-medium">
@@ -56,23 +58,26 @@ foreach ($processes as $processo):
         <?php echo !empty($processo['data_inicio_traducao']) ? date('d/m/Y', strtotime($processo['data_inicio_traducao'])) : 'N/A'; ?>
     </td>
     <td class="px-3 py-1 whitespace-nowrap text-xs font-medium">
-        <div class="flex items-center gap-2">
-            <span class="<?php echo htmlspecialchars($statusLabelClass, ENT_QUOTES, 'UTF-8'); ?> font-semibold">
-                <?php echo htmlspecialchars($statusInfo['label']); ?>
-            </span>
-            <?php if ($statusBadgeLabel !== null && $statusBadgeClass !== null): ?>
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo htmlspecialchars($statusBadgeClass, ENT_QUOTES, 'UTF-8'); ?>">
-                    <?php echo htmlspecialchars($statusBadgeLabel); ?>
+        <div class="flex flex-col gap-1">
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="<?php echo htmlspecialchars($statusTagClass, ENT_QUOTES, 'UTF-8'); ?>">
+                    <?php echo htmlspecialchars($statusInfo['label']); ?>
                 </span>
-            <?php endif; ?>
+                <?php if ($statusBadgeLabel !== null && $statusBadgeClass !== null): ?>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo htmlspecialchars($statusBadgeClass, ENT_QUOTES, 'UTF-8'); ?>">
+                        <?php echo htmlspecialchars($statusBadgeLabel); ?>
+                    </span>
+                <?php endif; ?>
+            </div>
+            <?php $deadlineClass = htmlspecialchars($statusDescriptor['class'] ?? 'text-gray-500', ENT_QUOTES, 'UTF-8'); ?>
+            <?php $deadlineLabel = htmlspecialchars($statusDescriptor['label'] ?? $statusDescriptor['display'] ?? '—', ENT_QUOTES, 'UTF-8'); ?>
+            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $deadlineClass; ?>">
+                <?php echo $deadlineLabel; ?>
+            </span>
         </div>
     </td>
-    <td class="px-3 py-1 whitespace-nowrap text-xs font-medium">
-        <?php $deadlineClass = htmlspecialchars($statusDescriptor['class'] ?? 'text-gray-500', ENT_QUOTES, 'UTF-8'); ?>
-        <?php $deadlineLabel = htmlspecialchars($statusDescriptor['label'] ?? $statusDescriptor['display'] ?? '—', ENT_QUOTES, 'UTF-8'); ?>
-        <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $deadlineClass; ?>">
-            <?php echo $deadlineLabel; ?>
-        </span>
+    <td class="px-3 py-1 whitespace-nowrap text-xs font-semibold text-gray-700">
+        <?php echo htmlspecialchars($remainingDaysDisplay, ENT_QUOTES, 'UTF-8'); ?>
     </td>
     <?php if ($showActions): ?>
     <td class="px-3 py-1 whitespace-nowrap text-center text-xs font-medium">

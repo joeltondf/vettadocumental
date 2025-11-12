@@ -128,6 +128,13 @@ if (!function_exists('dashboard_render_deadline_badge')) {
     }
 }
 
+if (!function_exists('dashboard_format_remaining_days')) {
+    function dashboard_format_remaining_days(array $processo, array $statusDescriptor): string
+    {
+        return DashboardProcessFormatter::formatRemainingDaysValue($processo, $statusDescriptor);
+    }
+}
+
 $currentSort = $filters['sort'] ?? '';
 $currentDirection = strtoupper($filters['direction'] ?? 'ASC');
 $currentDirection = in_array($currentDirection, ['ASC', 'DESC'], true) ? $currentDirection : 'ASC';
@@ -437,6 +444,8 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                             $statusLabelClass = dashboard_get_status_label_class($statusNormalized);
                             $statusBadgeClass = $statusInfo['badge_color_classes'] ?? null;
                             $deadlineDescriptor = dashboard_build_deadline_descriptor($processo, $statusInfo);
+                            $statusTagClass = trim('inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold border border-current ' . $statusLabelClass);
+                            $remainingDaysDisplay = dashboard_format_remaining_days($processo, $deadlineDescriptor);
                             $rowHighlight = '';
 
                             if ($highlightAnimations && in_array($deadlineDescriptor['state'], ['overdue', 'due_today'], true)) {
@@ -506,19 +515,22 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                             <td class="px-3 py-0.5 whitespace-nowrap text-xs text-gray-500"><?php echo isset($processo['data_criacao']) ? date('d/m/Y', strtotime($processo['data_criacao'])) : 'N/A'; ?></td>
                             <td class="px-3 py-0.5 whitespace-nowrap text-xs text-gray-500"><?php echo isset($processo['data_inicio_traducao']) ? date('d/m/Y', strtotime($processo['data_inicio_traducao'])) : 'N/A'; ?></td>
                             <td class="px-3 py-0.5 whitespace-nowrap text-xs font-medium">
-                                <div class="flex items-center gap-2">
-                                    <span class="<?php echo htmlspecialchars($statusLabelClass, ENT_QUOTES, 'UTF-8'); ?> font-semibold">
-                                        <?php echo htmlspecialchars($statusInfo['label']); ?>
-                                    </span>
-                                    <?php if ($statusBadgeLabel !== null && $statusBadgeClass !== null): ?>
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo htmlspecialchars($statusBadgeClass, ENT_QUOTES, 'UTF-8'); ?>">
-                                            <?php echo htmlspecialchars($statusBadgeLabel); ?>
+                                <div class="flex flex-col gap-1">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="<?php echo htmlspecialchars($statusTagClass, ENT_QUOTES, 'UTF-8'); ?>">
+                                            <?php echo htmlspecialchars($statusInfo['label']); ?>
                                         </span>
-                                    <?php endif; ?>
+                                        <?php if ($statusBadgeLabel !== null && $statusBadgeClass !== null): ?>
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo htmlspecialchars($statusBadgeClass, ENT_QUOTES, 'UTF-8'); ?>">
+                                                <?php echo htmlspecialchars($statusBadgeLabel); ?>
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <?php echo dashboard_render_deadline_badge($deadlineDescriptor); ?>
                                 </div>
                             </td>
-                            <td class="px-3 py-0.5 whitespace-nowrap text-xs font-medium">
-                                <?php echo dashboard_render_deadline_badge($deadlineDescriptor); ?>
+                            <td class="px-3 py-0.5 whitespace-nowrap text-xs font-semibold text-gray-700">
+                                <?php echo htmlspecialchars($remainingDaysDisplay, ENT_QUOTES, 'UTF-8'); ?>
                             </td>
                             <td class="px-3 py-0.5 whitespace-nowrap text-center text-xs font-medium">
                                 <div class="relative inline-block p-1">
@@ -1116,7 +1128,40 @@ document.addEventListener('DOMContentLoaded', () => {
             label,
             cssClass,
             state,
+            days: typeof daysRemaining === 'number' && !Number.isNaN(daysRemaining) ? daysRemaining : null,
         };
+    };
+
+    const formatRemainingDays = (processo, descriptor) => {
+        let daysValue = processo.prazo_dias_restantes;
+
+        if (daysValue === null || daysValue === undefined || daysValue === '') {
+            if (descriptor && typeof descriptor.days === 'number' && !Number.isNaN(descriptor.days)) {
+                daysValue = descriptor.days;
+            } else if (processo.traducao_prazo_dias) {
+                const parsedTraducao = parseInt(processo.traducao_prazo_dias, 10);
+                if (!Number.isNaN(parsedTraducao)) {
+                    daysValue = parsedTraducao;
+                }
+            } else if (processo.prazo_dias) {
+                const parsedPrazo = parseInt(processo.prazo_dias, 10);
+                if (!Number.isNaN(parsedPrazo)) {
+                    daysValue = parsedPrazo;
+                }
+            }
+        }
+
+        if (daysValue === null || daysValue === undefined || daysValue === '') {
+            return '—';
+        }
+
+        const parsedDays = parseInt(daysValue, 10);
+        if (Number.isNaN(parsedDays)) {
+            return '—';
+        }
+
+        const unit = Math.abs(parsedDays) === 1 ? 'dia' : 'dias';
+        return `${parsedDays} ${unit}`;
     };
 
     const normalizePaymentMethod = (method) => {
@@ -1221,10 +1266,23 @@ document.addEventListener('DOMContentLoaded', () => {
                         const statusLabelClass = resolveStatusLabelClass(statusInfo.normalized);
                         const badgeKey = (statusInfo.badgeLabel ?? '').toLowerCase();
                         const statusBadgeClass = statusInfo.badgeColorClasses ?? (badgeKey ? (badgeClassByStatus[badgeKey] ?? 'bg-indigo-100 text-indigo-800') : null);
+                        const statusTagClass = `inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold border border-current ${statusLabelClass}`;
+                        const statusTagHtml = `<span class="${statusTagClass}">${statusInfo.label}</span>`;
                         const statusBadgeHtml = statusInfo.badgeLabel && statusBadgeClass
                             ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium ${statusBadgeClass}">${statusInfo.badgeLabel}</span>`
                             : '';
-                        const deadlineBadgeHtml = `<span class='px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${deadlineDescriptor.cssClass}'>${deadlineDescriptor.label}</span>`;
+                        const deadlineBadgeHtml = `<span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${deadlineDescriptor.cssClass}">${deadlineDescriptor.label}</span>`;
+                        const statusBadgeRow = [statusTagHtml, statusBadgeHtml].filter(Boolean).join('');
+                        const statusCellHtml = `
+                            <div class="flex flex-col gap-1">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    ${statusBadgeRow}
+                                </div>
+                                ${deadlineBadgeHtml}
+                            </div>
+                        `;
+                        const remainingDaysText = formatRemainingDays(processo, deadlineDescriptor);
+                        const remainingDaysHtml = `<span class="text-xs font-semibold text-gray-700">${remainingDaysText}</span>`;
                         const envioCartorio = processo.data_envio_cartorio
                             ? new Date(processo.data_envio_cartorio).toLocaleDateString('pt-BR')
                             : 'Pendente';
@@ -1256,13 +1314,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500">${servicosHtml}</td>
                                 <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500">${processo.data_criacao ? new Date(processo.data_criacao).toLocaleDateString('pt-BR') : 'N/A'}</td>
                                 <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500">${processo.data_inicio_traducao ? new Date(processo.data_inicio_traducao).toLocaleDateString('pt-BR') : 'N/A'}</td>
-                                <td class="px-3 py-2 whitespace-nowrap text-xs font-medium">
-                                    <div class="flex items-center gap-2">
-                                        <span class="${statusLabelClass} font-semibold">${statusInfo.label}</span>
-                                        ${statusBadgeHtml}
-                                    </div>
-                                </td>
-                                <td class="px-3 py-2 whitespace-nowrap text-xs font-medium">${deadlineBadgeHtml}</td>
+                                <td class="px-3 py-2 whitespace-nowrap text-xs font-medium">${statusCellHtml}</td>
+                                <td class="px-3 py-2 whitespace-nowrap text-xs font-semibold text-gray-700">${remainingDaysHtml}</td>
                                 <td class="px-3 py-2 whitespace-nowrap text-center text-xs font-medium">
                                     <div class="relative inline-block p-1">
                                         <svg id="tooltip-trigger-${processo.id}" class="w-6 h-6 text-gray-500 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24"

@@ -286,6 +286,31 @@ class DashboardProcessFormatter
         return $descriptor;
     }
 
+    public static function formatRemainingDaysValue(array $process, array $statusDescriptor = []): string
+    {
+        $daysValue = $process['prazo_dias_restantes'] ?? null;
+
+        if ($daysValue === null || $daysValue === '') {
+            if (array_key_exists('days', $statusDescriptor) && $statusDescriptor['days'] !== null) {
+                $daysValue = $statusDescriptor['days'];
+            } else {
+                $rawDays = $process['traducao_prazo_dias'] ?? $process['prazo_dias'] ?? null;
+                if ($rawDays !== null && $rawDays !== '') {
+                    $daysValue = (int) $rawDays;
+                }
+            }
+        }
+
+        if ($daysValue === null || $daysValue === '') {
+            return '—';
+        }
+
+        $days = (int) $daysValue;
+        $label = abs($days) === 1 ? 'dia' : 'dias';
+
+        return $days . ' ' . $label;
+    }
+
     public static function getServiceBadges(?string $services): array
     {
         $map = [
