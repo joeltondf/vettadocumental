@@ -306,9 +306,7 @@ class DashboardProcessFormatter
         }
 
         $days = (int) $daysValue;
-        $label = abs($days) === 1 ? 'dia' : 'dias';
-
-        return $days . ' ' . $label;
+        return (string) $days;
     }
 
     public static function getServiceBadges(?string $services): array
