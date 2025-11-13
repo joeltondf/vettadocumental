@@ -33,6 +33,18 @@ class DashboardController
         $vendedorModel = new Vendedor($this->pdo);
 
         $filters = $_GET ?? [];
+        if (array_key_exists('status', $filters)) {
+            $rawStatus = is_string($filters['status']) ? $filters['status'] : '';
+            $normalizedStatus = trim($rawStatus);
+
+            if ($normalizedStatus === '') {
+                unset($filters['status']);
+            } elseif (mb_strtolower($normalizedStatus) === '__all__') {
+                $filters['status'] = '__all__';
+            } else {
+                $filters['status'] = $normalizedStatus;
+            }
+        }
         $sortOptions = ['titulo', 'cliente', 'omie', 'dataEntrada', 'dataEnvio'];
         $allowedDirections = ['ASC', 'DESC'];
 
@@ -66,6 +78,9 @@ class DashboardController
             $filters['status'] = $defaultStatusLabel;
             $defaultStatusApplied = true;
         }
+
+        $showAllStatuses = ($filters['status'] ?? null) === '__all__';
+        $statusSelectedOption = $showAllStatuses ? '__all__' : ($filters['status'] ?? '');
 
         // LÓGICA CENTRAL DE FILTRO (APLICADA A TUDO)
         if (isset($_SESSION['user_perfil']) && $_SESSION['user_perfil'] === 'vendedor') {
