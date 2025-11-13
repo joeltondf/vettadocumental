@@ -1126,20 +1126,19 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const formatRemainingDays = (processo, descriptor) => {
-        let daysValue = processo.prazo_dias_restantes;
+        let daysValue = processo.prazo_dias;
+
+        if (daysValue === null || daysValue === undefined || daysValue === '') {
+            daysValue = processo.traducao_prazo_dias;
+        }
 
         if (daysValue === null || daysValue === undefined || daysValue === '') {
             if (descriptor && typeof descriptor.days === 'number' && !Number.isNaN(descriptor.days)) {
                 daysValue = descriptor.days;
-            } else if (processo.traducao_prazo_dias) {
-                const parsedTraducao = parseInt(processo.traducao_prazo_dias, 10);
-                if (!Number.isNaN(parsedTraducao)) {
-                    daysValue = parsedTraducao;
-                }
-            } else if (processo.prazo_dias) {
-                const parsedPrazo = parseInt(processo.prazo_dias, 10);
-                if (!Number.isNaN(parsedPrazo)) {
-                    daysValue = parsedPrazo;
+            } else if (processo.prazo_dias_restantes !== null && processo.prazo_dias_restantes !== undefined && processo.prazo_dias_restantes !== '') {
+                const parsedRestantes = parseInt(processo.prazo_dias_restantes, 10);
+                if (!Number.isNaN(parsedRestantes)) {
+                    daysValue = parsedRestantes;
                 }
             }
         }
@@ -1153,7 +1152,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return '—';
         }
 
-        return `${parsedDays}`;
+        const label = parsedDays === 1 ? 'dia' : 'dias';
+        return `${parsedDays} ${label}`;
     };
 
     const normalizePaymentMethod = (method) => {

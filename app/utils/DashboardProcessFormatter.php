@@ -288,13 +288,17 @@ class DashboardProcessFormatter
 
     public static function formatRemainingDaysValue(array $process, array $statusDescriptor = []): string
     {
-        $daysValue = $process['prazo_dias_restantes'] ?? null;
+        $daysValue = $process['prazo_dias'] ?? null;
+
+        if ($daysValue === null || $daysValue === '') {
+            $daysValue = $process['traducao_prazo_dias'] ?? null;
+        }
 
         if ($daysValue === null || $daysValue === '') {
             if (array_key_exists('days', $statusDescriptor) && $statusDescriptor['days'] !== null) {
                 $daysValue = $statusDescriptor['days'];
             } else {
-                $rawDays = $process['traducao_prazo_dias'] ?? $process['prazo_dias'] ?? null;
+                $rawDays = $process['prazo_dias_restantes'] ?? null;
                 if ($rawDays !== null && $rawDays !== '') {
                     $daysValue = (int) $rawDays;
                 }
@@ -306,7 +310,9 @@ class DashboardProcessFormatter
         }
 
         $days = (int) $daysValue;
-        return (string) $days;
+        $label = $days === 1 ? 'dia' : 'dias';
+
+        return sprintf('%d %s', $days, $label);
     }
 
     public static function getServiceBadges(?string $services): array
