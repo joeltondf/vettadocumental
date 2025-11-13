@@ -420,7 +420,6 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                             $rowClass = 'hover:bg-gray-50';
                             $statusInfo = dashboard_normalize_status_info($processo['status_processo'] ?? '');
                             $statusNormalized = $statusInfo['normalized'];
-                            $statusBadgeLabel = $statusInfo['badge_label'] ?? null;
 
                             switch ($statusNormalized) {
                                 case 'orçamento':
@@ -442,9 +441,8 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                             }
 
                             $statusLabelClass = dashboard_get_status_label_class($statusNormalized);
-                            $statusBadgeClass = $statusInfo['badge_color_classes'] ?? null;
                             $deadlineDescriptor = dashboard_build_deadline_descriptor($processo, $statusInfo);
-                            $statusTagClass = trim('inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold border border-current ' . $statusLabelClass);
+                            $statusTagClass = trim('inline-flex items-center bg-transparent text-[9px] font-semibold leading-tight ' . $statusLabelClass);
                             $remainingDaysDisplay = dashboard_format_remaining_days($processo, $deadlineDescriptor);
                             $rowHighlight = '';
 
@@ -516,15 +514,10 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                             <td class="px-3 py-0.5 whitespace-nowrap text-xs text-gray-500"><?php echo isset($processo['data_inicio_traducao']) ? date('d/m/Y', strtotime($processo['data_inicio_traducao'])) : 'N/A'; ?></td>
                             <td class="px-3 py-0.5 whitespace-nowrap text-xs font-medium">
                                 <div class="flex flex-col gap-1">
-                                    <div class="flex flex-wrap items-center gap-2">
+                                    <div class="flex flex-col items-start">
                                         <span class="<?php echo htmlspecialchars($statusTagClass, ENT_QUOTES, 'UTF-8'); ?>">
                                             <?php echo htmlspecialchars($statusInfo['label']); ?>
                                         </span>
-                                        <?php if ($statusBadgeLabel !== null && $statusBadgeClass !== null): ?>
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo htmlspecialchars($statusBadgeClass, ENT_QUOTES, 'UTF-8'); ?>">
-                                                <?php echo htmlspecialchars($statusBadgeLabel); ?>
-                                            </span>
-                                        <?php endif; ?>
                                     </div>
                                     <?php echo dashboard_render_deadline_badge($deadlineDescriptor); ?>
                                 </div>
@@ -1133,20 +1126,19 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const formatRemainingDays = (processo, descriptor) => {
-        let daysValue = processo.prazo_dias_restantes;
+        let daysValue = processo.prazo_dias;
+
+        if (daysValue === null || daysValue === undefined || daysValue === '') {
+            daysValue = processo.traducao_prazo_dias;
+        }
 
         if (daysValue === null || daysValue === undefined || daysValue === '') {
             if (descriptor && typeof descriptor.days === 'number' && !Number.isNaN(descriptor.days)) {
                 daysValue = descriptor.days;
-            } else if (processo.traducao_prazo_dias) {
-                const parsedTraducao = parseInt(processo.traducao_prazo_dias, 10);
-                if (!Number.isNaN(parsedTraducao)) {
-                    daysValue = parsedTraducao;
-                }
-            } else if (processo.prazo_dias) {
-                const parsedPrazo = parseInt(processo.prazo_dias, 10);
-                if (!Number.isNaN(parsedPrazo)) {
-                    daysValue = parsedPrazo;
+            } else if (processo.prazo_dias_restantes !== null && processo.prazo_dias_restantes !== undefined && processo.prazo_dias_restantes !== '') {
+                const parsedRestantes = parseInt(processo.prazo_dias_restantes, 10);
+                if (!Number.isNaN(parsedRestantes)) {
+                    daysValue = parsedRestantes;
                 }
             }
         }
@@ -1160,8 +1152,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return '—';
         }
 
-        const unit = Math.abs(parsedDays) === 1 ? 'dia' : 'dias';
-        return `${parsedDays} ${unit}`;
+        const label = parsedDays === 1 ? 'dia' : 'dias';
+        return `${parsedDays} ${label}`;
     };
 
     const normalizePaymentMethod = (method) => {
@@ -1264,19 +1256,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         const paymentMethodNormalized = normalizePaymentMethod(processo.orcamento_forma_pagamento);
                         const rowClass = resolveRowClass(statusInfo.normalized);
                         const statusLabelClass = resolveStatusLabelClass(statusInfo.normalized);
-                        const badgeKey = (statusInfo.badgeLabel ?? '').toLowerCase();
-                        const statusBadgeClass = statusInfo.badgeColorClasses ?? (badgeKey ? (badgeClassByStatus[badgeKey] ?? 'bg-indigo-100 text-indigo-800') : null);
-                        const statusTagClass = `inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold border border-current ${statusLabelClass}`;
+                        const statusTagClass = `inline-flex items-center bg-transparent text-[9px] font-semibold leading-tight ${statusLabelClass}`;
                         const statusTagHtml = `<span class="${statusTagClass}">${statusInfo.label}</span>`;
-                        const statusBadgeHtml = statusInfo.badgeLabel && statusBadgeClass
-                            ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium ${statusBadgeClass}">${statusInfo.badgeLabel}</span>`
-                            : '';
                         const deadlineBadgeHtml = `<span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${deadlineDescriptor.cssClass}">${deadlineDescriptor.label}</span>`;
-                        const statusBadgeRow = [statusTagHtml, statusBadgeHtml].filter(Boolean).join('');
                         const statusCellHtml = `
                             <div class="flex flex-col gap-1">
-                                <div class="flex flex-wrap items-center gap-2">
-                                    ${statusBadgeRow}
+                                <div class="flex flex-col items-start">
+                                    ${statusTagHtml}
                                 </div>
                                 ${deadlineBadgeHtml}
                             </div>
