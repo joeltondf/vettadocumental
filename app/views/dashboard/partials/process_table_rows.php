@@ -9,7 +9,6 @@ $allowLinks = $allowLinks ?? true;
 foreach ($processes as $processo):
     $statusInfo = DashboardProcessFormatter::normalizeStatusInfo($processo['status_processo'] ?? '');
     $statusNormalized = $statusInfo['normalized'];
-    $statusBadgeLabel = $statusInfo['badge_label'] ?? null;
     $rowClass = DashboardProcessFormatter::getRowClass($statusNormalized);
     $statusDescriptor = DashboardProcessFormatter::buildStatusDescriptor($processo, $statusInfo, $deadlineColors);
     $serviceBadges = DashboardProcessFormatter::getServiceBadges($processo['categorias_servico'] ?? '');
@@ -19,8 +18,7 @@ foreach ($processes as $processo):
         $rowHighlight = 'animate-pulse';
     }
     $statusLabelClass = DashboardProcessFormatter::getStatusLabelClass($statusNormalized);
-    $statusBadgeClass = $statusInfo['badge_color_classes'] ?? null;
-    $statusTagClass = trim('inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold border border-current ' . $statusLabelClass);
+    $statusTagClass = trim('inline-flex items-center bg-transparent text-[9px] font-semibold leading-tight ' . $statusLabelClass);
     $remainingDaysDisplay = DashboardProcessFormatter::formatRemainingDaysValue($processo, $statusDescriptor);
 ?>
 <tr class="<?php echo trim($rowClass . ' ' . $rowHighlight); ?>" data-process-id="<?php echo (int) ($processo['id'] ?? 0); ?>">
@@ -59,15 +57,10 @@ foreach ($processes as $processo):
     </td>
     <td class="px-3 py-1 whitespace-nowrap text-xs font-medium">
         <div class="flex flex-col gap-1">
-            <div class="flex flex-wrap items-center gap-2">
+            <div class="flex flex-col items-start">
                 <span class="<?php echo htmlspecialchars($statusTagClass, ENT_QUOTES, 'UTF-8'); ?>">
                     <?php echo htmlspecialchars($statusInfo['label']); ?>
                 </span>
-                <?php if ($statusBadgeLabel !== null && $statusBadgeClass !== null): ?>
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo htmlspecialchars($statusBadgeClass, ENT_QUOTES, 'UTF-8'); ?>">
-                        <?php echo htmlspecialchars($statusBadgeLabel); ?>
-                    </span>
-                <?php endif; ?>
             </div>
             <?php $deadlineClass = htmlspecialchars($statusDescriptor['class'] ?? 'text-gray-500', ENT_QUOTES, 'UTF-8'); ?>
             <?php $deadlineLabel = htmlspecialchars($statusDescriptor['label'] ?? $statusDescriptor['display'] ?? '—', ENT_QUOTES, 'UTF-8'); ?>
