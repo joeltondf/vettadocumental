@@ -25,6 +25,12 @@ $showAllStatuses = $showAllStatuses ?? (($filters['status'] ?? null) === '__all_
 $statusInfoTarget = $showAllStatuses ? '' : $statusSelectedOption;
 $selectedStatusInfo = dashboard_normalize_status_info($statusInfoTarget);
 $selectedStatusNormalized = $selectedStatusInfo['normalized'];
+$selectedStatusCanonical = mb_strtolower(trim((string) $statusSelectedOption));
+$selectedStatusBadgeKey = null;
+
+if (!empty($selectedStatusInfo['badge_label'])) {
+    $selectedStatusBadgeKey = mb_strtolower($selectedStatusInfo['badge_label']);
+}
 
 if (!function_exists('dashboard_get_aria_sort')) {
     function dashboard_get_aria_sort(string $sortKey, string $currentSort, string $currentDirection): string
@@ -346,7 +352,19 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                                 if (!empty($optionInfo['badge_label'])) {
                                     $optionLabel .= ' (' . $optionInfo['badge_label'] . ')';
                                 }
-                                $isSelected = $statusSelectedOption !== '__all__' && $selectedStatusNormalized === $optionInfo['normalized'];
+                                $optionCanonical = mb_strtolower($option);
+                                $optionBadgeKey = !empty($optionInfo['badge_label']) ? mb_strtolower($optionInfo['badge_label']) : null;
+                                $isSelected = false;
+
+                                if ($statusSelectedOption !== '__all__' && $selectedStatusCanonical !== '') {
+                                    if ($selectedStatusCanonical === $optionCanonical) {
+                                        $isSelected = true;
+                                    } elseif ($selectedStatusBadgeKey !== null && $selectedStatusBadgeKey === $optionBadgeKey) {
+                                        $isSelected = true;
+                                    } elseif ($selectedStatusNormalized === $optionInfo['normalized']) {
+                                        $isSelected = true;
+                                    }
+                                }
                             ?>
                             <option value="<?php echo htmlspecialchars($option, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isSelected ? 'selected' : ''; ?>><?php echo htmlspecialchars($optionLabel); ?></option>
                     <?php endforeach; ?>
