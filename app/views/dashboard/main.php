@@ -20,8 +20,17 @@ if (!function_exists('dashboard_normalize_status_info')) {
     }
 }
 
-$selectedStatusInfo = dashboard_normalize_status_info($filters['status'] ?? '');
+$statusSelectedOption = $statusSelectedOption ?? ($filters['status'] ?? '');
+$showAllStatuses = $showAllStatuses ?? (($filters['status'] ?? null) === '__all__');
+$statusInfoTarget = $showAllStatuses ? '' : $statusSelectedOption;
+$selectedStatusInfo = dashboard_normalize_status_info($statusInfoTarget);
 $selectedStatusNormalized = $selectedStatusInfo['normalized'];
+$selectedStatusCanonical = mb_strtolower(trim((string) $statusSelectedOption));
+$selectedStatusBadgeKey = null;
+
+if (!empty($selectedStatusInfo['badge_label'])) {
+    $selectedStatusBadgeKey = mb_strtolower($selectedStatusInfo['badge_label']);
+}
 
 if (!function_exists('dashboard_get_aria_sort')) {
     function dashboard_get_aria_sort(string $sortKey, string $currentSort, string $currentDirection): string
@@ -334,7 +343,8 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                 <div class="flex flex-col">
                     <label for="status" class="text-sm font-semibold text-gray-700 mb-1">Status</label>
                     <select id="status" name="status" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition duration-200">
-                        <option value="">Todos os Status</option>
+                        <option value="" <?php echo $statusSelectedOption === '' ? 'selected' : ''; ?>>Selecione um status</option>
+                        <option value="__all__" <?php echo $statusSelectedOption === '__all__' ? 'selected' : ''; ?>>Todos os Status</option>
                     <?php $statusOptions = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Cancelado']; foreach ($statusOptions as $option): ?>
                             <?php
                                 $optionInfo = dashboard_normalize_status_info($option);
@@ -342,8 +352,21 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                                 if (!empty($optionInfo['badge_label'])) {
                                     $optionLabel .= ' (' . $optionInfo['badge_label'] . ')';
                                 }
+                                $optionCanonical = mb_strtolower($option);
+                                $optionBadgeKey = !empty($optionInfo['badge_label']) ? mb_strtolower($optionInfo['badge_label']) : null;
+                                $isSelected = false;
+
+                                if ($statusSelectedOption !== '__all__' && $selectedStatusCanonical !== '') {
+                                    if ($selectedStatusCanonical === $optionCanonical) {
+                                        $isSelected = true;
+                                    } elseif ($selectedStatusBadgeKey !== null && $selectedStatusBadgeKey === $optionBadgeKey) {
+                                        $isSelected = true;
+                                    } elseif ($selectedStatusNormalized === $optionInfo['normalized']) {
+                                        $isSelected = true;
+                                    }
+                                }
                             ?>
-                            <option value="<?php echo htmlspecialchars($option, ENT_QUOTES, 'UTF-8'); ?>" <?php echo ($selectedStatusNormalized === $optionInfo['normalized']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($optionLabel); ?></option>
+                            <option value="<?php echo htmlspecialchars($option, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isSelected ? 'selected' : ''; ?>><?php echo htmlspecialchars($optionLabel); ?></option>
                     <?php endforeach; ?>
                     </select>
                 </div>

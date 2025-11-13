@@ -835,7 +835,7 @@ public function create($data, $files)
         $where_clauses[] = "p.vendedor_id = :vendedor_id";
         $params[':vendedor_id'] = $filters['vendedor_id'];
     }
-    if (!empty($filters['status'])) {
+    if (!empty($filters['status']) && $filters['status'] !== '__all__') {
         $statusValue = mb_strtolower($filters['status']);
         if (in_array($statusValue, ['serviço em andamento', 'servico em andamento'], true)) {
             $where_clauses[] = "LOWER(p.status_processo) IN ('serviço em andamento', 'servico em andamento', 'pendente de pagamento', 'pendente de documentos', 'aguardando pagamento', 'aguardando pagamentos', 'aguardando documento', 'aguardando documentos', 'aguardando documentacao', 'aguardando documentação')";
@@ -969,7 +969,7 @@ public function create($data, $files)
         $where_clauses[] = "p.vendedor_id = :vendedor_id";
         $params[':vendedor_id'] = $filters['vendedor_id'];
     }
-    if (!empty($filters['status'])) {
+    if (!empty($filters['status']) && $filters['status'] !== '__all__') {
         $statusValue = mb_strtolower($filters['status']);
         if (in_array($statusValue, ['serviço em andamento', 'servico em andamento'], true)) {
             $where_clauses[] = "LOWER(p.status_processo) IN ('serviço em andamento', 'servico em andamento', 'pendente de pagamento', 'pendente de documentos', 'aguardando pagamento', 'aguardando pagamentos', 'aguardando documento', 'aguardando documentos', 'aguardando documentacao', 'aguardando documentação')";
