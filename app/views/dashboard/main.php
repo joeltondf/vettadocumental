@@ -20,7 +20,10 @@ if (!function_exists('dashboard_normalize_status_info')) {
     }
 }
 
-$selectedStatusInfo = dashboard_normalize_status_info($filters['status'] ?? '');
+$statusSelectedOption = $statusSelectedOption ?? ($filters['status'] ?? '');
+$showAllStatuses = $showAllStatuses ?? (($filters['status'] ?? null) === '__all__');
+$statusInfoTarget = $showAllStatuses ? '' : $statusSelectedOption;
+$selectedStatusInfo = dashboard_normalize_status_info($statusInfoTarget);
 $selectedStatusNormalized = $selectedStatusInfo['normalized'];
 
 if (!function_exists('dashboard_get_aria_sort')) {
@@ -334,7 +337,8 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                 <div class="flex flex-col">
                     <label for="status" class="text-sm font-semibold text-gray-700 mb-1">Status</label>
                     <select id="status" name="status" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition duration-200">
-                        <option value="">Todos os Status</option>
+                        <option value="" <?php echo $statusSelectedOption === '' ? 'selected' : ''; ?>>Selecione um status</option>
+                        <option value="__all__" <?php echo $statusSelectedOption === '__all__' ? 'selected' : ''; ?>>Todos os Status</option>
                     <?php $statusOptions = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Cancelado']; foreach ($statusOptions as $option): ?>
                             <?php
                                 $optionInfo = dashboard_normalize_status_info($option);
@@ -342,8 +346,9 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                                 if (!empty($optionInfo['badge_label'])) {
                                     $optionLabel .= ' (' . $optionInfo['badge_label'] . ')';
                                 }
+                                $isSelected = $statusSelectedOption !== '__all__' && $selectedStatusNormalized === $optionInfo['normalized'];
                             ?>
-                            <option value="<?php echo htmlspecialchars($option, ENT_QUOTES, 'UTF-8'); ?>" <?php echo ($selectedStatusNormalized === $optionInfo['normalized']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($optionLabel); ?></option>
+                            <option value="<?php echo htmlspecialchars($option, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isSelected ? 'selected' : ''; ?>><?php echo htmlspecialchars($optionLabel); ?></option>
                     <?php endforeach; ?>
                     </select>
                 </div>
