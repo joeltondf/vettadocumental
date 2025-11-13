@@ -299,7 +299,7 @@ $paymentDateTwo = $processo['data_pagamento_2'] ?? $formData['data_pagamento_2']
                     <select name="idioma" id="idioma" class="mt-1 block w-full p-2 border border-blue-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                         <option value="">Selecione o idioma</option>
                         <?php
-                        $idiomas = ['Italiano', 'Espanhol', 'Inglês', 'Francês', 'Alemão'];
+                        $idiomas = ['Português', 'Italiano', 'Espanhol', 'Inglês', 'Francês', 'Alemão'];
                         foreach ($idiomas as $idioma):
                             $selected = (($processo['idioma'] ?? '') === $idioma) ? 'selected' : '';
                             echo "<option value='{$idioma}' {$selected}>{$idioma}</option>";
