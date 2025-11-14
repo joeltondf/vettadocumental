@@ -1,4 +1,8 @@
 <?php
+if (!class_exists('ProcessAlertType')) {
+    require_once __DIR__ . '/../../utils/ProcessStatus.php';
+}
+
 $groups = $alertFeed['groups'] ?? [];
 if (empty($groups) && !empty($alertFeed['notifications'] ?? [])) {
     $groups = array_map(static function (array $notification): array {
@@ -37,7 +41,9 @@ if (!function_exists('notification_type_metadata')) {
     {
         $alertType = strtolower(trim((string)$alertType));
         $baseMap = [
+            ProcessAlertType::BUDGET_PENDING => ['label' => 'Orçamento pendente', 'classes' => 'bg-indigo-100 text-indigo-700 border border-indigo-200'],
             'processo_pendente_orcamento' => ['label' => 'Orçamento pendente', 'classes' => 'bg-indigo-100 text-indigo-700 border border-indigo-200'],
+            ProcessAlertType::SERVICE_PENDING => ['label' => 'Serviço pendente', 'classes' => 'bg-blue-100 text-blue-700 border border-blue-200'],
             'processo_pendente_servico' => ['label' => 'Serviço pendente', 'classes' => 'bg-blue-100 text-blue-700 border border-blue-200'],
             'processo_servico_pendente' => ['label' => 'Serviço aguardando execução', 'classes' => 'bg-blue-100 text-blue-700 border border-blue-200'],
             'processo_orcamento_recusado' => ['label' => 'Orçamento recusado', 'classes' => 'bg-red-100 text-red-700 border border-red-200'],
@@ -382,7 +388,7 @@ if (!function_exists('notification_priority_metadata')) {
                                                 </td>
                                                 <td class="px-4 py-3 text-right text-sm">
                                                     <div class="flex flex-wrap items-center justify-end gap-2">
-                                                        <?php if ($isManager && $referenceId > 0 && $alertType === 'processo_pendente_orcamento'): ?>
+                                                        <?php if ($isManager && $referenceId > 0 && in_array($alertType, [ProcessAlertType::BUDGET_PENDING, 'processo_pendente_orcamento'], true)): ?>
                                                             <a href="<?php echo APP_URL; ?>/processos.php?action=aprovar_orcamento&id=<?php echo $referenceId; ?>" class="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium text-white bg-green-600 hover:bg-green-700">
                                                                 Aprovar orçamento
                                                             </a>
@@ -394,7 +400,7 @@ if (!function_exists('notification_priority_metadata')) {
                                                                     Cancelar orçamento
                                                                 </button>
                                                             </form>
-                                                        <?php elseif ($isManager && $referenceId > 0 && $alertType === 'processo_pendente_servico'): ?>
+                                                        <?php elseif ($isManager && $referenceId > 0 && in_array($alertType, [ProcessAlertType::SERVICE_PENDING, 'processo_pendente_servico'], true)): ?>
                                                             <form action="<?php echo APP_URL; ?>/processos.php?action=change_status" method="POST">
                                                                 <input type="hidden" name="id" value="<?php echo $referenceId; ?>">
                                                                 <input type="hidden" name="status_processo" value="Serviço em Andamento">
