@@ -32,6 +32,7 @@ $isProspeccoesSection = $isCrmPage && strpos($_SERVER['PHP_SELF'], '/crm/prospec
 $isProspeccoesList = $isProspeccoesSection && strpos($_SERVER['PHP_SELF'], 'lista.php') !== false;
 $isProspeccoesKanban = $isProspeccoesSection && strpos($_SERVER['PHP_SELF'], 'kanban.php') !== false;
 $isProspeccoesOther = $isProspeccoesSection && !$isProspeccoesList && !$isProspeccoesKanban;
+$isCrmAgendaPage = $isCrmPage && strpos($_SERVER['PHP_SELF'], '/crm/agendamentos/') !== false;
 $financePages = ['financeiro.php', 'fluxo_caixa.php', 'vendas.php'];
 $isFinancePage = in_array($currentPage, $financePages);
 $homeUrl = APP_URL . '/dashboard.php';
@@ -132,6 +133,7 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
                         <?php elseif ($is_sdr): ?>
                             <a href="<?php echo APP_URL; ?>/sdr_dashboard.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($currentPage == 'sdr_dashboard.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Painel SDR</a>
                             <a href="<?php echo APP_URL; ?>/crm/clientes/lista.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo $isCrmClientesPage ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Leads</a>
+                            <a href="<?php echo APP_URL; ?>/crm/agendamentos/calendario.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo $isCrmAgendaPage ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Agendamentos</a>
                             <a href="<?php echo APP_URL; ?>/crm/prospeccoes/kanban.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo $isProspeccoesKanban ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Kanban Geral</a>
                             <a href="<?php echo APP_URL; ?>/crm/prospeccoes/lista.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo $isProspeccoesList || $isProspeccoesOther ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Prospeções</a>
                         <?php else: ?>

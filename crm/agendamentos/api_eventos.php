@@ -7,6 +7,13 @@ require_once __DIR__ . '/../../app/core/auth_check.php';
 $currentUserId = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : 0;
 $currentPerfil = $_SESSION['user_perfil'] ?? '';
 $managementProfiles = ['admin', 'gerencia', 'supervisor', 'master'];
+$sdrVendorIds = [];
+
+if ($currentPerfil === 'sdr' && $currentUserId > 0) {
+    $stmtSdrVendedores = $pdo->prepare('SELECT DISTINCT vendedorId FROM distribuicao_leads WHERE sdrId = :sdr_id');
+    $stmtSdrVendedores->execute([':sdr_id' => $currentUserId]);
+    $sdrVendorIds = array_map('intval', $stmtSdrVendedores->fetchAll(PDO::FETCH_COLUMN));
+}
 
 // --- CONSULTA SQL CORRIGIDA ---
 // Alterações:
@@ -26,7 +33,8 @@ if ($context === 'sdr-table') {
                 u.nome_completo AS responsavel_nome,
                 u.perfil AS perfil,
                 a.prospeccao_id,
-                c.nome_cliente
+                c.nome_cliente,
+                p.sdrId AS prospeccao_sdr_id
             FROM agendamentos a
             LEFT JOIN prospeccoes p ON a.prospeccao_id = p.id
             LEFT JOIN clientes c ON a.cliente_id = c.id
@@ -44,7 +52,8 @@ if ($context === 'sdr-table') {
                 u.nome_completo as responsavel,
                 u.perfil as perfil,
                 a.prospeccao_id,
-                c.nome_cliente
+                c.nome_cliente,
+                p.sdrId AS prospeccao_sdr_id
             FROM agendamentos a
             JOIN users u ON a.usuario_id = u.id
             LEFT JOIN clientes c ON a.cliente_id = c.id
@@ -80,14 +89,7 @@ if ($context === 'sdr-table') {
             $params[':responsavel_id'] = $responsavelFiltro;
         }
     } elseif ($currentPerfil === 'sdr') {
-        $vendedorIds = [];
-        if ($currentUserId > 0) {
-            $stmtVendedores = $pdo->prepare('SELECT DISTINCT vendedorId FROM distribuicao_leads WHERE sdrId = :sdr_id');
-            $stmtVendedores->execute([':sdr_id' => $currentUserId]);
-            $vendedorIds = array_map('intval', $stmtVendedores->fetchAll(PDO::FETCH_COLUMN));
-        }
-
-        $usuariosVisiveis = array_values(array_filter(array_unique(array_merge([$currentUserId], $vendedorIds)), static function ($id) {
+        $usuariosVisiveis = array_values(array_filter(array_unique(array_merge([$currentUserId], $sdrVendorIds)), static function ($id) {
             return $id > 0;
         }));
         $responsavelFiltro = filter_input(INPUT_GET, 'responsavel_id', FILTER_VALIDATE_INT);
@@ -147,7 +149,7 @@ try {
     }
 
     // Adiciona cores e prepara dados para o tooltip
-    $eventos_formatados = array_map(static function($evento) {
+    $eventos_formatados = array_map(function($evento) use ($currentUserId, $currentPerfil, $managementProfiles, $sdrVendorIds) {
         $perfil = $evento['perfil'] ?? '';
         $cor = '#007bff';
 
@@ -160,6 +162,18 @@ try {
         $evento['backgroundColor'] = $cor;
         $evento['borderColor'] = $cor;
         $evento['color'] = $cor;
+        $prospeccaoSdrId = (int) ($evento['prospeccao_sdr_id'] ?? 0);
+        $canDelete = (int) $evento['usuario_id'] === $currentUserId
+            || in_array($currentPerfil, $managementProfiles, true);
+
+        if (!$canDelete && $currentPerfil === 'sdr') {
+            if ($prospeccaoSdrId === $currentUserId) {
+                $canDelete = true;
+            } elseif (!empty($sdrVendorIds) && in_array((int) $evento['usuario_id'], $sdrVendorIds, true)) {
+                $canDelete = true;
+            }
+        }
+
         $evento['extendedProps'] = [
             'responsavel' => $evento['responsavel'],
             'cliente' => $evento['nome_cliente'],
@@ -168,8 +182,7 @@ try {
             'observacoes' => $evento['observacoes'],
             'usuario_id' => (int) $evento['usuario_id'],
             'perfil' => $perfil,
-            'canDelete' => $evento['usuario_id'] == ($_SESSION['user_id'] ?? null)
-                || in_array($_SESSION['user_perfil'] ?? '', ['admin', 'gerencia', 'supervisor', 'master'], true)
+            'canDelete' => $canDelete
         ];
         return $evento;
     }, $eventos);
