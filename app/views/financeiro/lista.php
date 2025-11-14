@@ -59,6 +59,12 @@ $formatPeriod = static function (string $period, string $mode): string {
             return htmlspecialchars($period, ENT_QUOTES, 'UTF-8');
     }
 };
+
+$formatVendorName = static function ($value): string {
+    $trimmed = trim((string) $value);
+
+    return $trimmed !== '' ? $trimmed : 'Sistema';
+};
 ?>
 
 <div id="financial-report" class="mx-auto w-full max-w-none px-4 py-8 space-y-6" data-csrf-token="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8'); ?>">
@@ -189,7 +195,7 @@ $formatPeriod = static function (string $period, string $mode): string {
                     <?php foreach ($vendedores as $vendedor): ?>
                         <option value="<?= htmlspecialchars((string) ($vendedor['id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                             <?= ((string) ($filters['vendedor_id'] ?? '') === (string) ($vendedor['id'] ?? '')) ? 'selected' : ''; ?>>
-                            <?= htmlspecialchars($vendedor['nome_vendedor'] ?? '', ENT_QUOTES, 'UTF-8'); ?>
+                            <?= htmlspecialchars($formatVendorName($vendedor['nome_vendedor'] ?? null), ENT_QUOTES, 'UTF-8'); ?>
                         </option>
                     <?php endforeach; ?>
                 </select>
@@ -322,7 +328,7 @@ $formatPeriod = static function (string $period, string $mode): string {
                                     <?= htmlspecialchars($processo['titulo'] ?? $processo['categorias_servico'] ?? '', ENT_QUOTES, 'UTF-8'); ?>
                                 </td>
                                 <td class="px-3 py-2">
-                                    <?= htmlspecialchars($processo['nome_vendedor'] ?? '—', ENT_QUOTES, 'UTF-8'); ?>
+                                    <?= htmlspecialchars($formatVendorName($processo['nome_vendedor'] ?? null), ENT_QUOTES, 'UTF-8'); ?>
                                 </td>
                                 <td class="px-3 py-2">
                                     <select class="editable-select w-full rounded-md border border-gray-300 px-2 py-1 text-[0.75rem] focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
