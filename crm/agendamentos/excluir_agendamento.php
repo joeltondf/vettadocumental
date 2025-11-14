@@ -38,6 +38,7 @@ function respondWithSuccess(string $message, ?string $redirectTo): void
 }
 
 $currentUserId = (int) ($_SESSION['user_id'] ?? 0);
+$currentPerfil = $_SESSION['user_perfil'] ?? '';
 if ($currentUserId <= 0) {
     respondWithError('Usuário não autenticado.', $redirectTo);
 }
@@ -48,7 +49,17 @@ if (!$agendamentoId) {
 }
 
 try {
-    $stmt = $pdo->prepare('SELECT id, usuario_id, prospeccao_id, titulo, data_inicio FROM agendamentos WHERE id = :id');
+    $stmt = $pdo->prepare(
+        'SELECT a.id,
+                a.usuario_id,
+                a.prospeccao_id,
+                a.titulo,
+                a.data_inicio,
+                p.sdrId AS prospeccao_sdr_id
+         FROM agendamentos a
+         LEFT JOIN prospeccoes p ON a.prospeccao_id = p.id
+         WHERE a.id = :id'
+    );
     $stmt->bindValue(':id', $agendamentoId, PDO::PARAM_INT);
     $stmt->execute();
     $agendamento = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -58,9 +69,32 @@ try {
     }
 
     $perfisGerenciais = ['admin', 'gerencia', 'supervisor'];
-    $usuarioPodeGerenciar = in_array($_SESSION['user_perfil'] ?? '', $perfisGerenciais, true);
+    $usuarioPodeGerenciar = in_array($currentPerfil, $perfisGerenciais, true);
 
-    if ((int) $agendamento['usuario_id'] !== $currentUserId && !$usuarioPodeGerenciar) {
+    $canManage = (int) $agendamento['usuario_id'] === $currentUserId || $usuarioPodeGerenciar;
+
+    if (!$canManage && $currentPerfil === 'sdr') {
+        $prospeccaoSdrId = (int) ($agendamento['prospeccao_sdr_id'] ?? 0);
+        if ($prospeccaoSdrId === $currentUserId) {
+            $canManage = true;
+        } else {
+            $vendorId = (int) ($agendamento['usuario_id'] ?? 0);
+            if ($vendorId > 0) {
+                $stmtRelacionamento = $pdo->prepare(
+                    'SELECT 1 FROM distribuicao_leads WHERE sdrId = :sdr AND vendedorId = :vendor LIMIT 1'
+                );
+                $stmtRelacionamento->bindValue(':sdr', $currentUserId, PDO::PARAM_INT);
+                $stmtRelacionamento->bindValue(':vendor', $vendorId, PDO::PARAM_INT);
+                $stmtRelacionamento->execute();
+
+                if ($stmtRelacionamento->fetchColumn()) {
+                    $canManage = true;
+                }
+            }
+        }
+    }
+
+    if (!$canManage) {
         respondWithError('Você não tem permissão para excluir este agendamento.', $redirectTo);
     }
 

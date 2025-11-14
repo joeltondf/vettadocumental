@@ -11,6 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $currentUserId = (int) ($_SESSION['user_id'] ?? 0);
+$currentPerfil = $_SESSION['user_perfil'] ?? '';
 if ($currentUserId <= 0) {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Usuário não autenticado.']);
@@ -45,7 +46,15 @@ if (!$startAt || !$endAt || $endAt <= $startAt) {
 }
 
 try {
-    $stmt = $pdo->prepare('SELECT id, usuario_id, prospeccao_id FROM agendamentos WHERE id = :id');
+    $stmt = $pdo->prepare(
+        'SELECT a.id,
+                a.usuario_id,
+                a.prospeccao_id,
+                p.sdrId AS prospeccao_sdr_id
+         FROM agendamentos a
+         LEFT JOIN prospeccoes p ON a.prospeccao_id = p.id
+         WHERE a.id = :id'
+    );
     $stmt->bindValue(':id', $appointmentId, PDO::PARAM_INT);
     $stmt->execute();
     $appointment = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -57,7 +66,29 @@ try {
     }
 
     $allowedProfiles = ['admin', 'gerencia', 'supervisor'];
-    $canEdit = (int) $appointment['usuario_id'] === $currentUserId || in_array($_SESSION['user_perfil'] ?? '', $allowedProfiles, true);
+    $canEdit = (int) $appointment['usuario_id'] === $currentUserId
+        || in_array($currentPerfil, $allowedProfiles, true);
+
+    if (!$canEdit && $currentPerfil === 'sdr') {
+        $prospeccaoSdrId = (int) ($appointment['prospeccao_sdr_id'] ?? 0);
+        if ($prospeccaoSdrId === $currentUserId) {
+            $canEdit = true;
+        } else {
+            $vendorId = (int) ($appointment['usuario_id'] ?? 0);
+            if ($vendorId > 0) {
+                $stmtRelacionamento = $pdo->prepare(
+                    'SELECT 1 FROM distribuicao_leads WHERE sdrId = :sdr AND vendedorId = :vendor LIMIT 1'
+                );
+                $stmtRelacionamento->bindValue(':sdr', $currentUserId, PDO::PARAM_INT);
+                $stmtRelacionamento->bindValue(':vendor', $vendorId, PDO::PARAM_INT);
+                $stmtRelacionamento->execute();
+
+                if ($stmtRelacionamento->fetchColumn()) {
+                    $canEdit = true;
+                }
+            }
+        }
+    }
 
     if (!$canEdit) {
         http_response_code(403);
