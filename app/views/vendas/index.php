@@ -7,9 +7,16 @@
                     <label for="vendedor_id" class="block text-sm font-medium text-gray-700">Vendedor</label>
                     <select name="vendedor_id" id="vendedor_id" class="mt-1 block w-full p-2 border-gray-300 rounded-md">
                         <option value="">Todos</option>
+                        <?php
+                            $formatVendorName = static function ($value): string {
+                                $trimmed = trim((string) $value);
+
+                                return $trimmed !== '' ? $trimmed : 'Sistema';
+                            };
+                        ?>
                         <?php foreach ($vendedores as $vendedor): ?>
                             <option value="<?php echo $vendedor['id']; ?>" <?php echo (isset($filtros['vendedor_id']) && $filtros['vendedor_id'] == $vendedor['id']) ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($vendedor['nome_vendedor']); ?>
+                                <?php echo htmlspecialchars($formatVendorName($vendedor['nome_vendedor'] ?? null)); ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
@@ -65,7 +72,7 @@
                             <?php foreach ($processosFiltrados as $proc): ?>
                                 <tr>
                                     <td class="px-5 py-4 border-b"><a href="processos.php?action=view&id=<?php echo $proc['id']; ?>" class="text-blue-600 hover:underline">#<?php echo $proc['id']; ?> - <?php echo htmlspecialchars($proc['titulo']); ?></a></td>
-                                    <td class="px-5 py-4 border-b"><?php echo htmlspecialchars($proc['nome_vendedor']); ?></td>
+                                    <td class="px-5 py-4 border-b"><?php echo htmlspecialchars($formatVendorName($proc['nome_vendedor'] ?? null)); ?></td>
                                     <td class="px-5 py-4 border-b"><?php echo date('d/m/Y', strtotime($proc['data_criacao'])); ?></td>
                                     <td class="px-5 py-4 border-b text-right">R$ <?php echo number_format($proc['valor_total'], 2, ',', '.'); ?></td>
                                 </tr>

@@ -6,9 +6,16 @@
             <div>
                 <label for="vendedor_id" class="block text-sm font-semibold text-gray-700">Vendedor *</label>
                 <select name="vendedor_id" id="vendedor_id" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required>
+                    <?php
+                        $formatVendorName = static function ($value): string {
+                            $trimmed = trim((string) $value);
+
+                            return $trimmed !== '' ? $trimmed : 'Sistema';
+                        };
+                    ?>
                     <?php foreach ($vendedores as $vendedor): ?>
                         <option value="<?php echo $vendedor['id']; ?>" <?php echo ($venda['vendedor_id'] == $vendedor['id']) ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($vendedor['nome_vendedor']); ?>
+                            <?php echo htmlspecialchars($formatVendorName($vendedor['nome_vendedor'] ?? null)); ?>
                         </option>
                     <?php endforeach; ?>
                 </select>

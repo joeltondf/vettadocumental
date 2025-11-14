@@ -371,7 +371,7 @@ public function create($data, $files)
                     c.nome_cliente,
                     pr.id_texto AS prospeccao_codigo,
                     pr.nome_prospecto AS prospeccao_nome,
-                    u_vendedor.nome_completo as nome_vendedor, -- Pega o nome da tabela 'users'
+                    COALESCE(u_vendedor.nome_completo, 'Sistema') as nome_vendedor, -- Pega o nome da tabela 'users'
                     t.nome_tradutor
                 FROM processos p
                 LEFT JOIN clientes c ON p.cliente_id = c.id
@@ -753,7 +753,7 @@ public function create($data, $files)
                     pr.id_texto AS prospeccao_codigo,
                     pr.nome_prospecto AS prospeccao_nome,
                     u_colab.nome_completo as nome_colaborador,
-                    u_vend.nome_completo as nome_vendedor
+                    COALESCE(u_vend.nome_completo, 'Sistema') as nome_vendedor
                 FROM processos p
                 JOIN clientes c ON p.cliente_id = c.id
                 JOIN users u_colab ON p.colaborador_id = u_colab.id
@@ -783,7 +783,7 @@ public function create($data, $files)
                     p.categorias_servico, c.nome_cliente, c.tipo_servico AS tipo_servico, t.nome_tradutor, p.os_numero_omie, p.os_numero_conta_azul,
                     p.data_inicio_traducao, p.data_previsao_entrega AS prazo_data, p.prazo_dias, p.traducao_modalidade, p.assinatura_tipo,
                     p.data_envio_assinatura, p.data_devolucao_assinatura, p.data_envio_cartorio,
-                    v.nome_completo as nome_vendedor,
+                    COALESCE(v.nome_completo, 'Sistema') as nome_vendedor,
                     (SELECT COUNT(*) FROM documentos d WHERE d.processo_id = p.id) as total_documentos_contagem,
                     (SELECT COALESCE(SUM(d.quantidade), 0) FROM documentos d WHERE d.processo_id = p.id) as total_documentos_soma";
 
@@ -1166,7 +1166,7 @@ public function create($data, $files)
             'p.orcamento_numero',
             'p.data_finalizacao_real',
             'c.nome_cliente AS cliente_nome',
-            'u.nome_completo AS nome_vendedor',
+            'COALESCE(u.nome_completo, \'Sistema\') AS nome_vendedor',
             'fp.nome AS forma_pagamento_nome',
             '(SELECT COALESCE(SUM(d.quantidade), 0) FROM documentos d WHERE d.processo_id = p.id) AS total_documentos',
         ];
@@ -1969,7 +1969,7 @@ public function create($data, $files)
      */
     public function getAllVendedores(): array
     {
-        $sql = "SELECT v.id, u.nome_completo AS nome_vendedor
+        $sql = "SELECT v.id, COALESCE(u.nome_completo, 'Sistema') AS nome_vendedor
                 FROM vendedores v
                 JOIN users u ON v.user_id = u.id
                 WHERE u.ativo = 1
@@ -2266,7 +2266,7 @@ public function create($data, $files)
                         p.data_criacao,
                         p.valor_total,
                         p.status_processo,
-                        u.nome_completo AS nome_vendedor,
+                        COALESCE(u.nome_completo, 'Sistema') AS nome_vendedor,
                         c.nome_cliente,
                         (SELECT SUM(d.quantidade) FROM documentos d WHERE d.processo_id = p.id) as total_documentos
                     FROM processos p
@@ -2756,7 +2756,7 @@ public function create($data, $files)
                     p.status_processo AS status,         -- ALIAS ADICIONADO AQUI
                     c.nome_cliente,
                     u_criador.nome_completo AS nome_usuario_criador,
-                    u_vendedor.nome_completo AS nome_vendedor
+                    COALESCE(u_vendedor.nome_completo, 'Sistema') AS nome_vendedor
                 FROM 
                     processos p
                 LEFT JOIN 

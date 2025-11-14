@@ -331,12 +331,12 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                                 <?php
                                     $nomeSdr = trim((string)($prospeccao['nome_sdr'] ?? ''));
                                     $nomeVendedor = trim((string)($prospeccao['nome_vendedor'] ?? ''));
-                                    if ($nomeSdr !== '' && $nomeVendedor !== '') {
+                                    $nomeVendedor = $nomeVendedor !== '' ? $nomeVendedor : 'Sistema';
+
+                                    if ($nomeSdr !== '') {
                                         echo htmlspecialchars(formatUppercase($nomeSdr)) . ' &rarr; ' . htmlspecialchars(formatUppercase($nomeVendedor));
-                                    } elseif ($nomeSdr !== '') {
-                                        echo 'SDR: ' . htmlspecialchars(formatUppercase($nomeSdr));
                                     } else {
-                                        echo '-';
+                                        echo htmlspecialchars(formatUppercase($nomeVendedor));
                                     }
                                 ?>
                             </td>

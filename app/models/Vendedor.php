@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/User.php';
+require_once __DIR__ . '/Configuracao.php';
 
 class Vendedor
 {
@@ -154,20 +155,124 @@ class Vendedor
     public function delete($vendedor_id)
     {
         $this->pdo->beginTransaction();
+
         try {
             $vendedor = $this->getById($vendedor_id);
-            if ($vendedor) {
-                $stmt = $this->pdo->prepare("DELETE FROM vendedores WHERE id = :id");
-                $stmt->execute(['id' => $vendedor_id]);
-                
-                $this->userModel->delete($vendedor['user_id']);
+            if (!$vendedor) {
+                $this->pdo->rollBack();
+                return false;
             }
+
+            $configuracao = new Configuracao($this->pdo);
+            $defaultVendorId = (int)($configuracao->get('default_vendedor_id') ?? 0);
+
+            if ($defaultVendorId <= 0) {
+                throw new RuntimeException('Vendedor padrão não configurado.');
+            }
+
+            if ((int)$vendedor_id === $defaultVendorId) {
+                throw new RuntimeException('Não é possível excluir o vendedor padrão do sistema.');
+            }
+
+            $defaultVendorUserId = $this->getUserIdByVendedorId($defaultVendorId);
+            if ($defaultVendorUserId === null) {
+                throw new RuntimeException('Configuração de vendedor padrão inválida.');
+            }
+
+            $vendorUserId = (int)$vendedor['user_id'];
+            $this->reassignVendorOwnership(
+                (int)$vendedor_id,
+                $vendorUserId,
+                $defaultVendorId,
+                $defaultVendorUserId
+            );
+
+            $stmt = $this->pdo->prepare('DELETE FROM vendedores WHERE id = :id');
+            $stmt->execute([':id' => $vendedor_id]);
+
+            $this->userModel->delete($vendorUserId);
+
             $this->pdo->commit();
             return true;
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $this->pdo->rollBack();
+            $_SESSION['error_message'] = $_SESSION['error_message'] ?? 'Erro ao remover o vendedor: ' . $e->getMessage();
             return false;
         }
+    }
+
+    private function reassignVendorOwnership(int $vendorId, int $vendorUserId, int $defaultVendorId, int $defaultVendorUserId): void
+    {
+        if ($vendorId === $defaultVendorId) {
+            return;
+        }
+
+        $tables = [
+            'processos' => [
+                'vendor_columns' => ['vendedor_id'],
+                'responsible_columns' => ['responsavel_id'],
+            ],
+            'orcamentos' => [
+                'vendor_columns' => ['vendedor_id'],
+                'responsible_columns' => ['responsavel_id'],
+            ],
+            'distribuicao_leads' => [
+                'vendor_columns' => ['vendedor_id', 'vendedorId'],
+                'responsible_columns' => ['responsavel_id', 'responsavelId'],
+            ],
+            'prospeccoes' => [
+                'vendor_columns' => ['vendedor_id', 'vendedorId'],
+                'responsible_columns' => ['responsavel_id', 'responsavelId'],
+            ],
+        ];
+
+        foreach ($tables as $table => $columns) {
+            foreach ($columns['vendor_columns'] as $column) {
+                $this->updateColumnIfExists($table, $column, $vendorId, $defaultVendorId);
+            }
+
+            foreach ($columns['responsible_columns'] as $column) {
+                $this->updateColumnIfExists($table, $column, $vendorUserId, $defaultVendorUserId);
+            }
+        }
+    }
+
+    private function updateColumnIfExists(string $table, string $column, int $oldValue, int $newValue): void
+    {
+        if ($oldValue === $newValue) {
+            return;
+        }
+
+        if (!$this->columnExists($table, $column)) {
+            return;
+        }
+
+        $sql = sprintf('UPDATE `%s` SET `%s` = :newValue WHERE `%s` = :oldValue', $table, $column, $column);
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(':newValue', $newValue, PDO::PARAM_INT);
+        $stmt->bindValue(':oldValue', $oldValue, PDO::PARAM_INT);
+        $stmt->execute();
+    }
+
+    private function columnExists(string $table, string $column): bool
+    {
+        if (!$this->tableExists($table)) {
+            return false;
+        }
+
+        $sql = sprintf('SHOW COLUMNS FROM `%s` LIKE :column', $table);
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([':column' => $column]);
+
+        return (bool)$stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    private function tableExists(string $table): bool
+    {
+        $stmt = $this->pdo->prepare('SHOW TABLES LIKE :table');
+        $stmt->execute([':table' => $table]);
+
+        return (bool)$stmt->fetch(PDO::FETCH_NUM);
     }
 
         /**

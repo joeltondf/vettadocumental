@@ -124,6 +124,15 @@ if (!function_exists('format_prazo_countdown')) {
     }
 }
 
+if (!function_exists('process_format_vendor_name')) {
+    function process_format_vendor_name(?string $name): string
+    {
+        $trimmed = trim((string) $name);
+
+        return $trimmed !== '' ? $trimmed : 'Sistema';
+    }
+}
+
 function normalize_status_info(?string $status): array {
     $normalized = mb_strtolower(trim((string)$status));
 
@@ -277,7 +286,7 @@ $prospectionLabel = $prospectionCode !== ''
                 </div>
                 <div>
                     <p class="text-sm font-medium text-gray-500">Vendedor Responsável</p>
-                    <p class="text-lg text-gray-800"><?php echo htmlspecialchars($processo['nome_vendedor'] ?? 'N/A'); ?></p>
+                    <p class="text-lg text-gray-800"><?php echo htmlspecialchars(process_format_vendor_name($processo['nome_vendedor'] ?? null)); ?></p>
                 </div>
                 <div class="md:col-span-2">
                     <p class="text-sm font-medium text-gray-500">Prospecção de Origem</p>
@@ -1268,9 +1277,15 @@ document.addEventListener('DOMContentLoaded', function() {
             showFeedback(data.message || 'Atualizado com sucesso!', 'success');
             if (data.updated_data) {
               for (const [key, value] of Object.entries(data.updated_data)) {
-                if (key.startsWith('status_')) continue;
+                if (key === 'prazo_html' || key.startsWith('status_')) continue;
                 const displayElement = $id(`display-${key}`);
                 if (displayElement) displayElement.innerHTML = value;
+              }
+              if (data.updated_data.prazo_html) {
+                const prazoDisplay = $id('display-prazo_dias');
+                if (prazoDisplay) {
+                  prazoDisplay.innerHTML = data.updated_data.prazo_html;
+                }
               }
               const statusBadge = $id('display-status-badge');
               if (statusBadge && data.updated_data.status_processo) {

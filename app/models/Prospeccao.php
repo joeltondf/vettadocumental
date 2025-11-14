@@ -81,7 +81,7 @@ class Prospeccao
 
     public function findLatestProspectionByClient(int $clientId): ?array
     {
-        $sql = "SELECT p.id, p.responsavel_id, u.nome_completo AS vendor_name
+        $sql = "SELECT p.id, p.responsavel_id, COALESCE(u.nome_completo, 'Sistema') AS vendor_name
                 FROM prospeccoes p
                 LEFT JOIN users u ON p.responsavel_id = u.id
                 WHERE p.cliente_id = :clientId
@@ -464,12 +464,12 @@ class Prospeccao
     public function getLeadDistributionForSdr(int $sdrId): array
     {
         $sql = "SELECT COALESCE(p.responsavel_id, 0) AS vendorId,
-                       COALESCE(u.nome_completo, 'Aguardando vendedor') AS vendorName,
+                       COALESCE(u.nome_completo, 'Sistema') AS vendorName,
                        COUNT(*) AS total
                 FROM prospeccoes p
                 LEFT JOIN users u ON p.responsavel_id = u.id
                 WHERE p.sdrId = :sdrId
-                GROUP BY COALESCE(p.responsavel_id, 0), COALESCE(u.nome_completo, 'Aguardando vendedor')
+                GROUP BY COALESCE(p.responsavel_id, 0), COALESCE(u.nome_completo, 'Sistema')
                 ORDER BY (p.responsavel_id IS NULL OR p.responsavel_id = 0) ASC, vendorName ASC";
 
         $stmt = $this->pdo->prepare($sql);
@@ -483,13 +483,13 @@ class Prospeccao
     {
         $sql = "SELECT
                     COALESCE(u.id, 0) AS vendorId,
-                    COALESCE(u.nome_completo, 'Aguardando vendedor') AS vendorName,
+                    COALESCE(u.nome_completo, 'Sistema') AS vendorName,
                     COUNT(*) AS totalLeads,
                     SUM(CASE WHEN p.status = 'Convertido' THEN 1 ELSE 0 END) AS convertedLeads
                 FROM prospeccoes p
                 LEFT JOIN users u ON p.responsavel_id = u.id
                 WHERE p.sdrId = :sdrId
-                GROUP BY COALESCE(u.id, 0), COALESCE(u.nome_completo, 'Aguardando vendedor')
+                GROUP BY COALESCE(u.id, 0), COALESCE(u.nome_completo, 'Sistema')
                 ORDER BY vendorName ASC";
 
         $stmt = $this->pdo->prepare($sql);
@@ -572,7 +572,7 @@ class Prospeccao
         $sql = "SELECT
                     COALESCE(v.id, 0) AS vendorId,
                     COALESCE(u.id, 0) AS userId,
-                    COALESCE(u.nome_completo, 'Sem vendedor') AS vendorName,
+                    COALESCE(u.nome_completo, 'Sistema') AS vendorName,
                     COUNT(*) AS totalLeads,
                     SUM(CASE WHEN p.status = 'Convertido' THEN 1 ELSE 0 END) AS convertedLeads,
                     SUM(COALESCE(p.valor_proposto, 0)) AS totalBudget,
@@ -581,7 +581,7 @@ class Prospeccao
                 LEFT JOIN vendedores v ON v.user_id = p.responsavel_id
                 LEFT JOIN users u ON u.id = p.responsavel_id
                 $whereSql
-                GROUP BY COALESCE(v.id, 0), COALESCE(u.id, 0), COALESCE(u.nome_completo, 'Sem vendedor')
+                GROUP BY COALESCE(v.id, 0), COALESCE(u.id, 0), COALESCE(u.nome_completo, 'Sistema')
                 ORDER BY convertedLeads DESC, vendorName ASC";
 
         $stmt = $this->pdo->prepare($sql);
@@ -1112,7 +1112,7 @@ class Prospeccao
                        p.status,
                        p.data_ultima_atualizacao,
                        p.qualification_score,
-                       COALESCE(u.nome_completo, 'Aguardando vendedor') AS vendor_name,
+                       COALESCE(u.nome_completo, 'Sistema') AS vendor_name,
                        c.nome_cliente,
                        p.valor_proposto,
                        p.cliente_id,

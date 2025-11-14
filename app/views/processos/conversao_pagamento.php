@@ -150,6 +150,7 @@ $parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balan
                                 <span class="text-sm font-semibold">Clique para anexar o comprovante</span>
                                 <span class="mt-1 text-xs text-blue-500" data-upload-filename="payment_unique_receipt" data-placeholder="Nenhum arquivo selecionado">Nenhum arquivo selecionado</span>
                             </label>
+                            <?php $isPaymentUnique = $paymentMethod === 'Pagamento único'; ?>
                             <input
                                 type="file"
                                 id="payment_unique_receipt"
@@ -157,7 +158,7 @@ $parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balan
                                 class="hidden"
                                 data-field-name="paymentProofFiles[]"
                                 data-upload-display="payment_unique_receipt"
-                                <?php echo $paymentMethod === 'Pagamento único' ? '' : 'disabled'; ?>
+                                <?php echo $isPaymentUnique ? 'name="paymentProofFiles[]"' : 'disabled'; ?>
                             >
                         </div>
                     </div>
@@ -165,6 +166,7 @@ $parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balan
 
                 <div class="space-y-6 <?php echo $paymentMethod === 'Pagamento parcelado' ? '' : 'hidden'; ?>" data-payment-section="Pagamento parcelado">
                     <h3 class="text-md font-semibold text-gray-800">Pagamento parcelado</h3>
+                    <?php $isInstallment = $paymentMethod === 'Pagamento parcelado'; ?>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                         <div>
                             <label class="block text-sm font-semibold text-gray-700" for="valor_entrada">Valor da 1ª parcela</label>
@@ -205,7 +207,7 @@ $parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balan
                                 class="hidden"
                                 data-field-name="paymentProofFiles[]"
                                 data-upload-display="payment_installment_receipt_1"
-                                <?php echo $paymentMethod === 'Pagamento parcelado' ? '' : 'disabled'; ?>
+                                <?php echo $isInstallment ? 'name="paymentProofFiles[]"' : 'disabled'; ?>
                             >
                         </div>
                     </div>
@@ -248,7 +250,7 @@ $parceladoRestDisplay = $balanceNumeric !== null ? $formatCurrencyDisplay($balan
                                 class="hidden"
                                 data-field-name="paymentProofFiles[]"
                                 data-upload-display="payment_installment_receipt_2"
-                                <?php echo $paymentMethod === 'Pagamento parcelado' ? '' : 'disabled'; ?>
+                                <?php echo $isInstallment ? 'name="paymentProofFiles[]"' : 'disabled'; ?>
                             >
                         </div>
                     </div>

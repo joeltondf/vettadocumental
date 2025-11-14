@@ -759,6 +759,7 @@ class ProcessosController
                     'status_processo_classes' => $this->getStatusClasses($processo['status_processo']),
                     'prazo_pausado_em' => $processo['prazo_pausado_em'] ?? null,
                     'prazo_dias_restantes' => $processo['prazo_dias_restantes'] ?? null,
+                    'prazo_html' => $this->getPrazoCountdown($processo['data_previsao_entrega'] ?? null),
                 ];
                 echo json_encode(['success' => true, 'message' => 'Etapas atualizadas com sucesso!', 'updated_data' => $updated_data]);
             } else {
