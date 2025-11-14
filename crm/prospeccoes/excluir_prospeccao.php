@@ -28,7 +28,7 @@ try {
     $stmt = $pdo->prepare("DELETE FROM prospeccoes WHERE id = ?");
     $stmt->execute([$prospeccao_id]);
 
-    $notificacaoModel->resolverPorReferencia('prospeccao_exclusao', (int)$prospeccao_id);
+    $notificacaoModel->resolverPorReferencia((int)$prospeccao_id, 'prospeccao_exclusao');
 
     if ($stmt->rowCount() === 0) {
         $_SESSION['success_message'] = 'Os alertas desta prospecção foram removidos. Ela já havia sido excluída.';

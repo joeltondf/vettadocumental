@@ -30,10 +30,10 @@ class AddPrioridadeToNotificacoesMigration
             $this->pdo->exec(<<<SQL
                 UPDATE notificacoes
                 SET prioridade = CASE
-                    WHEN tipo_alerta = 'processo_pendente_orcamento' THEN 'alta'
+                    WHEN tipo_alerta IN ('processo_pendente_orcamento', 'pendencia_orcamento') THEN 'alta'
                     WHEN tipo_alerta = 'processo_orcamento_recusado' THEN 'alta'
                     WHEN tipo_alerta = 'processo_cancelado' THEN 'alta'
-                    WHEN tipo_alerta = 'processo_servico_pendente' THEN 'media'
+                    WHEN tipo_alerta IN ('processo_pendente_servico', 'pendencia_servico', 'processo_servico_pendente') THEN 'media'
                     ELSE prioridade
                 END
             SQL);

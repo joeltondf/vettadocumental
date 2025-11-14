@@ -54,7 +54,7 @@ try {
     $prospect = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$prospect) {
-        $notificacaoModel->resolverPorReferencia('prospeccao_exclusao', (int)$prospeccao_id);
+        $notificacaoModel->resolverPorReferencia((int)$prospeccao_id, 'prospeccao_exclusao');
         $_SESSION['error_message'] = 'Esta prospecção já foi excluída e os alertas foram removidos.';
         header('Location: ' . APP_URL . '/crm/prospeccoes/lista.php');
         exit;

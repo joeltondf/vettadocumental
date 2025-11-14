@@ -25,6 +25,7 @@ require_once __DIR__ . '/../services/EmailService.php';
 require_once __DIR__ . '/../models/Notificacao.php';
 require_once __DIR__ . '/../utils/DocumentValidator.php';
 require_once __DIR__ . '/../utils/OmiePayloadBuilder.php';
+require_once __DIR__ . '/../utils/ProcessStatus.php';
 class ProcessosController
 {
     private const DEFAULT_OMIE_SERVICE_TAXATION_CODE = '01';
@@ -259,9 +260,9 @@ class ProcessosController
 
                 // Define status final conforme perfil do usuário
                 if (in_array($perfilUsuario, ['admin', 'gerencia', 'supervisor'])) {
-                $dadosParaSalvar['status_processo'] = 'Serviço em Andamento';
+                $dadosParaSalvar['status_processo'] = ProcessStatus::SERVICE_IN_PROGRESS;
                 } else {
-                    $dadosParaSalvar['status_processo'] = $pendente ? 'Serviço Pendente' : 'Serviço em Andamento';
+                    $dadosParaSalvar['status_processo'] = $pendente ? 'Serviço Pendente' : ProcessStatus::SERVICE_IN_PROGRESS;
                 }
 
                 // Cria o serviço rápido
@@ -273,7 +274,7 @@ class ProcessosController
                 if ($processoId) {
                     if ($dadosParaSalvar['status_processo'] === 'Serviço Pendente') {
                         $_SESSION['message'] = "Serviço enviado para aprovação da gerência/supervisão.";
-                        $this->queueManagementNotification($processoId, (int)$clienteId, (int)$_SESSION['user_id'], 'servico');
+                        $this->queueManagementNotification($processoId, (int)$clienteId, (int)$_SESSION['user_id'], ProcessAlertType::SERVICE_PENDING);
                     } else {
                         $_SESSION['success_message'] = "Serviço cadastrado com sucesso!";
                         if ($this->shouldGenerateOmieOs($dadosParaSalvar['status_processo'])) {
@@ -287,7 +288,7 @@ class ProcessosController
                         $_SESSION['error_message'] = $exception->getMessage();
                         unset($_SESSION['success_message']);
                     }
-                    if (in_array($dadosParaSalvar['status_processo'], ['Serviço em Andamento', 'Serviço Pendente'], true)) {
+                    if (in_array($dadosParaSalvar['status_processo'], [ProcessStatus::SERVICE_IN_PROGRESS, 'Serviço Pendente'], true)) {
                         $this->queueServiceOrderGeneration($processoId);
                     }
                     $this->clearFormInput(self::SESSION_KEY_SERVICO_FORM);
@@ -337,11 +338,11 @@ class ProcessosController
                 if ($status_inicial === 'Orçamento') {
                     $this->queueBudgetEmails($novo_id, $_SESSION['user_id'] ?? null);
                     $mensagemSucesso = "Orçamento cadastrado e enviado para o cliente.";
-                } elseif ($status_inicial === 'Orçamento Pendente') {
+                } elseif ($status_inicial === ProcessStatus::BUDGET_PENDING) {
                     $mensagemSucesso = 'Orçamento cadastrado e enviado para aprovação da gerência.';
                     $clienteIdNotificacao = (int)($dadosProcesso['cliente_id'] ?? 0);
-                    if ($clienteIdNotificacao > 0 && isset($_SESSION['user_id']) && $status_inicial === 'Orçamento Pendente') {
-                        $this->queueManagementNotification($novo_id, $clienteIdNotificacao, (int)$_SESSION['user_id'], 'orcamento');
+                    if ($clienteIdNotificacao > 0 && isset($_SESSION['user_id']) && $status_inicial === ProcessStatus::BUDGET_PENDING) {
+                        $this->queueManagementNotification($novo_id, $clienteIdNotificacao, (int)$_SESSION['user_id'], ProcessAlertType::BUDGET_PENDING);
                     }
                 }
 
@@ -393,8 +394,8 @@ class ProcessosController
                 && $processoOriginal['status_processo'] === 'Serviço Pendente'
                 && in_array($perfilUsuario, ['admin', 'gerencia', 'supervisor'], true)
             ) {
-                $dadosParaAtualizar['status_processo'] = 'Serviço em Andamento';
-                $this->resolveNotifications('processo_pendente_servico', $id_existente);
+                $dadosParaAtualizar['status_processo'] = ProcessStatus::SERVICE_IN_PROGRESS;
+                $this->resolveNotifications($id_existente, ProcessAlertType::SERVICE_PENDING);
                 $_SESSION['message'] = "Serviço aprovado e status atualizado!";
             } elseif (!$statusInformadoNoFormulario && $valorAlterado) {
                 if ($this->isBudgetStatus($processoOriginal['status_processo'])) {
@@ -434,15 +435,19 @@ class ProcessosController
                 && in_array($previousStatusNormalized, $pendingStatuses, true);
 
             if ($enteredPending && $customerId > 0 && $senderId) {
-                $pendingType = $novoStatusNormalized === 'orçamento pendente' ? 'orcamento' : 'servico';
+                $pendingType = $novoStatusNormalized === 'orçamento pendente'
+                    ? ProcessAlertType::BUDGET_PENDING
+                    : ProcessAlertType::SERVICE_PENDING;
                 $this->queueManagementNotification($id_existente, $customerId, (int)$senderId, $pendingType);
             }
 
             if ($leftPending) {
-                $pendingType = $previousStatusNormalized === 'orçamento pendente' ? 'processo_pendente_orcamento' : 'processo_pendente_servico';
-                $this->resolveNotifications($pendingType, $id_existente);
+                $pendingType = $previousStatusNormalized === 'orçamento pendente'
+                    ? ProcessAlertType::BUDGET_PENDING
+                    : ProcessAlertType::SERVICE_PENDING;
+                $this->resolveNotifications($id_existente, $pendingType);
                 if ($previousStatusNormalized === 'serviço pendente') {
-                    $this->resolveNotifications('processo_servico_pendente', $id_existente);
+                    $this->resolveNotifications($id_existente, 'processo_servico_pendente');
                 }
             }
 
@@ -651,9 +656,9 @@ class ProcessosController
 
         // Define o status final
         if (in_array($perfilUsuario, ['admin', 'gerencia', 'supervisor'])) {
-            $dadosParaSalvar['status_processo'] = 'Serviço em Andamento';
+            $dadosParaSalvar['status_processo'] = ProcessStatus::SERVICE_IN_PROGRESS;
         } else {
-            $dadosParaSalvar['status_processo'] = $pendente ? 'Serviço Pendente' : 'Serviço em Andamento';
+            $dadosParaSalvar['status_processo'] = $pendente ? 'Serviço Pendente' : ProcessStatus::SERVICE_IN_PROGRESS;
         }
 
         $dadosParaSalvar = $this->applyPaymentDefaults($dadosParaSalvar);
@@ -661,7 +666,7 @@ class ProcessosController
         if ($processoId) {
             if ($dadosParaSalvar['status_processo'] === 'Serviço Pendente') {
                 $_SESSION['message'] = "Serviço enviado para aprovação da gerência/supervisão.";
-                $this->queueManagementNotification($processoId, (int)$clienteId, (int)$_SESSION['user_id'], 'servico');
+                $this->queueManagementNotification($processoId, (int)$clienteId, (int)$_SESSION['user_id'], ProcessAlertType::SERVICE_PENDING);
             } else {
                 $_SESSION['success_message'] = "Serviço cadastrado com sucesso!";
                 if ($this->shouldGenerateOmieOs($dadosParaSalvar['status_processo'])) {
@@ -1139,10 +1144,12 @@ class ProcessosController
         }
 
         if ($leftPending) {
-            $pendingType = $previousStatusNormalized === 'orçamento pendente' ? 'processo_pendente_orcamento' : 'processo_pendente_servico';
-            $this->resolveNotifications($pendingType, $processId);
+            $pendingType = $previousStatusNormalized === 'orçamento pendente'
+                ? ProcessAlertType::BUDGET_PENDING
+                : ProcessAlertType::SERVICE_PENDING;
+            $this->resolveNotifications($processId, $pendingType);
             if ($previousStatusNormalized === 'serviço pendente') {
-                $this->resolveNotifications('processo_servico_pendente', $processId);
+                $this->resolveNotifications($processId, 'processo_servico_pendente');
             }
         }
 
@@ -1153,12 +1160,12 @@ class ProcessosController
 
             $_SESSION['success_message'] = $successMessage;
             if ($customerId > 0 && $senderId) {
-                $this->queueManagementNotification($processId, $customerId, $senderId, 'servico');
+                $this->queueManagementNotification($processId, $customerId, $senderId, ProcessAlertType::SERVICE_PENDING);
             }
         } elseif ($newStatusNormalized === 'orçamento pendente') {
             $_SESSION['success_message'] = 'Orçamento enviado para aprovação da gerência.';
             if ($customerId > 0 && $senderId) {
-                $this->queueManagementNotification($processId, $customerId, $senderId, 'orcamento');
+                $this->queueManagementNotification($processId, $customerId, $senderId, ProcessAlertType::BUDGET_PENDING);
             }
         } else {
             $successMessage = 'Status do processo atualizado com sucesso!';
@@ -1431,7 +1438,7 @@ class ProcessosController
         if ($this->processoModel->updateStatus($id, $data)) {
             $processo = $this->processoModel->getById($id)['processo'];
             $link = "/processos.php?action=view&id={$id}";
-            $this->resolveNotifications('processo_pendente_orcamento', (int)$id);
+            $this->resolveNotifications((int)$id, ProcessAlertType::BUDGET_PENDING);
             $this->sendBudgetEmails($id, $_SESSION['user_id'] ?? null);
 
             if ($processo && !empty($processo['vendedor_id'])) {
@@ -1473,7 +1480,7 @@ class ProcessosController
                 if ($vendedor_user_id) {
                     $mensagem = "Orçamento #{$processo['orcamento_numero']} cancelado. Por favor, revise-o.";
                     $link = "/processos.php?action=view&id={$id}";
-                    $this->resolveNotifications('processo_pendente_orcamento', (int)$id);
+                    $this->resolveNotifications((int)$id, ProcessAlertType::BUDGET_PENDING);
                     $this->notifyUser($vendedor_user_id, $_SESSION['user_id'] ?? null, $mensagem, $link, 'processo_orcamento_cancelado', (int)$id, 'vendedor');
                 }
             }
@@ -1745,15 +1752,20 @@ class ProcessosController
         });
     }
 
-    private function queueManagementNotification(int $processId, int $customerId, int $senderId, string $pendingType): void
+    private function queueManagementNotification(int $processId, int $customerId, int $senderId, string $alertType): void
     {
         if ($processId <= 0 || $customerId <= 0 || $senderId <= 0) {
             return;
         }
 
-        AsyncTaskDispatcher::queue(function () use ($processId, $customerId, $senderId, $pendingType) {
+        $alertType = trim($alertType);
+        if ($alertType === '') {
+            return;
+        }
+
+        AsyncTaskDispatcher::queue(function () use ($processId, $customerId, $senderId, $alertType) {
             try {
-                $this->notificarGerenciaPendencia($processId, $customerId, $senderId, $pendingType);
+                $this->notificarGerenciaPendencia($processId, $customerId, $senderId, $alertType);
             } catch (\Throwable $exception) {
                 error_log('Erro ao processar notificação assíncrona para gerência: ' . $exception->getMessage());
             }
@@ -1895,21 +1907,31 @@ class ProcessosController
         );
     }
 
-    private function resolveNotifications(string $tipoAlerta, int $referenciaId): void
+    private function resolveNotifications(int $processId, string $alertType): void
     {
-        $this->notificacaoModel->resolverPorReferencia($tipoAlerta, $referenciaId);
+        if ($processId <= 0 || trim($alertType) === '') {
+            return;
+        }
+
+        $this->notificacaoModel->resolverPorReferencia($processId, $alertType);
     }
 
     /**
      * Notifica perfis de gestão quando há serviço pendente.
      */
-    private function notificarGerenciaPendencia(int $processoId, int $clienteId, int $remetenteId, string $tipoPendencia = 'servico'): void
-    {
+    private function notificarGerenciaPendencia(
+        int $processoId,
+        int $clienteId,
+        int $remetenteId,
+        string $alertType = ProcessAlertType::SERVICE_PENDING
+    ): void {
         $cliente = $this->clienteModel->getById($clienteId);
         $nomeCliente = $cliente['nome_cliente'] ?? 'Cliente';
         $linkPath = '/processos.php?action=view&id=' . $processoId;
-        $pendingLabel = $tipoPendencia === 'orcamento' ? 'Orçamento' : 'Serviço';
-        $tipoAlerta = $tipoPendencia === 'orcamento' ? 'processo_pendente_orcamento' : 'processo_pendente_servico';
+        $pendingLabel = $alertType === ProcessAlertType::BUDGET_PENDING ? 'Orçamento' : 'Serviço';
+        $tipoAlerta = in_array($alertType, [ProcessAlertType::BUDGET_PENDING, ProcessAlertType::SERVICE_PENDING], true)
+            ? $alertType
+            : ProcessAlertType::SERVICE_PENDING;
         $gerentesIds = $this->userModel->getIdsByPerfil(['admin', 'gerencia', 'supervisor']);
 
         foreach ($gerentesIds as $gerenteId) {
@@ -1979,7 +2001,7 @@ class ProcessosController
             if (!$vendedorUserId || $vendedorUserId != ($_SESSION['user_id'] ?? null)) {
                 return false;
             }
-            $allowed = ['Orçamento', 'Orçamento Pendente', 'Serviço Pendente', 'Pendente de pagamento', 'Pendente de documentos'];
+            $allowed = ['Orçamento', ProcessStatus::BUDGET_PENDING, 'Serviço Pendente', 'Pendente de pagamento', 'Pendente de documentos'];
             return in_array($novoStatus, $allowed, true);
         }
 
@@ -2925,7 +2947,7 @@ class ProcessosController
 
     private function normalizeStatusName(?string $status): string
     {
-        $normalized = mb_strtolower(trim((string)$status));
+        $normalized = ProcessStatus::normalizeStatus($status);
 
         if ($normalized === '') {
             return $normalized;
@@ -2934,11 +2956,9 @@ class ProcessosController
         $aliases = [
             'orcamento' => 'orçamento',
             'orcamento pendente' => 'orçamento pendente',
-            'serviço pendente' => 'serviço pendente',
             'servico pendente' => 'serviço pendente',
             'pendente' => 'serviço pendente',
             'aprovado' => 'serviço pendente',
-            'serviço em andamento' => 'serviço em andamento',
             'servico em andamento' => 'serviço em andamento',
             'em andamento' => 'serviço em andamento',
             'aguardando pagamento' => 'pendente de pagamento',
@@ -2946,7 +2966,6 @@ class ProcessosController
             'aguardando documento' => 'pendente de documentos',
             'aguardando documentos' => 'pendente de documentos',
             'aguardando documentacao' => 'pendente de documentos',
-            'aguardando documentação' => 'pendente de documentos',
             'pendente de documento' => 'pendente de documentos',
             'pendente documento' => 'pendente de documentos',
             'pendente documentos' => 'pendente de documentos',

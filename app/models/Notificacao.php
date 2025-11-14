@@ -1,6 +1,8 @@
 <?php
 // /app/models/Notificacao.php
 
+require_once __DIR__ . '/../utils/ProcessStatus.php';
+
 class Notificacao
 {
     private const PRIORITY_HIGH = 'alta';
@@ -289,7 +291,7 @@ class Notificacao
         return $this->updateBatchByScope($notificationIds, $usuarioId, ['lida' => 1, 'resolvido' => 1]);
     }
 
-    public function resolverPorReferencia(string $tipoAlerta, int $referenciaId, ?string $grupoDestino = null): void
+    public function resolverPorReferencia(int $referenciaId, string $tipoAlerta, ?string $grupoDestino = null): void
     {
         $tipoAlerta = trim($tipoAlerta);
         if ($tipoAlerta === '' || $referenciaId <= 0) {
@@ -401,9 +403,23 @@ class Notificacao
 
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        $filteredRows = [];
+        foreach ($rows as $row) {
+            if ($this->shouldResolveAutomatically($row)) {
+                $referenceId = (int)($row['referencia_id'] ?? 0);
+                $alertType = (string)($row['tipo_alerta'] ?? '');
+                if ($referenceId > 0 && $alertType !== '') {
+                    $this->resolverPorReferencia($referenceId, $alertType, $row['grupo_destino'] ?? null);
+                }
+                continue;
+            }
+
+            $filteredRows[] = $row;
+        }
+
         $notifications = array_map(
             fn (array $row): array => $this->hydrateNotification($row, $sourceTimezone),
-            $rows
+            $filteredRows
         );
 
         $total = $this->countAlerts($filters, $grouped);
@@ -451,6 +467,32 @@ class Notificacao
         $stmt->execute();
 
         return (int)$stmt->fetchColumn();
+    }
+
+    private function shouldResolveAutomatically(array $row): bool
+    {
+        $alertType = trim((string)($row['tipo_alerta'] ?? ''));
+        if ($alertType === '') {
+            return false;
+        }
+
+        $normalizedStatus = ProcessStatus::normalizeStatus($row['status_processo'] ?? '');
+        $budgetPendingStatuses = [
+            ProcessStatus::normalizeStatus(ProcessStatus::BUDGET_PENDING),
+        ];
+        $servicePendingStatuses = [
+            ProcessStatus::normalizeStatus(ProcessStatus::SERVICE_PENDING),
+        ];
+
+        if (in_array($alertType, [ProcessAlertType::BUDGET_PENDING, 'processo_pendente_orcamento'], true)) {
+            return !in_array($normalizedStatus, $budgetPendingStatuses, true);
+        }
+
+        if (in_array($alertType, [ProcessAlertType::SERVICE_PENDING, 'processo_pendente_servico'], true)) {
+            return !in_array($normalizedStatus, $servicePendingStatuses, true);
+        }
+
+        return false;
     }
 
     private function buildQueryParts(array $filters): array
@@ -931,6 +973,7 @@ class Notificacao
         }
 
         switch ($tipoAlerta) {
+            case ProcessAlertType::BUDGET_PENDING:
             case 'processo_pendente_orcamento':
                 if ($ageDays >= 7) {
                     return self::PRIORITY_HIGH;
@@ -940,6 +983,7 @@ class Notificacao
                 }
 
                 return self::PRIORITY_LOW;
+            case ProcessAlertType::SERVICE_PENDING:
             case 'processo_pendente_servico':
             case 'processo_servico_pendente':
                 if ($ageDays >= 5) {

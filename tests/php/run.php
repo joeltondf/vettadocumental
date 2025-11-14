@@ -8,6 +8,7 @@ if (file_exists($autoloadPath)) {
 }
 require_once __DIR__ . '/../../app/models/Cliente.php';
 require_once __DIR__ . '/../../app/models/Notificacao.php';
+require_once __DIR__ . '/../../app/utils/ProcessStatus.php';
 require_once __DIR__ . '/../../app/utils/OmiePayloadBuilder.php';
 
 $tests = [];
@@ -226,9 +227,9 @@ runTest('Notificacao::criar evita duplicidade para alertas ativos', function ():
     $pdo->exec("INSERT INTO users (id, nome_completo) VALUES (1, 'Gestor')");
 
     $notificacaoModel = new Notificacao($pdo);
-    $notificacaoModel->criar(1, null, 'Mensagem inicial', '/link', 'processo_pendente_orcamento', 100, 'gerencia');
+    $notificacaoModel->criar(1, null, 'Mensagem inicial', '/link', ProcessAlertType::BUDGET_PENDING, 100, 'gerencia');
     $pdo->exec("UPDATE notificacoes SET data_criacao = '2023-01-01 00:00:00', lida = 1, resolvido = 1 WHERE id = 1");
-    $notificacaoModel->criar(1, null, 'Mensagem atualizada', '/link2', 'processo_pendente_orcamento', 100, 'gerencia');
+    $notificacaoModel->criar(1, null, 'Mensagem atualizada', '/link2', ProcessAlertType::BUDGET_PENDING, 100, 'gerencia');
 
     $count = (int)$pdo->query('SELECT COUNT(*) FROM notificacoes')->fetchColumn();
     assertEquals(1, $count, 'Deve existir apenas uma notificação ativa.');
@@ -240,6 +241,27 @@ runTest('Notificacao::criar evita duplicidade para alertas ativos', function ():
     assertEquals(0, (int)$row['resolvido']);
 }, $tests);
 
+runTest('searchAlerts resolve automaticamente pendências incompatíveis', function (): void {
+    $pdo = new PDO('sqlite::memory:');
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    buildNotificationTestSchema($pdo);
+
+    $stmt = $pdo->prepare("INSERT INTO processos (id, status_processo, titulo, cliente_id) VALUES (150, :status, 'Processo 150', 1)");
+    $stmt->bindValue(':status', ProcessStatus::SERVICE_IN_PROGRESS, PDO::PARAM_STR);
+    $stmt->execute();
+    $pdo->exec("INSERT INTO users (id, nome_completo) VALUES (1, 'Gestor')");
+
+    $model = new Notificacao($pdo);
+    $model->criar(1, null, 'Orçamento pendente', '/p', ProcessAlertType::BUDGET_PENDING, 150, 'gerencia');
+
+    $result = $model->getAlertFeed(1, 'gerencia', 10, false, 'UTC');
+
+    assertEquals(0, count($result['notifications']), 'Alertas incompatíveis devem ser filtrados.');
+
+    $row = $pdo->query('SELECT resolvido FROM notificacoes WHERE referencia_id = 150')->fetch(PDO::FETCH_ASSOC);
+    assertEquals(1, (int)$row['resolvido'], 'Alertas incompatíveis devem ser marcados como resolvidos.');
+}, $tests);
+
 runTest('Notificacao::criar mantém notificações distintas por grupo de destino', function (): void {
     $pdo = new PDO('sqlite::memory:');
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -249,8 +271,8 @@ runTest('Notificacao::criar mantém notificações distintas por grupo de destin
     $pdo->exec("INSERT INTO users (id, nome_completo) VALUES (1, 'Gestor'), (2, 'Analista')");
 
     $model = new Notificacao($pdo);
-    $model->criar(1, null, 'Mensagem gerente', '/link', 'processo_pendente_orcamento', 101, 'gerencia');
-    $model->criar(2, null, 'Mensagem vendedor', '/link', 'processo_pendente_orcamento', 101, 'vendedor');
+    $model->criar(1, null, 'Mensagem gerente', '/link', ProcessAlertType::BUDGET_PENDING, 101, 'gerencia');
+    $model->criar(2, null, 'Mensagem vendedor', '/link', ProcessAlertType::BUDGET_PENDING, 101, 'vendedor');
 
     $count = (int)$pdo->query('SELECT COUNT(*) FROM notificacoes')->fetchColumn();
     assertEquals(2, $count, 'As notificações com grupos distintos devem coexistir.');
@@ -265,8 +287,8 @@ runTest('marcarComoLida propaga leitura para notificações relacionadas', funct
     $pdo->exec("INSERT INTO users (id, nome_completo) VALUES (1, 'Gestor'), (2, 'Analista')");
 
     $notificacaoModel = new Notificacao($pdo);
-    $notificacaoModel->criar(1, null, 'Mensagem 1', '/link', 'processo_pendente_orcamento', 200, 'gerencia');
-    $notificacaoModel->criar(2, null, 'Mensagem 2', '/link', 'processo_pendente_orcamento', 200, 'gerencia');
+    $notificacaoModel->criar(1, null, 'Mensagem 1', '/link', ProcessAlertType::BUDGET_PENDING, 200, 'gerencia');
+    $notificacaoModel->criar(2, null, 'Mensagem 2', '/link', ProcessAlertType::BUDGET_PENDING, 200, 'gerencia');
 
     $row = $pdo->query('SELECT id FROM notificacoes WHERE usuario_id = 1')->fetch(PDO::FETCH_ASSOC);
     $firstNotificationId = (int)$row['id'];
@@ -284,12 +306,14 @@ runTest('getAlertFeed aplica prioridades e filtros agrupados', function (): void
     buildNotificationTestSchema($pdo);
 
     $pdo->exec("INSERT INTO clientes (id, nome_cliente) VALUES (1, 'Cliente A')");
-    $pdo->exec("INSERT INTO processos (id, status_processo, titulo, cliente_id) VALUES (300, 'Orçamento', 'Processo A', 1)");
+    $stmt = $pdo->prepare("INSERT INTO processos (id, status_processo, titulo, cliente_id) VALUES (300, :status, 'Processo A', 1)");
+    $stmt->bindValue(':status', ProcessStatus::BUDGET_PENDING, PDO::PARAM_STR);
+    $stmt->execute();
     $pdo->exec("INSERT INTO processos (id, status_processo, titulo, cliente_id) VALUES (301, 'Concluído', 'Processo B', 1)");
     $pdo->exec("INSERT INTO users (id, nome_completo) VALUES (1, 'Gestor')");
 
     $model = new Notificacao($pdo);
-    $model->criar(1, null, 'Orçamento atrasado', '/a', 'processo_pendente_orcamento', 300, 'gerencia');
+    $model->criar(1, null, 'Orçamento atrasado', '/a', ProcessAlertType::BUDGET_PENDING, 300, 'gerencia');
     $model->criar(1, null, 'Processo concluído', '/b', 'processo_generico', 301, 'gerencia');
 
     $pdo->exec("UPDATE notificacoes SET data_criacao = '2020-01-01 00:00:00' WHERE referencia_id = 300");
