@@ -1,46 +1,40 @@
 <?php
-// visualizar_anexo.php
+// Força o download de anexos usando o nome original do arquivo
 
 require_once 'config.php';
+require_once __DIR__ . '/app/core/auth_check.php';
 
-// Pega o ID do anexo da URL
-$anexo_id = $_GET['id'] ?? null;
+$anexo_id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
-if (!$anexo_id) {
-    die("Anexo não especificado.");
+if ($anexo_id <= 0) {
+    exit('Anexo não encontrado.');
 }
 
-// Busca os detalhes do anexo no banco de dados
-try {
-    $stmt = $pdo->prepare("SELECT * FROM processo_anexos WHERE id = ?");
-    $stmt->execute([$anexo_id]);
-    $anexo = $stmt->fetch();
+$stmt = $pdo->prepare('SELECT caminho_arquivo, nome_arquivo_original FROM processo_anexos WHERE id = ?');
+$stmt->execute([$anexo_id]);
+$anexo = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$anexo) {
-        die("Anexo não encontrado.");
-    }
-
-    $caminho_arquivo = $anexo['caminho_arquivo'];
-    $extensao = strtolower(pathinfo($caminho_arquivo, PATHINFO_EXTENSION));
-
-    // Constrói a URL completa e pública do arquivo no seu servidor
-    $protocolo = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https://" : "http://";
-    $url_completa_do_arquivo = $protocolo . $_SERVER['HTTP_HOST'] . '/' . $caminho_arquivo;
-
-    // Define os tipos de arquivo que o visualizador da Microsoft suporta
-    $tipos_office = ['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt'];
-
-    if (in_array($extensao, $tipos_office)) {
-        // Se for um arquivo do Office, redireciona para o visualizador da Microsoft
-        $url_visualizador = "https://view.officeapps.live.com/op/view.aspx?src=" . urlencode($url_completa_do_arquivo);
-        header('Location: ' . $url_visualizador);
-        exit();
-    } else {
-        // Para outros tipos (PDF, imagens, etc.), abre o arquivo diretamente
-        header('Location: ' . $url_completa_do_arquivo);
-        exit();
-    }
-
-} catch (Exception $e) {
-    die("Erro ao acessar o banco de dados: " . $e->getMessage());
+if (!$anexo) {
+    exit('Anexo não encontrado.');
 }
+
+$caminho_completo = __DIR__ . '/' . $anexo['caminho_arquivo'];
+
+if (!file_exists($caminho_completo)) {
+    exit('Arquivo não encontrado no servidor.');
+}
+
+while (ob_get_level()) {
+    ob_end_clean();
+}
+
+header('Content-Type: application/octet-stream');
+header('Content-Description: File Transfer');
+header('Content-Disposition: attachment; filename="' . basename($anexo['nome_arquivo_original']) . '"');
+header('Expires: 0');
+header('Cache-Control: must-revalidate');
+header('Pragma: public');
+header('Content-Length: ' . filesize($caminho_completo));
+
+readfile($caminho_completo);
+exit;
