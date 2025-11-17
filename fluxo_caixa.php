@@ -17,28 +17,26 @@ switch ($action) {
             $controller->store();
         }
         break;
-
-case 'delete':
-        // A ação de deletar só executa se o método for POST
+    case 'update':
         if ($method === 'POST') {
-            // A lógica de exclusão que estava no controller vem para cá
-            if (!empty($_POST['id'])) {
-                // Passamos o ID recebido via POST para o método delete
-                if ($controller->delete($_POST['id'])) {
-                    $_SESSION['message'] = "Lançamento excluído com sucesso.";
-                } else {
-                    $_SESSION['error'] = "Erro ao excluir o lançamento.";
-                }
-            } else {
-                $_SESSION['error'] = "ID para exclusão não foi fornecido.";
-            }
-            // Redireciona de volta para a página principal após a tentativa de exclusão
-            header("Location: fluxo_caixa.php");
-            exit();
+            $controller->update();
         }
         break;
+    case 'finalizar':
+        if ($method === 'POST') {
+            $controller->finalizar();
+        }
+        break;
+    case 'ajustar':
+        if ($method === 'POST') {
+            $controller->ajustar();
+        }
+        break;
+
     case 'delete':
-        $controller->delete();
+        if ($method === 'POST') {
+            $controller->delete();
+        }
         break;
 
     default:
