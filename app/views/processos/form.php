@@ -770,17 +770,19 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function formatCurrency(value) {
-        const numeric = String(value).replace(/\D/g, '');
-        if (numeric === '') return 'R$\u00a00,00';
-        const floatVal = parseInt(numeric, 10) / 100;
-        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(floatVal);
+    function parseMoedaBR(valor) {
+        if (!valor) return 0;
+        const normalizado = String(valor)
+            .replace(/[R$\s]/g, '')
+            .replace(/\./g, '')
+            .replace(',', '.');
+        const parsed = Number.parseFloat(normalizado);
+        return Number.isNaN(parsed) ? 0 : parsed;
     }
 
-    function parseCurrency(formattedValue) {
-        if (!formattedValue || typeof formattedValue !== 'string') return 0;
-        const clean = formattedValue.replace(/[^0-9,]/g, '');
-        return parseFloat(clean.replace(/\./g, '').replace(',', '.')) || 0;
+    function formatMoedaBR(valor) {
+        const numero = typeof valor === 'number' ? valor : parseMoedaBR(valor);
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(numero || 0);
     }
 
     function triggerMinValueAlert(input, message) {
@@ -794,7 +796,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         const minValor = parseFloat(input.dataset.minValor || '0');
-        const valorAtual = parseCurrency(input.value);
+        const valorAtual = parseMoedaBR(input.value);
 
         if (Number.isNaN(minValor) || Number.isNaN(valorAtual)) {
             delete input.dataset.alertBelowMinShown;
@@ -826,10 +828,10 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        const total = parseCurrency(hiddenTotalInput.value || '');
-        const entrada = parseCurrency(parceladoEntryInput.value || '');
+        const total = parseMoedaBR(hiddenTotalInput.value || '');
+        const entrada = parseMoedaBR(parceladoEntryInput.value || '');
         const restante = Math.max(total - entrada, 0);
-        parceladoRestInput.value = formatCurrency(restante * 100);
+        parceladoRestInput.value = formatMoedaBR(restante);
     }
 
     function toggleBillingSections() {
@@ -1047,7 +1049,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const parsedValor = rawValor !== undefined ? parseFloat(rawValor) : null;
 
         if (parsedValor !== null && !Number.isNaN(parsedValor)) {
-            valorInput.value = formatCurrency(parsedValor * 100);
+            valorInput.value = formatMoedaBR(parsedValor);
         }
 
         const bloqueado = selectedOption?.dataset?.bloqueado === '1';
@@ -1124,7 +1126,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         document.querySelectorAll('.valor-servico').forEach(input => {
             const min = parseFloat(input.dataset.minValor || '0');
-            const atual = parseCurrency(input.value);
+            const atual = parseMoedaBR(input.value);
             if (min > 0 && atual < min) {
                 pendente = true;
             }
@@ -1157,7 +1159,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             const floatVal = parseInt(raw, 10) / 100;
-            target.value = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(floatVal);
+            target.value = formatMoedaBR(floatVal);
             if (target.classList && target.classList.contains('valor-servico')) {
                 triggerMinValueAlert(target, budgetMinAlertMessage);
                 evaluateBudgetMinValues();
@@ -1173,7 +1175,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.doc-price').forEach(input => {
             const row = input.closest('.doc-item');
             if (row && !row.closest('.service-section.hidden')) {
-                totalGeral += parseCurrency(input.value);
+                totalGeral += parseMoedaBR(input.value);
                 totalDocumentos++;
             }
         });
@@ -1184,10 +1186,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const valorUnitarioInput = document.getElementById('apostilamento_valor_unitario');
             const totalInput = document.getElementById('apostilamento_valor_total');
             const qtd = parseInt(quantidadeInput.value, 10) || 0;
-            const valorUnitario = parseCurrency(valorUnitarioInput.value);
+            const valorUnitario = parseMoedaBR(valorUnitarioInput.value);
             const totalApos = qtd * valorUnitario;
             if (totalInput) {
-                totalInput.value = formatCurrency(totalApos * 100);
+                totalInput.value = formatMoedaBR(totalApos);
             }
             totalGeral += totalApos;
         }
@@ -1198,10 +1200,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const valorUnitarioInput = document.getElementById('postagem_valor_unitario');
             const totalInput = document.getElementById('postagem_valor_total');
             const qtd = parseInt(quantidadeInput.value, 10) || 0;
-            const valorUnitario = parseCurrency(valorUnitarioInput.value);
+            const valorUnitario = parseMoedaBR(valorUnitarioInput.value);
             const totalPost = qtd * valorUnitario;
             if (totalInput) {
-                totalInput.value = formatCurrency(totalPost * 100);
+                totalInput.value = formatMoedaBR(totalPost);
             }
             totalGeral += totalPost;
         }
@@ -1215,13 +1217,13 @@ document.addEventListener('DOMContentLoaded', function() {
             totalDocumentosEl.textContent = totalDocumentos;
         }
         if (resumoTotalInput) {
-            resumoTotalInput.value = formatCurrency(totalGeral * 100);
+            resumoTotalInput.value = formatMoedaBR(totalGeral);
         }
         if (hiddenTotalInput) {
-            hiddenTotalInput.value = formatCurrency(totalGeral * 100);
+            hiddenTotalInput.value = formatMoedaBR(totalGeral);
         }
         if (billingTotalDisplayInput) {
-            billingTotalDisplayInput.value = formatCurrency(totalGeral * 100);
+            billingTotalDisplayInput.value = formatMoedaBR(totalGeral);
         }
 
         updateParceladoRestante();
@@ -1233,8 +1235,8 @@ document.addEventListener('DOMContentLoaded', function() {
         form.addEventListener('blur', function(e) {
             const target = e.target;
             if (target.matches('#apostilamento_valor_unitario, #postagem_valor_unitario, .doc-price')) {
-                const parsedValue = parseCurrency(target.value);
-                target.value = formatCurrency(parsedValue * 100);
+                const parsedValue = parseMoedaBR(target.value);
+                target.value = target.value.trim() === '' ? '' : formatMoedaBR(parsedValue);
             }
             if (target.matches('#apostilamento_quantidade, #postagem_quantidade')) {
                 target.value = formatInteger(target.value);
@@ -1281,12 +1283,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 lastRow.querySelectorAll('input, select').forEach(el => el.style.borderColor = '');
             };
 
-            if (!tipoSelect.value || !nomeInput.value || !valorInput.value || parseCurrency(valorInput.value) === 0) {
-                alert('Por favor, preencha todos os campos da linha anterior (Tipo, Nome e Valor) antes de adicionar uma nova.');
-                
-                if (!tipoSelect.value) tipoSelect.style.borderColor = 'red';
-                if (!nomeInput.value) nomeInput.style.borderColor = 'red';
-                if (!valorInput.value || parseCurrency(valorInput.value) === 0) valorInput.style.borderColor = 'red';
+            if (!tipoSelect.value || !nomeInput.value || !valorInput.value || parseMoedaBR(valorInput.value) === 0) {
+                alert('Por favor, preencha todos os campos da linha anterior (Tipo, Nome e Valor) antes de adicionar uma nova.');
+
+                if (!tipoSelect.value) tipoSelect.style.borderColor = 'red';
+                if (!nomeInput.value) nomeInput.style.borderColor = 'red';
+                if (!valorInput.value || parseMoedaBR(valorInput.value) === 0) valorInput.style.borderColor = 'red';
 
                 setTimeout(clearErrorHighlights, 3000);
                 return;
@@ -1344,7 +1346,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const isBloqueado = selectedOption.dataset.bloqueado === '1';
 
             if (valorInput && valorPadrao) {
-                valorInput.value = formatCurrency(parseFloat(valorPadrao) * 100);
+                valorInput.value = formatMoedaBR(parseFloat(valorPadrao));
                 valorInput.dataset.minValor = isBloqueado ? valorPadrao : '0';
                 valorInput.dispatchEvent(new Event('blur', { bubbles: true }));
             }
@@ -1390,19 +1392,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 newRow.querySelector(`input[name="docs[${docIndexForLoad}][nome_documento]"]`).value = doc.nome_documento;
                 const valorInput = newRow.querySelector(`input[name="docs[${docIndexForLoad}][valor_unitario]"]`);
                 if (valorInput) {
-                    valorInput.value = formatCurrency(parseFloat(doc.valor_unitario) * 100);
+                    valorInput.value = formatMoedaBR(parseFloat(doc.valor_unitario));
                 }
             }
         });
         
         document.querySelectorAll('.calculation-trigger').forEach(field => {
-            if (field.value) {
-                if (field.id.includes('quantidade')) {
-                    field.value = formatInteger(field.value);
-                } else {
-                    field.value = formatCurrency(field.value.replace('.', ''));
-                }
-            }
+          if (field.value) {
+              if (field.id.includes('quantidade')) {
+                  field.value = formatInteger(field.value);
+              } else {
+                  field.value = formatMoedaBR(parseMoedaBR(field.value));
+              }
+          }
         });
         
         toggleServiceSections();

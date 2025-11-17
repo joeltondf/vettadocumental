@@ -1015,7 +1015,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const parsedValor = rawValor !== undefined ? parseFloat(rawValor) : null;
 
         if (parsedValor !== null && !Number.isNaN(parsedValor)) {
-            valorInput.value = formatCurrency(Math.round(parsedValor * 100));
+            valorInput.value = formatMoedaBR(parsedValor);
         }
 
         const bloqueado = selectedOption?.dataset?.bloqueado === '1';
@@ -1065,7 +1065,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (valorInput && data.valor_padrao !== undefined) {
                     const valorPadrao = parseFloat(data.valor_padrao);
                     if (!Number.isNaN(valorPadrao)) {
-                        valorInput.value = formatCurrency(Math.round(valorPadrao * 100));
+                        valorInput.value = formatMoedaBR(valorPadrao);
                         valorInput.dataset.minValor = valorPadrao;
                     }
                 }
@@ -1119,15 +1119,15 @@ document.addEventListener('DOMContentLoaded', function () {
         const target = e.target;
         if (target.matches('.valor-servico')) {
             const raw = target.value.replace(/\D/g, '');
-            target.value = (raw === '') ? '' : formatCurrency(raw);
+            target.value = (raw === '') ? '' : formatMoedaBR(parseInt(raw, 10) / 100);
             triggerMinValueAlert(target, minValueAlertMessage);
             updateParceladoRestante();
         } else if (target.matches('.doc-valor')) {
             const raw = target.value.replace(/\D/g, '');
-            target.value = (raw === '') ? '' : formatCurrency(raw);
+            target.value = (raw === '') ? '' : formatMoedaBR(parseInt(raw, 10) / 100);
         } else if (target.matches('#apostilamento_valor_unitario, #postagem_valor_unitario')) {
             const raw = target.value.replace(/\D/g, '');
-            target.value = (raw === '') ? '' : formatCurrency(raw);
+            target.value = (raw === '') ? '' : formatMoedaBR(parseInt(raw, 10) / 100);
         }
         if (target.matches('.doc-valor, .doc-qtd, .valor-servico, #apostilamento_quantidade, #postagem_quantidade, #apostilamento_valor_unitario, #postagem_valor_unitario')) {
             updateAllCalculations();
@@ -1139,8 +1139,8 @@ document.addEventListener('DOMContentLoaded', function () {
     document.body.addEventListener('blur', function(e) {
         const target = e.target;
         if (target.matches('#apostilamento_valor_unitario, #postagem_valor_unitario, .valor-servico, .doc-valor')) {
-            const parsed = parseCurrency(target.value);
-            target.value = parsed > 0 ? formatCurrency(Math.round(parsed * 100)) : '';
+            const parsed = parseMoedaBR(target.value);
+            target.value = parsed > 0 ? formatMoedaBR(parsed) : '';
         }
         if (target.matches('#apostilamento_quantidade, #postagem_quantidade')) {
             const digits = target.value.replace(/\D/g, '');
@@ -1160,7 +1160,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         const minValor = parseFloat(input.dataset.minValor || '0');
-        const valorAtual = parseCurrency(input.value);
+        const valorAtual = parseMoedaBR(input.value);
 
         if (Number.isNaN(minValor) || Number.isNaN(valorAtual)) {
             delete input.dataset.alertBelowMinShown;
@@ -1187,15 +1187,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function updateAllCalculations() {
         let totalDocumentos = 0;
-        let totalGeralCents = 0;
+        let totalGeral = 0;
 
         const traducaoSectionVisible = isSectionVisible('section-container-tradução');
         const traducaoContainer = document.getElementById('documentos-container-tradução');
         if (traducaoSectionVisible && traducaoContainer) {
             traducaoContainer.querySelectorAll('.doc-row').forEach(row => {
                 totalDocumentos += 1;
-                const valorUnit = parseCurrency(row.querySelector('.doc-valor')?.value || '0');
-                totalGeralCents += Math.round(valorUnit * 100);
+                const valorUnit = parseMoedaBR(row.querySelector('.doc-valor')?.value || '0');
+                totalGeral += valorUnit;
             });
         }
 
@@ -1204,8 +1204,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (crcSectionVisible && crcContainer) {
             crcContainer.querySelectorAll('.doc-row').forEach(row => {
                 totalDocumentos += 1;
-                const valorUnit = parseCurrency(row.querySelector('.doc-valor')?.value || '0');
-                totalGeralCents += Math.round(valorUnit * 100);
+                const valorUnit = parseMoedaBR(row.querySelector('.doc-valor')?.value || '0');
+                totalGeral += valorUnit;
             });
         }
 
@@ -1214,8 +1214,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (outrosSectionVisible && outrosContainer) {
             outrosContainer.querySelectorAll('.doc-row').forEach(row => {
                 totalDocumentos += 1;
-                const valorUnit = parseCurrency(row.querySelector('.doc-valor')?.value || '0');
-                totalGeralCents += Math.round(valorUnit * 100);
+                const valorUnit = parseMoedaBR(row.querySelector('.doc-valor')?.value || '0');
+                totalGeral += valorUnit;
             });
         }
 
@@ -1225,12 +1225,12 @@ document.addEventListener('DOMContentLoaded', function () {
         const apostVisible = isSectionVisible('section-container-apostilamento');
         if (apostQtdInput && apostUnitInput && apostTotalInput) {
             const qtd = parseInt(apostQtdInput.value, 10) || 0;
-            const valorUnit = parseCurrency(apostUnitInput.value || '0');
-            const linhaCents = Math.round(valorUnit * 100) * qtd;
-            apostTotalInput.value = formatCurrency(linhaCents);
+            const valorUnit = parseMoedaBR(apostUnitInput.value || '0');
+            const linhaValor = valorUnit * qtd;
+            apostTotalInput.value = formatMoedaBR(linhaValor);
             if (apostVisible) {
                 totalDocumentos += qtd;
-                totalGeralCents += linhaCents;
+                totalGeral += linhaValor;
             }
         }
 
@@ -1240,12 +1240,12 @@ document.addEventListener('DOMContentLoaded', function () {
         const postVisible = isSectionVisible('section-container-postagem');
         if (postQtdInput && postUnitInput && postTotalInput) {
             const qtd = parseInt(postQtdInput.value, 10) || 0;
-            const valorUnit = parseCurrency(postUnitInput.value || '0');
-            const linhaCents = Math.round(valorUnit * 100) * qtd;
-            postTotalInput.value = formatCurrency(linhaCents);
+            const valorUnit = parseMoedaBR(postUnitInput.value || '0');
+            const linhaValor = valorUnit * qtd;
+            postTotalInput.value = formatMoedaBR(linhaValor);
             if (postVisible) {
                 totalDocumentos += qtd;
-                totalGeralCents += linhaCents;
+                totalGeral += linhaValor;
             }
         }
 
@@ -1254,7 +1254,7 @@ document.addEventListener('DOMContentLoaded', function () {
             totalDocsDisplay.textContent = totalDocumentos;
         }
 
-        const formattedTotal = formatCurrency(totalGeralCents);
+        const formattedTotal = formatMoedaBR(totalGeral);
         const totalGeralDisplay = document.getElementById('total-geral-display');
         if (totalGeralDisplay) {
             totalGeralDisplay.textContent = formattedTotal;
@@ -1270,7 +1270,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const hiddenTotal = document.getElementById('valor_total_hidden');
         if (hiddenTotal) {
-            hiddenTotal.value = (totalGeralCents / 100).toFixed(2);
+            hiddenTotal.value = totalGeral.toFixed(2);
         }
 
         updateParceladoRestante();
@@ -1288,9 +1288,9 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
         const total = parseFloat(hiddenTotal.value || '0');
-        const entrada = parseCurrency(entradaInput.value || '0');
+        const entrada = parseMoedaBR(entradaInput.value || '0');
         const restante = Math.max((Number.isNaN(total) ? 0 : total) - entrada, 0);
-        restanteInput.value = formatCurrency(Math.round(restante * 100));
+        restanteInput.value = formatMoedaBR(restante);
     }
 
     function toggleBillingSections() {
@@ -1344,7 +1344,7 @@ document.addEventListener('DOMContentLoaded', function () {
         let pendente = false;
         document.querySelectorAll('.valor-servico').forEach(input => {
             const min = parseFloat(input.dataset.minValor || '0');
-            const atual = parseCurrency(input.value);
+            const atual = parseMoedaBR(input.value);
             if (min > 0 && atual < min) {
                 pendente = true;
             }
@@ -1364,13 +1364,19 @@ document.addEventListener('DOMContentLoaded', function () {
         billingTypeSelect.addEventListener('change', () => toggleBillingSections());
     }
 
-    function formatCurrency(valueInCents) {
-        if (isNaN(valueInCents)) return '';
-        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valueInCents / 100);
+    function parseMoedaBR(valor) {
+        if (!valor) return 0;
+        const normalizado = String(valor)
+            .replace(/[R$\s]/g, '')
+            .replace(/\./g, '')
+            .replace(',', '.');
+        const parsed = Number.parseFloat(normalizado);
+        return Number.isNaN(parsed) ? 0 : parsed;
     }
-    function parseCurrency(formattedValue) {
-        if (!formattedValue || typeof formattedValue !== 'string') return 0;
-        return parseFloat(String(formattedValue).replace(/\D/g, '')) / 100 || 0;
+
+    function formatMoedaBR(n) {
+        const numero = typeof n === 'number' ? n : parseMoedaBR(n);
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(numero || 0);
     }
 
     // Gatilho inicial de cálculos e status
