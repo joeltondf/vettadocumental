@@ -5,19 +5,16 @@ require_once __DIR__ . '/../models/LancamentoFinanceiro.php';
 require_once __DIR__ . '/../models/CategoriaFinanceira.php';
 require_once __DIR__ . '/../models/Processo.php';
 require_once __DIR__ . '/../models/Venda.php';
-require_once __DIR__ . '/../models/LancamentoFinanceiroLog.php';
 
 class FluxoCaixaController {
     private $pdo;
     private $lancamentoFinanceiroModel;
     private $categoriaModel;
-    private $lancamentoLogModel;
 
     public function __construct($pdo) {
         $this->pdo = $pdo;
         $this->lancamentoFinanceiroModel = new LancamentoFinanceiro($pdo);
         $this->categoriaModel = new CategoriaFinanceira($pdo);
-        $this->lancamentoLogModel = new LancamentoFinanceiroLog($pdo);
     }
 
     /**
@@ -44,8 +41,8 @@ class FluxoCaixaController {
     /**
      * Exibe a página principal do Fluxo de Caixa.
      */
-    public function index() {
-        $this->auth_check();
+public function index() {
+    $this->auth_check();
 
     // ... (código de filtros existente) ...
     $page = $_GET['page'] ?? 1;
@@ -59,7 +56,6 @@ class FluxoCaixaController {
     ];
 
     $lancamentos = $this->lancamentoFinanceiroModel->getAllPaginated($page, 20, $search, $filters);
-    $lancamentoLogs = $this->lancamentoLogModel->getByLancamentoIds(array_column($lancamentos, 'id'));
     $totalLancamentos = $this->lancamentoFinanceiroModel->countAll($search, $filters);
     $categorias = $this->categoriaModel->getAll();
 
@@ -91,141 +87,9 @@ class FluxoCaixaController {
         // --- CORREÇÃO: Enviando as variáveis para a view ---
         'receitas' => $receitas,
         'despesas' => $despesas,
-        'resultado' => $resultado,
-        'lancamentoLogs' => $lancamentoLogs,
+        'resultado' => $resultado
     ]);
 }
-
-    private function parseCurrency(?string $valor): float
-    {
-        if ($valor === null) {
-            return 0.0;
-        }
-
-        $normalized = str_replace(['R$', '.', ' '], '', $valor);
-        $normalized = str_replace(',', '.', $normalized);
-
-        return (float)$normalized;
-    }
-
-    public function store(): void
-    {
-        $this->auth_check();
-
-        try {
-            $valor = $this->parseCurrency($_POST['valor'] ?? '0');
-
-            $dados = [
-                'descricao' => $_POST['descricao'] ?? '',
-                'valor' => $valor,
-                'data_vencimento' => $_POST['data_lancamento'] ?? date('Y-m-d'),
-                'tipo' => $_POST['tipo'] ?? 'RECEITA',
-                'categoria_id' => $_POST['categoria_id'] ?? null,
-                'cliente_id' => $_POST['cliente_id'] ?? null,
-                'processo_id' => $_POST['processo_id'] ?? null,
-                'status' => 'Pendente',
-                'data_lancamento' => $_POST['data_lancamento'] ?? date('Y-m-d H:i:s'),
-                'finalizado' => (int)($_POST['finalizado'] ?? 0),
-                'user_id' => $_SESSION['user_id'] ?? null,
-            ];
-
-            $this->lancamentoFinanceiroModel->create($dados);
-            $_SESSION['success_message'] = 'Lançamento criado com sucesso!';
-        } catch (Throwable $e) {
-            $_SESSION['error_message'] = 'Erro ao salvar lançamento: ' . $e->getMessage();
-        }
-
-        header('Location: /fluxo_caixa.php');
-        exit();
-    }
-
-    public function update(): void
-    {
-        $this->auth_check();
-
-        try {
-            $id = $_POST['id'] ?? null;
-            $registro = $this->lancamentoFinanceiroModel->getById($id);
-
-            if (!$registro) {
-                $_SESSION['error_message'] = 'Lançamento não encontrado.';
-                header('Location: /fluxo_caixa.php');
-                exit();
-            }
-
-            if (!empty($registro['finalizado'])) {
-                $_SESSION['error_message'] = 'Registro finalizado não pode ser alterado.';
-                header('Location: /fluxo_caixa.php');
-                exit();
-            }
-
-            $dados = [
-                'descricao' => $_POST['descricao'] ?? $registro['descricao'],
-                'valor' => $this->parseCurrency($_POST['valor'] ?? '0'),
-                'data_vencimento' => $_POST['data_lancamento'] ?? $registro['data_vencimento'],
-                'tipo' => $_POST['tipo'] ?? $registro['tipo_lancamento'],
-                'categoria_id' => $_POST['categoria_id'] ?? $registro['categoria_id'],
-                'cliente_id' => $_POST['cliente_id'] ?? $registro['cliente_id'],
-                'processo_id' => $_POST['processo_id'] ?? $registro['processo_id'],
-                'status' => $_POST['status'] ?? $registro['status'],
-                'user_id' => $_SESSION['user_id'] ?? null,
-            ];
-
-            $this->lancamentoFinanceiroModel->update($id, $dados);
-            $_SESSION['success_message'] = 'Lançamento atualizado com sucesso!';
-        } catch (Throwable $e) {
-            $_SESSION['error_message'] = 'Erro ao atualizar lançamento: ' . $e->getMessage();
-        }
-
-        header('Location: /fluxo_caixa.php');
-        exit();
-    }
-
-    public function finalizar(): void
-    {
-        $this->auth_check();
-
-        $id = $_POST['id'] ?? null;
-
-        if (!$id) {
-            $_SESSION['error_message'] = 'Lançamento não encontrado.';
-            header('Location: /fluxo_caixa.php');
-            exit();
-        }
-
-        try {
-            $this->lancamentoFinanceiroModel->finalizar($id, $_SESSION['user_id'] ?? null);
-            $_SESSION['success_message'] = 'Lançamento finalizado.';
-        } catch (Throwable $e) {
-            $_SESSION['error_message'] = 'Não foi possível finalizar: ' . $e->getMessage();
-        }
-
-        header('Location: /fluxo_caixa.php');
-        exit();
-    }
-
-    public function ajustar(): void
-    {
-        $this->auth_check();
-
-        try {
-            $id = (int)($_POST['id'] ?? 0);
-            $valor = $this->parseCurrency($_POST['valor'] ?? '0');
-            $motivo = trim($_POST['motivo'] ?? '');
-
-            if ($id === 0 || $motivo === '') {
-                throw new RuntimeException('Dados de ajuste inválidos.');
-            }
-
-            $this->lancamentoFinanceiroModel->ajustar($id, $valor, $motivo, $_SESSION['user_id'] ?? null);
-            $_SESSION['success_message'] = 'Ajuste registrado com sucesso!';
-        } catch (Throwable $e) {
-            $_SESSION['error_message'] = 'Erro ao registrar ajuste: ' . $e->getMessage();
-        }
-
-        header('Location: /fluxo_caixa.php');
-        exit();
-    }
 
     /**
      * API para buscar detalhes de um lançamento agregado.

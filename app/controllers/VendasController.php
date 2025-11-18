@@ -119,14 +119,12 @@ class VendasController {
                 $dadosLancamento = [
                     'descricao' => $item['descricao'],
                     'valor' => $item['valor'],
-                    'data_vencimento' => date('Y-m-d'),
+                    'data_vencimento' => date('Y-m-d'), 
                     'tipo' => 'RECEITA',
                     'categoria_id' => $item['categoria_id'],
                     'cliente_id' => $venda['cliente_id'],
                     'processo_id' => $processo_id,
-                    'status' => 'Pendente',
-                    'finalizado' => 0,
-                    'user_id' => $_SESSION['user_id'] ?? null,
+                    'status' => 'Pendente'
                 ];
                 $lancamentoFinanceiroModel->create($dadosLancamento);
             }
@@ -151,9 +149,7 @@ class VendasController {
                 'processo_id' => $processo_id,
                 'status' => 'Pendente',
                 'eh_agregado' => 1, // Novo campo para identificar
-                'itens_agregados_ids' => json_encode($idsProdutosAgregados[$tipoServico]), // Salva os IDs dos itens originais
-                'finalizado' => 0,
-                'user_id' => $_SESSION['user_id'] ?? null,
+                'itens_agregados_ids' => json_encode($idsProdutosAgregados[$tipoServico]) // Salva os IDs dos itens originais
             ];
             $lancamentoFinanceiroModel->create($dadosLancamentoAgregado);
         }
