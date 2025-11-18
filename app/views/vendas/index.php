@@ -38,9 +38,10 @@
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div class="bg-green-100 p-6 rounded-lg shadow text-center">
+        <div class="bg-green-100 p-6 rounded-lg shadow text-center space-y-2">
             <h4 class="text-lg font-semibold text-green-800">Valor Total Vendido</h4>
-            <p class="text-3xl font-bold text-green-900 mt-2">R$ <?php echo number_format($stats['valor_total_vendido'], 2, ',', '.'); ?></p>
+            <p class="text-xl font-semibold text-green-900">Pago: R$ <?php echo number_format($stats['valor_total_pago'], 2, ',', '.'); ?></p>
+            <p class="text-lg font-semibold text-yellow-700">Pendente: R$ <?php echo number_format($stats['valor_total_pendente'], 2, ',', '.'); ?></p>
         </div>
         <div class="bg-indigo-100 p-6 rounded-lg shadow text-center">
             <h4 class="text-lg font-semibold text-indigo-800">Processos Contabilizados</h4>
@@ -62,18 +63,26 @@
                             <th class="px-5 py-3 border-b-2 text-left">Processo</th>
                             <th class="px-5 py-3 border-b-2 text-left">Vendedor</th>
                             <th class="px-5 py-3 border-b-2 text-left">Data</th>
+                            <th class="px-5 py-3 border-b-2 text-left">Pagamento</th>
                             <th class="px-5 py-3 border-b-2 text-right">Valor</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($processosFiltrados)): ?>
-                            <tr><td colspan="4" class="text-center p-5">Nenhum processo encontrado para os filtros selecionados.</td></tr>
+                            <tr><td colspan="5" class="text-center p-5">Nenhum processo encontrado para os filtros selecionados.</td></tr>
                         <?php else: ?>
                             <?php foreach ($processosFiltrados as $proc): ?>
                                 <tr>
                                     <td class="px-5 py-4 border-b"><a href="processos.php?action=view&id=<?php echo $proc['id']; ?>" class="text-blue-600 hover:underline">#<?php echo $proc['id']; ?> - <?php echo htmlspecialchars($proc['titulo']); ?></a></td>
                                     <td class="px-5 py-4 border-b"><?php echo htmlspecialchars($formatVendorName($proc['nome_vendedor'] ?? null)); ?></td>
                                     <td class="px-5 py-4 border-b"><?php echo date('d/m/Y', strtotime($proc['data_criacao'])); ?></td>
+                                    <td class="px-5 py-4 border-b">
+                                        <?php if (strtoupper($proc['status_pagamento'] ?? '') === 'PAGO'): ?>
+                                            <span class="inline-block px-2 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded">Pago</span>
+                                        <?php else: ?>
+                                            <span class="inline-block px-2 py-1 text-xs font-semibold text-yellow-800 bg-yellow-100 rounded">Pendente</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td class="px-5 py-4 border-b text-right">R$ <?php echo number_format($proc['valor_total'], 2, ',', '.'); ?></td>
                                 </tr>
                             <?php endforeach; ?>

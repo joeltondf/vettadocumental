@@ -34,7 +34,8 @@ class VendasController {
 
         // --- CÁLCULO PARA OS CARDS ---
         $stats = [
-            'valor_total_vendido' => 0,
+            'valor_total_pago' => 0,
+            'valor_total_pendente' => 0,
             'total_documentos' => 0,
             'ranking_vendedores' => []
         ];
@@ -42,8 +43,15 @@ class VendasController {
         $vendasPorVendedor = [];
 
         foreach ($processosFiltrados as $proc) {
-            $stats['valor_total_vendido'] += $proc['valor_total'];
-            $stats['total_documentos'] += $proc['total_documentos']; // Assumindo que o model retorna isso
+            $isPago = strtoupper($proc['status_pagamento'] ?? 'PENDENTE') === 'PAGO';
+
+            if ($isPago) {
+                $stats['valor_total_pago'] += $proc['valor_total'];
+            } else {
+                $stats['valor_total_pendente'] += $proc['valor_total'];
+            }
+
+            $stats['total_documentos'] += (int) ($proc['total_documentos'] ?? 0);
 
             $vendedorNome = $proc['nome_vendedor'];
             if (!isset($vendasPorVendedor[$vendedorNome])) {

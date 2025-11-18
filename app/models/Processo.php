@@ -2263,8 +2263,8 @@ public function create($data, $files)
         }
 }
         public function getSalesByFilter($filters) {
-            // A consulta principal une processos com vendedores e soma os documentos de cada processo
-            $sql = "SELECT 
+            // A consulta principal une processos com vendedores, documentos e status de pagamento
+            $sql = "SELECT
                         p.id,
                         p.titulo,
                         p.data_criacao,
@@ -2272,17 +2272,30 @@ public function create($data, $files)
                         p.status_processo,
                         COALESCE(u.nome_completo, 'Sistema') AS nome_vendedor,
                         c.nome_cliente,
-                        (SELECT SUM(d.quantidade) FROM documentos d WHERE d.processo_id = p.id) as total_documentos
+                        COALESCE(doc.total_documentos, 0) AS total_documentos,
+                        CASE
+                            WHEN pago.flag_pago = 1 THEN 'PAGO'
+                            ELSE 'PENDENTE'
+                        END AS status_pagamento
                     FROM processos p
                     JOIN vendedores v ON p.vendedor_id = v.id
                     JOIN users u ON v.user_id = u.id
                     JOIN clientes c ON p.cliente_id = c.id
-                    WHERE p.valor_total > 0 
-                      AND p.vendedor_id IS NOT NULL
-                      AND p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Finalizado')"; // Apenas status que contam como venda
-        
+                    LEFT JOIN (
+                        SELECT d.processo_id, SUM(d.quantidade) AS total_documentos
+                        FROM documentos d
+                        GROUP BY d.processo_id
+                    ) AS doc ON doc.processo_id = p.id
+                    LEFT JOIN (
+                        SELECT processo_id, MAX(CASE WHEN LOWER(status_pagamento) = 'pago' THEN 1 ELSE 0 END) AS flag_pago
+                        FROM lancamentos_financeiros
+                        GROUP BY processo_id
+                    ) AS pago ON pago.processo_id = p.id
+                    WHERE p.valor_total > 0
+                      AND p.vendedor_id IS NOT NULL";
+
             $params = [];
-        
+
             // Aplica os filtros
             if (!empty($filters['vendedor_id'])) {
                 $sql .= " AND p.vendedor_id = :vendedor_id";
@@ -2296,9 +2309,9 @@ public function create($data, $files)
                 $sql .= " AND p.data_criacao <= :data_fim";
                 $params[':data_fim'] = $filters['data_fim'] . ' 23:59:59';
             }
-        
+
             $sql .= " ORDER BY p.data_criacao DESC";
-            
+
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute($params);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
