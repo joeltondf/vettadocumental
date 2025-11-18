@@ -65,11 +65,6 @@
     <h3 id="form-title" class="text-2xl font-bold text-gray-800 mb-6 border-b-2 border-gray-100 pb-5">Adicionar Novo Lançamento 💰</h3>
     <form id="lancamento-form" action="fluxo_caixa.php?action=store" method="POST" class="space-y-6">
         <input type="hidden" name="id" id="lancamento_id">
-        <input type="hidden" name="finalizado" id="finalizado" value="0">
-
-        <div id="finalizado-alert" class="hidden bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-md">
-            Este lançamento está finalizado e não pode ser editado. Para correções, registre um ajuste.
-        </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="md:col-span-2">
@@ -149,7 +144,7 @@
         </div>
 
         <div class="text-right mt-8 border-t border-gray-100 pt-6">
-            <button id="submit-button" type="submit" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg shadow-md transition-all duration-300 transform hover:scale-105">
+            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg shadow-md transition-all duration-300 transform hover:scale-105">
                 <i class="fas fa-check mr-2"></i>
                 Salvar Lançamento
             </button>
@@ -194,7 +189,6 @@
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoria</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Descrição</th>
                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor</th>
-                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
                     <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Ações</th>
 
                 </tr>
@@ -223,9 +217,6 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($lancamento['nome_categoria']); ?></td>
                             <td class="px-6 py-4 text-sm text-gray-900">
                                 <?php echo htmlspecialchars($lancamento['descricao']); ?>
-                                <?php if (!empty($lancamento['finalizado'])): ?>
-                                    <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Finalizado</span>
-                                <?php endif; ?>
                                 <?php if ($is_aggregated): ?>
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline-block ml-1 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
@@ -236,43 +227,23 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-mono <?php echo $lancamento['tipo_lancamento'] == 'RECEITA' ? 'text-green-700' : 'text-red-700'; ?>">
                                 <?php echo ($lancamento['tipo_lancamento'] == 'RECEITA' ? '+ ' : '- ') . 'R$ ' . number_format($lancamento['valor'], 2, ',', '.'); ?>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-center text-sm">
-                                <?php if (!empty($lancamento['finalizado'])): ?>
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Finalizado</span>
-                                <?php else: ?>
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">Em edição</span>
-                                <?php endif; ?>
-                            </td>
                             <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                                <div class="flex items-center justify-center space-x-3">
-                                    <button type="button" class="text-indigo-600 hover:text-indigo-900"
-                                            onclick='editLancamento(<?php echo json_encode($lancamento, JSON_HEX_APOS); ?>)'>
-                                        <?php echo !empty($lancamento['finalizado']) ? 'Visualizar' : 'Editar'; ?>
+                                <button type="button" class="text-indigo-600 hover:text-indigo-900 mr-3" 
+                                        onclick='editLancamento(<?php echo json_encode($lancamento, JSON_HEX_APOS); ?>)'>
+                                    Editar
+                                </button>
+                                <form action="/fluxo-caixa/delete" method="POST" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja apagar este lançamento?');">
+                                    <input type="hidden" name="id" value="<?php echo $lancamento['id']; ?>">
+                                    <button type="submit" class="text-red-600 hover:text-red-900" style="background:none; border:none; padding:0; font:inherit; cursor:pointer;">
+                                        Apagar
                                     </button>
-
-                                    <button type="button" class="text-blue-600 hover:text-blue-900" onclick="openHistoryModal(<?php echo $lancamento['id']; ?>)">Histórico</button>
-
-                                    <button type="button" class="text-amber-600 hover:text-amber-900" onclick='openAdjustModal(<?php echo $lancamento['id']; ?>, <?php echo json_encode($lancamento['descricao'], JSON_HEX_APOS); ?>)'>Ajustar</button>
-
-                                    <?php if (empty($lancamento['finalizado'])): ?>
-                                        <form action="/fluxo_caixa.php?action=finalizar" method="POST" style="display: inline;">
-                                            <input type="hidden" name="id" value="<?php echo $lancamento['id']; ?>">
-                                            <button type="submit" class="text-green-700 hover:text-green-900" style="background:none; border:none; padding:0; font:inherit; cursor:pointer;">Finalizar</button>
-                                        </form>
-                                        <form action="/fluxo-caixa/delete" method="POST" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja apagar este lançamento?');">
-                                            <input type="hidden" name="id" value="<?php echo $lancamento['id']; ?>">
-                                            <button type="submit" class="text-red-600 hover:text-red-900" style="background:none; border:none; padding:0; font:inherit; cursor:pointer;">
-                                                Apagar
-                                            </button>
-                                        </form>
-                                    <?php endif; ?>
-                                </div>
+                                </form>
                             </td>
                         </tr>
                         
                         <?php if ($is_aggregated): ?>
                             <tr class="detail-row hidden" id="details-<?php echo $lancamento['id']; ?>">
-                                <td colspan="6" class="px-6 py-4 bg-gray-50">
+                                <td colspan="5" class="px-6 py-4 bg-gray-50">
                                     <div class="details-content text-center">
                                         <p class="text-gray-500">Carregando detalhes...</p>
                                     </div>
@@ -285,46 +256,7 @@
         </table>
     </div>
 
-    <div id="history-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl p-6 relative">
-            <button class="absolute top-3 right-3 text-gray-500 hover:text-gray-700" onclick="closeHistoryModal()">
-                <i class="fas fa-times"></i>
-            </button>
-            <h3 class="text-xl font-semibold text-gray-800 mb-4">Histórico do Lançamento</h3>
-            <div id="history-content" class="max-h-96 overflow-y-auto space-y-3"></div>
-        </div>
-    </div>
-
-    <div id="adjust-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg p-6 relative">
-            <button class="absolute top-3 right-3 text-gray-500 hover:text-gray-700" onclick="closeAdjustModal()">
-                <i class="fas fa-times"></i>
-            </button>
-            <h3 class="text-xl font-semibold text-gray-800 mb-4">Registrar Ajuste</h3>
-            <form id="adjust-form" action="/fluxo_caixa.php?action=ajustar" method="POST" class="space-y-4">
-                <input type="hidden" name="id" id="adjust-id">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Lançamento</label>
-                    <p id="adjust-description" class="text-gray-800 text-sm"></p>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1" for="adjust-valor">Valor do Ajuste</label>
-                    <input type="text" name="valor" id="adjust-valor" class="w-full border rounded-md px-3 py-2" placeholder="Ex: -150,00" required>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1" for="adjust-motivo">Justificativa</label>
-                    <textarea name="motivo" id="adjust-motivo" rows="3" class="w-full border rounded-md px-3 py-2" placeholder="Explique o motivo do ajuste" required></textarea>
-                </div>
-                <div class="text-right">
-                    <button type="submit" class="bg-amber-600 hover:bg-amber-700 text-white font-semibold px-4 py-2 rounded-md">Salvar Ajuste</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
 <script>
-    const lancamentoLogs = <?php echo json_encode($lancamentoLogs); ?>;
-
     // A função de edição agora está no escopo global, acessível pelo onclick.
     function setCurrencyValue(input, value) {
         if (!input) {
@@ -344,14 +276,11 @@
         const title = document.getElementById('form-title');
         const idInput = document.getElementById('lancamento_id');
         const submitButton = form.querySelector('button[type="submit"]');
-        const finalizadoInput = document.getElementById('finalizado');
-        const alertBox = document.getElementById('finalizado-alert');
-        const editableFields = form.querySelectorAll('input:not(#finalizado):not(#lancamento_id), select');
 
         // Muda o título e a ação do formulário
         title.textContent = 'Editar Lançamento';
         form.action = 'fluxo_caixa.php?action=update';
-
+        
         // Preenche os campos do formulário
         idInput.value = lancamento.id;
         document.getElementById('categoria_id').value = lancamento.categoria_id;
@@ -361,68 +290,14 @@
         // Formata e preenche o valor
         const valorInput = document.getElementById('valor');
         setCurrencyValue(valorInput, lancamento.valor);
-
-        const isFinalizado = Number(lancamento.finalizado) === 1;
-        finalizadoInput.value = isFinalizado ? 1 : 0;
-
-        editableFields.forEach(field => {
-            field.disabled = isFinalizado;
-        });
-
-        submitButton.disabled = isFinalizado;
-        submitButton.classList.toggle('opacity-50', isFinalizado);
-        alertBox.classList.toggle('hidden', !isFinalizado);
-        title.textContent = isFinalizado ? 'Visualizar Lançamento Finalizado' : 'Editar Lançamento';
-        submitButton.classList.remove('bg-green-600', 'hover:bg-green-700', 'bg-gray-400', 'cursor-not-allowed');
-        if (isFinalizado) {
-            submitButton.innerHTML = '<i class="fas fa-lock mr-2"></i>Registro Finalizado';
-            submitButton.classList.add('bg-gray-400');
-        } else {
-            editableFields.forEach(field => field.disabled = false);
-            alertBox.classList.add('hidden');
-            submitButton.innerHTML = '<i class="fas fa-save mr-2"></i> Atualizar Lançamento';
-            submitButton.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
-        }
+        
+        // Altera o botão de salvar
+        submitButton.innerHTML = '<i class="fas fa-save mr-2"></i> Atualizar Lançamento';
+        submitButton.classList.remove('bg-green-600', 'hover:bg-green-700');
+        submitButton.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
         
         // Rola a página para o topo
         window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    function openHistoryModal(lancamentoId) {
-        const modal = document.getElementById('history-modal');
-        const container = document.getElementById('history-content');
-        const logs = lancamentoLogs[lancamentoId] || [];
-
-        if (!logs.length) {
-            container.innerHTML = '<p class="text-sm text-gray-600">Nenhuma alteração registrada para este lançamento.</p>';
-        } else {
-            container.innerHTML = logs.map(log => {
-                const createdAt = log.created_at || 'Sem data';
-                const operacao = log.operacao || log.operation || 'Operação';
-                return `<div class="border border-gray-200 rounded-md p-3">
-                            <p class="text-sm text-gray-700"><strong>${operacao}</strong> em ${createdAt}</p>
-                            <pre class="text-xs bg-gray-50 rounded-md p-2 mt-2 whitespace-pre-wrap">${JSON.stringify(log, null, 2)}</pre>
-                        </div>`;
-            }).join('');
-        }
-
-        modal.classList.remove('hidden');
-    }
-
-    function closeHistoryModal() {
-        document.getElementById('history-modal').classList.add('hidden');
-    }
-
-    function openAdjustModal(id, description) {
-        document.getElementById('adjust-id').value = id;
-        document.getElementById('adjust-description').textContent = description || '';
-        document.getElementById('adjust-valor').value = '';
-        document.getElementById('adjust-motivo').value = '';
-        document.getElementById('adjust-modal').classList.remove('hidden');
-    }
-
-    function closeAdjustModal() {
-        document.getElementById('adjust-modal').classList.add('hidden');
     }
 
     // O código da máscara de moeda continua dentro do DOMContentLoaded,
