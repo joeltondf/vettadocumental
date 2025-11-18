@@ -9,22 +9,21 @@ class LancamentoFinanceiro {
     }
 
     public function create($data) {
-        $sql = "INSERT INTO lancamentos_financeiros (descricao, valor, data_vencimento, tipo_lancamento, categoria_id, cliente_id, processo_id, status, eh_agregado, itens_agregados_ids, data_lancamento, finalizado, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        // O nome da coluna no INSERT está 'tipo', mas no banco é 'tipo_lancamento'. Vamos corrigir isso.
+        $sql = "INSERT INTO lancamentos_financeiros (descricao, valor, data_vencimento, tipo_lancamento, categoria_id, cliente_id, processo_id, status, eh_agregado, itens_agregados_ids, data_lancamento) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt = $this->pdo->prepare($sql);
         return $stmt->execute([
             $data['descricao'],
             $data['valor'],
             $data['data_vencimento'],
-            $data['tipo'],
+            $data['tipo'], // O 'tipo' do formulário corresponde ao 'tipo_lancamento' do banco
             $data['categoria_id'],
             $data['cliente_id'] ?? null,
             $data['processo_id'] ?? null,
             $data['status'] ?? 'Pendente',
             $data['eh_agregado'] ?? 0,
             $data['itens_agregados_ids'] ?? null,
-            $data['data_lancamento'] ?? date('Y-m-d H:i:s'),
-            $data['finalizado'] ?? 0,
-            $data['user_id'] ?? ($_SESSION['user_id'] ?? null)
+            $data['data_lancamento'] ?? date('Y-m-d H:i:s')
         ]);
     }
 
@@ -35,88 +34,8 @@ class LancamentoFinanceiro {
     }
     
     public function delete($id) {
-        $registro = $this->getById($id);
-
-        if (!$registro || !empty($registro['finalizado'])) {
-            return false;
-        }
-
         $stmt = $this->pdo->prepare("DELETE FROM lancamentos_financeiros WHERE id = ?");
         return $stmt->execute([$id]);
-    }
-
-    public function update($id, $data) {
-        $registro = $this->getById($id);
-
-        if (!$registro) {
-            return false;
-        }
-
-        if (!empty($registro['finalizado'])) {
-            throw new RuntimeException('Registro finalizado não pode ser alterado.');
-        }
-
-        $sql = "UPDATE lancamentos_financeiros
-                SET descricao = :descricao,
-                    valor = :valor,
-                    data_vencimento = :data_vencimento,
-                    tipo_lancamento = :tipo,
-                    categoria_id = :categoria_id,
-                    cliente_id = :cliente_id,
-                    processo_id = :processo_id,
-                    status = :status,
-                    user_id = :user_id
-                WHERE id = :id";
-
-        $stmt = $this->pdo->prepare($sql);
-        return $stmt->execute([
-            ':descricao' => $data['descricao'],
-            ':valor' => $data['valor'],
-            ':data_vencimento' => $data['data_vencimento'],
-            ':tipo' => $data['tipo'],
-            ':categoria_id' => $data['categoria_id'],
-            ':cliente_id' => $data['cliente_id'] ?? null,
-            ':processo_id' => $data['processo_id'] ?? null,
-            ':status' => $data['status'] ?? $registro['status'],
-            ':user_id' => $data['user_id'] ?? ($_SESSION['user_id'] ?? null),
-            ':id' => $id,
-        ]);
-    }
-
-    public function finalizar($id, $userId) {
-        $stmt = $this->pdo->prepare("UPDATE lancamentos_financeiros SET finalizado = 1, user_id = :user_id WHERE id = :id");
-        return $stmt->execute([
-            ':user_id' => $userId,
-            ':id' => $id,
-        ]);
-    }
-
-    public function ajustar($idOriginal, $valor, $motivo, $userId) {
-        $original = $this->getById($idOriginal);
-
-        if (!$original) {
-            throw new RuntimeException('Lançamento original não encontrado.');
-        }
-
-        $descricao = sprintf('Ajuste do lançamento #%d — %s', $idOriginal, $motivo);
-
-        $dados = [
-            'descricao' => $descricao,
-            'valor' => $valor,
-            'data_vencimento' => date('Y-m-d'),
-            'tipo' => $original['tipo_lancamento'],
-            'categoria_id' => $original['categoria_id'],
-            'cliente_id' => $original['cliente_id'] ?? null,
-            'processo_id' => $original['processo_id'] ?? null,
-            'status' => 'Pendente',
-            'eh_agregado' => $original['eh_agregado'] ?? 0,
-            'itens_agregados_ids' => $original['itens_agregados_ids'] ?? null,
-            'data_lancamento' => date('Y-m-d H:i:s'),
-            'finalizado' => 1,
-            'user_id' => $userId,
-        ];
-
-        return $this->create($dados);
     }
 
     public function getAllPaginated($page = 1, $perPage = 20, $search = '', $filters = []) {
