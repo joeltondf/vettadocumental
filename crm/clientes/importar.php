@@ -71,13 +71,14 @@ require_once __DIR__ . '/../../app/views/layouts/header.php';
                 <input type="hidden" name="assigned_owner" value="<?php echo (int) $assignedOwnerId; ?>" />
             <?php else: ?>
                 <div>
-                    <label for="assigned_owner" class="block text-sm font-medium text-gray-700">Responsável pelos leads</label>
-                    <select id="assigned_owner" name="assigned_owner" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
-                        <option value="" disabled selected>Selecione um vendedor</option>
+                    <label for="assigned_owner" class="block text-sm font-medium text-gray-700">Responsável pelos leads (opcional)</label>
+                    <select id="assigned_owner" name="assigned_owner" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                        <option value="" selected>Não vincular agora</option>
                         <?php foreach ($vendors as $vendor): ?>
                             <option value="<?php echo (int) $vendor['id']; ?>"><?php echo htmlspecialchars($vendor['nome_completo']); ?></option>
                         <?php endforeach; ?>
                     </select>
+                    <p class="mt-1 text-xs text-gray-500">Se nenhum vendedor for selecionado, os leads ficarão pendentes para distribuição posterior.</p>
                 </div>
             <?php endif; ?>
 

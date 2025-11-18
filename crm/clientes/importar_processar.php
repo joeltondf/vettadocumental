@@ -160,19 +160,15 @@ if ($currentUserPerfil === 'vendedor') {
         ? (int) $_POST['assigned_owner']
         : null;
 
-    if (!$assignedOwnerId) {
-        $_SESSION['error_message'] = 'Selecione o vendedor responsável pelos leads importados.';
-        header('Location: ' . APP_URL . '/crm/clientes/importar.php');
-        exit();
-    }
+    if ($assignedOwnerId) {
+        $stmtOwner = $pdo->prepare("SELECT id FROM users WHERE id = :id AND perfil = 'vendedor' AND (ativo = 1 OR ativo IS NULL)");
+        $stmtOwner->execute([':id' => $assignedOwnerId]);
 
-    $stmtOwner = $pdo->prepare("SELECT id FROM users WHERE id = :id AND perfil = 'vendedor' AND (ativo = 1 OR ativo IS NULL)");
-    $stmtOwner->execute([':id' => $assignedOwnerId]);
-
-    if (!$stmtOwner->fetchColumn()) {
-        $_SESSION['error_message'] = 'Vendedor inválido selecionado. Tente novamente.';
-        header('Location: ' . APP_URL . '/crm/clientes/importar.php');
-        exit();
+        if (!$stmtOwner->fetchColumn()) {
+            $_SESSION['error_message'] = 'Vendedor inválido selecionado. Tente novamente.';
+            header('Location: ' . APP_URL . '/crm/clientes/importar.php');
+            exit();
+        }
     }
 }
 
