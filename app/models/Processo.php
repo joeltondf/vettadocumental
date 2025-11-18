@@ -517,12 +517,14 @@ public function create($data, $files)
                             $dadosLancamento = [
                                 'descricao' => 'Receita do Orçamento #' . $processoCompleto['orcamento_numero'] . ' - ' . $doc['nome_documento'],
                                 'valor' => $doc['valor_unitario'],
-                                'data_vencimento' => date('Y-m-d'), 
+                                'data_vencimento' => date('Y-m-d'),
                                 'tipo' => 'RECEITA',
                                 'categoria_id' => $categoriaFinanceira['id'],
                                 'cliente_id' => $processoCompleto['cliente_id'],
                                 'processo_id' => $id,
-                                'status' => 'Pendente'
+                                'status' => 'Pendente',
+                                'finalizado' => 0,
+                                'user_id' => $_SESSION['user_id'] ?? null,
                             ];
                             $lancamentoModel->create($dadosLancamento);
                         }
@@ -548,7 +550,9 @@ public function create($data, $files)
                         'processo_id' => $id,
                         'status' => 'Pendente',
                         'eh_agregado' => 1,
-                        'itens_agregados_ids' => json_encode($idsDocumentos)
+                        'itens_agregados_ids' => json_encode($idsDocumentos),
+                        'finalizado' => 0,
+                        'user_id' => $_SESSION['user_id'] ?? null,
                     ];
 
                     $lancamentoModel->create($dadosLancamentoAgregado);
