@@ -2261,48 +2261,52 @@ public function create($data, $files)
             error_log("Erro ao buscar total de vendas do mês para o vendedor {$vendedorId}: " . $e->getMessage());
             return 0.0;
         }
-}
-        public function getSalesByFilter($filters) {
-            // A consulta principal une processos com vendedores e soma os documentos de cada processo
-            $sql = "SELECT 
-                        p.id,
-                        p.titulo,
-                        p.data_criacao,
-                        p.valor_total,
-                        p.status_processo,
-                        COALESCE(u.nome_completo, 'Sistema') AS nome_vendedor,
-                        c.nome_cliente,
-                        (SELECT SUM(d.quantidade) FROM documentos d WHERE d.processo_id = p.id) as total_documentos
-                    FROM processos p
-                    JOIN vendedores v ON p.vendedor_id = v.id
-                    JOIN users u ON v.user_id = u.id
-                    JOIN clientes c ON p.cliente_id = c.id
-                    WHERE p.valor_total > 0 
-                      AND p.vendedor_id IS NOT NULL
-                      AND p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Finalizado')"; // Apenas status que contam como venda
-        
-            $params = [];
-        
-            // Aplica os filtros
-            if (!empty($filters['vendedor_id'])) {
-                $sql .= " AND p.vendedor_id = :vendedor_id";
-                $params[':vendedor_id'] = $filters['vendedor_id'];
-            }
-            if (!empty($filters['data_inicio'])) {
-                $sql .= " AND p.data_criacao >= :data_inicio";
-                $params[':data_inicio'] = $filters['data_inicio'] . ' 00:00:00';
-            }
-            if (!empty($filters['data_fim'])) {
-                $sql .= " AND p.data_criacao <= :data_fim";
-                $params[':data_fim'] = $filters['data_fim'] . ' 23:59:59';
-            }
-        
-            $sql .= " ORDER BY p.data_criacao DESC";
-            
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->execute($params);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function getSalesByFilter($filters)
+    {
+        $statusFinanceiroSelect = $this->getStatusFinanceiroSelectExpression();
+
+        // A consulta principal une processos com vendedores e soma os documentos de cada processo
+        $sql = "SELECT
+                    p.id,
+                    p.titulo,
+                    p.data_criacao,
+                    p.valor_total,
+                    p.status_processo,
+                    {$statusFinanceiroSelect},
+                    COALESCE(u.nome_completo, 'Sistema') AS nome_vendedor,
+                    c.nome_cliente,
+                    (SELECT COALESCE(SUM(d.quantidade), 0) FROM documentos d WHERE d.processo_id = p.id) AS total_documentos
+                FROM processos p
+                LEFT JOIN vendedores v ON p.vendedor_id = v.id
+                LEFT JOIN users u ON v.user_id = u.id
+                JOIN clientes c ON p.cliente_id = c.id
+                WHERE p.valor_total > 0
+                  AND p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Finalizado')"; // Apenas status que contam como venda
+
+        $params = [];
+
+        // Aplica os filtros
+        if (!empty($filters['vendedor_id'])) {
+            $sql .= " AND p.vendedor_id = :vendedor_id";
+            $params[':vendedor_id'] = $filters['vendedor_id'];
         }
+        if (!empty($filters['data_inicio'])) {
+            $sql .= " AND p.data_criacao >= :data_inicio";
+            $params[':data_inicio'] = $filters['data_inicio'] . ' 00:00:00';
+        }
+        if (!empty($filters['data_fim'])) {
+            $sql .= " AND p.data_criacao <= :data_fim";
+            $params[':data_fim'] = $filters['data_fim'] . ' 23:59:59';
+        }
+
+        $sql .= " ORDER BY p.data_criacao DESC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
         
 /**
      * Cria um novo processo a partir dos dados de uma prospecção ganha.

@@ -35,6 +35,21 @@ function connectToDb($host, $name, $user, $pass) { try { $pdo = new PDO("mysql:h
 function cleanCurrency($value) { return empty($value) ? null : (float) trim(str_replace(',', '.', str_replace('.', '', str_replace('R$', '', $value)))); }
 function getPostMeta($pdo, $postId) { $stmt = $pdo->prepare("SELECT meta_key, meta_value FROM wp_postmeta WHERE post_id = ?"); $stmt->execute([$postId]); $metaArray = []; foreach ($stmt->fetchAll() as $meta) { $metaArray[$meta['meta_key']] = $meta['meta_value']; } return $metaArray; }
 function findVendedorIdByName($pdo, $nome) { if (empty($nome)) return null; $stmt = $pdo->prepare("SELECT v.id FROM vendedores v JOIN users u ON v.user_id = u.id WHERE u.nome_completo = ?"); $stmt->execute([$nome]); return $stmt->fetchColumn() ?: null; }
+function getDefaultVendorId(PDO $pdoNovo, int $fallbackId = 17): int {
+    try {
+        $stmt = $pdoNovo->prepare("SELECT valor FROM configuracoes WHERE chave = 'default_vendedor_id' LIMIT 1");
+        $stmt->execute();
+
+        $valorConfigurado = $stmt->fetchColumn();
+        if ($valorConfigurado !== false && $valorConfigurado !== null && $valorConfigurado !== '') {
+            return (int)$valorConfigurado;
+        }
+    } catch (PDOException $exception) {
+        echo "AVISO: Não foi possível recuperar a configuração 'default_vendedor_id'. Usando fallback {$fallbackId}.\\n";
+    }
+
+    return $fallbackId;
+}
 function findTradutorIdByOldTermId($pdoNovo, $pdoAntigo, $termId) { if (empty($termId)) return null; $stmtAntigo = $pdoAntigo->prepare("SELECT name FROM wp_terms WHERE term_id = ?"); $stmtAntigo->execute([$termId]); $nomeTradutor = $stmtAntigo->fetchColumn(); if (!$nomeTradutor) return null; $stmtNovo = $pdoNovo->prepare("SELECT id FROM tradutores WHERE nome_tradutor = ?"); $stmtNovo->execute([$nomeTradutor]); return $stmtNovo->fetchColumn() ?: null; }
 function findParentPostId($pdoAntigo, $childPostId) { $relationTable = 'wp_jet_rel_default'; try { $stmt = $pdoAntigo->prepare("SELECT parent_object_id FROM {$relationTable} WHERE child_object_id = ?"); $stmt->execute([$childPostId]); return $stmt->fetchColumn() ?: null; } catch (PDOException $e) { echo "AVISO: Tabela '{$relationTable}' não encontrada. Erro: " . $e->getMessage() . "\n"; return null; } }
 function checkUserExists($pdo, $userId) { $stmt = $pdo->prepare("SELECT id FROM users WHERE id = ?"); $stmt->execute([$userId]); return $stmt->fetchColumn() ? true : false; }
@@ -49,6 +64,8 @@ try {
     $pdoNovo = $pdo;
     $pdoAntigo = connectToDb(WP_DB_HOST, WP_DB_NAME, WP_DB_USER, WP_DB_PASS);
     $pdoNovo->beginTransaction();
+
+    $defaultVendorId = getDefaultVendorId($pdoNovo, 17);
 
     migrateTranslators($pdoNovo, $pdoAntigo);
 
@@ -97,10 +114,15 @@ try {
             // ==================================================================
             // AJUSTES APLICADOS AQUI
             // ==================================================================
+            $vendorId = findVendedorIdByName($pdoNovo, $meta['orc-vendedor'] ?? null);
+            if (!$vendorId) {
+                $vendorId = $defaultVendorId;
+            }
+
             $dadosProcesso = [
                 'cliente_id' => $clienteId,
                 'colaborador_id' => $colaboradorId,
-                'vendedor_id' => findVendedorIdByName($pdoNovo, $meta['orc-vendedor'] ?? null),
+                'vendedor_id' => $vendorId,
                 'tradutor_id' => findTradutorIdByOldTermId($pdoNovo, $pdoAntigo, $meta['jet_tax__tradutores'] ?? null),
                 'titulo' => ucwords(str_replace('-', ' ', $post['post_name'] ?? '')),
                 'status_processo' => $statusMap[$meta['status-id'] ?? ''] ?? 'Orçamento',

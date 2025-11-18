@@ -13,6 +13,21 @@
 
                                 return $trimmed !== '' ? $trimmed : 'Sistema';
                             };
+
+                            $paymentStatuses = [
+                                'pago' => [
+                                    'label' => 'Pago',
+                                    'class' => 'bg-green-100 text-green-800'
+                                ],
+                                'parcial' => [
+                                    'label' => 'Parcial',
+                                    'class' => 'bg-yellow-100 text-yellow-800'
+                                ],
+                                'pendente' => [
+                                    'label' => 'Pendente',
+                                    'class' => 'bg-red-100 text-red-800'
+                                ],
+                            ];
                         ?>
                         <?php foreach ($vendedores as $vendedor): ?>
                             <option value="<?php echo $vendedor['id']; ?>" <?php echo (isset($filtros['vendedor_id']) && $filtros['vendedor_id'] == $vendedor['id']) ? 'selected' : ''; ?>>
@@ -63,18 +78,28 @@
                             <th class="px-5 py-3 border-b-2 text-left">Vendedor</th>
                             <th class="px-5 py-3 border-b-2 text-left">Data</th>
                             <th class="px-5 py-3 border-b-2 text-right">Valor</th>
+                            <th class="px-5 py-3 border-b-2 text-center">Situação de Pagamento</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($processosFiltrados)): ?>
-                            <tr><td colspan="4" class="text-center p-5">Nenhum processo encontrado para os filtros selecionados.</td></tr>
+                            <tr><td colspan="5" class="text-center p-5">Nenhum processo encontrado para os filtros selecionados.</td></tr>
                         <?php else: ?>
                             <?php foreach ($processosFiltrados as $proc): ?>
+                                <?php
+                                    $statusKey = strtolower($proc['status_financeiro'] ?? 'pendente');
+                                    $statusConfig = $paymentStatuses[$statusKey] ?? $paymentStatuses['pendente'];
+                                ?>
                                 <tr>
                                     <td class="px-5 py-4 border-b"><a href="processos.php?action=view&id=<?php echo $proc['id']; ?>" class="text-blue-600 hover:underline">#<?php echo $proc['id']; ?> - <?php echo htmlspecialchars($proc['titulo']); ?></a></td>
                                     <td class="px-5 py-4 border-b"><?php echo htmlspecialchars($formatVendorName($proc['nome_vendedor'] ?? null)); ?></td>
                                     <td class="px-5 py-4 border-b"><?php echo date('d/m/Y', strtotime($proc['data_criacao'])); ?></td>
                                     <td class="px-5 py-4 border-b text-right">R$ <?php echo number_format($proc['valor_total'], 2, ',', '.'); ?></td>
+                                    <td class="px-5 py-4 border-b text-center">
+                                        <span class="inline-flex items-center px-3 py-1 text-sm font-semibold rounded-full <?php echo $statusConfig['class']; ?>">
+                                            <?php echo $statusConfig['label']; ?>
+                                        </span>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>

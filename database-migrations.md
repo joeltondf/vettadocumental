@@ -290,3 +290,13 @@ UPDATE `prospeccoes`
  WHERE `status` IN ('Novo','Em Contato')
    AND `responsavel_id` IN (SELECT id FROM users WHERE perfil = 'sdr');
 ```
+
+## 8. Corrigir processos migrados sem vendedor associado
+
+Use o comando abaixo para aplicar o vendedor padrão (ID `17`, ou o que estiver definido na configuração `default_vendedor_id`) em todos os processos que ficaram sem vínculo de vendedor durante a migração.
+
+```sql
+UPDATE processos
+   SET vendedor_id = 17
+ WHERE vendedor_id IS NULL;
+```
