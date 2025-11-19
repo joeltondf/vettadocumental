@@ -105,6 +105,35 @@ $paymentRestRaw = $processo['orcamento_valor_restante'] ?? $formData['orcamento_
 $paymentRestValue = is_numeric($paymentRestRaw) ? number_format((float)$paymentRestRaw, 2, ',', '.') : (string)$paymentRestRaw;
 $paymentDateOne = $processo['data_pagamento_1'] ?? $formData['data_pagamento_1'] ?? '';
 $paymentDateTwo = $processo['data_pagamento_2'] ?? $formData['data_pagamento_2'] ?? '';
+
+$formatCurrencyInput = static function ($value, string $default = '0,00'): string {
+    if ($value === null || $value === '') {
+        return $default;
+    }
+
+    if (is_numeric($value)) {
+        return number_format((float) $value, 2, ',', '.');
+    }
+
+    $clean = preg_replace('/[^0-9,.-]/', '', (string) $value);
+    if ($clean === '' || $clean === null) {
+        return $default;
+    }
+
+    if (strpos($clean, ',') !== false) {
+        $clean = str_replace('.', '', $clean);
+        $clean = str_replace(',', '.', $clean);
+    }
+
+    if (!is_numeric($clean)) {
+        return $default;
+    }
+
+    return number_format((float) $clean, 2, ',', '.');
+};
+
+$apostilamentoValorUnitario = $formatCurrencyInput($processo['apostilamento_valor_unitario'] ?? null);
+$postagemValorUnitario = $formatCurrencyInput($processo['postagem_valor_unitario'] ?? null);
 ?>
 
 <div class="flex items-center justify-between mb-6">
@@ -557,7 +586,7 @@ $paymentDateTwo = $processo['data_pagamento_2'] ?? $formData['data_pagamento_2']
                 </div>
                 <div>
                     <label for="apostilamento_valor_unitario" class="block text-sm font-medium text-gray-700">Valor Unitário (R$)</label>
-                    <input type="text" name="apostilamento_valor_unitario" id="apostilamento_valor_unitario" class="mt-1 block w-full p-2 calculation-trigger border border-yellow-300 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500" placeholder="0,00" value="<?php echo htmlspecialchars($processo['apostilamento_valor_unitario'] ?? '0,00'); ?>">
+                    <input type="text" name="apostilamento_valor_unitario" id="apostilamento_valor_unitario" class="mt-1 block w-full p-2 calculation-trigger border border-yellow-300 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500" placeholder="0,00" value="<?php echo htmlspecialchars($apostilamentoValorUnitario); ?>">
                 </div>
                 <div>
                     <label for="apostilamento_valor_total" class="block text-sm font-medium text-gray-700">Valor Total (R$)</label>
@@ -577,7 +606,7 @@ $paymentDateTwo = $processo['data_pagamento_2'] ?? $formData['data_pagamento_2']
                 </div>
                 <div>
                     <label for="postagem_valor_unitario" class="block text-sm font-medium text-gray-700">Valor Unitário (R$)</label>
-                    <input type="text" name="postagem_valor_unitario" id="postagem_valor_unitario" class="mt-1 block w-full p-2 calculation-trigger border border-purple-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500" placeholder="0,00" value="<?php echo htmlspecialchars($processo['postagem_valor_unitario'] ?? '0,00'); ?>">
+                    <input type="text" name="postagem_valor_unitario" id="postagem_valor_unitario" class="mt-1 block w-full p-2 calculation-trigger border border-purple-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500" placeholder="0,00" value="<?php echo htmlspecialchars($postagemValorUnitario); ?>">
                 </div>
                 <div>
                     <label for="postagem_valor_total" class="block text-sm font-medium text-gray-700">Valor Total (R$)</label>
@@ -771,11 +800,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function parseMoedaBR(valor) {
-        if (!valor) return 0;
-        const normalizado = String(valor)
-            .replace(/[R$\s]/g, '')
-            .replace(/\./g, '')
-            .replace(',', '.');
+        if (valor === null || valor === undefined) {
+            return 0;
+        }
+
+        let normalizado = String(valor).replace(/[R$\s]/g, '');
+        if (!normalizado) {
+            return 0;
+        }
+
+        if (normalizado.includes(',')) {
+            normalizado = normalizado.replace(/\./g, '').replace(',', '.');
+        }
+
         const parsed = Number.parseFloat(normalizado);
         return Number.isNaN(parsed) ? 0 : parsed;
     }
