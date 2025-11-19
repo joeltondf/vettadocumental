@@ -298,11 +298,46 @@ class Notificacao
             return;
         }
 
-        $conditions = ['tipo_alerta = :tipo_alerta', 'referencia_id = :referencia_id'];
+        $conditions = ['referencia_id = :referencia_id'];
         $params = [
-            ':tipo_alerta' => $tipoAlerta,
             ':referencia_id' => $referenciaId,
         ];
+
+        $equivalentGroups = [
+            ProcessAlertType::BUDGET_PENDING => [
+                ProcessAlertType::BUDGET_PENDING,
+                'processo_pendente_orcamento',
+                'orcamento',
+            ],
+            ProcessAlertType::SERVICE_PENDING => [
+                ProcessAlertType::SERVICE_PENDING,
+                'processo_pendente_servico',
+                'processo_servico_pendente',
+                'servico',
+            ],
+        ];
+
+        $alertTypesToResolve = null;
+        foreach ($equivalentGroups as $group) {
+            if (in_array($tipoAlerta, $group, true)) {
+                $alertTypesToResolve = $group;
+                break;
+            }
+        }
+
+        if ($alertTypesToResolve === null) {
+            $alertTypesToResolve = [$tipoAlerta];
+        }
+
+        $placeholders = [];
+        foreach (array_values(array_unique($alertTypesToResolve)) as $index => $type) {
+            $placeholder = ':tipo_alerta_' . $index;
+            $placeholders[] = $placeholder;
+            $params[$placeholder] = $type;
+        }
+
+        $conditions[] = 'tipo_alerta IN (' . implode(', ', $placeholders) . ')';
+        // Atualizamos todos os sinônimos para garantir compatibilidade com registros antigos.
 
         if ($grupoDestino !== null && trim($grupoDestino) !== '') {
             $conditions[] = 'grupo_destino = :grupo_destino';
@@ -488,7 +523,15 @@ class Notificacao
             return !in_array($normalizedStatus, $budgetPendingStatuses, true);
         }
 
-        if (in_array($alertType, [ProcessAlertType::SERVICE_PENDING, 'processo_pendente_servico'], true)) {
+        if (
+            in_array(
+                $alertType,
+                [ProcessAlertType::SERVICE_PENDING, 'processo_pendente_servico', 'processo_servico_pendente'],
+                true
+            )
+        ) {
+            // "processo_servico_pendente" é usado por notificações do vendedor e
+            // precisa ser tratado como pendência de serviço para auto-resolver ao sair desse status.
             return !in_array($normalizedStatus, $servicePendingStatuses, true);
         }
 
