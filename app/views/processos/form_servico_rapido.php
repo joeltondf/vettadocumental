@@ -113,6 +113,35 @@ if (!empty($formData['categorias_servico'])) {
 $deadlineDaysValue = $formData['traducao_prazo_dias'] ?? $formData['prazo_dias'] ?? '';
 $deadlinePreview = $formData['data_previsao_entrega'] ?? '';
 
+$formatCurrencyInput = static function ($value, string $default = '0,00'): string {
+    if ($value === null || $value === '') {
+        return $default;
+    }
+
+    if (is_numeric($value)) {
+        return number_format((float) $value, 2, ',', '.');
+    }
+
+    $clean = preg_replace('/[^0-9,.-]/', '', (string) $value);
+    if ($clean === '' || $clean === null) {
+        return $default;
+    }
+
+    if (strpos($clean, ',') !== false) {
+        $clean = str_replace('.', '', $clean);
+        $clean = str_replace(',', '.', $clean);
+    }
+
+    if (!is_numeric($clean)) {
+        return $default;
+    }
+
+    return number_format((float) $clean, 2, ',', '.');
+};
+
+$apostilamentoValorUnitario = $formatCurrencyInput($formData['apostilamento_valor_unitario'] ?? null);
+$postagemValorUnitario = $formatCurrencyInput($formData['postagem_valor_unitario'] ?? null);
+
 
 ?>
 
@@ -369,7 +398,7 @@ $deadlinePreview = $formData['data_previsao_entrega'] ?? '';
             </div>
             <div>
                 <label for="apostilamento_valor_unitario" class="block text-sm font-medium text-gray-700">Valor Unitário (R$)</label>
-                <input type="text" name="apostilamento_valor_unitario" id="apostilamento_valor_unitario" value="<?php echo htmlspecialchars($formData['apostilamento_valor_unitario'] ?? '0,00'); ?>" class="mt-1 block w-full p-2 border border-yellow-300 rounded-md shadow-sm calculation-trigger">
+                <input type="text" name="apostilamento_valor_unitario" id="apostilamento_valor_unitario" value="<?php echo htmlspecialchars($apostilamentoValorUnitario); ?>" class="mt-1 block w-full p-2 border border-yellow-300 rounded-md shadow-sm calculation-trigger">
             </div>
             <div>
                 <label for="apostilamento_valor_total" class="block text-sm font-medium text-gray-700">Valor Total (R$)</label>
@@ -387,7 +416,7 @@ $deadlinePreview = $formData['data_previsao_entrega'] ?? '';
             </div>
             <div>
                 <label for="postagem_valor_unitario" class="block text-sm font-medium text-gray-700">Valor Unitário (R$)</label>
-                <input type="text" name="postagem_valor_unitario" id="postagem_valor_unitario" value="<?php echo htmlspecialchars($formData['postagem_valor_unitario'] ?? '0,00'); ?>" class="mt-1 block w-full p-2 border border-purple-300 rounded-md shadow-sm calculation-trigger">
+                <input type="text" name="postagem_valor_unitario" id="postagem_valor_unitario" value="<?php echo htmlspecialchars($postagemValorUnitario); ?>" class="mt-1 block w-full p-2 border border-purple-300 rounded-md shadow-sm calculation-trigger">
             </div>
             <div>
                 <label for="postagem_valor_total" class="block text-sm font-medium text-gray-700">Valor Total (R$)</label>
@@ -1365,11 +1394,19 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function parseMoedaBR(valor) {
-        if (!valor) return 0;
-        const normalizado = String(valor)
-            .replace(/[R$\s]/g, '')
-            .replace(/\./g, '')
-            .replace(',', '.');
+        if (valor === null || valor === undefined) {
+            return 0;
+        }
+
+        let normalizado = String(valor).replace(/[R$\s]/g, '');
+        if (!normalizado) {
+            return 0;
+        }
+
+        if (normalizado.includes(',')) {
+            normalizado = normalizado.replace(/\./g, '').replace(',', '.');
+        }
+
         const parsed = Number.parseFloat(normalizado);
         return Number.isNaN(parsed) ? 0 : parsed;
     }
