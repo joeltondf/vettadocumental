@@ -130,6 +130,9 @@ class GerenteDashboardController
         $sdrVendorSummary = $prospeccaoModel->getSdrVendorConversionSummary($startDate, $endDate);
         $vendorCommissionReport = $processoModel->getVendorCommissionSummary($startDate, $endDate);
         $budgetOverview = $processoModel->getBudgetPipelineSummary($startDate, $endDate);
+        $sdrLeadStatusSummary = $prospeccaoModel->getSdrLeadStatusSummary($startDate, $endDate);
+        $vendorLeadTreatmentSummary = $prospeccaoModel->getVendorLeadTreatmentSummary($startDate, $endDate);
+        $servicesSummary = $processoModel->getServicesSummary($startDate, $endDate);
 
         // Nome da página para a view
         $pageTitle = 'Painel de Gestão';
@@ -138,6 +141,28 @@ class GerenteDashboardController
         require_once __DIR__ . '/../views/layouts/header.php';
         require_once __DIR__ . '/../views/gerente_dashboard/main.php';
         require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+
+    public function leadsEmTratamento(): void
+    {
+        header('Content-Type: application/json');
+
+        $startDate = $this->normalizeDate($_GET['start'] ?? $_GET['data_inicio'] ?? null);
+        $endDate = $this->normalizeDate($_GET['end'] ?? $_GET['data_fim'] ?? null);
+
+        if ($startDate === null && $endDate === null) {
+            $startDate = date('Y-m-01');
+            $endDate = date('Y-m-t');
+        }
+
+        $prospeccaoModel = new Prospeccao($this->pdo);
+        $leads = $prospeccaoModel->getLeadsInTreatment($startDate, $endDate);
+
+        echo json_encode([
+            'success' => true,
+            'leads' => $leads,
+        ]);
+        exit;
     }
 
     private function normalizeDate(?string $date): ?string
