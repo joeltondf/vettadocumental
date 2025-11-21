@@ -47,8 +47,7 @@ if (isset($_SESSION['user_id'])) {
         'relatorio_vendedor.php',
         'login.php', // Para a ação de logout
         'clientes.php', // << ADICIONADO: Permite o acesso à edição de cliente
-        'processos.php', // << ADICIONADO: Permite o acesso à criação de orçamento
-        'visualizar_anexo.php' // Permite ao vendedor baixar anexos dos processos
+        'processos.php' // << ADICIONADO: Permite o acesso à criação de orçamento
         ];
 
         // Verificação 1: A página atual está na lista de permissões da raiz?
