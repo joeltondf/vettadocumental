@@ -2818,6 +2818,73 @@ public function create($data, $files)
         return $stmt->execute([$osNumero, $processoId]);
     }
 
+    public function getServicesSummary(?string $startDate = null, ?string $endDate = null): array
+    {
+        $this->loadProcessColumns();
+
+        $dateColumn = $this->hasProcessColumn('data_criacao') ? 'p.data_criacao' : 'p.data_entrada';
+        $conditions = [];
+        $params = [];
+
+        if (!empty($startDate)) {
+            $conditions[] = "{$dateColumn} >= :startDate";
+            $params[':startDate'] = $startDate . ' 00:00:00';
+        }
+
+        if (!empty($endDate)) {
+            $conditions[] = "{$dateColumn} <= :endDate";
+            $params[':endDate'] = $endDate . ' 23:59:59';
+        }
+
+        $whereSql = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+        $hasTypeColumn = $this->hasProcessColumn('tipo_servico');
+
+        $sql = "SELECT
+                    " . ($hasTypeColumn ? 'COALESCE(p.tipo_servico, \"Sem Tipo\") AS tipo_servico,' : "'Geral' AS tipo_servico,") . "
+                    COUNT(*) AS totalIniciados,
+                    SUM(CASE WHEN p.status_processo IN ('Concluído', 'Finalizado') THEN 1 ELSE 0 END) AS totalFinalizados,
+                    SUM(CASE WHEN p.status_processo NOT IN ('Concluído', 'Finalizado', 'Cancelado', 'Recusado') THEN 1 ELSE 0 END) AS totalPendentes,
+                    SUM(CASE WHEN p.status_processo IN ('Concluído', 'Finalizado') THEN COALESCE(p.valor_total, 0) ELSE 0 END) AS valorFinalizado
+                FROM processos p
+                {$whereSql}
+                GROUP BY " . ($hasTypeColumn ? 'COALESCE(p.tipo_servico, \"Sem Tipo\")' : "'Geral'") . "
+                ORDER BY tipo_servico ASC";
+
+        $stmt = $this->pdo->prepare($sql);
+
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value, PDO::PARAM_STR);
+        }
+
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $totals = [
+            'totalIniciados' => 0,
+            'totalFinalizados' => 0,
+            'totalPendentes' => 0,
+            'valorFinalizado' => 0.0,
+            'detalhes' => [],
+        ];
+
+        foreach ($rows as $row) {
+            $totals['totalIniciados'] += (int)$row['totalIniciados'];
+            $totals['totalFinalizados'] += (int)$row['totalFinalizados'];
+            $totals['totalPendentes'] += (int)$row['totalPendentes'];
+            $totals['valorFinalizado'] += (float)$row['valorFinalizado'];
+
+            $totals['detalhes'][] = [
+                'tipo' => $row['tipo_servico'],
+                'totalIniciados' => (int)$row['totalIniciados'],
+                'totalFinalizados' => (int)$row['totalFinalizados'],
+                'totalPendentes' => (int)$row['totalPendentes'],
+                'valorFinalizado' => (float)$row['valorFinalizado'],
+            ];
+        }
+
+        return $totals;
+    }
+
     /**
      * Limpa o número da Ordem de Serviço da Omie, geralmente após um cancelamento.
      * @param int $processoId O ID do processo local.
