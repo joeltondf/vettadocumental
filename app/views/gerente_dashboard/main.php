@@ -10,6 +10,15 @@ $labelsFinalizados  = $labelsFinalizados ?? [];
 $sdrSummary = $sdrSummary ?? [];
 $sdrVendorSummary = $sdrVendorSummary ?? [];
 $vendorCommissionReport = $vendorCommissionReport ?? [];
+$sdrLeadStatusSummary = $sdrLeadStatusSummary ?? [];
+$vendorLeadTreatmentSummary = $vendorLeadTreatmentSummary ?? [];
+$servicesSummary = $servicesSummary ?? [
+    'totalIniciados' => 0,
+    'totalFinalizados' => 0,
+    'totalPendentes' => 0,
+    'valorFinalizado' => 0.0,
+    'detalhes' => [],
+];
 $budgetOverview = $budgetOverview ?? [
     'budgetCount' => 0,
     'budgetValue' => 0.0,
@@ -171,6 +180,132 @@ $averageSdrConversion = $totalSdrLeads > 0 ? ($convertedSdrLeads / $totalSdrLead
         <?php if (empty($sdrVendorSummary)): ?>
           <tr>
             <td colspan="6" class="px-4 py-3 text-center text-gray-500">Nenhum dado encontrado para o período selecionado.</td>
+          </tr>
+        <?php endif; ?>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-10">
+  <div class="bg-white p-4 rounded-lg shadow overflow-x-auto">
+    <h3 class="text-lg font-semibold mb-4">Status dos Leads por SDR</h3>
+    <table class="min-w-full divide-y divide-gray-200 text-sm">
+      <thead class="bg-gray-100">
+        <tr>
+          <th class="px-4 py-2 text-left font-semibold text-gray-700">SDR</th>
+          <th class="px-4 py-2 text-center font-semibold text-gray-700">Leads Recebidos</th>
+          <th class="px-4 py-2 text-center font-semibold text-gray-700">Leads Tratados</th>
+          <th class="px-4 py-2 text-center font-semibold text-gray-700">Leads Convertidos</th>
+          <th class="px-4 py-2 text-center font-semibold text-gray-700">Leads Perdidos</th>
+          <th class="px-4 py-2 text-center font-semibold text-gray-700">Tempo Médio (dias)</th>
+          <th class="px-4 py-2 text-center font-semibold text-gray-700">Taxa de Atendimento</th>
+          <th class="px-4 py-2 text-center font-semibold text-gray-700">Taxa de Conversão</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200">
+        <?php foreach ($sdrLeadStatusSummary as $item): ?>
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-2"><?= htmlspecialchars($item['sdrName']) ?></td>
+            <td class="px-4 py-2 text-center"><?= (int) $item['totalLeads'] ?></td>
+            <td class="px-4 py-2 text-center"><?= (int) $item['treatedLeads'] ?></td>
+            <td class="px-4 py-2 text-center"><?= (int) $item['convertedLeads'] ?></td>
+            <td class="px-4 py-2 text-center"><?= (int) $item['lostLeads'] ?></td>
+            <td class="px-4 py-2 text-center"><?= number_format($item['avgTreatmentDays'], 2, ',', '.') ?></td>
+            <td class="px-4 py-2 text-center"><?= number_format($item['attendanceRate'], 2, ',', '.') ?>%</td>
+            <td class="px-4 py-2 text-center"><?= number_format($item['conversionRate'], 2, ',', '.') ?>%</td>
+          </tr>
+        <?php endforeach; ?>
+        <?php if (empty($sdrLeadStatusSummary)): ?>
+          <tr>
+            <td colspan="8" class="px-4 py-3 text-center text-gray-500">Nenhum dado encontrado para o período selecionado.</td>
+          </tr>
+        <?php endif; ?>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="bg-white p-4 rounded-lg shadow overflow-x-auto">
+    <h3 class="text-lg font-semibold mb-4">Tratamento de Leads por Vendedor</h3>
+    <table class="min-w-full divide-y divide-gray-200 text-sm">
+      <thead class="bg-gray-100">
+        <tr>
+          <th class="px-4 py-2 text-left font-semibold text-gray-700">Vendedor</th>
+          <th class="px-4 py-2 text-center font-semibold text-gray-700">Leads Repassados</th>
+          <th class="px-4 py-2 text-center font-semibold text-gray-700">Leads Tratados</th>
+          <th class="px-4 py-2 text-center font-semibold text-gray-700">Leads Convertidos</th>
+          <th class="px-4 py-2 text-center font-semibold text-gray-700">Pendentes</th>
+          <th class="px-4 py-2 text-center font-semibold text-gray-700">Taxa de Conversão</th>
+          <th class="px-4 py-2 text-center font-semibold text-gray-700">Percentual Pendente</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200">
+        <?php foreach ($vendorLeadTreatmentSummary as $item): ?>
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-2"><?= htmlspecialchars($item['vendorName']) ?></td>
+            <td class="px-4 py-2 text-center"><?= (int) $item['totalLeads'] ?></td>
+            <td class="px-4 py-2 text-center"><?= (int) $item['treatedLeads'] ?></td>
+            <td class="px-4 py-2 text-center"><?= (int) $item['convertedLeads'] ?></td>
+            <td class="px-4 py-2 text-center"><?= (int) $item['pendingLeads'] ?></td>
+            <td class="px-4 py-2 text-center"><?= number_format($item['conversionRate'], 2, ',', '.') ?>%</td>
+            <td class="px-4 py-2 text-center"><?= number_format($item['pendingPercent'], 2, ',', '.') ?>%</td>
+          </tr>
+        <?php endforeach; ?>
+        <?php if (empty($vendorLeadTreatmentSummary)): ?>
+          <tr>
+            <td colspan="7" class="px-4 py-3 text-center text-gray-500">Nenhum dado encontrado para o período selecionado.</td>
+          </tr>
+        <?php endif; ?>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 gap-6 mt-10">
+  <div class="bg-white p-4 rounded-lg shadow overflow-x-auto">
+    <h3 class="text-lg font-semibold mb-4">Resumo de Serviços</h3>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+      <div class="p-3 bg-gray-50 rounded shadow-sm">
+        <p class="text-xs text-gray-500">Serviços Iniciados</p>
+        <p class="text-xl font-bold text-gray-800"><?= (int) $servicesSummary['totalIniciados'] ?></p>
+      </div>
+      <div class="p-3 bg-gray-50 rounded shadow-sm">
+        <p class="text-xs text-gray-500">Serviços Finalizados</p>
+        <p class="text-xl font-bold text-green-600"><?= (int) $servicesSummary['totalFinalizados'] ?></p>
+      </div>
+      <div class="p-3 bg-gray-50 rounded shadow-sm">
+        <p class="text-xs text-gray-500">Serviços Pendentes</p>
+        <p class="text-xl font-bold text-orange-600"><?= (int) $servicesSummary['totalPendentes'] ?></p>
+      </div>
+      <div class="p-3 bg-gray-50 rounded shadow-sm">
+        <p class="text-xs text-gray-500">Valor Finalizado (R$)</p>
+        <p class="text-xl font-bold text-blue-600">R$ <?= number_format($servicesSummary['valorFinalizado'], 2, ',', '.') ?></p>
+      </div>
+    </div>
+
+    <table class="min-w-full divide-y divide-gray-200 text-sm">
+      <thead class="bg-gray-100">
+        <tr>
+          <th class="px-4 py-2 text-left font-semibold text-gray-700">Tipo de Serviço</th>
+          <th class="px-4 py-2 text-center font-semibold text-gray-700">Iniciados</th>
+          <th class="px-4 py-2 text-center font-semibold text-gray-700">Finalizados</th>
+          <th class="px-4 py-2 text-center font-semibold text-gray-700">Pendentes</th>
+          <th class="px-4 py-2 text-right font-semibold text-gray-700">Valor Finalizado (R$)</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200">
+        <?php foreach ($servicesSummary['detalhes'] as $item): ?>
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-2"><?= htmlspecialchars($item['tipo']) ?></td>
+            <td class="px-4 py-2 text-center"><?= (int) $item['totalIniciados'] ?></td>
+            <td class="px-4 py-2 text-center"><?= (int) $item['totalFinalizados'] ?></td>
+            <td class="px-4 py-2 text-center"><?= (int) $item['totalPendentes'] ?></td>
+            <td class="px-4 py-2 text-right">R$ <?= number_format($item['valorFinalizado'], 2, ',', '.') ?></td>
+          </tr>
+        <?php endforeach; ?>
+        <?php if (empty($servicesSummary['detalhes'])): ?>
+          <tr>
+            <td colspan="5" class="px-4 py-3 text-center text-gray-500">Nenhum dado encontrado para o período selecionado.</td>
           </tr>
         <?php endif; ?>
       </tbody>

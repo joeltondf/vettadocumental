@@ -167,6 +167,126 @@ class Prospeccao
         return $score;
     }
 
+    public function getSdrLeadStatusSummary(?string $startDate = null, ?string $endDate = null): array
+    {
+        $conditions = ['p.sdrId IS NOT NULL'];
+        $params = [];
+
+        if (!empty($startDate)) {
+            $conditions[] = 'p.data_prospeccao >= :startDate';
+            $params[':startDate'] = $startDate . ' 00:00:00';
+        }
+
+        if (!empty($endDate)) {
+            $conditions[] = 'p.data_prospeccao <= :endDate';
+            $params[':endDate'] = $endDate . ' 23:59:59';
+        }
+
+        $whereSql = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+
+        $sql = "SELECT
+                    COALESCE(u.id, 0) AS sdrId,
+                    COALESCE(u.nome_completo, 'Sem SDR') AS sdrName,
+                    COUNT(*) AS totalLeads,
+                    SUM(CASE WHEN LOWER(p.status) = 'novo' THEN 0 ELSE 1 END) AS treatedLeads,
+                    SUM(CASE WHEN LOWER(p.status) NOT IN ('convertido', 'descartado') THEN 1 ELSE 0 END) AS openLeads,
+                    SUM(CASE WHEN LOWER(p.status) = 'convertido' THEN 1 ELSE 0 END) AS convertedLeads,
+                    SUM(CASE WHEN LOWER(p.status) = 'descartado' THEN 1 ELSE 0 END) AS lostLeads,
+                    AVG(CASE WHEN LOWER(p.status) IN ('convertido', 'descartado') THEN DATEDIFF(COALESCE(p.data_ultima_atualizacao, p.data_prospeccao), p.data_prospeccao) END) AS avgTreatmentDays,
+                    COUNT(DISTINCT CASE WHEN i.id IS NOT NULL THEN p.id END) AS attendedLeads
+                FROM prospeccoes p
+                LEFT JOIN users u ON p.sdrId = u.id
+                LEFT JOIN interacoes i ON p.id = i.prospeccao_id
+                {$whereSql}
+                GROUP BY COALESCE(u.id, 0), COALESCE(u.nome_completo, 'Sem SDR')
+                ORDER BY sdrName ASC";
+
+        $stmt = $this->pdo->prepare($sql);
+
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value, PDO::PARAM_STR);
+        }
+
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return array_map(static function (array $row): array {
+            $totalLeads = (int)$row['totalLeads'];
+            $convertedLeads = (int)$row['convertedLeads'];
+            $attendedLeads = (int)$row['attendedLeads'];
+
+            return [
+                'sdrId' => (int)$row['sdrId'],
+                'sdrName' => $row['sdrName'],
+                'totalLeads' => $totalLeads,
+                'treatedLeads' => (int)$row['treatedLeads'],
+                'openLeads' => (int)$row['openLeads'],
+                'convertedLeads' => $convertedLeads,
+                'lostLeads' => (int)$row['lostLeads'],
+                'avgTreatmentDays' => $row['avgTreatmentDays'] !== null ? (float)$row['avgTreatmentDays'] : 0.0,
+                'attendanceRate' => $totalLeads > 0 ? ($attendedLeads / $totalLeads) * 100 : 0,
+                'conversionRate' => $totalLeads > 0 ? ($convertedLeads / $totalLeads) * 100 : 0,
+            ];
+        }, $rows);
+    }
+
+    public function getVendorLeadTreatmentSummary(?string $startDate = null, ?string $endDate = null): array
+    {
+        $conditions = ['p.responsavel_id IS NOT NULL'];
+        $params = [];
+
+        if (!empty($startDate)) {
+            $conditions[] = 'p.data_prospeccao >= :startDate';
+            $params[':startDate'] = $startDate . ' 00:00:00';
+        }
+
+        if (!empty($endDate)) {
+            $conditions[] = 'p.data_prospeccao <= :endDate';
+            $params[':endDate'] = $endDate . ' 23:59:59';
+        }
+
+        $whereSql = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+
+        $sql = "SELECT
+                    COALESCE(u.id, 0) AS vendorId,
+                    COALESCE(u.nome_completo, 'Sem Responsável') AS vendorName,
+                    COUNT(*) AS totalLeads,
+                    SUM(CASE WHEN LOWER(p.status) <> 'novo' THEN 1 ELSE 0 END) AS treatedLeads,
+                    SUM(CASE WHEN LOWER(p.status) = 'convertido' THEN 1 ELSE 0 END) AS convertedLeads,
+                    SUM(CASE WHEN LOWER(p.status) = 'novo' THEN 1 ELSE 0 END) AS pendingLeads
+                FROM prospeccoes p
+                LEFT JOIN users u ON p.responsavel_id = u.id
+                {$whereSql}
+                GROUP BY COALESCE(u.id, 0), COALESCE(u.nome_completo, 'Sem Responsável')
+                ORDER BY vendorName ASC";
+
+        $stmt = $this->pdo->prepare($sql);
+
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value, PDO::PARAM_STR);
+        }
+
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return array_map(static function (array $row): array {
+            $totalLeads = (int)$row['totalLeads'];
+            $convertedLeads = (int)$row['convertedLeads'];
+            $pendingLeads = (int)$row['pendingLeads'];
+
+            return [
+                'vendorId' => (int)$row['vendorId'],
+                'vendorName' => $row['vendorName'],
+                'totalLeads' => $totalLeads,
+                'treatedLeads' => (int)$row['treatedLeads'],
+                'convertedLeads' => $convertedLeads,
+                'pendingLeads' => $pendingLeads,
+                'conversionRate' => $totalLeads > 0 ? ($convertedLeads / $totalLeads) * 100 : 0,
+                'pendingPercent' => $totalLeads > 0 ? ($pendingLeads / $totalLeads) * 100 : 0,
+            ];
+        }, $rows);
+    }
+
     /**
      * Busca estatísticas de prospecção para um responsável específico.
      * @param int $responsavel_id O ID do usuário (vendedor).
