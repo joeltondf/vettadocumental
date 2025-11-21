@@ -35,6 +35,7 @@ $convertedSdrLeads = array_sum(array_column($sdrSummary, 'convertedLeads'));
 $totalSdrAppointments = array_sum(array_column($sdrSummary, 'totalAppointments'));
 $averageSdrConversion = $totalSdrLeads > 0 ? ($convertedSdrLeads / $totalSdrLeads) * 100 : 0;
 ?>
+<script>const BASE_URL = "<?= APP_URL ?>";</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <h1 class="text-2xl font-bold text-gray-800 mb-5"><?= htmlspecialchars($pageTitle) ?></h1>
@@ -498,10 +499,15 @@ $averageSdrConversion = $totalSdrLeads > 0 ? ($convertedSdrLeads / $totalSdrLead
       }
 
       const query = params.toString();
-      const url = '/gerente_dashboard/leadsEmTratamento.php' + (query ? `?${query}` : '');
+      const url = `${BASE_URL}/gerente_dashboard/leadsEmTratamento.php${query ? `?${query}` : ''}`;
 
-      fetch(url)
-        .then((response) => response.json())
+      fetch(url, { credentials: 'same-origin' })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          return response.json();
+        })
         .then((data) => {
           if (data && data.success) {
             renderRows(data.leads || []);
@@ -509,8 +515,8 @@ $averageSdrConversion = $totalSdrLeads > 0 ? ($convertedSdrLeads / $totalSdrLead
             tableBody.innerHTML = '<tr><td colspan="5" class="px-4 py-3 text-center text-red-500">Não foi possível carregar os leads.</td></tr>';
           }
         })
-        .catch(() => {
-          tableBody.innerHTML = '<tr><td colspan="5" class="px-4 py-3 text-center text-red-500">Erro ao buscar os leads.</td></tr>';
+        .catch((err) => {
+          tableBody.innerHTML = `<tr><td colspan="5" class="px-4 py-3 text-center text-red-500">Erro ao buscar os leads: ${err.message}</td></tr>`;
         });
     }
 
