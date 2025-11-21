@@ -130,6 +130,9 @@ class GerenteDashboardController
         $sdrVendorSummary = $prospeccaoModel->getSdrVendorConversionSummary($startDate, $endDate);
         $vendorCommissionReport = $processoModel->getVendorCommissionSummary($startDate, $endDate);
         $budgetOverview = $processoModel->getBudgetPipelineSummary($startDate, $endDate);
+        $sdrLeadStatusSummary = $prospeccaoModel->getSdrLeadStatusSummary($startDate, $endDate);
+        $vendorLeadTreatmentSummary = $prospeccaoModel->getVendorLeadTreatmentSummary($startDate, $endDate);
+        $servicesSummary = $processoModel->getServicesSummary($startDate, $endDate);
 
         // Nome da página para a view
         $pageTitle = 'Painel de Gestão';
