@@ -145,6 +145,8 @@ class GerenteDashboardController
 
     public function leadsEmTratamento(): void
     {
+        ob_start();
+        ini_set('display_errors', '0');
         header('Content-Type: application/json');
 
         $startDate = $this->normalizeDate($_GET['start'] ?? $_GET['data_inicio'] ?? null);
@@ -158,6 +160,7 @@ class GerenteDashboardController
         $prospeccaoModel = new Prospeccao($this->pdo);
         $leads = $prospeccaoModel->getLeadsInTreatment($startDate, $endDate);
 
+        ob_end_clean();
         echo json_encode([
             'success' => true,
             'leads' => $leads,
