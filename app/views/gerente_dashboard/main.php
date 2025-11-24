@@ -12,7 +12,6 @@ $sdrVendorSummary = $sdrVendorSummary ?? [];
 $vendorCommissionReport = $vendorCommissionReport ?? [];
 $sdrLeadStatusSummary = $sdrLeadStatusSummary ?? [];
 $vendorLeadTreatmentSummary = $vendorLeadTreatmentSummary ?? [];
-$treatmentLeads = $treatmentLeads ?? [];
 $servicesSummary = $servicesSummary ?? [
     'totalIniciados' => 0,
     'totalFinalizados' => 0,
@@ -36,10 +35,7 @@ $convertedSdrLeads = array_sum(array_column($sdrSummary, 'convertedLeads'));
 $totalSdrAppointments = array_sum(array_column($sdrSummary, 'totalAppointments'));
 $averageSdrConversion = $totalSdrLeads > 0 ? ($convertedSdrLeads / $totalSdrLeads) * 100 : 0;
 ?>
-<script>
-  const BASE_URL = "<?= APP_URL ?>";
-  const treatmentLeads = <?= json_encode($treatmentLeads) ?>;
-</script>
+<script>const BASE_URL = "<?= APP_URL ?>";</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <h1 class="text-2xl font-bold text-gray-800 mb-5"><?= htmlspecialchars($pageTitle) ?></h1>
@@ -430,7 +426,11 @@ $averageSdrConversion = $totalSdrLeads > 0 ? ($convertedSdrLeads / $totalSdrLead
               <th class="px-4 py-2 text-left font-semibold text-gray-700">Vendedor</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-200" id="treatmentTableBody"></tbody>
+          <tbody class="divide-y divide-gray-200" id="treatmentTableBody">
+            <tr>
+              <td colspan="5" class="px-4 py-3 text-center text-gray-500">Nenhum dado carregado.</td>
+            </tr>
+          </tbody>
         </table>
       </div>
       <div class="px-4 py-3 border-t bg-gray-50 text-right">
@@ -456,6 +456,10 @@ $averageSdrConversion = $totalSdrLeads > 0 ? ($convertedSdrLeads / $totalSdrLead
       modal.classList.add('hidden');
     }
 
+    function renderLoading() {
+      tableBody.innerHTML = '<tr><td colspan="5" class="px-4 py-3 text-center text-gray-500">Carregando...</td></tr>';
+    }
+
     function renderRows(leads) {
       if (!Array.isArray(leads) || leads.length === 0) {
         tableBody.innerHTML = '<tr><td colspan="5" class="px-4 py-3 text-center text-gray-500">Nenhum lead em tratamento encontrado.</td></tr>';
@@ -463,11 +467,11 @@ $averageSdrConversion = $totalSdrLeads > 0 ? ($convertedSdrLeads / $totalSdrLead
       }
 
       const rows = leads.map((lead) => {
-        const safeProspect = escapeHtml(lead.nome_prospecto || '-');
-        const safeCliente = escapeHtml(lead.cliente_nome || '-');
-        const safeStatus = escapeHtml(lead.status_atual || '-');
-        const safeSdr = escapeHtml(lead.sdr_nome || '-');
-        const safeVendor = escapeHtml(lead.responsavel_nome || '-');
+        const safeProspect = lead.nome_prospecto || '-';
+        const safeCliente = lead.cliente_nome || '-';
+        const safeStatus = lead.status_atual || '-';
+        const safeSdr = lead.sdr_nome || '-';
+        const safeVendor = lead.responsavel_nome || '-';
 
         return `<tr class="hover:bg-gray-50">` +
           `<td class="px-4 py-2">${safeProspect}</td>` +
@@ -494,10 +498,57 @@ $averageSdrConversion = $totalSdrLeads > 0 ? ($convertedSdrLeads / $totalSdrLead
       });
     }
 
+    function fetchLeads() {
+      renderLoading();
+      const startInput = document.querySelector('[name="data_inicio"]');
+      const endInput = document.querySelector('[name="data_fim"]');
+      const params = new URLSearchParams();
+
+      if (startInput && startInput.value) {
+        params.append('start', startInput.value);
+      }
+      if (endInput && endInput.value) {
+        params.append('end', endInput.value);
+      }
+
+      const query = params.toString();
+      const url = `${BASE_URL}/gerente_dashboard/leadsEmTratamento.php${query ? `?${query}` : ''}`;
+
+      fetch(url, { credentials: 'same-origin' })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          return response.text();
+        })
+        .then((bodyText) => {
+          let data;
+
+          try {
+            data = JSON.parse(bodyText);
+          } catch (parseError) {
+            const safeBody = escapeHtml(bodyText.trim() || 'Resposta vazia.');
+            tableBody.innerHTML = `<tr><td colspan="5" class="px-4 py-3 text-center text-red-500">Resposta inesperada do servidor:<br><pre class="whitespace-pre-wrap text-left mt-2 text-xs bg-red-50 text-red-700 p-2 rounded">${safeBody}</pre></td></tr>`;
+            return;
+          }
+
+          if (data && data.success) {
+            renderRows(data.leads || []);
+          } else {
+            const message = data && data.message ? data.message : 'Não foi possível carregar os leads.';
+            const details = data && data.error ? `<div class="mt-2 text-xs text-red-400">${escapeHtml(data.error)}</div>` : '';
+            tableBody.innerHTML = `<tr><td colspan="5" class="px-4 py-3 text-center text-red-500">${escapeHtml(message)}${details}</td></tr>`;
+          }
+        })
+        .catch((err) => {
+          tableBody.innerHTML = `<tr><td colspan="5" class="px-4 py-3 text-center text-red-500">Erro ao buscar os leads: ${err.message}</td></tr>`;
+        });
+    }
+
     if (openModalBtn && modal) {
       openModalBtn.addEventListener('click', () => {
         modal.classList.remove('hidden');
-        renderRows(treatmentLeads);
+        fetchLeads();
       });
     }
 
