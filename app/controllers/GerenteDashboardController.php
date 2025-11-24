@@ -133,7 +133,6 @@ class GerenteDashboardController
         $sdrLeadStatusSummary = $prospeccaoModel->getSdrLeadStatusSummary($startDate, $endDate);
         $vendorLeadTreatmentSummary = $prospeccaoModel->getVendorLeadTreatmentSummary($startDate, $endDate);
         $servicesSummary = $processoModel->getServicesSummary($startDate, $endDate);
-        $treatmentLeads = $prospeccaoModel->getLeadsInTreatment($startDate, $endDate) ?? [];
 
         // Nome da página para a view
         $pageTitle = 'Painel de Gestão';
