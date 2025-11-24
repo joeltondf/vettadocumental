@@ -535,9 +535,7 @@ $averageSdrConversion = $totalSdrLeads > 0 ? ($convertedSdrLeads / $totalSdrLead
           if (data && data.success) {
             renderRows(data.leads || []);
           } else {
-            const message = data && data.message ? data.message : 'Não foi possível carregar os leads.';
-            const details = data && data.error ? `<div class="mt-2 text-xs text-red-400">${escapeHtml(data.error)}</div>` : '';
-            tableBody.innerHTML = `<tr><td colspan="5" class="px-4 py-3 text-center text-red-500">${escapeHtml(message)}${details}</td></tr>`;
+            tableBody.innerHTML = '<tr><td colspan="5" class="px-4 py-3 text-center text-red-500">Não foi possível carregar os leads.</td></tr>';
           }
         })
         .catch((err) => {
