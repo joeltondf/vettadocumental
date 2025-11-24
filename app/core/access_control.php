@@ -10,8 +10,13 @@ function require_permission(array $allowed_profiles)
         session_start();
     }
 
+    $userPerfil = $_SESSION['user_perfil'] ?? null;
+    if ($userPerfil === 'secretária') {
+        $userPerfil = 'secretaria';
+    }
+
     // Se o perfil do usuário não estiver na lista de permitidos
-    if (!isset($_SESSION['user_perfil']) || !in_array($_SESSION['user_perfil'], $allowed_profiles)) {
+    if (!$userPerfil || !in_array($userPerfil, $allowed_profiles)) {
 
         $_SESSION['error_message'] = "Você não tem permissão para acessar esta página.";
 
