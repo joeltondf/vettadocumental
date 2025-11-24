@@ -282,62 +282,9 @@ class Prospeccao
                 'convertedLeads' => $convertedLeads,
                 'pendingLeads' => $pendingLeads,
                 'conversionRate' => $totalLeads > 0 ? ($convertedLeads / $totalLeads) * 100 : 0,
-            'pendingPercent' => $totalLeads > 0 ? ($pendingLeads / $totalLeads) * 100 : 0,
-        ];
-    }, $rows);
-    }
-
-    public function getLeadsInTreatment(?string $startDate = null, ?string $endDate = null): array
-    {
-        $conditions = [];
-        $params = [];
-
-        $treatmentStatuses = [
-            'em tratamento',
-            'tratamento',
-            'em andamento',
-            'andamento',
-            'em acompanhamento',
-            'aberto',
-            'em contato'
-        ];
-
-        $statusPlaceholders = implode(',', array_fill(0, count($treatmentStatuses), '?'));
-        $conditions[] = 'LOWER(p.status) IN (' . $statusPlaceholders . ')';
-        $params = array_merge($params, $treatmentStatuses);
-
-        if (!empty($startDate)) {
-            $conditions[] = 'p.data_prospeccao >= ?';
-            $params[] = $startDate . ' 00:00:00';
-        }
-
-        if (!empty($endDate)) {
-            $conditions[] = 'p.data_prospeccao <= ?';
-            $params[] = $endDate . ' 23:59:59';
-        }
-
-        $whereSql = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
-
-        $sql = "SELECT
-                    p.id,
-                    p.nome_prospecto,
-                    COALESCE(c.nome_cliente, p.cliente_nome, 'Cliente não informado') AS cliente_nome,
-                    p.status AS status_atual,
-                    p.sdrId AS sdr_id,
-                    COALESCE(usdr.nome_completo, 'Sem SDR') AS sdr_nome,
-                    p.responsavel_id,
-                    COALESCE(uv.nome_completo, 'Sem Vendedor') AS responsavel_nome
-                FROM prospeccoes p
-                LEFT JOIN clientes c ON p.cliente_id = c.id
-                LEFT JOIN users usdr ON p.sdrId = usdr.id
-                LEFT JOIN users uv ON p.responsavel_id = uv.id
-                {$whereSql}
-                ORDER BY p.data_prospeccao DESC";
-
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+                'pendingPercent' => $totalLeads > 0 ? ($pendingLeads / $totalLeads) * 100 : 0,
+            ];
+        }, $rows);
     }
 
     /**

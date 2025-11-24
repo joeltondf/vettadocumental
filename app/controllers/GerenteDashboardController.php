@@ -143,28 +143,6 @@ class GerenteDashboardController
         require_once __DIR__ . '/../views/layouts/footer.php';
     }
 
-    public function leadsEmTratamento(): void
-    {
-        header('Content-Type: application/json');
-
-        $startDate = $this->normalizeDate($_GET['start'] ?? $_GET['data_inicio'] ?? null);
-        $endDate = $this->normalizeDate($_GET['end'] ?? $_GET['data_fim'] ?? null);
-
-        if ($startDate === null && $endDate === null) {
-            $startDate = date('Y-m-01');
-            $endDate = date('Y-m-t');
-        }
-
-        $prospeccaoModel = new Prospeccao($this->pdo);
-        $leads = $prospeccaoModel->getLeadsInTreatment($startDate, $endDate);
-
-        echo json_encode([
-            'success' => true,
-            'leads' => $leads,
-        ]);
-        exit;
-    }
-
     private function normalizeDate(?string $date): ?string
     {
         if (empty($date)) {
