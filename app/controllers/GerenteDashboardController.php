@@ -157,14 +157,24 @@ class GerenteDashboardController
             $endDate = date('Y-m-t');
         }
 
-        $prospeccaoModel = new Prospeccao($this->pdo);
-        $leads = $prospeccaoModel->getLeadsInTreatment($startDate, $endDate);
+        try {
+            $prospeccaoModel = new Prospeccao($this->pdo);
+            $leads = $prospeccaoModel->getLeadsInTreatment($startDate, $endDate);
 
-        ob_end_clean();
-        echo json_encode([
-            'success' => true,
-            'leads' => $leads,
-        ]);
+            ob_end_clean();
+            echo json_encode([
+                'success' => true,
+                'leads' => $leads,
+            ]);
+        } catch (\Throwable $exception) {
+            ob_end_clean();
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Erro ao carregar leads em tratamento.',
+                'error' => $exception->getMessage(),
+            ]);
+        }
         exit;
     }
 
