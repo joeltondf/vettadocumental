@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../models/Vendedor.php';
 require_once __DIR__ . '/../models/Processo.php';
 require_once __DIR__ . '/../models/Prospeccao.php';
+require_once __DIR__ . '/../models/User.php';
 
 class GerenteDashboardController
 {
@@ -152,5 +153,34 @@ class GerenteDashboardController
         $parsed = \DateTime::createFromFormat('Y-m-d', $date);
 
         return $parsed instanceof \DateTime ? $parsed->format('Y-m-d') : null;
+    }
+
+    public function leads(): void
+    {
+        $prospeccaoModel = new Prospeccao($this->pdo);
+        $userModel = new User($this->pdo);
+        $vendedorModel = new Vendedor($this->pdo);
+
+        $filters = [
+            'sdr_id' => $_REQUEST['sdr_id'] ?? null,
+            'vendor_id' => $_REQUEST['vendor_id'] ?? null,
+            'status' => $_REQUEST['status'] ?? null,
+            'data_inicio' => $this->normalizeDate($_REQUEST['data_inicio'] ?? null),
+            'data_fim' => $this->normalizeDate($_REQUEST['data_fim'] ?? null),
+        ];
+
+        $leads = $prospeccaoModel->getManagerLeadList($filters);
+        $sdrs = $userModel->getActiveSdrs();
+        $vendors = $vendedorModel->getAll();
+
+        $statusOptions = array_values(array_unique(array_filter(array_map(static function ($lead) {
+            return $lead['status'] ?? null;
+        }, $leads))));
+
+        $pageTitle = 'Leads em tratamento';
+
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/gerente_dashboard/lista_leads.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
     }
 }

@@ -167,6 +167,81 @@ class Prospeccao
         return $score;
     }
 
+    public function getManagerLeadList(array $filters = []): array
+    {
+        $conditions = [];
+        $params = [];
+
+        if (!empty($filters['sdr_id'])) {
+            $conditions[] = 'p.sdrId = :sdrId';
+            $params[':sdrId'] = (int) $filters['sdr_id'];
+        }
+
+        if (!empty($filters['vendor_id'])) {
+            $conditions[] = 'p.responsavel_id = :vendorId';
+            $params[':vendorId'] = (int) $filters['vendor_id'];
+        }
+
+        if (!empty($filters['status'])) {
+            $conditions[] = 'LOWER(p.status) = LOWER(:status)';
+            $params[':status'] = trim((string) $filters['status']);
+        }
+
+        if (!empty($filters['data_inicio'])) {
+            $conditions[] = 'p.data_prospeccao >= :startDate';
+            $params[':startDate'] = $filters['data_inicio'] . ' 00:00:00';
+        }
+
+        if (!empty($filters['data_fim'])) {
+            $conditions[] = 'p.data_prospeccao <= :endDate';
+            $params[':endDate'] = $filters['data_fim'] . ' 23:59:59';
+        }
+
+        $whereSql = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+
+        $sql = "SELECT
+                    p.id,
+                    p.nome_prospecto,
+                    p.status,
+                    p.data_prospeccao,
+                    p.data_ultima_atualizacao,
+                    p.qualification_score,
+                    p.valor_proposto,
+                    p.cliente_id,
+                    p.sdrId,
+                    p.responsavel_id,
+                    sdr.nome_completo AS sdrName,
+                    vendor.nome_completo AS vendorName,
+                    cli.nome_cliente,
+                    cli.is_prospect,
+                    cli.data_conversao,
+                    pr.id AS processo_id,
+                    pr.status_processo,
+                    pr.valor_total,
+                    COALESCE(SUM(CASE WHEN c.tipo_comissao = 'sdr' THEN c.valor_comissao END), 0) AS sdr_commission,
+                    COALESCE(SUM(CASE WHEN c.tipo_comissao = 'vendedor' THEN c.valor_comissao END), 0) AS vendor_commission
+                FROM prospeccoes p
+                LEFT JOIN users sdr ON p.sdrId = sdr.id
+                LEFT JOIN users vendor ON p.responsavel_id = vendor.id
+                LEFT JOIN clientes cli ON p.cliente_id = cli.id
+                LEFT JOIN processos pr ON pr.prospeccao_id = p.id
+                LEFT JOIN comissoes c ON c.venda_id = pr.id
+                {$whereSql}
+                GROUP BY p.id, p.nome_prospecto, p.status, p.data_prospeccao, p.data_ultima_atualizacao, p.qualification_score, p.valor_proposto, p.cliente_id, p.sdrId, p.responsavel_id,
+                         sdr.nome_completo, vendor.nome_completo, cli.nome_cliente, cli.is_prospect, cli.data_conversao, pr.id, pr.status_processo, pr.valor_total
+                ORDER BY p.data_prospeccao DESC";
+
+        $stmt = $this->pdo->prepare($sql);
+
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function getSdrLeadStatusSummary(?string $startDate = null, ?string $endDate = null): array
     {
         $conditions = ['p.sdrId IS NOT NULL'];
