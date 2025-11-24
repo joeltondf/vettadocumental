@@ -1,4 +1,5 @@
 <?php
+$baseAppUrl = rtrim(APP_URL, '/');
 $valoresLeads     = $valoresLeads ?? [];
 $labelsLeads      = $labelsLeads ?? [];
 $valoresPrevisto  = $valoresPrevisto ?? [];
@@ -37,7 +38,13 @@ $averageSdrConversion = $totalSdrLeads > 0 ? ($convertedSdrLeads / $totalSdrLead
 ?>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<h1 class="text-2xl font-bold text-gray-800 mb-5"><?= htmlspecialchars($pageTitle) ?></h1>
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
+  <h1 class="text-2xl font-bold text-gray-800"><?= htmlspecialchars($pageTitle) ?></h1>
+  <a href="<?= $baseAppUrl; ?>/gerente/dashboard/leads.php" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-colors">
+    <i class="fas fa-users-cog"></i>
+    <span>Leads em tratamento</span>
+  </a>
+</div>
 
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
   <div class="p-4 bg-white shadow rounded">
