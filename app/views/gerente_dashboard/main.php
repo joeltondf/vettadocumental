@@ -485,19 +485,6 @@ $averageSdrConversion = $totalSdrLeads > 0 ? ($convertedSdrLeads / $totalSdrLead
       tableBody.innerHTML = rows.join('');
     }
 
-    function escapeHtml(text) {
-      return String(text).replace(/[&<>"']/g, (char) => {
-        const map = {
-          '&': '&amp;',
-          '<': '&lt;',
-          '>': '&gt;',
-          '"': '&quot;',
-          "'": '&#039;'
-        };
-        return map[char] || char;
-      });
-    }
-
     function fetchLeads() {
       renderLoading();
       const startInput = document.querySelector('[name="data_inicio"]');
@@ -519,19 +506,9 @@ $averageSdrConversion = $totalSdrLeads > 0 ? ($convertedSdrLeads / $totalSdrLead
           if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
           }
-          return response.text();
+          return response.json();
         })
-        .then((bodyText) => {
-          let data;
-
-          try {
-            data = JSON.parse(bodyText);
-          } catch (parseError) {
-            const safeBody = escapeHtml(bodyText.trim() || 'Resposta vazia.');
-            tableBody.innerHTML = `<tr><td colspan="5" class="px-4 py-3 text-center text-red-500">Resposta inesperada do servidor:<br><pre class="whitespace-pre-wrap text-left mt-2 text-xs bg-red-50 text-red-700 p-2 rounded">${safeBody}</pre></td></tr>`;
-            return;
-          }
-
+        .then((data) => {
           if (data && data.success) {
             renderRows(data.leads || []);
           } else {
