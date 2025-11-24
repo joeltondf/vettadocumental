@@ -321,7 +321,7 @@ class Prospeccao
         $sql = "SELECT
                     p.id,
                     p.nome_prospecto,
-                    COALESCE(c.nome_cliente, p.cliente_nome, 'Cliente não informado') AS cliente_nome,
+                    COALESCE(c.nome_cliente, 'Cliente não informado') AS cliente_nome,
                     p.status AS status_atual,
                     p.sdrId AS sdr_id,
                     COALESCE(usdr.nome_completo, 'Sem SDR') AS sdr_nome,
