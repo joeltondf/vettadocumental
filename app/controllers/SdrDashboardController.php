@@ -470,10 +470,10 @@ class SdrDashboardController
                 c.nome_cliente,
                 pr.id AS processo_id,
                 pr.status_processo,
-                pr.data_ultima_atualizacao AS processo_update,
+                pr.data_atualizacao AS processo_update,
                 DATEDIFF(NOW(), p.data_ultima_atualizacao) AS dias_desde_atualizacao,
                 CASE
-                    WHEN pr.id IS NOT NULL AND pr.data_ultima_atualizacao IS NOT NULL THEN DATEDIFF(NOW(), pr.data_ultima_atualizacao)
+                    WHEN pr.id IS NOT NULL AND pr.data_atualizacao IS NOT NULL THEN DATEDIFF(NOW(), pr.data_atualizacao)
                     ELSE NULL
                 END AS dias_processo_sem_atualizacao
             FROM prospeccoes p
