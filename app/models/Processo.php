@@ -238,7 +238,7 @@ public function create($data, $files)
             postagem_quantidade, postagem_valor_unitario, observacoes,
             data_entrada, data_inicio_traducao, traducao_modalidade,
             prazo_dias, traducao_prazo_dias,
-            assinatura_tipo, tradutor_id, modalidade_assinatura,
+            assinatura_tipo, tradutor_id,
             etapa_faturamento_codigo, codigo_categoria, codigo_conta_corrente, codigo_cenario_fiscal, os_numero_conta_azul
         ) VALUES (
             :cliente_id, :colaborador_id, :vendedor_id, :prospeccao_id, :titulo, :status_processo,
@@ -250,7 +250,7 @@ public function create($data, $files)
             :postagem_quantidade, :postagem_valor_unitario, :observacoes,
             :data_entrada, :data_inicio_traducao, :traducao_modalidade,
             :prazo_dias, :traducao_prazo_dias,
-            :assinatura_tipo, :tradutor_id, :modalidade_assinatura,
+            :assinatura_tipo, :tradutor_id,
             :etapa_faturamento_codigo, :codigo_categoria, :codigo_conta_corrente, :codigo_cenario_fiscal, :os_numero_conta_azul
         )";
         $stmtProcesso = $this->pdo->prepare($sqlProcesso);
@@ -267,6 +267,9 @@ public function create($data, $files)
             $prazoDias = $traducaoPrazoDias;
         }
         $dataPrevisaoEntrega = $this->calculateDeadlineFromCreation($dataEntrada, $prazoDias);
+
+        $assinaturaSelecionada = $data['assinatura_tipo'] ?? $data['modalidade_assinatura'] ?? null;
+        $assinaturaTipo = ($assinaturaSelecionada === 'Física' || $assinaturaSelecionada === 'Assinatura Física') ? 'Física' : 'Digital';
 
         $params = [
             'cliente_id' => $data['id_cliente'] ?? $data['cliente_id'] ?? null,
@@ -299,9 +302,8 @@ public function create($data, $files)
             'traducao_modalidade' => $data['traducao_modalidade'] ?? 'Normal',
             'prazo_dias' => $prazoDias,
             'traducao_prazo_dias' => $traducaoPrazoDias,
-            'assinatura_tipo' => $data['assinatura_tipo'] ?? 'Digital',
+            'assinatura_tipo' => $assinaturaTipo,
             'tradutor_id' => $data['id_tradutor'] ?? $data['tradutor_id'] ?? null,
-            'modalidade_assinatura' => $data['modalidade_assinatura'] ?? null,
             'etapa_faturamento_codigo' => $this->sanitizeNullableString($data['etapa_faturamento_codigo'] ?? null),
             'codigo_categoria' => $this->sanitizeNullableString($data['codigo_categoria'] ?? null),
             'codigo_conta_corrente' => $this->sanitizeNullableInt($data['codigo_conta_corrente'] ?? null),
@@ -422,7 +424,7 @@ public function create($data, $files)
             $sqlProcesso = "UPDATE processos SET
                                 cliente_id = :cliente_id, vendedor_id = :vendedor_id, titulo = :titulo, status_processo = :status_processo,
                                 orcamento_origem = :orcamento_origem, categorias_servico = :categorias_servico, idioma = :idioma,
-                                modalidade_assinatura = :modalidade_assinatura, valor_total = :valor_total, orcamento_forma_pagamento = :orcamento_forma_pagamento,
+                                assinatura_tipo = :assinatura_tipo, valor_total = :valor_total, orcamento_forma_pagamento = :orcamento_forma_pagamento,
                                 orcamento_parcelas = :orcamento_parcelas, orcamento_valor_entrada = :orcamento_valor_entrada,
                                 data_pagamento_1 = :data_pagamento_1, data_pagamento_2 = :data_pagamento_2,
                                 apostilamento_quantidade = :apostilamento_quantidade, apostilamento_valor_unitario = :apostilamento_valor_unitario,
@@ -434,7 +436,10 @@ public function create($data, $files)
                                 codigo_cenario_fiscal = :codigo_cenario_fiscal
                             WHERE id = :id";
             $stmtProcesso = $this->pdo->prepare($sqlProcesso);
-            
+
+            $assinaturaSelecionada = $data['assinatura_tipo'] ?? $data['modalidade_assinatura'] ?? 'Digital';
+            $assinaturaTipo = in_array($assinaturaSelecionada, ['Física', 'Assinatura Física'], true) ? 'Física' : 'Digital';
+
             $params = [
                 'id' => $id,
                 'cliente_id' => $data['cliente_id'],
@@ -444,7 +449,7 @@ public function create($data, $files)
                 'orcamento_origem' => $data['orcamento_origem'] ?? null,
                 'categorias_servico' => isset($data['categorias_servico']) ? implode(',', $data['categorias_servico']) : null,
                 'idioma' => $data['idioma'] ?? null,
-                'modalidade_assinatura' => $data['modalidade_assinatura'] ?? null,
+                'assinatura_tipo' => $assinaturaTipo,
                 'valor_total' => $this->parseCurrency($data['valor_total_hidden'] ?? null),
                 'orcamento_forma_pagamento' => $data['orcamento_forma_pagamento'] ?? null,
                 'orcamento_parcelas' => in_array(mb_strtolower($data['orcamento_forma_pagamento'] ?? ''), ['à vista', 'pagamento único', 'pagamento unico'], true)

@@ -319,7 +319,7 @@ $prospectionLabel = $prospectionCode !== ''
                         <h3 class="font-semibold text-blue-800">Tradução</h3>
                         <div class="grid grid-cols-2 gap-4 mt-2 text-sm">
                             <p><strong>Idioma:</strong> <?php echo htmlspecialchars($processo['idioma'] ?? 'N/A'); ?></p>
-                            <p><strong>Assinatura:</strong> <?php echo htmlspecialchars($processo['modalidade_assinatura'] ?? 'N/A'); ?></p>
+                            <p><strong>Assinatura:</strong> <?php echo htmlspecialchars($processo['assinatura_tipo'] ?? 'N/A'); ?></p>
                         </div>
                     </div>
                 <?php endif; ?>
