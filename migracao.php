@@ -130,10 +130,10 @@ try {
                 'observacoes' => $meta['orc-observacao'] ?? null,
                 'data_criacao' => $post['post_date'],
                 'data_atualizacao' => $post['post_modified'],
-                
+
                 // --- CAMPOS MAPEADOS ANTERIORMENTE ---
                 'orcamento_origem' => $meta['crc-origem-orcamento'] ?? null,
-                'modalidade_assinatura' => $meta['orc-idioma-traducao'] ?? null,
+                'assinatura_tipo' => in_array($meta['orc-idioma-traducao'] ?? null, ['Assinatura Física', 'Física'], true) ? 'Física' : 'Digital',
                 'data_inicio_traducao' => !empty($meta['data-de-envio']) ? $meta['data-de-envio'] : null,
                 'traducao_prazo_tipo' => $prazoTipoMap[$meta['tipo-de-prazo'] ?? ''] ?? 'dias',
                 'traducao_prazo_dias' => $meta['soma-data-cliente'] ?? null,
@@ -158,17 +158,17 @@ try {
             
             // Query de inserção ATUALIZADA com os novos campos
             $sqlProcesso = "INSERT INTO processos (
-                                cliente_id, colaborador_id, vendedor_id, tradutor_id, titulo, status_processo, 
-                                categorias_servico, observacoes, data_criacao, data_atualizacao, orcamento_origem, 
-                                modalidade_assinatura, data_inicio_traducao, traducao_prazo_tipo, traducao_prazo_dias,
+                                cliente_id, colaborador_id, vendedor_id, tradutor_id, titulo, status_processo,
+                                categorias_servico, observacoes, data_criacao, data_atualizacao, orcamento_origem,
+                                assinatura_tipo, data_inicio_traducao, traducao_prazo_tipo, traducao_prazo_dias,
                                 data_previsao_entrega, os_numero_conta_azul, orcamento_forma_pagamento,
-                                orcamento_parcelas, orcamento_valor_entrada, orcamento_valor_restante, 
+                                orcamento_parcelas, orcamento_valor_entrada, orcamento_valor_restante,
                                 orcamento_comprovante_url, data_devolucao_assinatura, valor_total,
                                 data_envio_assinatura, data_envio_cartorio
                             ) VALUES (
                                 :cliente_id, :colaborador_id, :vendedor_id, :tradutor_id, :titulo, :status_processo,
                                 :categorias_servico, :observacoes, :data_criacao, :data_atualizacao, :orcamento_origem,
-                                :modalidade_assinatura, :data_inicio_traducao, :traducao_prazo_tipo, :traducao_prazo_dias,
+                                :assinatura_tipo, :data_inicio_traducao, :traducao_prazo_tipo, :traducao_prazo_dias,
                                 :data_previsao_entrega, :os_numero_conta_azul, :orcamento_forma_pagamento,
                                 :orcamento_parcelas, :orcamento_valor_entrada, :orcamento_valor_restante,
                                 :orcamento_comprovante_url, :data_devolucao_assinatura, :valor_total,

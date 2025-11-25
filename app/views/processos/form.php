@@ -337,11 +337,10 @@ $postagemValorUnitario = $formatCurrencyInput($processo['postagem_valor_unitario
                     </select>
                 </div>
                 <div>
-                    <label for="modalidade_assinatura" class="block text-sm font-medium text-gray-700">Modalidade da Assinatura</label>
-                    <select name="modalidade_assinatura" id="modalidade_assinatura" class="mt-1 block w-full p-2 border border-blue-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                        <option value="">Selecione a modalidade</option>
-                        <option value="Assinatura Digital" <?php echo (($processo['modalidade_assinatura'] ?? '') == 'Assinatura Digital') ? 'selected' : ''; ?>>Assinatura Digital</option>
-                        <option value="Assinatura Física" <?php echo (($processo['modalidade_assinatura'] ?? '') == 'Assinatura Física') ? 'selected' : ''; ?>>Assinatura Física</option>
+                    <label for="assinatura_tipo" class="block text-sm font-medium text-gray-700">Modalidade da Assinatura</label>
+                    <select name="assinatura_tipo" id="assinatura_tipo" class="mt-1 block w-full p-2 border border-blue-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        <option value="Digital" <?php echo (($processo['assinatura_tipo'] ?? '') === 'Digital') ? 'selected' : ''; ?>>Assinatura Digital</option>
+                        <option value="Física" <?php echo (($processo['assinatura_tipo'] ?? '') === 'Física') ? 'selected' : ''; ?>>Assinatura Física</option>
                     </select>
                 </div>
             </div>
