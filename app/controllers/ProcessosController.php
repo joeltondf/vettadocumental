@@ -92,6 +92,96 @@ class ProcessosController
         );
     }
 
+    private function buildProcessDiffDescription(array $processoOriginal, array $dadosAtualizados): string
+    {
+        $campos = [
+            ['key' => 'titulo', 'label' => 'título'],
+            ['key' => 'status_processo', 'label' => 'status'],
+            ['key' => 'cliente_id', 'label' => 'cliente'],
+            ['key' => 'vendedor_id', 'label' => 'vendedor'],
+            ['key' => 'orcamento_origem', 'label' => 'origem do orçamento'],
+            ['key' => 'categorias_servico', 'label' => 'categorias de serviço', 'type' => 'list'],
+            ['key' => 'idioma', 'label' => 'idioma'],
+            ['key' => 'assinatura_tipo', 'label' => 'modalidade de assinatura', 'updatedKey' => 'assinatura_tipo', 'fallback' => 'modalidade_assinatura'],
+            ['key' => 'valor_total', 'label' => 'valor total', 'updatedKey' => 'valor_total_hidden', 'type' => 'currency'],
+            ['key' => 'orcamento_forma_pagamento', 'label' => 'forma de pagamento'],
+            ['key' => 'orcamento_parcelas', 'label' => 'parcelas'],
+            ['key' => 'orcamento_valor_entrada', 'label' => 'valor de entrada', 'type' => 'currency'],
+            ['key' => 'data_pagamento_1', 'label' => 'data de pagamento 1', 'type' => 'date'],
+            ['key' => 'data_pagamento_2', 'label' => 'data de pagamento 2', 'type' => 'date'],
+            ['key' => 'apostilamento_quantidade', 'label' => 'apostilamento quantidade'],
+            ['key' => 'apostilamento_valor_unitario', 'label' => 'apostilamento valor unitário', 'type' => 'currency'],
+            ['key' => 'postagem_quantidade', 'label' => 'postagem quantidade'],
+            ['key' => 'postagem_valor_unitario', 'label' => 'postagem valor unitário', 'type' => 'currency'],
+            ['key' => 'observacoes', 'label' => 'observações'],
+            ['key' => 'etapa_faturamento_codigo', 'label' => 'etapa faturamento'],
+            ['key' => 'codigo_categoria', 'label' => 'categoria financeira'],
+            ['key' => 'codigo_conta_corrente', 'label' => 'conta corrente'],
+            ['key' => 'codigo_cenario_fiscal', 'label' => 'cenário fiscal'],
+        ];
+
+        $diferencas = [];
+
+        foreach ($campos as $campo) {
+            $tipo = $campo['type'] ?? null;
+            $valorOriginal = $processoOriginal[$campo['key']] ?? null;
+            $valorAtualizado = $this->getUpdatedFieldValue($dadosAtualizados, $campo);
+
+            $valorOriginalFormatado = $this->normalizeProcessDiffValue($valorOriginal, $tipo);
+            $valorAtualizadoFormatado = $this->normalizeProcessDiffValue($valorAtualizado, $tipo);
+
+            if ($valorOriginalFormatado === $valorAtualizadoFormatado) {
+                continue;
+            }
+
+            $diferencas[] = $campo['label'] . ' de: ' . $valorOriginalFormatado . ' para: ' . $valorAtualizadoFormatado;
+        }
+
+        return empty($diferencas) ? 'Nenhuma alteração significativa.' : implode('; ', $diferencas);
+    }
+
+    private function getUpdatedFieldValue(array $dadosAtualizados, array $campo)
+    {
+        if (isset($campo['updatedKey']) && array_key_exists($campo['updatedKey'], $dadosAtualizados)) {
+            return $dadosAtualizados[$campo['updatedKey']];
+        }
+
+        if (isset($campo['fallback']) && array_key_exists($campo['fallback'], $dadosAtualizados)) {
+            return $dadosAtualizados[$campo['fallback']];
+        }
+
+        return $dadosAtualizados[$campo['key']] ?? null;
+    }
+
+    private function normalizeProcessDiffValue($valor, ?string $tipo = null): string
+    {
+        if ($valor === null || $valor === '') {
+            return 'vazio';
+        }
+
+        if ($tipo === 'date') {
+            try {
+                return (new DateTime($valor))->format('d/m/Y');
+            } catch (Exception $e) {
+                return (string)$valor;
+            }
+        }
+
+        if ($tipo === 'currency') {
+            $numerico = $this->parseCurrencyValue($valor);
+            return $numerico === null ? 'vazio' : number_format($numerico, 2, ',', '.');
+        }
+
+        if ($tipo === 'list') {
+            $valores = is_array($valor) ? $valor : explode(',', (string)$valor);
+            $valores = array_filter(array_map('trim', $valores), static fn($item) => $item !== '');
+            sort($valores);
+            return empty($valores) ? 'vazio' : implode(', ', $valores);
+        }
+
+        return (string)$valor;
+    }
+
     // -----------------------------------------------------------------------
     // Métodos de ação pública
     // -----------------------------------------------------------------------
@@ -494,10 +584,11 @@ class ProcessosController
                 $this->queueBudgetEmails($id_existente, $_SESSION['user_id'] ?? null);
             }
 
+            $diffDescription = $this->buildProcessDiffDescription($processoOriginal, $dadosParaAtualizar);
             $this->registerLog(
                 $id_existente,
                 'update',
-                'Processo atualizado: ' . ($dadosParaAtualizar['titulo'] ?? $processoOriginal['titulo'] ?? ('ID ' . $id_existente))
+                $diffDescription
             );
         } else {
             $_SESSION['error_message'] = $_SESSION['error_message'] ?? "Ocorreu um erro ao atualizar o processo.";
