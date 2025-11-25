@@ -92,6 +92,16 @@ $selectedStatusInfo = seller_normalize_status_info($filters['status'] ?? '');
 $selectedStatusNormalized = $selectedStatusInfo['normalized'];
 $nextLead = $nextLead ?? null;
 $vendorLeads = $vendorLeads ?? [];
+$gestorVendedorId = isset($_GET['vendedor_id']) ? (int) $_GET['vendedor_id'] : null;
+$dashboardVendedorUrlWithVendor = $gestorVendedorId ? $dashboardVendedorUrl . '?vendedor_id=' . $gestorVendedorId : $dashboardVendedorUrl;
+$listarOrcamentosUrl = $dashboardVendedorUrlWithVendor . ($gestorVendedorId ? '&action=listar_orcamentos' : '?action=listar_orcamentos');
+$listarServicosUrl = $dashboardVendedorUrlWithVendor . ($gestorVendedorId ? '&action=listar_servicos' : '?action=listar_servicos');
+$orcamentosResumo = array_slice($orcamentosMesAtual ?? [], 0, 5);
+$servicosResumo = array_slice($servicosMesAtual ?? [], 0, 5);
+$servicosAtivosResumo = array_slice($servicosAtivosMesAnterior ?? [], 0, 5);
+$orcamentosPossuemMais = count($orcamentosMesAtual ?? []) > 5;
+$servicosPossuemMais = count($servicosMesAtual ?? []) > 5;
+$servicosAtivosPossuemMais = count($servicosAtivosMesAnterior ?? []) > 5;
 ?>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
@@ -100,11 +110,11 @@ $vendorLeads = $vendorLeads ?? [];
         <p class="mt-1 text-gray-600">Bem-vindo(a), <?php echo htmlspecialchars($_SESSION['user_nome'] ?? ''); ?>! Acompanhe sua performance e atividades.</p>
     </div>
     <div class="flex flex-wrap gap-3">
-        <a href="<?php echo $baseAppUrl; ?>/processos.php?action=create&amp;return_to=<?php echo urlencode($dashboardVendedorUrl); ?>" class="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors">
+        <a href="<?php echo $baseAppUrl; ?>/processos.php?action=create&amp;return_to=<?php echo urlencode($dashboardVendedorUrlWithVendor); ?>" class="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors">
             <i class="fas fa-file-signature mr-2"></i> Criar Orçamento
         </a>
         <?php if ($currentUserPerfil === 'vendedor'): ?>
-            <a href="<?php echo $baseAppUrl; ?>/clientes.php?action=create&amp;return_to=<?php echo urlencode($dashboardVendedorUrl); ?>" class="inline-flex items-center bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors">
+            <a href="<?php echo $baseAppUrl; ?>/clientes.php?action=create&amp;return_to=<?php echo urlencode($dashboardVendedorUrlWithVendor); ?>" class="inline-flex items-center bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors">
                 <i class="fas fa-user-plus mr-2"></i> Novo Cliente
             </a>
         <?php endif; ?>
@@ -114,7 +124,15 @@ $vendorLeads = $vendorLeads ?? [];
     </div>
 </div>
 
-<div class="mb-8">
+<nav class="flex flex-wrap gap-4 text-sm mb-6">
+  <a href="#meu-proximo-lead" class="text-blue-600 hover:underline">Próximo Lead</a>
+  <a href="#leads-em-acompanhamento" class="text-blue-600 hover:underline">Leads</a>
+  <a href="#orcamentos-resumo" class="text-blue-600 hover:underline">Orçamentos</a>
+  <a href="#servicos-resumo" class="text-blue-600 hover:underline">Serviços</a>
+  <a href="#meus-processos" class="text-blue-600 hover:underline">Processos</a>
+</nav>
+
+<div class="mb-8" id="meu-proximo-lead">
     <h2 class="text-lg font-semibold text-gray-700 mb-3">Próximo lead</h2>
     <div class="bg-white p-5 rounded-lg shadow-md border border-gray-200">
         <?php if ($nextLead): ?>
@@ -139,7 +157,7 @@ $vendorLeads = $vendorLeads ?? [];
     </div>
 </div>
 
-<div class="mb-8">
+<div class="mb-8" id="leads-em-acompanhamento">
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
         <h2 class="text-lg font-semibold text-gray-700">Leads em acompanhamento</h2>
         <?php if (!empty($vendorLeads)): ?>
@@ -247,13 +265,13 @@ $vendorLeads = $vendorLeads ?? [];
     </div>
 </div>
 
-<div class="space-y-6 mb-8">
+<div class="space-y-6 mb-8" id="orcamentos-resumo">
     <div class="bg-white shadow-md rounded-lg border border-gray-200">
         <div class="px-6 py-4 border-b">
             <h3 class="text-lg font-semibold text-gray-800">Orçamentos - Mês atual</h3>
         </div>
         <div class="p-4">
-            <?php if (empty($orcamentosMesAtual)): ?>
+            <?php if (empty($orcamentosResumo)): ?>
                 <p class="text-sm text-gray-500 text-center py-6">Nenhum orçamento registrado neste mês.</p>
             <?php else: ?>
                 <div class="overflow-x-auto">
@@ -269,7 +287,7 @@ $vendorLeads = $vendorLeads ?? [];
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
-                            <?php foreach ($orcamentosMesAtual as $orcamento): ?>
+                            <?php foreach ($orcamentosResumo as $orcamento): ?>
                                 <?php
                                     $codigo = !empty($orcamento['orcamento_numero']) ? $orcamento['orcamento_numero'] : $orcamento['id'];
                                     $statusInfo = seller_normalize_status_info($orcamento['status_processo'] ?? '');
@@ -301,16 +319,21 @@ $vendorLeads = $vendorLeads ?? [];
                         </tbody>
                     </table>
                 </div>
+                <?php if ($orcamentosPossuemMais): ?>
+                    <div class="mt-4 text-right">
+                        <a href="<?php echo $listarOrcamentosUrl; ?>" class="text-blue-600 hover:underline font-semibold">Ver todos os orçamentos</a>
+                    </div>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     </div>
 
-    <div class="bg-white shadow-md rounded-lg border border-gray-200">
+    <div class="bg-white shadow-md rounded-lg border border-gray-200" id="servicos-resumo">
         <div class="px-6 py-4 border-b">
             <h3 class="text-lg font-semibold text-gray-800">Serviços - Mês atual</h3>
         </div>
         <div class="p-4">
-            <?php if (empty($servicosMesAtual)): ?>
+            <?php if (empty($servicosResumo)): ?>
                 <p class="text-sm text-gray-500 text-center py-6">Nenhum serviço aberto neste mês.</p>
             <?php else: ?>
                 <div class="overflow-x-auto">
@@ -328,7 +351,7 @@ $vendorLeads = $vendorLeads ?? [];
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
-                            <?php foreach ($servicosMesAtual as $servico): ?>
+                            <?php foreach ($servicosResumo as $servico): ?>
                                 <?php
                                     $codigo = !empty($servico['orcamento_numero']) ? $servico['orcamento_numero'] : $servico['id'];
                                     $statusInfo = seller_normalize_status_info($servico['status_processo'] ?? '');
@@ -362,6 +385,11 @@ $vendorLeads = $vendorLeads ?? [];
                         </tbody>
                     </table>
                 </div>
+                <?php if ($servicosPossuemMais): ?>
+                    <div class="mt-4 text-right">
+                        <a href="<?php echo $listarServicosUrl; ?>" class="text-blue-600 hover:underline font-semibold">Ver todos os serviços</a>
+                    </div>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     </div>
@@ -371,7 +399,7 @@ $vendorLeads = $vendorLeads ?? [];
             <h3 class="text-lg font-semibold text-gray-800">Serviços em andamento - Iniciados no mês anterior</h3>
         </div>
         <div class="p-4">
-            <?php if (empty($servicosAtivosMesAnterior)): ?>
+            <?php if (empty($servicosAtivosResumo)): ?>
                 <p class="text-sm text-gray-500 text-center py-6">Nenhum serviço ativo iniciado no mês anterior.</p>
             <?php else: ?>
                 <div class="overflow-x-auto">
@@ -389,7 +417,7 @@ $vendorLeads = $vendorLeads ?? [];
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
-                            <?php foreach ($servicosAtivosMesAnterior as $servicoAnterior): ?>
+                            <?php foreach ($servicosAtivosResumo as $servicoAnterior): ?>
                                 <?php
                                     $codigo = !empty($servicoAnterior['orcamento_numero']) ? $servicoAnterior['orcamento_numero'] : $servicoAnterior['id'];
                                     $statusInfo = seller_normalize_status_info($servicoAnterior['status_processo'] ?? '');
@@ -423,12 +451,17 @@ $vendorLeads = $vendorLeads ?? [];
                         </tbody>
                     </table>
                 </div>
+                <?php if ($servicosAtivosPossuemMais): ?>
+                    <div class="mt-4 text-right">
+                        <a href="<?php echo $listarServicosUrl; ?>" class="text-blue-600 hover:underline font-semibold">Ver todos os serviços</a>
+                    </div>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     </div>
 </div>
 
-<div class="w-full bg-white p-5 rounded-lg shadow-xl border border-gray-200 mb-6">
+<div class="w-full bg-white p-5 rounded-lg shadow-xl border border-gray-200 mb-6" id="meus-processos">
     <h4 class="text-xl font-bold text-gray-800 mb-5 border-b pb-2">Filtrar Meus Processos</h4>
     <form action="dashboard_vendedor.php" method="GET" id="filter-form">
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-5">
