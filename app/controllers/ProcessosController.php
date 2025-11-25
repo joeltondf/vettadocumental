@@ -23,6 +23,7 @@ require_once __DIR__ . '/../models/CategoriaFinanceira.php';
 require_once __DIR__ . '/../models/LancamentoFinanceiro.php';
 require_once __DIR__ . '/../services/EmailService.php';
 require_once __DIR__ . '/../models/Notificacao.php';
+require_once __DIR__ . '/../models/SistemaLog.php';
 require_once __DIR__ . '/../utils/DocumentValidator.php';
 require_once __DIR__ . '/../utils/OmiePayloadBuilder.php';
 require_once __DIR__ . '/../utils/ProcessStatus.php';
@@ -47,6 +48,7 @@ class ProcessosController
     private $omieService;
     private $notificacaoModel;
     private $emailService;
+    private $logModel;
     private ?int $defaultVendorIdCache = null;
     private bool $defaultVendorResolved = false;
 
@@ -68,10 +70,26 @@ class ProcessosController
         $this->omieService = new OmieService($this->configModel, $pdo);
         $this->notificacaoModel = new Notificacao($pdo);
         $this->emailService = new EmailService($pdo);
+        $this->logModel = new SistemaLog($pdo);
 
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
+    }
+
+    private function registerLog($registroId, string $acao, string $descricao): void
+    {
+        if (!$registroId || empty($_SESSION['user_id'])) {
+            return;
+        }
+
+        $this->logModel->register(
+            (int) $_SESSION['user_id'],
+            'processos',
+            (int) $registroId,
+            $acao,
+            $descricao
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -288,6 +306,11 @@ class ProcessosController
                         $_SESSION['error_message'] = $exception->getMessage();
                         unset($_SESSION['success_message']);
                     }
+                    $this->registerLog(
+                        $processoId,
+                        'create',
+                        'Serviço rápido criado: ' . ($dadosParaSalvar['titulo'] ?? ('ID ' . $processoId))
+                    );
                     if (in_array($dadosParaSalvar['status_processo'], [ProcessStatus::SERVICE_IN_PROGRESS, 'Serviço Pendente'], true)) {
                         $this->queueServiceOrderGeneration($processoId);
                     }
@@ -349,6 +372,12 @@ class ProcessosController
                 if ($this->shouldGenerateOmieOs($status_inicial)) {
                     $this->queueServiceOrderGeneration($novo_id);
                 }
+
+                $this->registerLog(
+                    $novo_id,
+                    'create',
+                    'Processo criado: ' . ($dadosProcesso['titulo'] ?? $dadosProcesso['orcamento_numero'] ?? ('ID ' . $novo_id))
+                );
 
                 $_SESSION['message'] = $mensagemSucesso;
                 $_SESSION['success_message'] = $mensagemSucesso;
@@ -464,6 +493,12 @@ class ProcessosController
             if ($this->isBudgetStatus($novoStatus)) {
                 $this->queueBudgetEmails($id_existente, $_SESSION['user_id'] ?? null);
             }
+
+            $this->registerLog(
+                $id_existente,
+                'update',
+                'Processo atualizado: ' . ($dadosParaAtualizar['titulo'] ?? $processoOriginal['titulo'] ?? ('ID ' . $id_existente))
+            );
         } else {
             $_SESSION['error_message'] = $_SESSION['error_message'] ?? "Ocorreu um erro ao atualizar o processo.";
         }
@@ -574,6 +609,7 @@ class ProcessosController
 
         if ($this->processoModel->deleteProcesso($id)) {
             $_SESSION['success_message'] = "Processo excluído com sucesso!";
+            $this->registerLog($id, 'delete', 'Processo excluído');
         } else {
             $_SESSION['error_message'] = "Erro ao excluir o processo.";
         }
