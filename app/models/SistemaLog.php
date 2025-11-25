@@ -9,9 +9,13 @@ class SistemaLog
         $this->pdo = $pdo;
     }
 
-    public function register($userId, $tabela, $registroId, $acao, $descricao): bool
+    public function register($userId, $tabela, $registroId, $acao, $descricao, $timestamp = null): bool
     {
-        $sql = "INSERT INTO sistema_logs (user_id, tabela, registro_id, acao, descricao, data_operacao) VALUES (:user_id, :tabela, :registro_id, :acao, :descricao, NOW())";
+        $timestamp = $timestamp ?? (new DateTime('now', new DateTimeZone('UTC')))
+            ->modify('-3 hours')
+            ->format('Y-m-d H:i:s');
+
+        $sql = "INSERT INTO sistema_logs (user_id, tabela, registro_id, acao, descricao, data_operacao) VALUES (:user_id, :tabela, :registro_id, :acao, :descricao, :data_operacao)";
         $stmt = $this->pdo->prepare($sql);
 
         return $stmt->execute([
@@ -20,6 +24,7 @@ class SistemaLog
             ':registro_id' => $registroId,
             ':acao' => $acao,
             ':descricao' => $descricao,
+            ':data_operacao' => $timestamp,
         ]);
     }
 

@@ -54,6 +54,55 @@ class ClientesController
         );
     }
 
+    private function buildClientDiffDescription(array $originalCliente, array $novoCliente): string
+    {
+        $campos = [
+            'nome_cliente' => 'nome',
+            'nome_responsavel' => 'nome do responsável',
+            'cpf_cnpj' => 'CPF/CNPJ',
+            'email' => 'email',
+            'telefone' => 'telefone',
+            'telefone_ddi' => 'telefone DDI',
+            'telefone_ddd' => 'telefone DDD',
+            'telefone_numero' => 'telefone número',
+            'endereco' => 'endereço',
+            'numero' => 'número',
+            'bairro' => 'bairro',
+            'cidade' => 'cidade',
+            'estado' => 'estado',
+            'cep' => 'CEP',
+            'tipo_pessoa' => 'tipo de pessoa',
+            'tipo_assessoria' => 'tipo de assessoria',
+            'tipo_servico' => 'tipo de serviço',
+            'prazo_acordado_dias' => 'prazo acordado (dias)',
+            'user_nome_completo' => 'nome do usuário',
+            'user_email' => 'email do usuário',
+        ];
+
+        $diferencas = [];
+        foreach ($campos as $campo => $rotulo) {
+            $valorOriginal = $originalCliente[$campo] ?? null;
+            $valorNovo = $novoCliente[$campo] ?? null;
+
+            if ($valorOriginal === $valorNovo) {
+                continue;
+            }
+
+            $diferencas[] = $rotulo . ' de: ' . $this->formatClientDiffValue($valorOriginal) . ' para: ' . $this->formatClientDiffValue($valorNovo);
+        }
+
+        return empty($diferencas) ? 'Nenhuma alteração significativa.' : implode('; ', $diferencas);
+    }
+
+    private function formatClientDiffValue($valor): string
+    {
+        if ($valor === null || $valor === '') {
+            return 'vazio';
+        }
+
+        return (string)$valor;
+    }
+
     // ... (index, create, edit, delete, sendWelcomeEmail - permanecem inalterados) ...
     public function index()
     {
@@ -234,6 +283,7 @@ class ClientesController
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id = $_POST['id'];
             $data = $_POST;
+            $originalCliente = $this->clienteModel->getById($id);
             $returnTo = trim((string)($data['return_to'] ?? 'clientes.php'));
 
             if (isset($data['tipo_pessoa']) && $data['tipo_pessoa'] === 'Física') {
@@ -268,8 +318,8 @@ class ClientesController
 
             if ($result === true) {
                 $_SESSION['success_message'] = "Cliente atualizado com sucesso!";
-
-                $this->registerLog((int) $id, 'update', 'Cliente atualizado: ' . ($data['nome_cliente'] ?? ('ID ' . $id)));
+                $diffDescription = $this->buildClientDiffDescription($originalCliente ?? [], $data);
+                $this->registerLog((int) $id, 'update', $diffDescription);
 
                 $sincronizarOmie = isset($_POST['sincronizar_omie']) ? (bool)$_POST['sincronizar_omie'] : false;
                 $this->syncUpdatedClientWithOmie((int)$id, $sincronizarOmie);
