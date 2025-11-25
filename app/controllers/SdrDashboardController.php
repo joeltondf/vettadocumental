@@ -445,6 +445,57 @@ class SdrDashboardController
         require_once __DIR__ . '/../views/layouts/footer.php';
     }
 
+    public function listarLeadsTratamento(): void
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        $userId = (int) ($_SESSION['user_id'] ?? 0);
+        $userProfile = $_SESSION['user_perfil'] ?? '';
+
+        if ($userId <= 0 || $userProfile !== 'sdr') {
+            header('Location: ' . APP_URL . '/dashboard.php');
+            exit();
+        }
+
+        $query = "
+            SELECT
+                p.id,
+                p.nome_prospecto,
+                p.status,
+                p.data_prospeccao,
+                p.data_ultima_atualizacao,
+                COALESCE(v.nome_completo, 'Sistema') AS vendor_name,
+                c.nome_cliente,
+                pr.id AS processo_id,
+                pr.status_processo,
+                pr.data_ultima_atualizacao AS processo_update,
+                DATEDIFF(NOW(), p.data_ultima_atualizacao) AS dias_desde_atualizacao,
+                CASE
+                    WHEN pr.id IS NOT NULL AND pr.data_ultima_atualizacao IS NOT NULL THEN DATEDIFF(NOW(), pr.data_ultima_atualizacao)
+                    ELSE NULL
+                END AS dias_processo_sem_atualizacao
+            FROM prospeccoes p
+            LEFT JOIN users v ON p.responsavel_id = v.id
+            LEFT JOIN clientes c ON p.cliente_id = c.id
+            LEFT JOIN processos pr ON pr.prospeccao_id = p.id
+            WHERE p.sdrId = :sdrId AND (p.status IS NOT NULL AND LOWER(p.status) <> 'novo')
+            ORDER BY p.data_ultima_atualizacao DESC, p.id DESC
+        ";
+
+        $stmt = $this->pdo->prepare($query);
+        $stmt->bindValue(':sdrId', $userId, PDO::PARAM_INT);
+        $stmt->execute();
+        $leads = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $pageTitle = 'Leads em Tratamento';
+
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/sdr_dashboard/lista_leads_tratamento.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+
     public function updateKanbanColumns(): void
     {
         header('Content-Type: application/json');
