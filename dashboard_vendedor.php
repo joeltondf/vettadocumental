@@ -23,6 +23,8 @@ if ($action === 'listar_orcamentos') {
     $controller->listarOrcamentos();
 } elseif ($action === 'listar_servicos') {
     $controller->listarServicos();
+} elseif ($action === 'listar_processos') {
+    $controller->listarProcessos();
 } else {
     $controller->index();
 }

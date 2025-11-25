@@ -179,6 +179,32 @@ class VendedorDashboardController
         require_once __DIR__ . '/../views/layouts/footer.php';
     }
 
+    public function listarProcessos(): void
+    {
+        $processoModel = new Processo($this->pdo);
+        $clienteModel = new Cliente($this->pdo);
+        $comissaoModel = new Comissao($this->pdo);
+
+        [$vendedorId, , ] = $this->resolveVendedorContext();
+
+        $filters = $this->buildFiltersFromRequest($_GET ?? []);
+        $filters['vendedor_id'] = $vendedorId;
+
+        $totalProcessesCount = $processoModel->getTotalFilteredProcessesCount($filters);
+        $limit = $totalProcessesCount > 0 ? $totalProcessesCount : 0;
+        $processos = $limit > 0 ? $processoModel->getFilteredProcesses($filters, $limit, 0) : [];
+        $processos = $this->appendCommissions($processos, $vendedorId, $comissaoModel);
+
+        $clientesParaFiltro = $clienteModel->getAll();
+        $pageTitle = 'Todos os Processos';
+        $currentVendedorId = $vendedorId;
+        $filtrosAtuais = $this->cleanFilterValues($_GET ?? []);
+
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/vendedor_dashboard/lista_processos.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+
     private function buildFiltersFromRequest(array $request): array
     {
         $allowedKeys = ['titulo', 'cliente_id', 'os_numero', 'tipo_servico', 'status', 'data_inicio', 'data_fim', 'filtro_card'];
