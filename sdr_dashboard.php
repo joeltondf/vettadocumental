@@ -18,6 +18,8 @@ if ($action === 'update_lead_status') {
     $controller->updateKanbanColumns();
 } elseif ($action === 'create_lead') {
     $controller->createLead();
+} elseif ($action === 'listar_leads_tratamento') {
+    $controller->listarLeadsTratamento();
 } else {
     $controller->index();
 }

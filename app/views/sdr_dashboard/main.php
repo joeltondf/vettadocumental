@@ -46,6 +46,10 @@ if (!$hasUnassigned) {
         <a href="<?php echo $baseAppUrl; ?>/sdr_dashboard.php?action=listar_leads" class="inline-flex items-center bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors">
             <i class="fas fa-stream mr-2"></i> Meus Leads
         </a>
+        <a href="<?= $baseAppUrl; ?>/sdr_dashboard.php?action=listar_leads_tratamento"
+           class="inline-flex items-center bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors">
+            <i class="fas fa-clipboard-list mr-2"></i> Tratamento
+        </a>
     </div>
 </div>
 
