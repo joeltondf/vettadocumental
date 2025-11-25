@@ -1472,6 +1472,62 @@ public function create($data, $files)
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
+    public function getVendorBudgets(int $vendorId, ?string $startDate = null, ?string $endDate = null, array $filters = []): array
+    {
+        $sdrExpression = $this->getSdrIdSelectExpression();
+
+        $sql = "SELECT
+                    p.id,
+                    p.orcamento_numero,
+                    p.titulo,
+                    p.categorias_servico,
+                    p.status_processo,
+                    p.data_criacao,
+                    p.valor_total,
+                    {$sdrExpression} AS sdr_id,
+                    c.nome_cliente
+                FROM processos p
+                INNER JOIN clientes c ON c.id = p.cliente_id
+                WHERE p.vendedor_id = :vendorId
+                  AND p.status_processo IN ('Orçamento', 'Orçamento Pendente')";
+
+        $params = [
+            ':vendorId' => $vendorId,
+        ];
+
+        if (!empty($startDate)) {
+            $sql .= " AND p.data_criacao >= :startDate";
+            $params[':startDate'] = $startDate;
+        }
+
+        if (!empty($endDate)) {
+            $sql .= " AND p.data_criacao <= :endDate";
+            $params[':endDate'] = $endDate;
+        }
+
+        if (!empty($filters['cliente_id'])) {
+            $sql .= " AND p.cliente_id = :clienteId";
+            $params[':clienteId'] = (int) $filters['cliente_id'];
+        }
+
+        if (!empty($filters['status'])) {
+            $sql .= " AND p.status_processo = :status";
+            $params[':status'] = $filters['status'];
+        }
+
+        if (!empty($filters['titulo'])) {
+            $sql .= " AND p.titulo LIKE :titulo";
+            $params[':titulo'] = '%' . $filters['titulo'] . '%';
+        }
+
+        $sql .= " ORDER BY p.data_criacao DESC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
     public function getVendorServicesByMonth(int $vendorId, string $monthStart, string $monthEnd): array
     {
         $sdrExpression = $this->getSdrIdSelectExpression();
@@ -1498,6 +1554,62 @@ public function create($data, $files)
         $stmt->bindValue(':monthStart', $monthStart);
         $stmt->bindValue(':monthEnd', $monthEnd);
         $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function getVendorServices(int $vendorId, ?string $startDate = null, ?string $endDate = null, array $filters = []): array
+    {
+        $sdrExpression = $this->getSdrIdSelectExpression();
+
+        $sql = "SELECT
+                    p.id,
+                    p.orcamento_numero,
+                    p.titulo,
+                    p.categorias_servico,
+                    p.status_processo,
+                    p.data_criacao,
+                    p.valor_total,
+                    {$sdrExpression} AS sdr_id,
+                    c.nome_cliente
+                FROM processos p
+                INNER JOIN clientes c ON c.id = p.cliente_id
+                WHERE p.vendedor_id = :vendorId
+                  AND p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Recusado', 'Finalizado')";
+
+        $params = [
+            ':vendorId' => $vendorId,
+        ];
+
+        if (!empty($startDate)) {
+            $sql .= " AND p.data_criacao >= :startDate";
+            $params[':startDate'] = $startDate;
+        }
+
+        if (!empty($endDate)) {
+            $sql .= " AND p.data_criacao <= :endDate";
+            $params[':endDate'] = $endDate;
+        }
+
+        if (!empty($filters['cliente_id'])) {
+            $sql .= " AND p.cliente_id = :clienteId";
+            $params[':clienteId'] = (int) $filters['cliente_id'];
+        }
+
+        if (!empty($filters['status'])) {
+            $sql .= " AND p.status_processo = :status";
+            $params[':status'] = $filters['status'];
+        }
+
+        if (!empty($filters['titulo'])) {
+            $sql .= " AND p.titulo LIKE :titulo";
+            $params[':titulo'] = '%' . $filters['titulo'] . '%';
+        }
+
+        $sql .= " ORDER BY p.data_criacao DESC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
