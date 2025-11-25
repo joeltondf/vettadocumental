@@ -9,6 +9,7 @@ require_once __DIR__ . '/../services/EmailService.php';
 require_once __DIR__ . '/../models/CategoriaFinanceira.php';
 require_once __DIR__ . '/../services/OmieService.php';
 require_once __DIR__ . '/../models/Configuracao.php';
+require_once __DIR__ . '/../models/SistemaLog.php';
 require_once __DIR__ . '/../utils/PhoneUtils.php';
 require_once __DIR__ . '/../utils/OmiePayloadBuilder.php';
 require_once __DIR__ . '/../utils/DocumentValidator.php';
@@ -21,6 +22,7 @@ class ClientesController
     private $clienteModel;
     private $pdo;
     private $omieService;
+    private $logModel;
 
     public function __construct($pdo)
     {
@@ -30,10 +32,26 @@ class ClientesController
         // Instancia o OmieService para uso automático
         $configModel = new Configuracao($pdo);
         $this->omieService = new OmieService($configModel, $pdo);
+        $this->logModel = new SistemaLog($pdo);
 
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
+    }
+
+    private function registerLog($registroId, string $acao, string $descricao): void
+    {
+        if (!$registroId || empty($_SESSION['user_id'])) {
+            return;
+        }
+
+        $this->logModel->register(
+            (int) $_SESSION['user_id'],
+            'clientes',
+            (int) $registroId,
+            $acao,
+            $descricao
+        );
     }
 
     // ... (index, create, edit, delete, sendWelcomeEmail - permanecem inalterados) ...
@@ -103,6 +121,7 @@ class ClientesController
 
         if ($this->clienteModel->delete($id)) {
             $_SESSION['success_message'] = "Cliente excluído com sucesso!";
+            $this->registerLog((int) $id, 'delete', 'Cliente excluído');
         } else {
             $_SESSION['error_message'] = "Não é possível excluir o cliente, pois ele está associado a um ou mais processos.";
         }
@@ -180,6 +199,8 @@ class ClientesController
                 $newClientId = (int) $result;
                 $_SESSION['success_message'] = "Cliente cadastrado com sucesso!";
 
+                $this->registerLog($newClientId, 'create', 'Cliente criado: ' . ($data['nome_cliente'] ?? ('ID ' . $newClientId)));
+
                 $this->syncNewClientWithOmie($newClientId);
 
                 if (($data['tipo_assessoria'] ?? '') === 'Mensalista') {
@@ -247,6 +268,8 @@ class ClientesController
 
             if ($result === true) {
                 $_SESSION['success_message'] = "Cliente atualizado com sucesso!";
+
+                $this->registerLog((int) $id, 'update', 'Cliente atualizado: ' . ($data['nome_cliente'] ?? ('ID ' . $id)));
 
                 $sincronizarOmie = isset($_POST['sincronizar_omie']) ? (bool)$_POST['sincronizar_omie'] : false;
                 $this->syncUpdatedClientWithOmie((int)$id, $sincronizarOmie);

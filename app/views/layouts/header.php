@@ -173,6 +173,8 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
                             <a href="<?php echo APP_URL; ?>/gerente_dashboard.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($currentPage == 'gerente_dashboard.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Painel Gestão</a>
 
                             <a href="<?php echo APP_URL; ?>/admin.php" class="px-3 py-2 rounded-md text-sm font-bold <?php echo ($currentPage == 'admin.php') ? 'bg-theme-color text-white' : 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800'; ?>">Administração</a>
+
+                            <a href="<?php echo APP_URL; ?>/logs.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($currentPage == 'logs.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Auditoria</a>
                         <?php endif; ?>
                     </div>
                 </div>
