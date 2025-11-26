@@ -327,6 +327,11 @@ $processosPossuemMais = count($processos ?? []) > $initialProcessLimit;
                         </table>
                     </div>
                 </div>
+                <?php if ($orcamentosPossuemMais): ?>
+                    <div class="mt-4 text-right">
+                        <a href="<?php echo $listarOrcamentosUrl; ?>" class="text-blue-600 hover:underline font-semibold">Ver todos os orçamentos</a>
+                    </div>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     </div>
@@ -393,6 +398,11 @@ $processosPossuemMais = count($processos ?? []) > $initialProcessLimit;
                         </table>
                     </div>
                 </div>
+                <?php if ($servicosPossuemMais): ?>
+                    <div class="mt-4 text-right">
+                        <a href="<?php echo $listarServicosUrl; ?>" class="text-blue-600 hover:underline font-semibold">Ver todos os serviços</a>
+                    </div>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     </div>
