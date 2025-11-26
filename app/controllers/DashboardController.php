@@ -118,7 +118,11 @@ class DashboardController
         // --- FIM DA ALTERAÇÃO #1 ---
 
         // 2.2. Busca de dados para os cards de resumo
-        $dashboardStats = $this->processoModel->getDashboardStats($filters);
+        $dashboardStats = $this->processoModel->getDashboardStats(
+            $filters['data_inicio'] ?? null,
+            $filters['data_fim'] ?? null,
+            $filters['vendedor_id'] ?? null
+        );
 
         // 2.3. Busca da lista inicial de processos
         $initialProcessLimit = 50;
