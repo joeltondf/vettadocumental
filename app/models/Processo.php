@@ -827,7 +827,7 @@ public function create($data, $files)
                 $where_clauses[] = "p.status_processo IN ('Serviço Pendente', 'Serviço pendente')";
                 break;
             case 'orcamentos':
-                $where_clauses[] = "p.status_processo IN ('Orçamento', 'Orçamento Pendente')";
+                $where_clauses[] = "LOWER(p.status_processo) IN ('orçamento pendente', 'orcamento pendente')";
                 break;
             case 'finalizados_mes':
                 $where_clauses[] = "p.status_processo IN ('Concluído', 'Finalizado') AND MONTH(p.data_finalizacao_real) = MONTH(CURDATE()) AND YEAR(p.data_finalizacao_real) = YEAR(CURDATE())";
@@ -840,7 +840,9 @@ public function create($data, $files)
 
 
     // Lógica de Filtros
-    if (!empty($filters['vendedor_id'])) {
+    $ignoreDateAndVendorFilters = ($filters['filtro_card'] ?? '') === 'orcamentos';
+
+    if (!$ignoreDateAndVendorFilters && !empty($filters['vendedor_id'])) {
         $where_clauses[] = "p.vendedor_id = :vendedor_id";
         $params[':vendedor_id'] = $filters['vendedor_id'];
     }
@@ -873,11 +875,11 @@ public function create($data, $files)
         $where_clauses[] = "p.tradutor_id = :tradutor_id";
         $params[':tradutor_id'] = $filters['tradutor_id'];
     }
-    if (!empty($filters['data_inicio'])) {
+    if (!$ignoreDateAndVendorFilters && !empty($filters['data_inicio'])) {
         $where_clauses[] = "p.data_criacao >= :data_inicio";
         $params[':data_inicio'] = $filters['data_inicio'];
     }
-    if (!empty($filters['data_fim'])) {
+    if (!$ignoreDateAndVendorFilters && !empty($filters['data_fim'])) {
         $where_clauses[] = "p.data_criacao <= :data_fim";
         $params[':data_fim'] = $filters['data_fim'];
     }
@@ -962,7 +964,7 @@ public function create($data, $files)
                     $where_clauses[] = "p.status_processo IN ('Serviço Pendente', 'Serviço pendente')";
                     break;
                 case 'orcamentos':
-                    $where_clauses[] = "p.status_processo IN ('Orçamento', 'Orçamento Pendente')";
+                    $where_clauses[] = "LOWER(p.status_processo) IN ('orçamento pendente', 'orcamento pendente')";
                     break;
                 case 'finalizados_mes':
                     $where_clauses[] = "p.status_processo IN ('Concluído', 'Finalizado') AND MONTH(p.data_finalizacao_real) = MONTH(CURDATE()) AND YEAR(p.data_finalizacao_real) = YEAR(CURDATE())";
@@ -974,7 +976,9 @@ public function create($data, $files)
         }
 
     // Lógica de Filtros (deve ser idêntica à de getFilteredProcesses)
-    if (!empty($filters['vendedor_id'])) {
+    $ignoreDateAndVendorFilters = ($filters['filtro_card'] ?? '') === 'orcamentos';
+
+    if (!$ignoreDateAndVendorFilters && !empty($filters['vendedor_id'])) {
         $where_clauses[] = "p.vendedor_id = :vendedor_id";
         $params[':vendedor_id'] = $filters['vendedor_id'];
     }
@@ -1007,11 +1011,11 @@ public function create($data, $files)
         $where_clauses[] = "p.tradutor_id = :tradutor_id";
         $params[':tradutor_id'] = $filters['tradutor_id'];
     }
-    if (!empty($filters['data_inicio'])) {
+    if (!$ignoreDateAndVendorFilters && !empty($filters['data_inicio'])) {
         $where_clauses[] = "p.data_criacao >= :data_inicio";
         $params[':data_inicio'] = $filters['data_inicio'];
     }
-    if (!empty($filters['data_fim'])) {
+    if (!$ignoreDateAndVendorFilters && !empty($filters['data_fim'])) {
         $where_clauses[] = "p.data_criacao <= :data_fim";
         $params[':data_fim'] = $filters['data_fim'];
     }
@@ -1841,19 +1845,42 @@ public function create($data, $files)
      * Busca estatísticas principais para os cards do dashboard.
      * @return array
      */
-    public function getDashboardStats()
+    public function getDashboardStats(?string $filtroDataInicio = null, ?string $filtroDataFim = null, ?int $vendedorId = null)
     {
         $deadlineExpression = "COALESCE(\n            p.data_previsao_entrega,\n            CASE\n                WHEN p.traducao_prazo_dias IS NOT NULL AND p.data_inicio_traducao IS NOT NULL\n                    THEN DATE_ADD(p.data_inicio_traducao, INTERVAL p.traducao_prazo_dias DAY)\n                WHEN p.prazo_dias IS NOT NULL AND p.data_inicio_traducao IS NOT NULL\n                    THEN DATE_ADD(p.data_inicio_traducao, INTERVAL p.prazo_dias DAY)\n                ELSE NULL\n            END\n        )";
 
+        $whereClauses = [];
+        $params = [];
+
+        if (!empty($filtroDataInicio)) {
+            $whereClauses[] = 'p.data_criacao >= :data_inicio';
+            $params[':data_inicio'] = $filtroDataInicio;
+        }
+
+        if (!empty($filtroDataFim)) {
+            $whereClauses[] = 'p.data_criacao <= :data_fim';
+            $params[':data_fim'] = $filtroDataFim;
+        }
+
+        if (!empty($vendedorId)) {
+            $whereClauses[] = 'p.vendedor_id = :vendedor_id';
+            $params[':vendedor_id'] = $vendedorId;
+        }
+
+        $wherePart = !empty($whereClauses) ? ' WHERE ' . implode(' AND ', $whereClauses) : '';
+
         $sql = "SELECT
-            COUNT(CASE WHEN LOWER(status_processo) IN ('serviço em andamento', 'servico em andamento', 'pendente de pagamento', 'pendente de documentos', 'aguardando pagamento', 'aguardando pagamentos', 'aguardando documento', 'aguardando documentos', 'aguardando documentacao', 'aguardando documentação') THEN 1 END) as processos_ativos,
-            COUNT(CASE WHEN LOWER(status_processo) IN ('serviço pendente', 'servico pendente') THEN 1 END) as servicos_pendentes,
-            COUNT(CASE WHEN LOWER(status_processo) IN ('orçamento', 'orcamento', 'orçamento pendente', 'orcamento pendente') THEN 1 END) as orcamentos_pendentes,
-            COUNT(CASE WHEN LOWER(status_processo) IN ('concluído', 'concluido', 'finalizado', 'finalizada') AND MONTH(data_finalizacao_real) = MONTH(CURDATE()) AND YEAR(data_finalizacao_real) = YEAR(CURDATE()) THEN 1 END) as finalizados_mes,
-            COUNT(CASE WHEN data_previsao_entrega < CURDATE() AND LOWER(status_processo) NOT IN ('concluído', 'concluido', 'finalizado', 'finalizada', 'arquivado', 'arquivada', 'cancelado', 'recusado', 'recusada', 'pendente de pagamento', 'pendente de documentos', 'aguardando pagamento', 'aguardando pagamentos', 'aguardando documento', 'aguardando documentos', 'aguardando documentacao', 'aguardando documentação') THEN 1 END) as processos_atrasados
-        FROM processos";
+            COUNT(CASE WHEN LOWER(p.status_processo) IN ('serviço em andamento', 'servico em andamento', 'pendente de pagamento', 'pendente de documentos', 'aguardando pagamento', 'aguardando pagamentos', 'aguardando documento', 'aguardando documentos', 'aguardando documentacao', 'aguardando documentação') THEN 1 END) as processos_ativos,
+            COUNT(CASE WHEN LOWER(p.status_processo) IN ('serviço pendente', 'servico pendente') THEN 1 END) as servicos_pendentes,
+            COUNT(CASE WHEN LOWER(p.status_processo) IN ('orçamento pendente', 'orcamento pendente') THEN 1 END) as orcamentos_pendentes,
+            COUNT(CASE WHEN LOWER(p.status_processo) IN ('concluído', 'concluido', 'finalizado', 'finalizada') AND MONTH(p.data_finalizacao_real) = MONTH(CURDATE()) AND YEAR(p.data_finalizacao_real) = YEAR(CURDATE()) THEN 1 END) as finalizados_mes,
+            COUNT(CASE WHEN p.data_previsao_entrega < CURDATE() AND LOWER(p.status_processo) NOT IN ('concluído', 'concluido', 'finalizado', 'finalizada', 'arquivado', 'arquivada', 'cancelado', 'recusado', 'recusada', 'pendente de pagamento', 'pendente de documentos', 'aguardando pagamento', 'aguardando pagamentos', 'aguardando documento', 'aguardando documentos', 'aguardando documentacao', 'aguardando documentação') THEN 1 END) as processos_atrasados
+        FROM processos p" . $wherePart;
         try {
             $stmt = $this->pdo->prepare($sql);
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value);
+            }
             $stmt->execute();
             return $stmt->fetch(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {

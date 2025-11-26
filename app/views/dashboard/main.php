@@ -411,7 +411,7 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
     <?php if (empty($processos)): ?>
         <div class="text-center py-12"><p class="text-gray-500">Nenhum Serviço encontrado.</p></div>
     <?php else: ?>
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto overflow-y-auto max-h-[70vh]">
             <table class="min-w-full divide-y divide-gray-200 table-auto">
                 <thead class="bg-gray-50 sticky top-0 z-10">
                     <tr>
