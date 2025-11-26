@@ -167,6 +167,7 @@ $pageTitle = $pageTitle ?? 'Todos os Serviços';
         <p class="text-sm text-gray-500 text-center py-6">Nenhum serviço encontrado com os filtros selecionados.</p>
     <?php else: ?>
         <div class="overflow-x-auto">
+            <div class="overflow-y-auto max-h-[500px]">
             <table class="min-w-full divide-y divide-gray-200 text-sm" id="servicos-table">
                 <thead class="bg-gray-50">
                     <tr>
@@ -222,6 +223,7 @@ $pageTitle = $pageTitle ?? 'Todos os Serviços';
                 </tbody>
             </table>
         </div>
+    </div>
         <div class="text-center mt-6" id="load-more-container">
             <?php if (count($servicos) > 25): ?>
                 <button id="load-more-button" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg">Carregar mais</button>

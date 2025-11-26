@@ -221,6 +221,7 @@ $pageTitle = $pageTitle ?? 'Todos os Orçamentos';
                 </tbody>
             </table>
         </div>
+    </div>
         <div class="text-center mt-6" id="load-more-container">
             <?php if (count($orcamentos) > 25): ?>
                 <button id="load-more-button" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg">Carregar mais</button>

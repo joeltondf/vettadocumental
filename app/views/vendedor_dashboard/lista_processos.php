@@ -171,6 +171,7 @@ $initialVisibleRows = 25;
         <p class="text-sm text-gray-500 text-center py-6">Nenhum processo encontrado com os filtros selecionados.</p>
     <?php else: ?>
         <div class="overflow-x-auto">
+            <div class="overflow-y-auto max-h-[500px]">
             <table class="min-w-full divide-y divide-gray-200 text-sm" id="processos-table">
                 <thead class="bg-gray-50">
                     <tr>
@@ -233,6 +234,7 @@ $initialVisibleRows = 25;
                 </tbody>
             </table>
         </div>
+    </div>
         <?php if ($totalProcessesCount > $initialVisibleRows): ?>
             <div class="mt-4 text-center">
                 <button id="load-more-processos" class="inline-flex items-center bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-6 rounded-lg shadow-sm">
