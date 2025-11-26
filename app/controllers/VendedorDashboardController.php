@@ -21,29 +21,12 @@ class VendedorDashboardController
     {
         // 1. Instancia os Models
         $processoModel = new Processo($this->pdo);
-        $vendedorModel = new Vendedor($this->pdo);
         $clienteModel = new Cliente($this->pdo);
         $prospeccaoModel = new Prospeccao($this->pdo);
         $comissaoModel = new Comissao($this->pdo);
 
-        // 2. Pega os dados do vendedor logado
-        $userPerfil = $_SESSION['user_perfil'] ?? '';
-        if (in_array($userPerfil, ['admin', 'gerencia', 'supervisor']) && isset($_GET['vendedor_id'])) {
-            // Perfis de gestão podem visualizar o painel de outro vendedor passando ?vendedor_id=ID
-            $vendedorId = (int) $_GET['vendedor_id'];
-            $vendedor   = $vendedorModel->getById($vendedorId);
-            if (!$vendedor) { die("Erro: Vendedor não encontrado."); }
-            $percentualComissao = $vendedor['percentual_comissao'];
-            // Atualiza o userId para puxar estatísticas e agenda do CRM
-            $userId = $vendedor['user_id'];
-        } else {
-            // Comportamento padrão: pega o vendedor logado
-            $userId   = $_SESSION['user_id'];
-            $vendedor = $vendedorModel->getByUserId($userId);
-            if (!$vendedor) { die("Erro: Vendedor não encontrado."); }
-            $vendedorId        = $vendedor['id'];
-            $percentualComissao = $vendedor['percentual_comissao'];
-        }
+        // 2. Pega os dados do vendedor logado ou informado para gestão
+        [$vendedorId, $userId, $percentualComissao] = $this->resolveVendedorContext();
 
         $timezone = new DateTimeZone('America/Sao_Paulo');
         $now = new DateTime('now', $timezone);
@@ -148,6 +131,80 @@ class VendedorDashboardController
         require_once __DIR__ . '/../views/layouts/footer.php';
     }
 
+    public function listarOrcamentos(): void
+    {
+        $processoModel = new Processo($this->pdo);
+        $clienteModel = new Cliente($this->pdo);
+        $comissaoModel = new Comissao($this->pdo);
+
+        [$vendedorId, , ] = $this->resolveVendedorContext();
+
+        $filters = $this->buildListFilters($_GET ?? []);
+        $dataInicio = $this->formatDateFilter($filters['data_inicio'] ?? null, 'start');
+        $dataFim = $this->formatDateFilter($filters['data_fim'] ?? null, 'end');
+
+        $orcamentos = $processoModel->getVendorBudgets($vendedorId, $dataInicio, $dataFim, $filters);
+        $orcamentos = $this->appendCommissions($orcamentos, $vendedorId, $comissaoModel);
+
+        $clientesParaFiltro = $clienteModel->getAll();
+        $pageTitle = 'Todos os Orçamentos';
+        $currentVendedorId = $vendedorId;
+
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/vendedor_dashboard/lista_orcamentos.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+
+    public function listarServicos(): void
+    {
+        $processoModel = new Processo($this->pdo);
+        $clienteModel = new Cliente($this->pdo);
+        $comissaoModel = new Comissao($this->pdo);
+
+        [$vendedorId, , ] = $this->resolveVendedorContext();
+
+        $filters = $this->buildListFilters($_GET ?? []);
+        $dataInicio = $this->formatDateFilter($filters['data_inicio'] ?? null, 'start');
+        $dataFim = $this->formatDateFilter($filters['data_fim'] ?? null, 'end');
+
+        $servicos = $processoModel->getVendorServices($vendedorId, $dataInicio, $dataFim, $filters);
+        $servicos = $this->appendCommissions($servicos, $vendedorId, $comissaoModel);
+
+        $clientesParaFiltro = $clienteModel->getAll();
+        $pageTitle = 'Todos os Serviços';
+        $currentVendedorId = $vendedorId;
+
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/vendedor_dashboard/lista_servicos.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+
+    public function listarProcessos(): void
+    {
+        $processoModel = new Processo($this->pdo);
+        $clienteModel = new Cliente($this->pdo);
+        $comissaoModel = new Comissao($this->pdo);
+
+        [$vendedorId, , ] = $this->resolveVendedorContext();
+
+        $filters = $this->buildFiltersFromRequest($_GET ?? []);
+        $filters['vendedor_id'] = $vendedorId;
+
+        $totalProcessesCount = $processoModel->getTotalFilteredProcessesCount($filters);
+        $limit = $totalProcessesCount > 0 ? $totalProcessesCount : 0;
+        $processos = $limit > 0 ? $processoModel->getFilteredProcesses($filters, $limit, 0) : [];
+        $processos = $this->appendCommissions($processos, $vendedorId, $comissaoModel);
+
+        $clientesParaFiltro = $clienteModel->getAll();
+        $pageTitle = 'Todos os Processos';
+        $currentVendedorId = $vendedorId;
+        $filtrosAtuais = $this->cleanFilterValues($_GET ?? []);
+
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/vendedor_dashboard/lista_processos.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+
     private function buildFiltersFromRequest(array $request): array
     {
         $allowedKeys = ['titulo', 'cliente_id', 'os_numero', 'tipo_servico', 'status', 'data_inicio', 'data_fim', 'filtro_card'];
@@ -207,5 +264,89 @@ class VendedorDashboardController
         }
 
         return $result;
+    }
+
+    private function buildListFilters(array $request): array
+    {
+        $allowedKeys = ['titulo', 'cliente_id', 'status', 'data_inicio', 'data_fim'];
+        $filters = [];
+
+        foreach ($allowedKeys as $key) {
+            if (!isset($request[$key])) {
+                continue;
+            }
+
+            $value = is_string($request[$key]) ? trim($request[$key]) : $request[$key];
+            if ($value === '' || $value === null) {
+                continue;
+            }
+
+            if ($key === 'cliente_id') {
+                $intValue = (int) $value;
+                if ($intValue > 0) {
+                    $filters[$key] = $intValue;
+                }
+                continue;
+            }
+
+            $filters[$key] = $value;
+        }
+
+        return $filters;
+    }
+
+    private function resolveVendedorContext(): array
+    {
+        $vendedorModel = new Vendedor($this->pdo);
+        $userPerfil = $_SESSION['user_perfil'] ?? '';
+
+        if (in_array($userPerfil, ['admin', 'gerencia', 'supervisor'], true) && isset($_GET['vendedor_id'])) {
+            $vendedorId = (int) $_GET['vendedor_id'];
+            $vendedor   = $vendedorModel->getById($vendedorId);
+            if (!$vendedor) {
+                die('Erro: Vendedor não encontrado.');
+            }
+
+            return [$vendedorId, (int) $vendedor['user_id'], (float) $vendedor['percentual_comissao']];
+        }
+
+        $userId = (int) ($_SESSION['user_id'] ?? 0);
+        $vendedor = $vendedorModel->getByUserId($userId);
+        if (!$vendedor) {
+            die('Erro: Vendedor não encontrado.');
+        }
+
+        return [(int) $vendedor['id'], $userId, (float) $vendedor['percentual_comissao']];
+    }
+
+    private function formatDateFilter(?string $value, string $type): ?string
+    {
+        if (empty($value)) {
+            return null;
+        }
+
+        $timestamp = strtotime($value);
+        if ($timestamp === false) {
+            return null;
+        }
+
+        $date = date('Y-m-d', $timestamp);
+
+        return $type === 'start' ? $date . ' 00:00:00' : $date . ' 23:59:59';
+    }
+
+    private function appendCommissions(array $processos, int $vendedorId, Comissao $comissaoModel): array
+    {
+        foreach ($processos as &$processo) {
+            $processoId = (int) ($processo['id'] ?? 0);
+            $processo['comissaoVendedor'] = $comissaoModel->getCommissionByProcessAndUser($processoId, $vendedorId);
+
+            $sdrId = isset($processo['sdr_id']) ? (int) $processo['sdr_id'] : null;
+            $processo['comissaoSdr'] = $sdrId ? $comissaoModel->getCommissionByProcessAndUser($processoId, $sdrId) : 0.0;
+        }
+
+        unset($processo);
+
+        return $processos;
     }
 }

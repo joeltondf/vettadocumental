@@ -4,7 +4,7 @@ require_once __DIR__ . '/../../utils/DashboardProcessFormatter.php';
 
 $activeFilters = array_filter($filters ?? []);
 $hasFilters = !empty($activeFilters);
-$initialProcessLimit = 50;
+$initialProcessLimit = 5;
 $baseAppUrl = rtrim(APP_URL, '/');
 $dashboardVendedorUrl = $baseAppUrl . '/dashboard_vendedor.php';
 $currentUserPerfil = $_SESSION['user_perfil'] ?? '';
@@ -92,6 +92,19 @@ $selectedStatusInfo = seller_normalize_status_info($filters['status'] ?? '');
 $selectedStatusNormalized = $selectedStatusInfo['normalized'];
 $nextLead = $nextLead ?? null;
 $vendorLeads = $vendorLeads ?? [];
+$gestorVendedorId = isset($_GET['vendedor_id']) ? (int) $_GET['vendedor_id'] : null;
+$dashboardVendedorUrlWithVendor = $gestorVendedorId ? $dashboardVendedorUrl . '?vendedor_id=' . $gestorVendedorId : $dashboardVendedorUrl;
+$listarOrcamentosUrl = $dashboardVendedorUrlWithVendor . ($gestorVendedorId ? '&action=listar_orcamentos' : '?action=listar_orcamentos');
+$listarServicosUrl = $dashboardVendedorUrlWithVendor . ($gestorVendedorId ? '&action=listar_servicos' : '?action=listar_servicos');
+$listarProcessosUrl = $dashboardVendedorUrlWithVendor . ($gestorVendedorId ? '&action=listar_processos' : '?action=listar_processos');
+$orcamentosResumo = array_slice($orcamentosMesAtual ?? [], 0, 5);
+$servicosResumo = array_slice($servicosMesAtual ?? [], 0, 5);
+$servicosAtivosResumo = array_slice($servicosAtivosMesAnterior ?? [], 0, 5);
+$processosResumo = array_slice($processos ?? [], 0, $initialProcessLimit);
+$orcamentosPossuemMais = count($orcamentosMesAtual ?? []) > 5;
+$servicosPossuemMais = count($servicosMesAtual ?? []) > 5;
+$servicosAtivosPossuemMais = count($servicosAtivosMesAnterior ?? []) > 5;
+$processosPossuemMais = count($processos ?? []) > $initialProcessLimit;
 ?>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
@@ -100,11 +113,11 @@ $vendorLeads = $vendorLeads ?? [];
         <p class="mt-1 text-gray-600">Bem-vindo(a), <?php echo htmlspecialchars($_SESSION['user_nome'] ?? ''); ?>! Acompanhe sua performance e atividades.</p>
     </div>
     <div class="flex flex-wrap gap-3">
-        <a href="<?php echo $baseAppUrl; ?>/processos.php?action=create&amp;return_to=<?php echo urlencode($dashboardVendedorUrl); ?>" class="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors">
+        <a href="<?php echo $baseAppUrl; ?>/processos.php?action=create&amp;return_to=<?php echo urlencode($dashboardVendedorUrlWithVendor); ?>" class="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors">
             <i class="fas fa-file-signature mr-2"></i> Criar Orçamento
         </a>
         <?php if ($currentUserPerfil === 'vendedor'): ?>
-            <a href="<?php echo $baseAppUrl; ?>/clientes.php?action=create&amp;return_to=<?php echo urlencode($dashboardVendedorUrl); ?>" class="inline-flex items-center bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors">
+            <a href="<?php echo $baseAppUrl; ?>/clientes.php?action=create&amp;return_to=<?php echo urlencode($dashboardVendedorUrlWithVendor); ?>" class="inline-flex items-center bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors">
                 <i class="fas fa-user-plus mr-2"></i> Novo Cliente
             </a>
         <?php endif; ?>
@@ -114,7 +127,15 @@ $vendorLeads = $vendorLeads ?? [];
     </div>
 </div>
 
-<div class="mb-8">
+<nav class="flex flex-wrap gap-4 text-sm mb-6">
+  <a href="#meu-proximo-lead" class="text-blue-600 hover:underline">Próximo Lead</a>
+  <a href="#leads-em-acompanhamento" class="text-blue-600 hover:underline">Leads</a>
+  <a href="<?php echo $listarOrcamentosUrl; ?>" class="text-blue-600 hover:underline">Orçamentos (listar)</a>
+  <a href="<?php echo $listarServicosUrl; ?>" class="text-blue-600 hover:underline">Serviços (listar)</a>
+  <a href="<?php echo $listarProcessosUrl; ?>" class="text-blue-600 hover:underline">Processos (listar)</a>
+</nav>
+
+<div class="mb-8" id="meu-proximo-lead">
     <h2 class="text-lg font-semibold text-gray-700 mb-3">Próximo lead</h2>
     <div class="bg-white p-5 rounded-lg shadow-md border border-gray-200">
         <?php if ($nextLead): ?>
@@ -139,7 +160,7 @@ $vendorLeads = $vendorLeads ?? [];
     </div>
 </div>
 
-<div class="mb-8">
+<div class="mb-8" id="leads-em-acompanhamento">
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
         <h2 class="text-lg font-semibold text-gray-700">Leads em acompanhamento</h2>
         <?php if (!empty($vendorLeads)): ?>
@@ -247,120 +268,130 @@ $vendorLeads = $vendorLeads ?? [];
     </div>
 </div>
 
-<div class="space-y-6 mb-8">
+<div class="space-y-6 mb-8" id="orcamentos-resumo">
     <div class="bg-white shadow-md rounded-lg border border-gray-200">
         <div class="px-6 py-4 border-b">
-            <h3 class="text-lg font-semibold text-gray-800">Orçamentos - Mês atual</h3>
+            <h3 class="text-lg font-semibold text-gray-800">
+                Orçamentos - Mês atual
+                <a href="<?php echo $listarOrcamentosUrl; ?>" class="text-blue-600 hover:underline text-sm ml-2">[ver todos]</a>
+            </h3>
         </div>
         <div class="p-4">
-            <?php if (empty($orcamentosMesAtual)): ?>
+            <?php if (empty($orcamentosResumo)): ?>
                 <p class="text-sm text-gray-500 text-center py-6">Nenhum orçamento registrado neste mês.</p>
             <?php else: ?>
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 text-sm">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Código</th>
-                                <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Título / Família</th>
-                                <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
-                                <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Data de entrada</th>
-                                <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Valor total</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            <?php foreach ($orcamentosMesAtual as $orcamento): ?>
-                                <?php
-                                    $codigo = !empty($orcamento['orcamento_numero']) ? $orcamento['orcamento_numero'] : $orcamento['id'];
-                                    $statusInfo = seller_normalize_status_info($orcamento['status_processo'] ?? '');
-                                    $statusLabelClass = seller_status_label_class($statusInfo['normalized']);
-                                    $statusBadgeClass = seller_status_badge_class($statusInfo['badge_label'] ?? null);
-                                ?>
-                                <tr class="hover:bg-gray-50">
-                                    <td class="px-3 py-2 whitespace-nowrap font-mono text-gray-700">#<?php echo htmlspecialchars($codigo); ?></td>
-                                    <td class="px-3 py-2 whitespace-nowrap text-gray-700">
-                                        <a href="processos.php?action=view&amp;id=<?php echo (int) $orcamento['id']; ?>" class="text-blue-600 hover:underline">
-                                            <?php echo htmlspecialchars(seller_get_process_title($orcamento)); ?>
-                                        </a>
-                                    </td>
-                                    <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($orcamento['nome_cliente'] ?? '—'); ?></td>
-                                    <td class="px-3 py-2 whitespace-nowrap">
-                                        <div class="flex flex-wrap items-center gap-1 text-xs font-semibold <?php echo $statusLabelClass; ?>">
-                                            <span><?php echo htmlspecialchars($statusInfo['label']); ?></span>
-                                            <?php if (!empty($statusInfo['badge_label'])): ?>
-                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo $statusBadgeClass; ?>">
-                                                    <?php echo htmlspecialchars($statusInfo['badge_label']); ?>
-                                                </span>
-                                            <?php endif; ?>
-                                        </div>
-                                    </td>
-                                    <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo seller_format_date_br($orcamento['data_criacao'] ?? null); ?></td>
-                                    <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($orcamento['valor_total'] ?? 0); ?></td>
+                    <div class="overflow-y-auto max-h-96">
+                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Código</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Título / Família</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Data de entrada</th>
+                                    <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Valor total</th>
                                 </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <?php foreach ($orcamentosResumo as $orcamento): ?>
+                                    <?php
+                                        $codigo = !empty($orcamento['orcamento_numero']) ? $orcamento['orcamento_numero'] : $orcamento['id'];
+                                        $statusInfo = seller_normalize_status_info($orcamento['status_processo'] ?? '');
+                                        $statusLabelClass = seller_status_label_class($statusInfo['normalized']);
+                                        $statusBadgeClass = seller_status_badge_class($statusInfo['badge_label'] ?? null);
+                                    ?>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-3 py-2 whitespace-nowrap font-mono text-gray-700">#<?php echo htmlspecialchars($codigo); ?></td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-gray-700">
+                                            <a href="processos.php?action=view&amp;id=<?php echo (int) $orcamento['id']; ?>" class="text-blue-600 hover:underline">
+                                                <?php echo htmlspecialchars(seller_get_process_title($orcamento)); ?>
+                                            </a>
+                                        </td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($orcamento['nome_cliente'] ?? '—'); ?></td>
+                                        <td class="px-3 py-2 whitespace-nowrap">
+                                            <div class="flex flex-wrap items-center gap-1 text-xs font-semibold <?php echo $statusLabelClass; ?>">
+                                                <span><?php echo htmlspecialchars($statusInfo['label']); ?></span>
+                                                <?php if (!empty($statusInfo['badge_label'])): ?>
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo $statusBadgeClass; ?>">
+                                                        <?php echo htmlspecialchars($statusInfo['badge_label']); ?>
+                                                    </span>
+                                                <?php endif; ?>
+                                            </div>
+                                        </td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo seller_format_date_br($orcamento['data_criacao'] ?? null); ?></td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($orcamento['valor_total'] ?? 0); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             <?php endif; ?>
         </div>
     </div>
 
-    <div class="bg-white shadow-md rounded-lg border border-gray-200">
+    <div class="bg-white shadow-md rounded-lg border border-gray-200" id="servicos-resumo">
         <div class="px-6 py-4 border-b">
-            <h3 class="text-lg font-semibold text-gray-800">Serviços - Mês atual</h3>
+            <h3 class="text-lg font-semibold text-gray-800">
+                Serviços - Mês atual
+                <a href="<?php echo $listarServicosUrl; ?>" class="text-blue-600 hover:underline text-sm ml-2">[ver todos]</a>
+            </h3>
         </div>
         <div class="p-4">
-            <?php if (empty($servicosMesAtual)): ?>
+            <?php if (empty($servicosResumo)): ?>
                 <p class="text-sm text-gray-500 text-center py-6">Nenhum serviço aberto neste mês.</p>
             <?php else: ?>
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 text-sm">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Código</th>
-                                <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Título / Família</th>
-                                <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
-                                <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Data de entrada</th>
-                                <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Valor total</th>
-                                <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Comissão do Vendedor</th>
-                                <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Comissão do SDR</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            <?php foreach ($servicosMesAtual as $servico): ?>
-                                <?php
-                                    $codigo = !empty($servico['orcamento_numero']) ? $servico['orcamento_numero'] : $servico['id'];
-                                    $statusInfo = seller_normalize_status_info($servico['status_processo'] ?? '');
-                                    $statusLabelClass = seller_status_label_class($statusInfo['normalized']);
-                                    $statusBadgeClass = seller_status_badge_class($statusInfo['badge_label'] ?? null);
-                                ?>
-                                <tr class="hover:bg-gray-50">
-                                    <td class="px-3 py-2 whitespace-nowrap font-mono text-gray-700">#<?php echo htmlspecialchars($codigo); ?></td>
-                                    <td class="px-3 py-2 whitespace-nowrap text-gray-700">
-                                        <a href="processos.php?action=view&amp;id=<?php echo (int) $servico['id']; ?>" class="text-blue-600 hover:underline">
-                                            <?php echo htmlspecialchars(seller_get_process_title($servico)); ?>
-                                        </a>
-                                    </td>
-                                    <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($servico['nome_cliente'] ?? '—'); ?></td>
-                                    <td class="px-3 py-2 whitespace-nowrap">
-                                        <div class="flex flex-wrap items-center gap-1 text-xs font-semibold <?php echo $statusLabelClass; ?>">
-                                            <span><?php echo htmlspecialchars($statusInfo['label']); ?></span>
-                                            <?php if (!empty($statusInfo['badge_label'])): ?>
-                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo $statusBadgeClass; ?>">
-                                                    <?php echo htmlspecialchars($statusInfo['badge_label']); ?>
-                                                </span>
-                                            <?php endif; ?>
-                                        </div>
-                                    </td>
-                                    <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo seller_format_date_br($servico['data_criacao'] ?? null); ?></td>
-                                    <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($servico['valor_total'] ?? 0); ?></td>
-                                    <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($servico['comissaoVendedor'] ?? 0); ?></td>
-                                    <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($servico['comissaoSdr'] ?? 0); ?></td>
+                    <div class="overflow-y-auto max-h-96">
+                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Código</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Título / Família</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Data de entrada</th>
+                                    <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Valor total</th>
+                                    <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Comissão do Vendedor</th>
+                                    <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Comissão do SDR</th>
                                 </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <?php foreach ($servicosResumo as $servico): ?>
+                                    <?php
+                                        $codigo = !empty($servico['orcamento_numero']) ? $servico['orcamento_numero'] : $servico['id'];
+                                        $statusInfo = seller_normalize_status_info($servico['status_processo'] ?? '');
+                                        $statusLabelClass = seller_status_label_class($statusInfo['normalized']);
+                                        $statusBadgeClass = seller_status_badge_class($statusInfo['badge_label'] ?? null);
+                                    ?>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-3 py-2 whitespace-nowrap font-mono text-gray-700">#<?php echo htmlspecialchars($codigo); ?></td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-gray-700">
+                                            <a href="processos.php?action=view&amp;id=<?php echo (int) $servico['id']; ?>" class="text-blue-600 hover:underline">
+                                                <?php echo htmlspecialchars(seller_get_process_title($servico)); ?>
+                                            </a>
+                                        </td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($servico['nome_cliente'] ?? '—'); ?></td>
+                                        <td class="px-3 py-2 whitespace-nowrap">
+                                            <div class="flex flex-wrap items-center gap-1 text-xs font-semibold <?php echo $statusLabelClass; ?>">
+                                                <span><?php echo htmlspecialchars($statusInfo['label']); ?></span>
+                                                <?php if (!empty($statusInfo['badge_label'])): ?>
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo $statusBadgeClass; ?>">
+                                                        <?php echo htmlspecialchars($statusInfo['badge_label']); ?>
+                                                    </span>
+                                                <?php endif; ?>
+                                            </div>
+                                        </td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo seller_format_date_br($servico['data_criacao'] ?? null); ?></td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($servico['valor_total'] ?? 0); ?></td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($servico['comissaoVendedor'] ?? 0); ?></td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($servico['comissaoSdr'] ?? 0); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             <?php endif; ?>
         </div>
@@ -368,218 +399,144 @@ $vendorLeads = $vendorLeads ?? [];
 
     <div class="bg-white shadow-md rounded-lg border border-gray-200">
         <div class="px-6 py-4 border-b">
-            <h3 class="text-lg font-semibold text-gray-800">Serviços em andamento - Iniciados no mês anterior</h3>
+            <h3 class="text-lg font-semibold text-gray-800">
+                Serviços em andamento - Iniciados no mês anterior
+                <a href="<?php echo $listarServicosUrl; ?>" class="text-blue-600 hover:underline text-sm ml-2">[ver todos]</a>
+            </h3>
         </div>
         <div class="p-4">
-            <?php if (empty($servicosAtivosMesAnterior)): ?>
+            <?php if (empty($servicosAtivosResumo)): ?>
                 <p class="text-sm text-gray-500 text-center py-6">Nenhum serviço ativo iniciado no mês anterior.</p>
             <?php else: ?>
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 text-sm">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Código</th>
-                                <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Título / Família</th>
-                                <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
-                                <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Data de entrada</th>
-                                <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Valor total</th>
-                                <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Comissão do Vendedor</th>
-                                <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Comissão do SDR</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            <?php foreach ($servicosAtivosMesAnterior as $servicoAnterior): ?>
-                                <?php
-                                    $codigo = !empty($servicoAnterior['orcamento_numero']) ? $servicoAnterior['orcamento_numero'] : $servicoAnterior['id'];
-                                    $statusInfo = seller_normalize_status_info($servicoAnterior['status_processo'] ?? '');
-                                    $statusLabelClass = seller_status_label_class($statusInfo['normalized']);
-                                    $statusBadgeClass = seller_status_badge_class($statusInfo['badge_label'] ?? null);
-                                ?>
-                                <tr class="hover:bg-gray-50">
-                                    <td class="px-3 py-2 whitespace-nowrap font-mono text-gray-700">#<?php echo htmlspecialchars($codigo); ?></td>
-                                    <td class="px-3 py-2 whitespace-nowrap text-gray-700">
-                                        <a href="processos.php?action=view&amp;id=<?php echo (int) $servicoAnterior['id']; ?>" class="text-blue-600 hover:underline">
-                                            <?php echo htmlspecialchars(seller_get_process_title($servicoAnterior)); ?>
-                                        </a>
-                                    </td>
-                                    <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($servicoAnterior['nome_cliente'] ?? '—'); ?></td>
-                                    <td class="px-3 py-2 whitespace-nowrap">
-                                        <div class="flex flex-wrap items-center gap-1 text-xs font-semibold <?php echo $statusLabelClass; ?>">
-                                            <span><?php echo htmlspecialchars($statusInfo['label']); ?></span>
-                                            <?php if (!empty($statusInfo['badge_label'])): ?>
-                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo $statusBadgeClass; ?>">
-                                                    <?php echo htmlspecialchars($statusInfo['badge_label']); ?>
-                                                </span>
-                                            <?php endif; ?>
-                                        </div>
-                                    </td>
-                                    <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo seller_format_date_br($servicoAnterior['data_criacao'] ?? null); ?></td>
-                                    <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($servicoAnterior['valor_total'] ?? 0); ?></td>
-                                    <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($servicoAnterior['comissaoVendedor'] ?? 0); ?></td>
-                                    <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($servicoAnterior['comissaoSdr'] ?? 0); ?></td>
+                    <div class="overflow-y-auto max-h-96">
+                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Código</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Título / Família</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Data de entrada</th>
+                                    <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Valor total</th>
+                                    <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Comissão do Vendedor</th>
+                                    <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Comissão do SDR</th>
                                 </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <?php foreach ($servicosAtivosResumo as $servicoAnterior): ?>
+                                    <?php
+                                        $codigo = !empty($servicoAnterior['orcamento_numero']) ? $servicoAnterior['orcamento_numero'] : $servicoAnterior['id'];
+                                        $statusInfo = seller_normalize_status_info($servicoAnterior['status_processo'] ?? '');
+                                        $statusLabelClass = seller_status_label_class($statusInfo['normalized']);
+                                        $statusBadgeClass = seller_status_badge_class($statusInfo['badge_label'] ?? null);
+                                    ?>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-3 py-2 whitespace-nowrap font-mono text-gray-700">#<?php echo htmlspecialchars($codigo); ?></td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-gray-700">
+                                            <a href="processos.php?action=view&amp;id=<?php echo (int) $servicoAnterior['id']; ?>" class="text-blue-600 hover:underline">
+                                                <?php echo htmlspecialchars(seller_get_process_title($servicoAnterior)); ?>
+                                            </a>
+                                        </td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($servicoAnterior['nome_cliente'] ?? '—'); ?></td>
+                                        <td class="px-3 py-2 whitespace-nowrap">
+                                            <div class="flex flex-wrap items-center gap-1 text-xs font-semibold <?php echo $statusLabelClass; ?>">
+                                                <span><?php echo htmlspecialchars($statusInfo['label']); ?></span>
+                                                <?php if (!empty($statusInfo['badge_label'])): ?>
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo $statusBadgeClass; ?>">
+                                                        <?php echo htmlspecialchars($statusInfo['badge_label']); ?>
+                                                    </span>
+                                                <?php endif; ?>
+                                            </div>
+                                        </td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo seller_format_date_br($servicoAnterior['data_criacao'] ?? null); ?></td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($servicoAnterior['valor_total'] ?? 0); ?></td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($servicoAnterior['comissaoVendedor'] ?? 0); ?></td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($servicoAnterior['comissaoSdr'] ?? 0); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             <?php endif; ?>
         </div>
     </div>
 </div>
 
-<div class="w-full bg-white p-5 rounded-lg shadow-xl border border-gray-200 mb-6">
-    <h4 class="text-xl font-bold text-gray-800 mb-5 border-b pb-2">Filtrar Meus Processos</h4>
-    <form action="dashboard_vendedor.php" method="GET" id="filter-form">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-5">
-            <div>
-                <label for="titulo" class="text-sm font-semibold text-gray-700 mb-1 block">Serviço/Processo</label>
-                <input type="text" id="titulo" name="titulo" placeholder="Digite para buscar" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg" value="<?php echo htmlspecialchars($filters['titulo'] ?? ''); ?>">
-            </div>
-            <div>
-                <label for="tipo_servico" class="text-sm font-semibold text-gray-700 mb-1 block">Tipo de Serviço</label>
-                <select id="tipo_servico" name="tipo_servico" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg">
-                    <option value="">Todos os Tipos</option>
-                    <?php $tipos = ['Tradução', 'CRC', 'Apostilamento', 'Postagem', 'Outros']; foreach($tipos as $tipo): ?>
-                        <option value="<?php echo $tipo; ?>" <?php echo (($filters['tipo_servico'] ?? '') == $tipo) ? 'selected' : ''; ?>><?php echo $tipo; ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div>
-                <label for="status" class="text-sm font-semibold text-gray-700 mb-1 block">Status</label>
-                <select id="status" name="status" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg">
-                    <option value="">Todos os Status</option>
-                    <?php $statusOptions = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Cancelado']; foreach ($statusOptions as $option): ?>
-                        <?php
-                            $optionInfo = seller_normalize_status_info($option);
-                            $optionLabel = $optionInfo['label'];
-                            if (!empty($optionInfo['badge_label'])) {
-                                $optionLabel .= ' (' . $optionInfo['badge_label'] . ')';
-                            }
-                        ?>
-                        <option value="<?php echo htmlspecialchars($option, ENT_QUOTES, 'UTF-8'); ?>" <?php echo ($selectedStatusNormalized === $optionInfo['normalized']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($optionLabel); ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-             <div>
-                <label for="data_inicio" class="text-sm font-semibold text-gray-700 mb-1 block">Data de Entrada (Início)</label>
-                <input type="date" id="data_inicio" name="data_inicio" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg" value="<?php echo htmlspecialchars($filters['data_inicio'] ?? ''); ?>">
-            </div>
-            <div>
-                <label for="data_fim" class="text-sm font-semibold text-gray-700 mb-1 block">Data de Entrada (Fim)</label>
-                <input type="date" id="data_fim" name="data_fim" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg" value="<?php echo htmlspecialchars($filters['data_fim'] ?? ''); ?>">
-            </div>
+<div class="w-full bg-white p-5 rounded-lg shadow-xl border border-gray-200 mb-6" id="processos-resumo">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div>
+            <h4 class="text-xl font-bold text-gray-800 mb-1">
+                Processos (resumo)
+                <a href="<?php echo $listarProcessosUrl; ?>" class="text-blue-600 hover:underline text-sm ml-2">[ver todos]</a>
+            </h4>
+            <p class="text-sm text-gray-600">Visualize rapidamente os processos mais recentes. A listagem completa está disponível na página dedicada.</p>
         </div>
-        <div class="flex items-center justify-end mt-5 space-x-2">
-            <a href="dashboard_vendedor.php" class="text-sm font-medium text-gray-600 px-5 py-2.5 rounded-lg border border-gray-300 hover:bg-gray-100">Limpar Filtros</a>
-            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md"><i class="fas fa-filter mr-2"></i>Filtrar</button>
-        </div>
-    </form>
-</div>
-
-<div class="bg-white shadow-md rounded-lg">
-    <div class="px-6 py-4 border-b">
-        <h3 class="text-lg font-medium leading-6 text-gray-900"><?php echo $hasFilters ? 'Resultados da Busca' : 'Meus Últimos Processos'; ?></h3>
-    </div>
-    <div class="overflow-x-auto">
-        <table id="processos-table" class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase">Família</th>
-                    <th class="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase">Assessoria</th>
-                    <th class="px-3 py-2 text-center text-sm font-medium text-gray-500 uppercase">Doc.</th>
-                    <th class="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase">Serviços</th>
-                    <th class="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase">Entrada</th>
-                    <th class="px-3 py-2 text-right text-sm font-medium text-gray-500 uppercase">Valor Total</th>
-                    <th class="px-3 py-2 text-center text-sm font-medium text-gray-500 uppercase">Detalhes</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                <?php if (empty($processos)): ?>
-                    <tr><td colspan="7" class="text-center py-12 text-gray-500">Nenhum processo encontrado.</td></tr>
-                <?php else: ?>
-                    <?php foreach ($processos as $processo): ?>
-                        <?php
-                            $rowClass = 'hover:bg-gray-50';
-                            $statusInfo = seller_normalize_status_info($processo['status_processo'] ?? '');
-                            $statusAtual = $statusInfo['normalized'];
-                            switch ($statusAtual) {
-                                case 'orçamento':
-                                    $rowClass = 'bg-blue-50 hover:bg-blue-100';
-                                    break;
-                                case 'orçamento pendente':
-                                    $rowClass = 'bg-yellow-50 hover:bg-yellow-100';
-                                    break;
-                                case 'serviço em andamento':
-                                    $rowClass = 'bg-indigo-50 hover:bg-indigo-100';
-                                    break;
-                                case 'serviço pendente':
-                                    $rowClass = 'bg-orange-50 hover:bg-orange-100';
-                                    break;
-                                case 'concluído':
-                                    $rowClass = 'bg-green-50 hover:bg-green-100';
-                                    break;
-                                case 'cancelado':
-                                    $rowClass = 'bg-red-50 hover:bg-red-100';
-                                    break;
-                            }
-
-                            $statusLabelClass = seller_status_label_class($statusAtual);
-                            $statusBadgeClass = seller_status_badge_class($statusInfo['badge_label'] ?? null);
-                        ?>
-                        <tr class="<?php echo $rowClass; ?>">
-                            <td class="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-800">
-                                <a href="processos.php?action=view&amp;id=<?php echo $processo['id']; ?>" class="text-blue-600 hover:underline">
-                                    <?php echo htmlspecialchars($processo['titulo']); ?>
-                                </a>
-                                <div class="mt-1 flex flex-wrap items-center gap-1 text-xs font-semibold <?php echo $statusLabelClass; ?>">
-                                    <span><?php echo htmlspecialchars($statusInfo['label']); ?></span>
-                                    <?php if (!empty($statusInfo['badge_label'])): ?>
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo $statusBadgeClass; ?>">
-                                            <?php echo htmlspecialchars($statusInfo['badge_label']); ?>
-                                        </span>
-                                    <?php endif; ?>
-                                </div>
-                            </td>
-                            <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($processo['nome_cliente']); ?></td>
-                            <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500 text-center"><?php echo $processo['total_documentos_soma']; ?></td>
-                            <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
-                                <?php
-                                $servicos = array_filter(array_map('trim', explode(',', $processo['categorias_servico'] ?? '')));
-                                $serviceBadgeMap = [
-                                    'Tradução' => ['label' => 'Trad.', 'class' => 'bg-blue-100 text-blue-800'],
-                                    'CRC' => ['label' => 'CRC', 'class' => 'bg-green-100 text-green-800'],
-                                    'Apostilamento' => ['label' => 'Apost.', 'class' => 'bg-yellow-100 text-yellow-800'],
-                                    'Postagem' => ['label' => 'Post.', 'class' => 'bg-purple-100 text-purple-800'],
-                                    'Outros' => ['label' => 'Out.', 'class' => 'bg-gray-100 text-gray-800'],
-                                ];
-                                foreach ($servicos as $servico) {
-                                    if(isset($serviceBadgeMap[$servico])) {
-                                        $badge = $serviceBadgeMap[$servico];
-                                        echo '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ' . $badge['class'] . ' mr-1">' . htmlspecialchars($badge['label']) . '</span>';
-                                    }
-                                }
-                                ?>
-                            </td>
-                            <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500"><?php echo date('d/m/Y', strtotime($processo['data_criacao'])); ?></td>
-                            <td class="px-3 py-2 whitespace-nowrap text-sm text-right font-mono"><?php echo 'R$ ' . number_format($processo['valor_total'] ?? 0, 2, ',', '.'); ?></td>
-                            <td class="px-3 py-2 whitespace-nowrap text-center">
-                                <a href="processos.php?action=view&amp;id=<?php echo $processo['id']; ?>" class="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-800">
-                                    <i class="fas fa-external-link-alt"></i>
-                                    Ver
-                                </a>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
-    <div id="load-more-container" class="text-center p-4">
-        <?php if ($totalProcessesCount > count($processos)): ?>
-            <button id="load-more-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg">
-                Carregar Mais
+        <div class="flex items-center gap-3">
+            <button type="button" id="toggle-processos-resumo" class="inline-flex items-center bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors">
+                <i class="fas fa-chevron-up mr-2"></i> Ocultar resumo
             </button>
+            <a href="<?php echo $listarProcessosUrl; ?>" class="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors">
+                <i class="fas fa-list mr-2"></i> Ver todos
+            </a>
+        </div>
+    </div>
+
+    <div id="processos-resumo-content" class="mt-5">
+        <?php if (empty($processosResumo)): ?>
+            <p class="text-sm text-gray-500 text-center py-6">Nenhum processo recente encontrado.</p>
+        <?php else: ?>
+            <div class="overflow-x-auto">
+                <div class="overflow-y-auto max-h-96">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Família</th>
+                                <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                                <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Entrada</th>
+                                <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Valor total</th>
+                                <th class="px-3 py-2 text-center font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <?php foreach ($processosResumo as $processo): ?>
+                                <?php
+                                    $statusInfo = seller_normalize_status_info($processo['status_processo'] ?? '');
+                                    $statusLabelClass = seller_status_label_class($statusInfo['normalized']);
+                                    $statusBadgeClass = seller_status_badge_class($statusInfo['badge_label'] ?? null);
+                                ?>
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-3 py-2 whitespace-nowrap text-gray-800 font-semibold"><?php echo htmlspecialchars($processo['titulo'] ?? '--'); ?></td>
+                                    <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($processo['nome_cliente'] ?? '--'); ?></td>
+                                    <td class="px-3 py-2 whitespace-nowrap">
+                                        <div class="flex flex-wrap items-center gap-1 text-xs font-semibold <?php echo $statusLabelClass; ?>">
+                                            <span><?php echo htmlspecialchars($statusInfo['label']); ?></span>
+                                            <?php if (!empty($statusInfo['badge_label'])): ?>
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium <?php echo $statusBadgeClass; ?>"><?php echo htmlspecialchars($statusInfo['badge_label']); ?></span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </td>
+                                    <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo seller_format_date_br($processo['data_criacao'] ?? null); ?></td>
+                                    <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($processo['valor_total'] ?? 0); ?></td>
+                                    <td class="px-3 py-2 whitespace-nowrap text-center">
+                                        <a href="processos.php?action=view&amp;id=<?php echo (int) $processo['id']; ?>" class="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-800">
+                                            <i class="fas fa-external-link-alt"></i>
+                                            Ver
+                                        </a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <?php if ($processosPossuemMais): ?>
+                <div class="mt-4 text-right">
+                    <a href="<?php echo $listarProcessosUrl; ?>" class="text-blue-600 hover:underline font-semibold">Ver todos os <?php echo (int) $totalProcessesCount; ?> processos</a>
+                </div>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>
@@ -639,225 +596,32 @@ $vendorLeads = $vendorLeads ?? [];
             });
         }
 
-        const loadMoreBtn = document.getElementById('load-more-btn');
-        const tableBody = document.querySelector('#processos-table tbody');
-        let offset = <?php echo count($processos); ?>;
-        const totalProcesses = <?php echo $totalProcessesCount; ?>;
+        const toggleResumoBtn = document.getElementById('toggle-processos-resumo');
+        const resumoContent = document.getElementById('processos-resumo-content');
 
-        if (loadMoreBtn && tableBody) {
-            loadMoreBtn.addEventListener('click', function () {
-                loadMoreBtn.textContent = 'Carregando...';
-                loadMoreBtn.disabled = true;
+        if (toggleResumoBtn && resumoContent) {
+            let expanded = true;
 
-                const currentParams = new URLSearchParams(window.location.search);
-                currentParams.set('ajax', '1');
-                currentParams.set('offset', offset);
+            const syncResumoState = () => {
+                resumoContent.classList.toggle('hidden', !expanded);
 
-                fetch(`dashboard_vendedor.php?${currentParams.toString()}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.length > 0) {
-                            data.forEach(processo => {
-                                const statusInfo = normalizeStatus(processo.status_processo);
-                                const rowClass = resolveRowClass(statusInfo);
-                                const statusLabelClass = resolveStatusLabelClass(statusInfo.normalized);
-                                const badgeKey = (statusInfo.badgeLabel ?? '').toLowerCase();
-                                const statusBadgeClass = badgeClassByStatus[badgeKey] ?? 'bg-indigo-100 text-indigo-800';
-                                const statusBadgeHtml = statusInfo.badgeLabel
-                                    ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium ${statusBadgeClass}">${escapeHTML(statusInfo.badgeLabel)}</span>`
-                                    : '';
+                const icon = toggleResumoBtn.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('fa-chevron-down', !expanded);
+                    icon.classList.toggle('fa-chevron-up', expanded);
+                    toggleResumoBtn.textContent = expanded ? ' Ocultar resumo' : ' Mostrar resumo';
+                    toggleResumoBtn.prepend(icon);
+                } else {
+                    toggleResumoBtn.textContent = expanded ? 'Ocultar resumo' : 'Mostrar resumo';
+                }
+            };
 
-                                const row = `
-                                    <tr class="${rowClass}">
-                                        <td class="px-3 py-2 whitespace-nowrap text-sm font-medium">
-                                            <a href="processos.php?action=view&id=${processo.id}" class="text-blue-600 hover:underline">
-                                                ${escapeHTML(processo.titulo)}
-                                            </a>
-                                            <div class="mt-1 flex flex-wrap items-center gap-1 text-xs font-semibold ${statusLabelClass}">
-                                                <span>${escapeHTML(statusInfo.label)}</span>
-                                                ${statusBadgeHtml}
-                                            </div>
-                                        </td>
-                                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">${escapeHTML(processo.nome_cliente)}</td>
-                                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500 text-center">${processo.total_documentos_soma}</td>
-                                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">${formatServices(processo.categorias_servico)}</td>
-                                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">${formatDate(processo.data_criacao)}</td>
-                                        <td class="px-3 py-2 whitespace-nowrap text-sm text-right font-mono">R$ ${formatCurrency(processo.valor_total)}</td>
-                                        <td class="px-3 py-2 whitespace-nowrap text-center">
-                                            <a href="processos.php?action=view&id=${processo.id}" class="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-800">
-                                                <i class="fas fa-external-link-alt"></i>
-                                                Ver
-                                            </a>
-                                        </td>
-                                    </tr>
-                                `;
-                                tableBody.insertAdjacentHTML('beforeend', row);
-                            });
+            syncResumoState();
 
-                            offset += data.length;
-                            loadMoreBtn.textContent = 'Carregar Mais';
-                            loadMoreBtn.disabled = false;
-                        }
-                        
-                        if (offset >= totalProcesses) {
-                            loadMoreBtn.style.display = 'none';
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Erro ao carregar mais processos:', error);
-                        loadMoreBtn.textContent = 'Erro ao carregar';
-                    });
+            toggleResumoBtn.addEventListener('click', () => {
+                expanded = !expanded;
+                syncResumoState();
             });
-        }
-
-        function escapeHTML(str) {
-            if (str === null || str === undefined) return '';
-            return str.replace(/[&<>'"]/g, tag => ({
-                '&': '&amp;', '<': '&lt;', '>': '&gt;',
-                "'": '&#39;', '"': '&quot;'
-            }[tag]));
-        }
-
-        function formatDate(dateString) {
-            if (!dateString) return '';
-            const date = new Date(dateString);
-            return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-        }
-
-        function formatCurrency(value) {
-            const number = parseFloat(value) || 0;
-            return number.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        }
-
-        function formatServices(servicesString) {
-            if (!servicesString) return '';
-            const serviceMap = {
-                'Tradução': { label: 'Trad.', class: 'bg-blue-100 text-blue-800' },
-                'CRC': { label: 'CRC', class: 'bg-teal-100 text-teal-800' },
-                'Apostilamento': { label: 'Apost.', class: 'bg-purple-100 text-purple-800' },
-                'Postagem': { label: 'Post.', class: 'bg-orange-100 text-orange-800' },
-                'Outros': { label: 'Out.', class: 'bg-gray-100 text-gray-800' }
-            };
-
-            return servicesString
-                .split(',')
-                .map(service => {
-                    const trimmed = service.trim();
-                    const info = serviceMap[trimmed];
-
-                    if (!info) {
-                        return '';
-                    }
-
-                    return `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${info.class} mr-1">${info.label}</span>`;
-                })
-                .filter(Boolean)
-                .join('');
-        }
-
-        const normalizeStatus = (status) => {
-            const normalizedInput = (status ?? '').toString().trim().toLowerCase();
-            const aliases = {
-                'orcamento': 'orçamento',
-                'orcamento pendente': 'orçamento pendente',
-                'serviço pendente': 'serviço pendente',
-                'servico pendente': 'serviço pendente',
-                'pendente': 'serviço pendente',
-                'aprovado': 'serviço pendente',
-                'serviço em andamento': 'serviço em andamento',
-                'servico em andamento': 'serviço em andamento',
-                'em andamento': 'serviço em andamento',
-                'aguardando pagamento': 'pendente de pagamento',
-                'aguardando pagamentos': 'pendente de pagamento',
-                'aguardando documento': 'pendente de documentos',
-                'aguardando documentos': 'pendente de documentos',
-                'aguardando documentacao': 'pendente de documentos',
-                'aguardando documentação': 'pendente de documentos',
-                'pendente de pagamento': 'pendente de pagamento',
-                'pendente de documentos': 'pendente de documentos',
-                'finalizado': 'concluído',
-                'finalizada': 'concluído',
-                'concluido': 'concluído',
-                'concluida': 'concluído',
-                'arquivado': 'cancelado',
-                'arquivada': 'cancelado',
-                'recusado': 'cancelado',
-                'recusada': 'cancelado'
-            };
-
-            const labelMap = {
-                'orçamento': 'Orçamento',
-                'orçamento pendente': 'Orçamento Pendente',
-                'serviço pendente': 'Serviço Pendente',
-                'serviço em andamento': 'Serviço em Andamento',
-                'concluído': 'Concluído',
-                'cancelado': 'Cancelado',
-            };
-
-            const badgeLabels = {
-                'pendente de pagamento': 'Pendente de pagamento',
-                'pendente de documentos': 'Pendente de documentos',
-            };
-
-            let normalized = aliases[normalizedInput] ?? normalizedInput;
-            let badgeLabel = null;
-
-            if (badgeLabels[normalized]) {
-                badgeLabel = badgeLabels[normalized];
-                normalized = 'serviço em andamento';
-            }
-
-            const label = labelMap[normalized] ?? (status || 'N/A');
-
-            return {
-                normalized,
-                label,
-                badgeLabel,
-            };
-        };
-
-        const badgeClassByStatus = {
-            'pendente de pagamento': 'bg-indigo-100 text-indigo-800',
-            'pendente de documentos': 'bg-violet-100 text-violet-800',
-        };
-
-        const resolveStatusLabelClass = (normalized) => {
-            switch (normalized) {
-                case 'orçamento':
-                case 'orçamento pendente':
-                    return 'text-blue-700';
-                case 'serviço pendente':
-                    return 'text-orange-700';
-                case 'serviço em andamento':
-                    return 'text-cyan-700';
-                case 'concluído':
-                    return 'text-purple-700';
-                case 'cancelado':
-                    return 'text-red-700';
-                default:
-                    return 'text-gray-700';
-            }
-        };
-
-        function resolveRowClass(status) {
-            const statusInfo = typeof status === 'object' ? status : normalizeStatus(status);
-            const normalized = statusInfo.normalized;
-            switch (normalized) {
-                case 'orçamento':
-                    return 'bg-blue-50 hover:bg-blue-100';
-                case 'orçamento pendente':
-                    return 'bg-yellow-50 hover:bg-yellow-100';
-                case 'serviço em andamento':
-                    return 'bg-indigo-50 hover:bg-indigo-100';
-                case 'serviço pendente':
-                    return 'bg-orange-50 hover:bg-orange-100';
-                case 'concluído':
-                    return 'bg-green-50 hover:bg-green-100';
-                case 'cancelado':
-                    return 'bg-red-50 hover:bg-red-100';
-                default:
-                    return 'hover:bg-gray-50';
-            }
         }
     });
 </script>
