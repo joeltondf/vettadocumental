@@ -182,7 +182,11 @@ $formatClientPhone = static function (array $cliente): string {
                             <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                                 <a href="clientes.php?action=edit&id=<?php echo $cliente['id']; ?>" class="text-indigo-600 hover:text-indigo-900 mr-4">Editar</a>
                                 <?php if (!$isVendor): ?>
-                                    <a href="clientes.php?action=delete&id=<?php echo $cliente['id']; ?>" class="text-red-600 hover:text-red-900" onclick="return confirm('Tem certeza que deseja excluir este cliente?');">Excluir</a>
+                                    <?php if (!empty($cliente['hasProcesses'])): ?>
+                                        <span class="text-gray-400 cursor-not-allowed" title="Cliente possui serviços/orçamentos e não pode ser excluído">Excluir</span>
+                                    <?php else: ?>
+                                        <a href="clientes.php?action=delete&id=<?php echo $cliente['id']; ?>" class="text-red-600 hover:text-red-900" onclick="return confirm('Tem certeza que deseja excluir este cliente?');">Excluir</a>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                             </td>
                         </tr>

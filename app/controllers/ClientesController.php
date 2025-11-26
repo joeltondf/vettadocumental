@@ -113,6 +113,10 @@ class ClientesController
             $filters['ownerId'] = (int) ($_SESSION['user_id'] ?? 0);
         }
         $clientes = $this->clienteModel->getAppClients($filters);
+        foreach ($clientes as &$cliente) {
+            $cliente['hasProcesses'] = $this->clienteModel->hasProcesses((int) $cliente['id']);
+        }
+        unset($cliente);
         require __DIR__ . '/../views/layouts/header.php';
         require __DIR__ . '/../views/clientes/lista.php';
         require __DIR__ . '/../views/layouts/footer.php';
