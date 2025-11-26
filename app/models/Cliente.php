@@ -455,10 +455,21 @@ class Cliente
             // Impede a exclusão e retorna 'false' para indicar que a operação não foi permitida.
             return false;
         }
-        
+
         // Se não houver processos, prossegue com a exclusão.
         $stmt = $this->pdo->prepare("DELETE FROM clientes WHERE id = ?");
         return $stmt->execute([$id]);
+    }
+
+    /**
+     * Verifica se o cliente possui processos vinculados.
+     */
+    public function hasProcesses(int $id): bool
+    {
+        $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM processos WHERE cliente_id = ?");
+        $stmt->execute([$id]);
+
+        return (int) $stmt->fetchColumn() > 0;
     }
     public function getByUserId($userId) {
     $stmt = $this->pdo->prepare("SELECT * FROM clientes WHERE user_id = ?");
