@@ -202,6 +202,25 @@ class Processo
         return $date->modify('+' . $prazoDias . ' days')->format('Y-m-d');
     }
 
+    private function normalizeStatus(string $status): string
+    {
+        return mb_strtolower(trim($status), 'UTF-8');
+    }
+
+    private function getProcessStatusDataConversao(int $id): ?array
+    {
+        try {
+            $stmt = $this->pdo->prepare('SELECT status_processo, data_conversao FROM processos WHERE id = :id');
+            $stmt->execute([':id' => $id]);
+
+            return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        } catch (PDOException $exception) {
+            error_log('Erro ao buscar status e data de conversão do processo ' . $id . ': ' . $exception->getMessage());
+
+            return null;
+        }
+    }
+
 
 
 public function create($data, $files)
@@ -1943,6 +1962,22 @@ public function create($data, $files)
             'prazo_pausado_em', 'prazo_dias_restantes'
         ];
 
+        if (isset($data['status_processo'])) {
+            $currentProcess = $this->getProcessStatusDataConversao((int) $id);
+            $currentStatus = $this->normalizeStatus($currentProcess['status_processo'] ?? '');
+            $newStatus = $this->normalizeStatus((string) $data['status_processo']);
+
+            $budgetStatuses = ['orçamento', 'orçamento pendente'];
+            $conversionStatus = 'serviço em andamento';
+
+            if (in_array($currentStatus, $budgetStatuses, true)
+                && $newStatus === $conversionStatus
+                && empty($currentProcess['data_conversao'] ?? null)) {
+                $data['data_conversao'] = date('Y-m-d H:i:s');
+                $allowed_fields[] = 'data_conversao';
+            }
+        }
+
         // Adiciona a data de finalização apenas se o status for 'Concluído'
         if (isset($data['status_processo']) && in_array($data['status_processo'], ['Concluído', 'Finalizado'], true)) {
             $data['data_finalizacao_real'] = date('Y-m-d H:i:s');
@@ -2025,6 +2060,21 @@ public function create($data, $files)
         // LÓGICA DA VERSÃO ANTIGA: Adiciona a data de finalização automaticamente.
         if (isset($data['status_processo']) && in_array($data['status_processo'], ['Concluído', 'Finalizado'], true)) {
             $data['data_finalizacao_real'] = date('Y-m-d H:i:s');
+        }
+
+        if (isset($data['status_processo'])) {
+            $currentProcess = $this->getProcessStatusDataConversao($id);
+            $currentStatus = $this->normalizeStatus($currentProcess['status_processo'] ?? '');
+            $newStatus = $this->normalizeStatus((string) $data['status_processo']);
+
+            $budgetStatuses = ['orçamento', 'orçamento pendente'];
+            $conversionStatus = 'serviço em andamento';
+
+            if (in_array($currentStatus, $budgetStatuses, true)
+                && $newStatus === $conversionStatus
+                && empty($currentProcess['data_conversao'] ?? null)) {
+                $data['data_conversao'] = date('Y-m-d H:i:s');
+            }
         }
 
         // LÓGICA DA NOVA VERSÃO: Constrói a query de forma flexível.
@@ -2416,6 +2466,7 @@ public function create($data, $files)
                     p.id,
                     p.titulo,
                     p.data_criacao,
+                    p.data_conversao,
                     p.valor_total,
                     p.status_processo,
                     {$statusFinanceiroSelect},
@@ -2427,6 +2478,7 @@ public function create($data, $files)
                 LEFT JOIN users u ON v.user_id = u.id
                 JOIN clientes c ON p.cliente_id = c.id
                 WHERE p.valor_total > 0
+                  AND p.data_conversao IS NOT NULL
                   AND p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Finalizado')"; // Apenas status que contam como venda
 
         $params = [];
@@ -2437,15 +2489,15 @@ public function create($data, $files)
             $params[':vendedor_id'] = $filters['vendedor_id'];
         }
         if (!empty($filters['data_inicio'])) {
-            $sql .= " AND p.data_criacao >= :data_inicio";
+            $sql .= " AND p.data_conversao >= :data_inicio";
             $params[':data_inicio'] = $filters['data_inicio'] . ' 00:00:00';
         }
         if (!empty($filters['data_fim'])) {
-            $sql .= " AND p.data_criacao <= :data_fim";
+            $sql .= " AND p.data_conversao <= :data_fim";
             $params[':data_fim'] = $filters['data_fim'] . ' 23:59:59';
         }
 
-        $sql .= " ORDER BY p.data_criacao DESC";
+        $sql .= " ORDER BY p.data_conversao DESC";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
