@@ -182,7 +182,6 @@ $initialVisibleRows = 25;
                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Vendedor / SDR</th>
                         <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Valor total</th>
                         <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Comissão Vendedor</th>
-                        <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Comissão SDR</th>
                         <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Atualização</th>
                         <th class="px-3 py-2 text-center font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                     </tr>
@@ -194,6 +193,12 @@ $initialVisibleRows = 25;
                             $statusLabelClass = seller_status_label_class($statusInfo['normalized']);
                             $statusBadgeClass = seller_status_badge_class($statusInfo['badge_label'] ?? null);
                             $codigo = $processo['os_numero_omie'] ?? $processo['id'];
+                            $showCommission = !in_array($statusInfo['normalized'], ['orçamento', 'orçamento pendente'], true);
+                            $commissionClass = match ($statusInfo['normalized']) {
+                                'serviço pendente', 'serviço em andamento' => 'text-orange-600',
+                                'concluído', 'finalizado' => 'text-green-600',
+                                default => 'text-gray-700',
+                            };
                         ?>
                         <tr class="hover:bg-gray-50" data-process-row data-row-index="<?php echo $index; ?>" <?php echo $index >= $initialVisibleRows ? 'style="display:none;"' : ''; ?>>
                             <td class="px-3 py-2 whitespace-nowrap font-mono text-gray-700">#<?php echo htmlspecialchars($codigo); ?></td>
@@ -220,8 +225,13 @@ $initialVisibleRows = 25;
                                 </div>
                             </td>
                             <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($processo['valor_total'] ?? 0); ?></td>
-                            <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($processo['comissaoVendedor'] ?? 0); ?></td>
-                            <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($processo['comissaoSdr'] ?? 0); ?></td>
+                            <td class="px-3 py-2 whitespace-nowrap text-right font-semibold <?php echo $commissionClass; ?>">
+                                <?php if ($showCommission): ?>
+                                    <?php echo seller_format_currency_br($processo['comissaoVendedor'] ?? 0); ?>
+                                <?php else: ?>
+                                    —
+                                <?php endif; ?>
+                            </td>
                             <td class="px-3 py-2 whitespace-nowrap text-right text-gray-600"><?php echo seller_format_date_br($processo['data_criacao'] ?? null); ?></td>
                             <td class="px-3 py-2 whitespace-nowrap text-center">
                                 <a href="<?php echo $baseAppUrl; ?>/processos.php?action=view&amp;id=<?php echo (int) $processo['id']; ?>" class="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-800">
