@@ -135,11 +135,18 @@ class Processo
     {
         $this->loadProcessColumns();
 
-        if ($this->hasProcessColumn('sdr_id')) {
+        $hasSnakeCase = $this->hasProcessColumn('sdr_id');
+        $hasCamelCase = $this->hasProcessColumn('sdrId');
+
+        if ($hasSnakeCase && $hasCamelCase) {
+            return 'COALESCE(p.sdr_id, p.sdrId)';
+        }
+
+        if ($hasSnakeCase) {
             return 'p.sdr_id';
         }
 
-        if ($this->hasProcessColumn('sdrId')) {
+        if ($hasCamelCase) {
             return 'p.sdrId';
         }
 
@@ -1495,7 +1502,8 @@ public function create($data, $files)
             : $percentualComissao;
 
         $sdrPercent = $this->getSdrCommissionPercent();
-        $hasSdr = !empty($processo['sdr_id']);
+        $sdrId = isset($processo['sdr_id']) ? (int) $processo['sdr_id'] : 0;
+        $hasSdr = $sdrId > 0;
         $effectiveVendorPercent = $hasSdr ? ($vendorPercent - $sdrPercent) : $vendorPercent;
         if ($effectiveVendorPercent < 0) {
             $effectiveVendorPercent = 0.0;
@@ -2572,7 +2580,7 @@ public function create($data, $files)
         ];
 
         $sdrExpression = $this->getSdrIdSelectExpression();
-        $sdrSelect = "{$sdrExpression} AS sdr_id";
+        $sdrSelect = "COALESCE({$sdrExpression}, 0) AS sdr_id";
         $statusFinanceiroSelect = $this->getStatusFinanceiroSelectExpression();
 
         $sql = "SELECT
@@ -2624,7 +2632,7 @@ public function create($data, $files)
 
         if (!empty($filters['sdr_id'])) {
             $sql .= " AND {$sdrExpression} = :sdr_id";
-            $params[':sdr_id'] = $filters['sdr_id'];
+            $params[':sdr_id'] = (int) $filters['sdr_id'];
         }
 
         if (!empty($filters['data_inicio'])) {
@@ -2654,7 +2662,8 @@ public function create($data, $files)
         foreach ($processos as &$processo) {
             $valorTotal = (float) ($processo['valor_total'] ?? 0);
             $vendorPercent = (float) ($processo['percentual_comissao_vendedor'] ?? $processo['percentual_comissao'] ?? 0);
-            $hasSdr = !empty($processo['sdr_id']);
+            $sdrId = isset($processo['sdr_id']) ? (int) $processo['sdr_id'] : 0;
+            $hasSdr = $sdrId > 0;
 
             $valorComissaoSdr = (float) ($processo['valor_comissao_sdr'] ?? 0);
 
