@@ -155,6 +155,53 @@ class GerenteDashboardController
         return $parsed instanceof \DateTime ? $parsed->format('Y-m-d') : null;
     }
 
+    public function listarComissoes(): void
+    {
+        $processoModel = new Processo($this->pdo);
+        $vendedorModel = new Vendedor($this->pdo);
+        $userModel = new User($this->pdo);
+
+        $filters = [
+            'data_inicio' => $this->normalizeDate($_GET['data_inicio'] ?? null),
+            'data_fim' => $this->normalizeDate($_GET['data_fim'] ?? null),
+            'vendedor_id' => !empty($_GET['vendedor_id']) ? (int) $_GET['vendedor_id'] : null,
+            'sdr_id' => !empty($_GET['sdr_id']) ? (int) $_GET['sdr_id'] : null,
+            'status' => isset($_GET['status']) ? trim((string) $_GET['status']) : null,
+        ];
+
+        $filters = array_filter($filters, static fn($value) => $value !== null && $value !== '');
+
+        $commissionReport = $processoModel->getCommissionsByFilter($filters);
+        $processos = $commissionReport['processos'] ?? [];
+        $totais = $commissionReport['totais'] ?? [
+            'valor_total' => 0,
+            'comissao_vendedor' => 0,
+            'comissao_sdr' => 0,
+        ];
+
+        $totalProcessos = count($processos);
+        $ticketMedio = $totalProcessos > 0 ? ($totais['valor_total'] / $totalProcessos) : 0.0;
+
+        $vendedores = $vendedorModel->getAll();
+        $sdrs = $userModel->getActiveSdrs();
+        $statusOptions = [
+            'Serviço Pendente',
+            'Serviço pendente',
+            'Serviço em Andamento',
+            'Serviço em andamento',
+            'Pendente de pagamento',
+            'Pendente de documentos',
+            'Concluído',
+            'Finalizado',
+        ];
+
+        $pageTitle = 'Relatório de Comissões';
+
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/gerente_dashboard/lista_comissoes.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+
     public function leads(): void
     {
         $prospeccaoModel = new Prospeccao($this->pdo);

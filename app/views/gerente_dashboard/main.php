@@ -8,6 +8,7 @@ $valoresAprovados = $valoresAprovados ?? [];
 $labelsAprovados  = $labelsAprovados ?? [];
 $valoresFinalizados = $valoresFinalizados ?? [];
 $labelsFinalizados  = $labelsFinalizados ?? [];
+$commissionReportUrl = $baseAppUrl . '/gerente_dashboard.php?action=listar_comissoes';
 $sdrSummary = $sdrSummary ?? [];
 $sdrVendorSummary = $sdrVendorSummary ?? [];
 $vendorCommissionReport = $vendorCommissionReport ?? [];
@@ -43,6 +44,10 @@ $averageSdrConversion = $totalSdrLeads > 0 ? ($convertedSdrLeads / $totalSdrLead
   <a href="<?= $baseAppUrl; ?>/gerente/dashboard/leads.php" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-colors">
     <i class="fas fa-users-cog"></i>
     <span>Leads em tratamento</span>
+  </a>
+  <a href="<?= $commissionReportUrl; ?>" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 transition-colors">
+    <i class="fas fa-file-invoice-dollar"></i>
+    <span>Relatório de comissões</span>
   </a>
 </div>
 
