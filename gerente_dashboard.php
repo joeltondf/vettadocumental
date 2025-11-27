@@ -13,4 +13,15 @@ require_once 'app/controllers/GerenteDashboardController.php';
 
 // Instancia o controlador e renderiza a página
 $controller = new GerenteDashboardController($pdo);
-$controller->index();
+$action = $_GET['action'] ?? 'index';
+
+switch ($action) {
+    case 'listar_comissoes':
+        $controller->listarComissoes();
+        break;
+    case 'leads':
+        $controller->leads();
+        break;
+    default:
+        $controller->index();
+}

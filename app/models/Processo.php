@@ -2545,6 +2545,144 @@ public function create($data, $files)
         $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    public function getCommissionsByFilter(array $filters): array
+    {
+        $serviceStatuses = [
+            'Serviço Pendente',
+            'Serviço pendente',
+            'Serviço em Andamento',
+            'Serviço em andamento',
+            'Pendente de pagamento',
+            'Pendente de documentos',
+            'Concluído',
+            'Finalizado'
+        ];
+
+        $sdrExpression = $this->getSdrIdSelectExpression();
+        $statusFinanceiroSelect = $this->getStatusFinanceiroSelectExpression();
+
+        $sql = "SELECT
+                    p.id,
+                    p.orcamento_numero,
+                    p.titulo,
+                    p.categorias_servico,
+                    p.valor_total,
+                    p.status_processo,
+                    p.data_conversao,
+                    {$statusFinanceiroSelect},
+                    COALESCE(u.nome_completo, 'Sistema') AS nome_vendedor,
+                    COALESCE(v.percentual_comissao, 0) AS percentual_comissao_vendedor,
+                    {$sdrExpression} AS sdr_id,
+                    c.nome_cliente,
+                    COALESCE(comm_vendedor.total_comissao_vendedor, 0) AS valor_comissao_vendedor,
+                    COALESCE(comm_sdr.total_comissao_sdr, 0) AS valor_comissao_sdr
+                FROM processos p
+                JOIN clientes c ON p.cliente_id = c.id
+                LEFT JOIN vendedores v ON p.vendedor_id = v.id
+                LEFT JOIN users u ON v.user_id = u.id
+                LEFT JOIN (
+                    SELECT venda_id, SUM(valor_comissao) AS total_comissao_vendedor
+                    FROM comissoes
+                    WHERE tipo_comissao = 'vendedor'
+                    GROUP BY venda_id
+                ) comm_vendedor ON comm_vendedor.venda_id = p.id
+                LEFT JOIN (
+                    SELECT venda_id, SUM(valor_comissao) AS total_comissao_sdr
+                    FROM comissoes
+                    WHERE tipo_comissao = 'sdr'
+                    GROUP BY venda_id
+                ) comm_sdr ON comm_sdr.venda_id = p.id
+                WHERE p.valor_total > 0
+                  AND p.data_conversao IS NOT NULL
+                  AND p.status_processo IN ('" . implode("','", $serviceStatuses) . "')";
+
+        $params = [];
+
+        if (!empty($filters['vendedor_id'])) {
+            $sql .= ' AND p.vendedor_id = :vendedor_id';
+            $params[':vendedor_id'] = $filters['vendedor_id'];
+        }
+
+        if (!empty($filters['status'])) {
+            $sql .= ' AND p.status_processo = :status';
+            $params[':status'] = $filters['status'];
+        }
+
+        if (!empty($filters['sdr_id'])) {
+            $sql .= " AND {$sdrExpression} = :sdr_id";
+            $params[':sdr_id'] = $filters['sdr_id'];
+        }
+
+        if (!empty($filters['data_inicio'])) {
+            $sql .= ' AND p.data_conversao >= :data_inicio';
+            $params[':data_inicio'] = $filters['data_inicio'] . ' 00:00:00';
+        }
+
+        if (!empty($filters['data_fim'])) {
+            $sql .= ' AND p.data_conversao <= :data_fim';
+            $params[':data_fim'] = $filters['data_fim'] . ' 23:59:59';
+        }
+
+        $sql .= ' ORDER BY p.data_conversao DESC';
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        $processos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $sdrPercent = $this->getSdrCommissionPercent();
+
+        $totals = [
+            'valor_total' => 0.0,
+            'comissao_vendedor' => 0.0,
+            'comissao_sdr' => 0.0,
+        ];
+
+        foreach ($processos as &$processo) {
+            $valorTotal = (float) ($processo['valor_total'] ?? 0);
+            $vendorPercent = (float) ($processo['percentual_comissao_vendedor'] ?? 0);
+
+            $valorComissaoVendedor = (float) ($processo['valor_comissao_vendedor'] ?? 0);
+            if ($valorComissaoVendedor <= 0) {
+                $valorComissaoVendedor = $this->calculateVendorCommission($processo, $vendorPercent);
+            }
+
+            $valorComissaoSdr = (float) ($processo['valor_comissao_sdr'] ?? 0);
+            if ($valorComissaoSdr <= 0 && $sdrPercent > 0 && in_array($processo['status_processo'], $serviceStatuses, true)) {
+                $valorComissaoSdr = $valorTotal > 0 ? ($valorTotal * $sdrPercent) / 100 : 0.0;
+            }
+
+            $processo['valor_comissao_vendedor'] = $valorComissaoVendedor;
+            $processo['valor_comissao_sdr'] = $valorComissaoSdr;
+            $processo['percentual_comissao_vendedor'] = $valorTotal > 0 ? round(($valorComissaoVendedor / $valorTotal) * 100, 2) : 0.0;
+            $processo['percentual_comissao_sdr'] = $valorTotal > 0 ? round(($valorComissaoSdr / $valorTotal) * 100, 2) : 0.0;
+
+            $totals['valor_total'] += $valorTotal;
+            $totals['comissao_vendedor'] += $valorComissaoVendedor;
+            $totals['comissao_sdr'] += $valorComissaoSdr;
+        }
+
+        unset($processo);
+
+        return [
+            'processos' => $processos,
+            'totais' => $totals,
+        ];
+    }
+
+    private function getSdrCommissionPercent(): float
+    {
+        try {
+            $stmt = $this->pdo->prepare("SELECT valor FROM configuracoes_comissao WHERE tipo_regra = 'percentual_sdr' AND ativo = 1 ORDER BY id DESC LIMIT 1");
+            $stmt->execute();
+            $value = $stmt->fetchColumn();
+
+            return $value !== false && $value !== null ? (float) $value : 0.0;
+        } catch (PDOException $exception) {
+            error_log('Erro ao buscar percentual de comissão SDR: ' . $exception->getMessage());
+            return 0.0;
+        }
+    }
         
 /**
      * Cria um novo processo a partir dos dados de uma prospecção ganha.
