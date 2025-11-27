@@ -178,6 +178,7 @@ $pageTitle = $pageTitle ?? 'Todos os Serviços';
                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Data de entrada</th>
                         <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Valor total</th>
                         <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Comissão Vendedor</th>
+                        <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Comissão SDR</th>
                         <th class="px-3 py-2 text-center font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                     </tr>
                 </thead>
@@ -188,12 +189,6 @@ $pageTitle = $pageTitle ?? 'Todos os Serviços';
                             $statusInfo = seller_normalize_status_info($servico['status_processo'] ?? '');
                             $statusLabelClass = seller_status_label_class($statusInfo['normalized']);
                             $statusBadgeClass = seller_status_badge_class($statusInfo['badge_label'] ?? null);
-                            $showCommission = !in_array($statusInfo['normalized'], ['orçamento', 'orçamento pendente'], true);
-                            $commissionClass = match ($statusInfo['normalized']) {
-                                'serviço pendente', 'serviço em andamento' => 'text-orange-600',
-                                'concluído', 'finalizado' => 'text-green-600',
-                                default => 'text-gray-700',
-                            };
                         ?>
                         <tr class="hover:bg-gray-50" data-row-index="<?php echo $index; ?>">
                             <td class="px-3 py-2 whitespace-nowrap font-mono text-gray-700">#<?php echo htmlspecialchars($codigo); ?></td>
@@ -215,13 +210,8 @@ $pageTitle = $pageTitle ?? 'Todos os Serviços';
                             </td>
                             <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo seller_format_date_br($servico['data_criacao'] ?? null); ?></td>
                             <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($servico['valor_total'] ?? 0); ?></td>
-                            <td class="px-3 py-2 whitespace-nowrap text-right font-semibold <?php echo $commissionClass; ?>">
-                                <?php if ($showCommission): ?>
-                                    <?php echo seller_format_currency_br($servico['comissaoVendedor'] ?? 0); ?>
-                                <?php else: ?>
-                                    —
-                                <?php endif; ?>
-                            </td>
+                            <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($servico['comissaoVendedor'] ?? 0); ?></td>
+                            <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($servico['comissaoSdr'] ?? 0); ?></td>
                             <td class="px-3 py-2 whitespace-nowrap text-center">
                                 <a href="<?php echo $baseAppUrl; ?>/processos.php?action=view&amp;id=<?php echo (int) $servico['id']; ?>" class="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-800">
                                     <i class="fas fa-external-link-alt"></i>
