@@ -175,6 +175,8 @@ $pageTitle = $pageTitle ?? 'Todos os Orçamentos';
                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Data de entrada</th>
                         <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Valor total</th>
+                        <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Comissão Vendedor</th>
+                        <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Comissão SDR</th>
                         <th class="px-3 py-2 text-center font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                     </tr>
                 </thead>
@@ -206,6 +208,8 @@ $pageTitle = $pageTitle ?? 'Todos os Orçamentos';
                             </td>
                             <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo seller_format_date_br($orcamento['data_criacao'] ?? null); ?></td>
                             <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($orcamento['valor_total'] ?? 0); ?></td>
+                            <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($orcamento['comissaoVendedor'] ?? 0); ?></td>
+                            <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($orcamento['comissaoSdr'] ?? 0); ?></td>
                             <td class="px-3 py-2 whitespace-nowrap text-center">
                                 <a href="<?php echo $baseAppUrl; ?>/processos.php?action=view&amp;id=<?php echo (int) $orcamento['id']; ?>" class="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-800">
                                     <i class="fas fa-external-link-alt"></i>

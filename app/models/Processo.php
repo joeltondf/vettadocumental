@@ -1367,36 +1367,30 @@ public function create($data, $files)
 
     public function getBudgetPipelineSummary(?string $startDate = null, ?string $endDate = null): array
     {
+        $conditions = [];
         $params = [];
 
-        $budgetDateCondition = '';
         if (!empty($startDate)) {
-            $budgetDateCondition .= ' AND p.data_criacao >= :budgetStartDate';
-            $params[':budgetStartDate'] = $startDate . ' 00:00:00';
-        }
-        if (!empty($endDate)) {
-            $budgetDateCondition .= ' AND p.data_criacao <= :budgetEndDate';
-            $params[':budgetEndDate'] = $endDate . ' 23:59:59';
+            $conditions[] = 'p.data_criacao >= :startDate';
+            $params[':startDate'] = $startDate . ' 00:00:00';
         }
 
-        $serviceDateCondition = '';
-        if (!empty($startDate)) {
-            $serviceDateCondition .= ' AND p.data_conversao >= :serviceStartDate';
-            $params[':serviceStartDate'] = $startDate . ' 00:00:00';
-        }
         if (!empty($endDate)) {
-            $serviceDateCondition .= ' AND p.data_conversao <= :serviceEndDate';
-            $params[':serviceEndDate'] = $endDate . ' 23:59:59';
+            $conditions[] = 'p.data_criacao <= :endDate';
+            $params[':endDate'] = $endDate . ' 23:59:59';
         }
+
+        $whereSql = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
 
         $sql = "SELECT
-                    SUM(CASE WHEN p.status_processo IN ('Orçamento', 'Orçamento Pendente'){$budgetDateCondition} THEN 1 ELSE 0 END) AS budgetCount,
-                    SUM(CASE WHEN p.status_processo IN ('Orçamento', 'Orçamento Pendente'){$budgetDateCondition} THEN COALESCE(p.valor_total, 0) ELSE 0 END) AS budgetValue,
-                    SUM(CASE WHEN p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos') AND p.data_conversao IS NOT NULL{$serviceDateCondition} THEN 1 ELSE 0 END) AS pipelineCount,
-                    SUM(CASE WHEN p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos') AND p.data_conversao IS NOT NULL{$serviceDateCondition} THEN COALESCE(p.valor_total, 0) ELSE 0 END) AS pipelineValue,
-                    SUM(CASE WHEN p.status_processo IN ('Concluído', 'Finalizado') AND p.data_conversao IS NOT NULL{$serviceDateCondition} THEN 1 ELSE 0 END) AS closedCount,
-                    SUM(CASE WHEN p.status_processo IN ('Concluído', 'Finalizado') AND p.data_conversao IS NOT NULL{$serviceDateCondition} THEN COALESCE(p.valor_total, 0) ELSE 0 END) AS closedValue
-                FROM processos p";
+                    SUM(CASE WHEN p.status_processo IN ('Orçamento', 'Orçamento Pendente') THEN 1 ELSE 0 END) AS budgetCount,
+                    SUM(CASE WHEN p.status_processo IN ('Orçamento', 'Orçamento Pendente') THEN COALESCE(p.valor_total, 0) ELSE 0 END) AS budgetValue,
+                    SUM(CASE WHEN p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos') THEN 1 ELSE 0 END) AS pipelineCount,
+                    SUM(CASE WHEN p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos') THEN COALESCE(p.valor_total, 0) ELSE 0 END) AS pipelineValue,
+                    SUM(CASE WHEN p.status_processo IN ('Concluído', 'Finalizado') THEN 1 ELSE 0 END) AS closedCount,
+                    SUM(CASE WHEN p.status_processo IN ('Concluído', 'Finalizado') THEN COALESCE(p.valor_total, 0) ELSE 0 END) AS closedValue
+                FROM processos p
+                $whereSql";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
@@ -1420,16 +1414,16 @@ public function create($data, $files)
 
     public function getVendorCommissionSummary(?string $startDate = null, ?string $endDate = null): array
     {
-        $conditions = ["p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado')", 'p.data_conversao IS NOT NULL'];
+        $conditions = ["p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado')"];
         $params = [];
 
         if (!empty($startDate)) {
-            $conditions[] = 'p.data_conversao >= :startDate';
+            $conditions[] = 'p.data_criacao >= :startDate';
             $params[':startDate'] = $startDate . ' 00:00:00';
         }
 
         if (!empty($endDate)) {
-            $conditions[] = 'p.data_conversao <= :endDate';
+            $conditions[] = 'p.data_criacao <= :endDate';
             $params[':endDate'] = $endDate . ' 23:59:59';
         }
 
@@ -1469,29 +1463,6 @@ public function create($data, $files)
         unset($row);
 
         return $rows;
-    }
-
-    public function calculateVendorCommission(array $processo, float $percentualComissao): float
-    {
-        $status = $processo['status_processo'] ?? '';
-        $serviceStatuses = [
-            'Serviço Pendente',
-            'Serviço pendente',
-            'Serviço em Andamento',
-            'Serviço em andamento',
-            'Pendente de pagamento',
-            'Pendente de documentos',
-            'Concluído',
-            'Finalizado'
-        ];
-
-        if (!in_array($status, $serviceStatuses, true)) {
-            return 0.0;
-        }
-
-        $valorTotal = isset($processo['valor_total']) ? (float) $processo['valor_total'] : 0.0;
-
-        return $valorTotal > 0 ? ($valorTotal * $percentualComissao) / 100 : 0.0;
     }
 
     public function getVendorBudgetsByMonth(int $vendorId, string $monthStart, string $monthEnd): array
@@ -1591,7 +1562,6 @@ public function create($data, $files)
                     p.categorias_servico,
                     p.status_processo,
                     p.data_criacao,
-                    p.data_conversao,
                     p.valor_total,
                     {$sdrExpression} AS sdr_id,
                     c.nome_cliente
@@ -1599,9 +1569,8 @@ public function create($data, $files)
                 INNER JOIN clientes c ON c.id = p.cliente_id
                 WHERE p.vendedor_id = :vendorId
                   AND p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado', 'Concluído', 'Finalizado')
-                  AND p.data_conversao IS NOT NULL
-                  AND p.data_conversao BETWEEN :monthStart AND :monthEnd
-                ORDER BY p.data_conversao DESC";
+                  AND p.data_criacao BETWEEN :monthStart AND :monthEnd
+                ORDER BY p.data_criacao DESC";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->bindValue(':vendorId', $vendorId, PDO::PARAM_INT);
@@ -1692,7 +1661,6 @@ public function create($data, $files)
                     p.categorias_servico,
                     p.status_processo,
                     p.data_criacao,
-                    p.data_conversao,
                     p.valor_total,
                     {$sdrExpression} AS sdr_id,
                     c.nome_cliente
@@ -1700,9 +1668,8 @@ public function create($data, $files)
                 INNER JOIN clientes c ON c.id = p.cliente_id
                 WHERE p.vendedor_id = ?
                   AND p.status_processo IN ({$placeholders})
-                  AND p.data_conversao IS NOT NULL
-                  AND p.data_conversao BETWEEN ? AND ?
-                ORDER BY p.data_conversao DESC";
+                  AND p.data_criacao BETWEEN ? AND ?
+                ORDER BY p.data_criacao DESC";
 
         $stmt = $this->pdo->prepare($sql);
 
@@ -2473,18 +2440,17 @@ public function create($data, $files)
                 FROM processos p
                 WHERE p.vendedor_id = :vendedor_id
                   AND p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado')
-                  AND p.data_conversao IS NOT NULL
-                  AND MONTH(p.data_conversao) = MONTH(CURDATE())
-                  AND YEAR(p.data_conversao) = YEAR(CURDATE())";
-
+                  AND MONTH(p.data_criacao) = MONTH(CURDATE())
+                  AND YEAR(p.data_criacao) = YEAR(CURDATE())";
+    
         try {
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute([':vendedor_id' => $vendedorId]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
-
+    
             // Retorna o valor somado, ou 0.0 se for nulo.
             return (float) ($result['total_vendas_mes'] ?? 0.0);
-
+    
         } catch (PDOException $e) {
             error_log("Erro ao buscar total de vendas do mês para o vendedor {$vendedorId}: " . $e->getMessage());
             return 0.0;
@@ -2494,7 +2460,6 @@ public function create($data, $files)
     public function getSalesByFilter($filters)
     {
         $statusFinanceiroSelect = $this->getStatusFinanceiroSelectExpression();
-        $serviceStatuses = ['Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Finalizado'];
 
         // A consulta principal une processos com vendedores e soma os documentos de cada processo
         $sql = "SELECT
@@ -2523,23 +2488,16 @@ public function create($data, $files)
             $sql .= " AND p.vendedor_id = :vendedor_id";
             $params[':vendedor_id'] = $filters['vendedor_id'];
         }
-
-        $dateField = 'p.data_conversao';
-        if (!empty($filters['status']) && !in_array($filters['status'], $serviceStatuses, true)) {
-            $dateField = 'p.data_criacao';
-            $sql = str_replace('p.data_conversao IS NOT NULL AND ', '', $sql);
-        }
-
         if (!empty($filters['data_inicio'])) {
-            $sql .= " AND {$dateField} >= :data_inicio";
+            $sql .= " AND p.data_conversao >= :data_inicio";
             $params[':data_inicio'] = $filters['data_inicio'] . ' 00:00:00';
         }
         if (!empty($filters['data_fim'])) {
-            $sql .= " AND {$dateField} <= :data_fim";
+            $sql .= " AND p.data_conversao <= :data_fim";
             $params[':data_fim'] = $filters['data_fim'] . ' 23:59:59';
         }
 
-        $sql .= " ORDER BY {$dateField} DESC";
+        $sql .= " ORDER BY p.data_conversao DESC";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);

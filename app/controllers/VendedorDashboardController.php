@@ -44,8 +44,19 @@ class VendedorDashboardController
         $servicosMesAtual = $processoModel->getVendorServicesByMonth($vendedorId, $monthStartStr, $monthEndStr);
         $servicosAtivosMesAnterior = $processoModel->getVendorActiveServicesFromLastMonth($vendedorId, $lastMonthStartStr, $lastMonthEndStr);
 
-        $servicosMesAtual = $this->appendCommissions($servicosMesAtual, $vendedorId, $comissaoModel, $processoModel, $percentualComissao);
-        $servicosAtivosMesAnterior = $this->appendCommissions($servicosAtivosMesAnterior, $vendedorId, $comissaoModel, $processoModel, $percentualComissao);
+        foreach ($servicosMesAtual as &$processoAtual) {
+            $processoAtual['comissaoVendedor'] = $comissaoModel->getCommissionByProcessAndUser((int)($processoAtual['id'] ?? 0), $vendedorId);
+            $sdrId = isset($processoAtual['sdr_id']) ? (int)$processoAtual['sdr_id'] : null;
+            $processoAtual['comissaoSdr'] = $sdrId ? $comissaoModel->getCommissionByProcessAndUser((int)$processoAtual['id'], $sdrId) : 0.0;
+        }
+        unset($processoAtual);
+
+        foreach ($servicosAtivosMesAnterior as &$processoAnterior) {
+            $processoAnterior['comissaoVendedor'] = $comissaoModel->getCommissionByProcessAndUser((int)($processoAnterior['id'] ?? 0), $vendedorId);
+            $sdrId = isset($processoAnterior['sdr_id']) ? (int)$processoAnterior['sdr_id'] : null;
+            $processoAnterior['comissaoSdr'] = $sdrId ? $comissaoModel->getCommissionByProcessAndUser((int)$processoAnterior['id'], $sdrId) : 0.0;
+        }
+        unset($processoAnterior);
 
 
         // 3. Busca de dados de Processos (Vendas)
@@ -133,6 +144,7 @@ class VendedorDashboardController
         $dataFim = $this->formatDateFilter($filters['data_fim'] ?? null, 'end');
 
         $orcamentos = $processoModel->getVendorBudgets($vendedorId, $dataInicio, $dataFim, $filters);
+        $orcamentos = $this->appendCommissions($orcamentos, $vendedorId, $comissaoModel);
 
         $clientesParaFiltro = $clienteModel->getAll();
         $pageTitle = 'Todos os Orçamentos';
@@ -156,7 +168,7 @@ class VendedorDashboardController
         $dataFim = $this->formatDateFilter($filters['data_fim'] ?? null, 'end');
 
         $servicos = $processoModel->getVendorServices($vendedorId, $dataInicio, $dataFim, $filters);
-        $servicos = $this->appendCommissions($servicos, $vendedorId, $comissaoModel, $processoModel, $percentualComissao);
+        $servicos = $this->appendCommissions($servicos, $vendedorId, $comissaoModel);
 
         $clientesParaFiltro = $clienteModel->getAll();
         $pageTitle = 'Todos os Serviços';
@@ -181,7 +193,7 @@ class VendedorDashboardController
         $totalProcessesCount = $processoModel->getTotalFilteredProcessesCount($filters);
         $limit = $totalProcessesCount > 0 ? $totalProcessesCount : 0;
         $processos = $limit > 0 ? $processoModel->getFilteredProcesses($filters, $limit, 0) : [];
-        $processos = $this->appendCommissions($processos, $vendedorId, $comissaoModel, $processoModel, $percentualComissao);
+        $processos = $this->appendCommissions($processos, $vendedorId, $comissaoModel);
 
         $clientesParaFiltro = $clienteModel->getAll();
         $pageTitle = 'Todos os Processos';
@@ -323,17 +335,11 @@ class VendedorDashboardController
         return $type === 'start' ? $date . ' 00:00:00' : $date . ' 23:59:59';
     }
 
-    private function appendCommissions(array $processos, int $vendedorId, Comissao $comissaoModel, Processo $processoModel, float $percentualComissao): array
+    private function appendCommissions(array $processos, int $vendedorId, Comissao $comissaoModel): array
     {
         foreach ($processos as &$processo) {
             $processoId = (int) ($processo['id'] ?? 0);
-            $comissaoVendedor = $comissaoModel->getCommissionByProcessAndUser($processoId, $vendedorId);
-
-            if ($comissaoVendedor <= 0) {
-                $comissaoVendedor = $processoModel->calculateVendorCommission($processo, $percentualComissao);
-            }
-
-            $processo['comissaoVendedor'] = $comissaoVendedor;
+            $processo['comissaoVendedor'] = $comissaoModel->getCommissionByProcessAndUser($processoId, $vendedorId);
 
             $sdrId = isset($processo['sdr_id']) ? (int) $processo['sdr_id'] : null;
             $processo['comissaoSdr'] = $sdrId ? $comissaoModel->getCommissionByProcessAndUser($processoId, $sdrId) : 0.0;
