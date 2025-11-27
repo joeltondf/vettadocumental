@@ -37,11 +37,11 @@
                     </select>
                 </div>
                 <div>
-                    <label for="data_inicio" class="block text-sm font-medium text-gray-700">Data Início</label>
+                    <label for="data_inicio" class="block text-sm font-medium text-gray-700">Data de Conversão (Início)</label>
                     <input type="date" name="data_inicio" id="data_inicio" value="<?php echo htmlspecialchars($filtros['data_inicio'] ?? ''); ?>" class="mt-1 block w-full p-2 border-gray-300 rounded-md">
                 </div>
                 <div>
-                    <label for="data_fim" class="block text-sm font-medium text-gray-700">Data Fim</label>
+                    <label for="data_fim" class="block text-sm font-medium text-gray-700">Data de Conversão (Fim)</label>
                     <input type="date" name="data_fim" id="data_fim" value="<?php echo htmlspecialchars($filtros['data_fim'] ?? ''); ?>" class="mt-1 block w-full p-2 border-gray-300 rounded-md">
                 </div>
                 <div class="flex space-x-2">
@@ -50,6 +50,7 @@
                 </div>
             </div>
         </form>
+        <p class="text-sm text-gray-600 mt-3">O período considera a data em que o orçamento foi convertido em serviço pago.</p>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -76,7 +77,7 @@
                         <tr>
                             <th class="px-5 py-3 border-b-2 text-left">Processo</th>
                             <th class="px-5 py-3 border-b-2 text-left">Vendedor</th>
-                            <th class="px-5 py-3 border-b-2 text-left">Data</th>
+                            <th class="px-5 py-3 border-b-2 text-left">Data de Conversão</th>
                             <th class="px-5 py-3 border-b-2 text-right">Valor</th>
                             <th class="px-5 py-3 border-b-2 text-center">Situação de Pagamento</th>
                         </tr>
@@ -93,7 +94,9 @@
                                 <tr>
                                     <td class="px-5 py-4 border-b"><a href="processos.php?action=view&id=<?php echo $proc['id']; ?>" class="text-blue-600 hover:underline">#<?php echo $proc['id']; ?> - <?php echo htmlspecialchars($proc['titulo']); ?></a></td>
                                     <td class="px-5 py-4 border-b"><?php echo htmlspecialchars($formatVendorName($proc['nome_vendedor'] ?? null)); ?></td>
-                                    <td class="px-5 py-4 border-b"><?php echo date('d/m/Y', strtotime($proc['data_criacao'])); ?></td>
+                                    <td class="px-5 py-4 border-b">
+                                        <?php echo !empty($proc['data_conversao']) ? date('d/m/Y', strtotime($proc['data_conversao'])) : '—'; ?>
+                                    </td>
                                     <td class="px-5 py-4 border-b text-right">R$ <?php echo number_format($proc['valor_total'], 2, ',', '.'); ?></td>
                                     <td class="px-5 py-4 border-b text-center">
                                         <span class="inline-flex items-center px-3 py-1 text-sm font-semibold rounded-full <?php echo $statusConfig['class']; ?>">
