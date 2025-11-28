@@ -2635,21 +2635,33 @@ public function create($data, $files)
         foreach ($processos as &$processo) {
             $valorTotal = (float) ($processo['valor_total'] ?? 0);
             $vendorPercent = (float) ($processo['percentual_comissao_vendedor'] ?? 0);
+            $hasSdr = !empty($processo['sdr_id']);
+
+            $adjustedVendorPercent = $vendorPercent;
+            if ($hasSdr && $sdrPercent > 0) {
+                $adjustedVendorPercent = max(0, $vendorPercent - $sdrPercent);
+            }
 
             $valorComissaoVendedor = (float) ($processo['valor_comissao_vendedor'] ?? 0);
             if ($valorComissaoVendedor <= 0) {
-                $valorComissaoVendedor = $this->calculateVendorCommission($processo, $vendorPercent);
+                $valorComissaoVendedor = $this->calculateVendorCommission($processo, $adjustedVendorPercent);
             }
 
             $valorComissaoSdr = (float) ($processo['valor_comissao_sdr'] ?? 0);
-            if ($valorComissaoSdr <= 0 && $sdrPercent > 0 && in_array($processo['status_processo'], $serviceStatuses, true)) {
+            if ($hasSdr && $valorComissaoSdr <= 0 && $sdrPercent > 0 && in_array($processo['status_processo'], $serviceStatuses, true)) {
                 $valorComissaoSdr = $valorTotal > 0 ? ($valorTotal * $sdrPercent) / 100 : 0.0;
             }
 
             $processo['valor_comissao_vendedor'] = $valorComissaoVendedor;
             $processo['valor_comissao_sdr'] = $valorComissaoSdr;
-            $processo['percentual_comissao_vendedor'] = $valorTotal > 0 ? round(($valorComissaoVendedor / $valorTotal) * 100, 2) : 0.0;
-            $processo['percentual_comissao_sdr'] = $valorTotal > 0 ? round(($valorComissaoSdr / $valorTotal) * 100, 2) : 0.0;
+
+            if ($hasSdr && $sdrPercent > 0) {
+                $processo['percentual_comissao_vendedor'] = $adjustedVendorPercent;
+                $processo['percentual_comissao_sdr'] = $sdrPercent;
+            } else {
+                $processo['percentual_comissao_vendedor'] = $valorTotal > 0 ? round(($valorComissaoVendedor / $valorTotal) * 100, 2) : 0.0;
+                $processo['percentual_comissao_sdr'] = $valorTotal > 0 ? round(($valorComissaoSdr / $valorTotal) * 100, 2) : 0.0;
+            }
 
             $totals['valor_total'] += $valorTotal;
             $totals['comissao_vendedor'] += $valorComissaoVendedor;
