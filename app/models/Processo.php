@@ -137,7 +137,6 @@ class Processo
 
         $hasSnakeCase = $this->hasProcessColumn('sdr_id');
         $hasCamelCase = $this->hasProcessColumn('sdrId');
-        $hasCollaborator = $this->hasProcessColumn('colaborador_id');
 
         if ($hasSnakeCase && $hasCamelCase) {
             return 'COALESCE(p.sdr_id, p.sdrId)';
@@ -149,12 +148,6 @@ class Processo
 
         if ($hasCamelCase) {
             return 'p.sdrId';
-        }
-
-        if ($hasCollaborator) {
-            // Fallback: em bases onde não há coluna específica para SDR, usamos o colaborador
-            // responsável pela venda (p.colaborador_id) para localizar o usuário SDR.
-            return 'p.colaborador_id';
         }
 
         return 'NULL';
@@ -2624,12 +2617,7 @@ public function create($data, $files)
         ];
 
         $sdrExpression = $this->getSdrIdSelectExpression();
-        $collaboratorExpression = $this->hasProcessColumn('colaborador_id') ? 'p.colaborador_id' : 'NULL';
-        // Resolve o SDR priorizando a coluna específica, depois o colaborador responsável pela venda
-        // e, por fim, um eventual registro pré-calculado em comissões. Isso permite identificar SDRs
-        // mesmo em bases sem a coluna dedicada.
-        $resolvedSdrId = "COALESCE({$sdrExpression}, {$collaboratorExpression}, comm_sdr.sdr_id, 0)";
-        $sdrSelect = "{$resolvedSdrId} AS sdr_id";
+        $sdrSelect = "COALESCE({$sdrExpression}, comm_sdr.sdr_id, 0) AS sdr_id";
         $statusFinanceiroSelect = $this->getStatusFinanceiroSelectExpression();
 
         $sql = "SELECT
@@ -2646,9 +2634,7 @@ public function create($data, $files)
                     {$sdrSelect},
                     c.nome_cliente,
                     COALESCE(comm_vendedor.total_comissao_vendedor, 0) AS valor_comissao_vendedor,
-                    COALESCE(comm_sdr.total_comissao_sdr, 0) AS valor_comissao_sdr,
-                    COALESCE(sdr_user.nome_completo, '') AS nome_sdr,
-                    CASE WHEN sdr_user.id IS NOT NULL THEN 1 ELSE 0 END AS has_sdr_valid
+                    COALESCE(comm_sdr.total_comissao_sdr, 0) AS valor_comissao_sdr
                 FROM processos p
                 JOIN clientes c ON p.cliente_id = c.id
                 LEFT JOIN vendedores v ON p.vendedor_id = v.id
@@ -2665,7 +2651,6 @@ public function create($data, $files)
                     WHERE tipo_comissao = 'sdr'
                     GROUP BY venda_id
                 ) comm_sdr ON comm_sdr.venda_id = p.id
-                LEFT JOIN users sdr_user ON sdr_user.id = {$resolvedSdrId} AND sdr_user.perfil = 'sdr' AND (sdr_user.ativo = 1 OR sdr_user.ativo IS NULL)
                 WHERE p.valor_total > 0
                   AND p.data_conversao IS NOT NULL
                   AND p.status_processo IN ('" . implode("','", $serviceStatuses) . "')";
@@ -2683,7 +2668,7 @@ public function create($data, $files)
         }
 
         if (!empty($filters['sdr_id'])) {
-            $sql .= " AND {$resolvedSdrId} = :sdr_id";
+            $sql .= " AND COALESCE({$sdrExpression}, comm_sdr.sdr_id, 0) = :sdr_id";
             $params[':sdr_id'] = (int) $filters['sdr_id'];
         }
 
@@ -2715,7 +2700,7 @@ public function create($data, $files)
             $valorTotal = (float) ($processo['valor_total'] ?? 0);
             $vendorPercent = (float) ($processo['percentual_comissao_vendedor'] ?? $processo['percentual_comissao'] ?? 0);
             $sdrId = isset($processo['sdr_id']) ? (int) $processo['sdr_id'] : 0;
-            $hasSdr = ($processo['has_sdr_valid'] ?? 0) == 1 && $sdrId > 0;
+            $hasSdr = $sdrId > 0;
 
             $valorComissaoSdr = (float) ($processo['valor_comissao_sdr'] ?? 0);
 
