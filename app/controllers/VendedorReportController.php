@@ -4,6 +4,7 @@
 require_once __DIR__ . '/../models/Processo.php';
 require_once __DIR__ . '/../models/Vendedor.php';
 require_once __DIR__ . '/../models/Comissao.php'; // Model para comissões
+require_once __DIR__ . '/../models/User.php';
 
 class VendedorReportController
 {
@@ -19,30 +20,50 @@ class VendedorReportController
         $processoModel = new Processo($this->pdo);
         $vendedorModel = new Vendedor($this->pdo);
         $comissaoModel = new Comissao($this->pdo);
+        $userModel = new User($this->pdo);
 
-        // Pega o vendedor logado
+        // Pega o usuário logado
         $userId = $_SESSION['user_id'];
-        $vendedor = $vendedorModel->getByUserId($userId);
-        if (!$vendedor) { die("Vendedor não encontrado."); }
-        $vendedorId = $vendedor['id'];
+        $user = $userModel->getById($userId);
+        $perfil = $user['perfil'] ?? null;
 
         // Filtros de data
         $data_inicio = $_GET['data_inicio'] ?? date('Y-m-01');
         $data_fim = $_GET['data_fim'] ?? date('Y-m-t');
-        
+
         $filters = [
-            'vendedor_id' => $vendedorId,
             'data_inicio' => $data_inicio,
             'data_fim' => $data_fim
         ];
 
+        $comissoes = [];
+
+        if ($perfil === 'vendedor') {
+            // Pega o vendedor logado
+            $vendedor = $vendedorModel->getByUserId($userId);
+            if (!$vendedor) {
+                die("Vendedor não encontrado.");
+            }
+            $vendedorId = $vendedor['id'];
+            $filters['vendedor_id'] = $vendedorId;
+            $comissoes = $comissaoModel->getByVendedor($vendedorId); // Assumindo que este método existe
+        } elseif ($perfil === 'sdr') {
+            // SDRs não possuem registro na tabela vendedores
+            $vendedor = [
+                'percentual_comissao' => 0,
+                'id' => $userId,
+            ];
+            $filters['sdr_id'] = $userId;
+        } else {
+            die("Usuário não autorizado para visualizar este relatório.");
+        }
+
         // Busca os dados para o relatório
         $vendasDoPeriodo = $processoModel->getSalesByFilter($filters);
-        $comissoes = $comissaoModel->getByVendedor($vendedorId); // Assumindo que este método existe
 
         // Prepara dados para o gráfico de vendas mensais
         $vendasMensais = [];
-        foreach($vendasDoPeriodo as $venda) {
+        foreach ($vendasDoPeriodo as $venda) {
             $mes = date('Y-m', strtotime($venda['data_criacao']));
             if (!isset($vendasMensais[$mes])) {
                 $vendasMensais[$mes] = 0;
@@ -50,7 +71,7 @@ class VendedorReportController
             $vendasMensais[$mes] += $venda['valor_total'];
         }
         ksort($vendasMensais); // Ordena por data
-        
+
         $labels_vendas = json_encode(array_keys($vendasMensais));
         $valores_vendas = json_encode(array_values($vendasMensais));
 
