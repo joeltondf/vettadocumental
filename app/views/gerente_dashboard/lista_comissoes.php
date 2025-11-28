@@ -179,7 +179,12 @@ $totalProcessos = count($processos);
                             <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo number_format($processo['percentual_comissao_vendedor'] ?? 0, 2, ',', '.'); ?>%</td>
                             <td class="px-3 py-2 whitespace-nowrap text-right <?php echo $commissionClass; ?>"><?php echo manager_format_currency($processo['valor_comissao_vendedor'] ?? 0); ?></td>
                             <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo number_format($processo['percentual_comissao_sdr'] ?? 0, 2, ',', '.'); ?>%</td>
-                            <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo manager_format_currency($processo['valor_comissao_sdr'] ?? 0); ?></td>
+                            <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold">
+                                <div><?php echo manager_format_currency($processo['valor_comissao_sdr'] ?? 0); ?></div>
+                                <div class="text-xs text-gray-500">
+                                    <?php echo !empty($processo['nome_sdr']) ? htmlspecialchars($processo['nome_sdr']) : '—'; ?>
+                                </div>
+                            </td>
                             <td class="px-3 py-2 whitespace-nowrap text-gray-700"><?php echo htmlspecialchars($processo['status_processo'] ?? '—'); ?></td>
                         </tr>
                     <?php endforeach; ?>
