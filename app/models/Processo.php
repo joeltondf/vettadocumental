@@ -2580,7 +2580,7 @@ public function create($data, $files)
         ];
 
         $sdrExpression = $this->getSdrIdSelectExpression();
-        $sdrSelect = "COALESCE({$sdrExpression}, COALESCE(comm_sdr.sdr_id, 0)) AS sdr_id";
+        $sdrSelect = "COALESCE({$sdrExpression}, 0) AS sdr_id";
         $statusFinanceiroSelect = $this->getStatusFinanceiroSelectExpression();
 
         $sql = "SELECT
@@ -2609,7 +2609,7 @@ public function create($data, $files)
                     GROUP BY venda_id
                 ) comm_vendedor ON comm_vendedor.venda_id = p.id
                 LEFT JOIN (
-                    SELECT venda_id, MAX(vendedor_id) AS sdr_id, SUM(valor_comissao) AS total_comissao_sdr
+                    SELECT venda_id, SUM(valor_comissao) AS total_comissao_sdr
                     FROM comissoes
                     WHERE tipo_comissao = 'sdr'
                     GROUP BY venda_id
@@ -2631,7 +2631,7 @@ public function create($data, $files)
         }
 
         if (!empty($filters['sdr_id'])) {
-            $sql .= " AND COALESCE({$sdrExpression}, COALESCE(comm_sdr.sdr_id, 0)) = :sdr_id";
+            $sql .= " AND {$sdrExpression} = :sdr_id";
             $params[':sdr_id'] = (int) $filters['sdr_id'];
         }
 
