@@ -2,7 +2,7 @@
 
     <div class="bg-white p-4 rounded-lg shadow-md mb-6">
         <form action="vendas.php" method="GET">
-            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                 <div>
                     <label for="vendedor_id" class="block text-sm font-medium text-gray-700">Vendedor</label>
                     <select name="vendedor_id" id="vendedor_id" class="mt-1 block w-full p-2 border-gray-300 rounded-md">
@@ -37,17 +37,6 @@
                     </select>
                 </div>
                 <div>
-                    <label for="sdr_id" class="block text-sm font-medium text-gray-700">SDR</label>
-                    <select name="sdr_id" id="sdr_id" class="mt-1 block w-full p-2 border-gray-300 rounded-md">
-                        <option value="">Todos</option>
-                        <?php foreach ($sdrs as $sdr): ?>
-                            <option value="<?php echo $sdr['id']; ?>" <?php echo (isset($filtros['sdr_id']) && $filtros['sdr_id'] == $sdr['id']) ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($formatVendorName($sdr['nome_completo'] ?? null)); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div>
                     <label for="data_inicio" class="block text-sm font-medium text-gray-700">Data de Conversão (Início)</label>
                     <input type="date" name="data_inicio" id="data_inicio" value="<?php echo htmlspecialchars($filtros['data_inicio'] ?? ''); ?>" class="mt-1 block w-full p-2 border-gray-300 rounded-md">
                 </div>
@@ -61,29 +50,21 @@
                 </div>
             </div>
         </form>
-        <p class="text-sm text-gray-600 mt-3">O período considera a data de conversão/serviço. Quando houver SDR, o vendedor recebe 4,5% (de 5%) e o SDR 0,5%.</p>
+        <p class="text-sm text-gray-600 mt-3">O período considera a data em que o orçamento foi convertido em serviço pago.</p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div class="bg-green-100 p-6 rounded-lg shadow text-center">
             <h4 class="text-lg font-semibold text-green-800">Valor Total Vendido</h4>
             <p class="text-3xl font-bold text-green-900 mt-2">R$ <?php echo number_format($stats['valor_total_vendido'], 2, ',', '.'); ?></p>
         </div>
         <div class="bg-indigo-100 p-6 rounded-lg shadow text-center">
-            <h4 class="text-lg font-semibold text-indigo-800">Ticket Médio</h4>
-            <p class="text-3xl font-bold text-indigo-900 mt-2">R$ <?php echo number_format($stats['ticket_medio'], 2, ',', '.'); ?></p>
+            <h4 class="text-lg font-semibold text-indigo-800">Processos Contabilizados</h4>
+            <p class="text-3xl font-bold text-indigo-900 mt-2"><?php echo count($processosFiltrados); ?></p>
         </div>
         <div class="bg-yellow-100 p-6 rounded-lg shadow text-center">
-            <h4 class="text-lg font-semibold text-yellow-800">Comissão Vendedor</h4>
-            <p class="text-3xl font-bold text-yellow-900 mt-2">R$ <?php echo number_format($stats['comissao_vendedor'], 2, ',', '.'); ?></p>
-        </div>
-        <div class="bg-blue-100 p-6 rounded-lg shadow text-center">
-            <h4 class="text-lg font-semibold text-blue-800">Comissão SDR</h4>
-            <p class="text-3xl font-bold text-blue-900 mt-2">R$ <?php echo number_format($stats['comissao_sdr'], 2, ',', '.'); ?></p>
-        </div>
-        <div class="bg-purple-100 p-6 rounded-lg shadow text-center">
-            <h4 class="text-lg font-semibold text-purple-800">Processos</h4>
-            <p class="text-3xl font-bold text-purple-900 mt-2"><?php echo count($processosFiltrados); ?></p>
+            <h4 class="text-lg font-semibold text-yellow-800">Total de Documentos</h4>
+            <p class="text-3xl font-bold text-yellow-900 mt-2"><?php echo $stats['total_documentos']; ?></p>
         </div>
     </div>
     
@@ -96,18 +77,14 @@
                         <tr>
                             <th class="px-5 py-3 border-b-2 text-left">Processo</th>
                             <th class="px-5 py-3 border-b-2 text-left">Vendedor</th>
-                            <th class="px-5 py-3 border-b-2 text-left">Data de Serviço</th>
-                            <th class="px-5 py-3 border-b-2 text-right">Valor Total</th>
-                            <th class="px-5 py-3 border-b-2 text-right">% Comissão Vend.</th>
-                            <th class="px-5 py-3 border-b-2 text-right">Comissão Vend.</th>
-                            <th class="px-5 py-3 border-b-2 text-right">% Comissão SDR</th>
-                            <th class="px-5 py-3 border-b-2 text-right">Comissão SDR</th>
+                            <th class="px-5 py-3 border-b-2 text-left">Data de Conversão</th>
+                            <th class="px-5 py-3 border-b-2 text-right">Valor</th>
                             <th class="px-5 py-3 border-b-2 text-center">Situação de Pagamento</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($processosFiltrados)): ?>
-                            <tr><td colspan="8" class="text-center p-5">Nenhum processo encontrado para os filtros selecionados.</td></tr>
+                            <tr><td colspan="5" class="text-center p-5">Nenhum processo encontrado para os filtros selecionados.</td></tr>
                         <?php else: ?>
                             <?php foreach ($processosFiltrados as $proc): ?>
                                 <?php
@@ -118,16 +95,9 @@
                                     <td class="px-5 py-4 border-b"><a href="processos.php?action=view&id=<?php echo $proc['id']; ?>" class="text-blue-600 hover:underline">#<?php echo $proc['id']; ?> - <?php echo htmlspecialchars($proc['titulo']); ?></a></td>
                                     <td class="px-5 py-4 border-b"><?php echo htmlspecialchars($formatVendorName($proc['nome_vendedor'] ?? null)); ?></td>
                                     <td class="px-5 py-4 border-b">
-                                        <?php
-                                            $dataServico = $proc['data_filtro'] ?? $proc['data_conversao'] ?? null;
-                                            echo !empty($dataServico) ? date('d/m/Y', strtotime($dataServico)) : '—';
-                                        ?>
+                                        <?php echo !empty($proc['data_conversao']) ? date('d/m/Y', strtotime($proc['data_conversao'])) : '—'; ?>
                                     </td>
                                     <td class="px-5 py-4 border-b text-right">R$ <?php echo number_format($proc['valor_total'], 2, ',', '.'); ?></td>
-                                    <td class="px-5 py-4 border-b text-right"><?php echo number_format($proc['percentual_comissao_vendedor'] ?? 0, 2, ',', '.'); ?>%</td>
-                                    <td class="px-5 py-4 border-b text-right">R$ <?php echo number_format($proc['valor_comissao_vendedor'] ?? 0, 2, ',', '.'); ?></td>
-                                    <td class="px-5 py-4 border-b text-right"><?php echo number_format($proc['percentual_comissao_sdr'] ?? 0, 2, ',', '.'); ?>%</td>
-                                    <td class="px-5 py-4 border-b text-right">R$ <?php echo number_format($proc['valor_comissao_sdr'] ?? 0, 2, ',', '.'); ?></td>
                                     <td class="px-5 py-4 border-b text-center">
                                         <span class="inline-flex items-center px-3 py-1 text-sm font-semibold rounded-full <?php echo $statusConfig['class']; ?>">
                                             <?php echo $statusConfig['label']; ?>
