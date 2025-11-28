@@ -2494,14 +2494,13 @@ public function create($data, $files)
     public function getSalesByFilter($filters)
     {
         $statusFinanceiroSelect = $this->getStatusFinanceiroSelectExpression();
-        $serviceStatuses = ['Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Finalizado'];
 
         // A consulta principal une processos com vendedores e soma os documentos de cada processo
         $sql = "SELECT
                     p.id,
                     p.titulo,
                     p.data_criacao,
-                    p.data_conversao,
+                    p.data_inicio_traducao AS data_conversao,
                     p.valor_total,
                     p.status_processo,
                     {$statusFinanceiroSelect},
@@ -2513,7 +2512,6 @@ public function create($data, $files)
                 LEFT JOIN users u ON v.user_id = u.id
                 JOIN clientes c ON p.cliente_id = c.id
                 WHERE p.valor_total > 0
-                  AND p.data_conversao IS NOT NULL
                   AND p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Finalizado')"; // Apenas status que contam como venda
 
         $params = [];
@@ -2524,11 +2522,7 @@ public function create($data, $files)
             $params[':vendedor_id'] = $filters['vendedor_id'];
         }
 
-        $dateField = 'p.data_conversao';
-        if (!empty($filters['status']) && !in_array($filters['status'], $serviceStatuses, true)) {
-            $dateField = 'p.data_criacao';
-            $sql = str_replace('p.data_conversao IS NOT NULL AND ', '', $sql);
-        }
+        $dateField = 'p.data_inicio_traducao';
 
         if (!empty($filters['data_inicio'])) {
             $sql .= " AND {$dateField} >= :data_inicio";
