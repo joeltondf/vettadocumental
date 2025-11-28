@@ -24,29 +24,26 @@ class VendasController {
         // Pega os filtros da URL (se houver)
         $filtros = [
             'vendedor_id' => $_GET['vendedor_id'] ?? null,
-            'sdr_id' => $_GET['sdr_id'] ?? null,
             'data_inicio' => $_GET['data_inicio'] ?? null,
             'data_fim' => $_GET['data_fim'] ?? null
         ];
 
-        $resultadoComissoes = $this->processoModel->getCommissionsByFilter($filtros);
-        $processosFiltrados = $resultadoComissoes['processos'];
-        $totais = $resultadoComissoes['totais'];
+        // Busca todos os processos que têm um vendedor e um valor (considerados 'vendas')
+        // Passa os filtros para o model
+        $processosFiltrados = $this->processoModel->getSalesByFilter($filtros);
 
         // --- CÁLCULO PARA OS CARDS ---
         $stats = [
-            'valor_total_vendido' => $totais['valor_total'],
+            'valor_total_vendido' => 0,
             'total_documentos' => 0,
-            'comissao_vendedor' => $totais['comissao_vendedor'],
-            'comissao_sdr' => $totais['comissao_sdr'],
-            'ticket_medio' => 0,
             'ranking_vendedores' => []
         ];
 
         $vendasPorVendedor = [];
 
         foreach ($processosFiltrados as $proc) {
-            $stats['total_documentos'] += $proc['total_documentos'];
+            $stats['valor_total_vendido'] += $proc['valor_total'];
+            $stats['total_documentos'] += $proc['total_documentos']; // Assumindo que o model retorna isso
 
             $vendedorNome = $proc['nome_vendedor'];
             if (!isset($vendasPorVendedor[$vendedorNome])) {
@@ -58,18 +55,9 @@ class VendasController {
         // Ordena o ranking de vendedores
         arsort($vendasPorVendedor);
         $stats['ranking_vendedores'] = $vendasPorVendedor;
-        $stats['ticket_medio'] = count($processosFiltrados) > 0 ? $stats['valor_total_vendido'] / count($processosFiltrados) : 0;
         
-        // Busca a lista de vendedores e SDRs para popular os filtros
+        // Busca a lista de vendedores para popular o filtro
         $vendedores = $this->vendedorModel->getAll();
-        $sdrs = [];
-        try {
-            $stmt = $this->pdo->prepare("SELECT id, nome_completo FROM users WHERE perfil = 'sdr' AND (ativo = 1 OR ativo IS NULL) ORDER BY nome_completo ASC");
-            $stmt->execute();
-            $sdrs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (PDOException $exception) {
-            error_log('Erro ao carregar SDRs para filtro: ' . $exception->getMessage());
-        }
 
         // Carrega a view do relatório
         $pageTitle = "Relatório de Vendas";
