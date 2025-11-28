@@ -138,11 +138,11 @@ $pageTitle = $pageTitle ?? 'Todos os Serviços';
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:col-span-2 lg:col-span-2">
             <div>
-                <label for="data_inicio" class="text-sm font-semibold text-gray-700 mb-1 block">Data de conversão (início)</label>
+                <label for="data_inicio" class="text-sm font-semibold text-gray-700 mb-1 block">Data início</label>
                 <input type="date" id="data_inicio" name="data_inicio" value="<?php echo htmlspecialchars($filters['data_inicio'] ?? ''); ?>" class="w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
             </div>
             <div>
-                <label for="data_fim" class="text-sm font-semibold text-gray-700 mb-1 block">Data de conversão (fim)</label>
+                <label for="data_fim" class="text-sm font-semibold text-gray-700 mb-1 block">Data fim</label>
                 <input type="date" id="data_fim" name="data_fim" value="<?php echo htmlspecialchars($filters['data_fim'] ?? ''); ?>" class="w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
             </div>
         </div>
@@ -175,7 +175,7 @@ $pageTitle = $pageTitle ?? 'Todos os Serviços';
                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Título / Família</th>
                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Data de conversão</th>
+                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Data de entrada</th>
                         <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Valor total</th>
                         <th class="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Comissão Vendedor</th>
                         <th class="px-3 py-2 text-center font-medium text-gray-500 uppercase tracking-wider">Ações</th>
@@ -213,7 +213,7 @@ $pageTitle = $pageTitle ?? 'Todos os Serviços';
                                     <?php endif; ?>
                                 </div>
                             </td>
-                            <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo seller_format_date_br($servico['data_conversao'] ?? null); ?></td>
+                            <td class="px-3 py-2 whitespace-nowrap text-gray-600"><?php echo seller_format_date_br($servico['data_criacao'] ?? null); ?></td>
                             <td class="px-3 py-2 whitespace-nowrap text-right text-gray-700 font-semibold"><?php echo seller_format_currency_br($servico['valor_total'] ?? 0); ?></td>
                             <td class="px-3 py-2 whitespace-nowrap text-right font-semibold <?php echo $commissionClass; ?>">
                                 <?php if ($showCommission): ?>
