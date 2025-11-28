@@ -1490,18 +1490,8 @@ public function create($data, $files)
         }
 
         $valorTotal = isset($processo['valor_total']) ? (float) $processo['valor_total'] : 0.0;
-        $vendorPercent = isset($processo['percentual_comissao'])
-            ? (float) $processo['percentual_comissao']
-            : $percentualComissao;
 
-        $sdrPercent = $this->getSdrCommissionPercent();
-        $hasSdr = !empty($processo['sdr_id']);
-        $effectiveVendorPercent = $hasSdr ? ($vendorPercent - $sdrPercent) : $vendorPercent;
-        if ($effectiveVendorPercent < 0) {
-            $effectiveVendorPercent = 0.0;
-        }
-
-        return $valorTotal > 0 ? ($valorTotal * ($effectiveVendorPercent / 100)) : 0.0;
+        return $valorTotal > 0 ? ($valorTotal * $percentualComissao) / 100 : 0.0;
     }
 
     public function getVendorBudgetsByMonth(int $vendorId, string $monthStart, string $monthEnd): array
@@ -1633,27 +1623,25 @@ public function create($data, $files)
                     p.categorias_servico,
                     p.status_processo,
                     p.data_criacao,
-                    p.data_conversao,
                     p.valor_total,
                     {$sdrExpression} AS sdr_id,
                     c.nome_cliente
                 FROM processos p
                 INNER JOIN clientes c ON c.id = p.cliente_id
                 WHERE p.vendedor_id = :vendorId
-                  AND p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Recusado', 'Finalizado')
-                  AND p.data_conversao IS NOT NULL";
+                  AND p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Recusado', 'Finalizado')";
 
         $params = [
             ':vendorId' => $vendorId,
         ];
 
         if (!empty($startDate)) {
-            $sql .= " AND p.data_conversao >= :startDate";
+            $sql .= " AND p.data_criacao >= :startDate";
             $params[':startDate'] = $startDate;
         }
 
         if (!empty($endDate)) {
-            $sql .= " AND p.data_conversao <= :endDate";
+            $sql .= " AND p.data_criacao <= :endDate";
             $params[':endDate'] = $endDate;
         }
 
@@ -1672,7 +1660,7 @@ public function create($data, $files)
             $params[':titulo'] = '%' . $filters['titulo'] . '%';
         }
 
-        $sql .= " ORDER BY p.data_conversao DESC";
+        $sql .= " ORDER BY p.data_criacao DESC";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
@@ -2652,28 +2640,22 @@ public function create($data, $files)
 
         foreach ($processos as &$processo) {
             $valorTotal = (float) ($processo['valor_total'] ?? 0);
-            $vendorPercent = (float) ($processo['percentual_comissao_vendedor'] ?? $processo['percentual_comissao'] ?? 0);
-            $hasSdr = !empty($processo['sdr_id']);
+            $vendorPercent = (float) ($processo['percentual_comissao_vendedor'] ?? 0);
 
-            $valorComissaoSdr = (float) ($processo['valor_comissao_sdr'] ?? 0);
-
-            $effectiveVendorPercent = $hasSdr ? ($vendorPercent - $sdrPercent) : $vendorPercent;
-            if ($effectiveVendorPercent < 0) {
-                $effectiveVendorPercent = 0.0;
+            $valorComissaoVendedor = (float) ($processo['valor_comissao_vendedor'] ?? 0);
+            if ($valorComissaoVendedor <= 0) {
+                $valorComissaoVendedor = $this->calculateVendorCommission($processo, $vendorPercent);
             }
 
-            $valorComissaoVendedor = $valorTotal > 0 ? ($valorTotal * ($effectiveVendorPercent / 100)) : 0.0;
-
-            if ($sdrPercent > 0 && $hasSdr && in_array($processo['status_processo'], $serviceStatuses, true)) {
+            $valorComissaoSdr = (float) ($processo['valor_comissao_sdr'] ?? 0);
+            if ($valorComissaoSdr <= 0 && $sdrPercent > 0 && in_array($processo['status_processo'], $serviceStatuses, true)) {
                 $valorComissaoSdr = $valorTotal > 0 ? ($valorTotal * $sdrPercent) / 100 : 0.0;
-            } else {
-                $valorComissaoSdr = 0.0;
             }
 
             $processo['valor_comissao_vendedor'] = $valorComissaoVendedor;
             $processo['valor_comissao_sdr'] = $valorComissaoSdr;
-            $processo['percentual_comissao_vendedor'] = round($effectiveVendorPercent, 2);
-            $processo['percentual_comissao_sdr'] = $hasSdr ? round($sdrPercent, 2) : 0.0;
+            $processo['percentual_comissao_vendedor'] = $valorTotal > 0 ? round(($valorComissaoVendedor / $valorTotal) * 100, 2) : 0.0;
+            $processo['percentual_comissao_sdr'] = $valorTotal > 0 ? round(($valorComissaoSdr / $valorTotal) * 100, 2) : 0.0;
 
             $totals['valor_total'] += $valorTotal;
             $totals['comissao_vendedor'] += $valorComissaoVendedor;
