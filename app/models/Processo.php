@@ -143,6 +143,10 @@ class Processo
             return 'p.sdrId';
         }
 
+        if ($this->hasProcessColumn('colaborador_id')) {
+            return 'p.colaborador_id';
+        }
+
         return 'NULL';
     }
 
@@ -2001,11 +2005,10 @@ public function create($data, $files)
             $newStatus = $this->normalizeStatus((string) $data['status_processo']);
 
             $budgetStatuses = ['orçamento', 'orçamento pendente'];
-            $conversionStatus = 'serviço em andamento';
+            $conversionStatuses = ['serviço em andamento', 'concluído', 'finalizado'];
 
-            if (in_array($currentStatus, $budgetStatuses, true)
-                && $newStatus === $conversionStatus
-                && empty($currentProcess['data_conversao'] ?? null)) {
+            if (in_array($newStatus, $conversionStatuses, true)
+                && (in_array($currentStatus, $budgetStatuses, true) || empty($currentProcess['data_conversao'] ?? null))) {
                 $data['data_conversao'] = date('Y-m-d H:i:s');
                 $allowed_fields[] = 'data_conversao';
             }
@@ -2101,11 +2104,10 @@ public function create($data, $files)
             $newStatus = $this->normalizeStatus((string) $data['status_processo']);
 
             $budgetStatuses = ['orçamento', 'orçamento pendente'];
-            $conversionStatus = 'serviço em andamento';
+            $conversionStatuses = ['serviço em andamento', 'concluído', 'finalizado'];
 
-            if (in_array($currentStatus, $budgetStatuses, true)
-                && $newStatus === $conversionStatus
-                && empty($currentProcess['data_conversao'] ?? null)) {
+            if (in_array($newStatus, $conversionStatuses, true)
+                && (in_array($currentStatus, $budgetStatuses, true) || empty($currentProcess['data_conversao'] ?? null))) {
                 $data['data_conversao'] = date('Y-m-d H:i:s');
             }
         }
@@ -2494,17 +2496,32 @@ public function create($data, $files)
     public function getSalesByFilter($filters)
     {
         $statusFinanceiroSelect = $this->getStatusFinanceiroSelectExpression();
+        $dateField = "CASE\n            WHEN p.data_conversao IS NOT NULL THEN p.data_conversao\n            WHEN p.data_inicio_traducao IS NOT NULL THEN p.data_inicio_traducao\n            ELSE p.data_criacao\n        END";
+        $serviceStatuses = [
+            'Serviço em Andamento',
+            'Serviço em andamento',
+            'Concluído',
+            'Finalizado',
+        ];
 
-        // A consulta principal une processos com vendedores e soma os documentos de cada processo
+        $filters = array_merge([
+            'data_inicio' => null,
+            'data_fim' => null,
+            'vendedor_id' => null,
+            'sdr_id' => null,
+        ], $filters);
+
         $sql = "SELECT
                     p.id,
                     p.titulo,
                     p.data_criacao,
-                    p.data_inicio_traducao AS data_conversao,
+                    {$dateField} AS data_filtro,
+                    p.data_conversao,
                     p.valor_total,
                     p.status_processo,
                     {$statusFinanceiroSelect},
                     COALESCE(u.nome_completo, 'Sistema') AS nome_vendedor,
+                    {$this->getSdrIdSelectExpression()} AS sdr_id,
                     c.nome_cliente,
                     (SELECT COALESCE(SUM(d.quantidade), 0) FROM documentos d WHERE d.processo_id = p.id) AS total_documentos
                 FROM processos p
@@ -2512,25 +2529,27 @@ public function create($data, $files)
                 LEFT JOIN users u ON v.user_id = u.id
                 JOIN clientes c ON p.cliente_id = c.id
                 WHERE p.valor_total > 0
-                  AND p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Finalizado')"; // Apenas status que contam como venda
+                  AND p.status_processo IN ('" . implode("','", $serviceStatuses) . "')";
 
         $params = [];
 
-        // Aplica os filtros
         if (!empty($filters['vendedor_id'])) {
             $sql .= " AND p.vendedor_id = :vendedor_id";
             $params[':vendedor_id'] = $filters['vendedor_id'];
         }
 
-        $dateField = 'p.data_inicio_traducao';
+        if (!empty($filters['sdr_id'])) {
+            $sql .= " AND {$this->getSdrIdSelectExpression()} = :sdr_id";
+            $params[':sdr_id'] = $filters['sdr_id'];
+        }
 
         if (!empty($filters['data_inicio'])) {
-            $sql .= " AND {$dateField} >= :data_inicio";
-            $params[':data_inicio'] = $filters['data_inicio'] . ' 00:00:00';
+            $sql .= " AND DATE({$dateField}) >= :data_inicio";
+            $params[':data_inicio'] = $filters['data_inicio'];
         }
         if (!empty($filters['data_fim'])) {
-            $sql .= " AND {$dateField} <= :data_fim";
-            $params[':data_fim'] = $filters['data_fim'] . ' 23:59:59';
+            $sql .= " AND DATE({$dateField}) <= :data_fim";
+            $params[':data_fim'] = $filters['data_fim'];
         }
 
         $sql .= " ORDER BY {$dateField} DESC";
@@ -2543,18 +2562,15 @@ public function create($data, $files)
     public function getCommissionsByFilter(array $filters): array
     {
         $serviceStatuses = [
-            'Serviço Pendente',
-            'Serviço pendente',
             'Serviço em Andamento',
             'Serviço em andamento',
-            'Pendente de pagamento',
-            'Pendente de documentos',
             'Concluído',
             'Finalizado'
         ];
 
         $sdrExpression = $this->getSdrIdSelectExpression();
         $statusFinanceiroSelect = $this->getStatusFinanceiroSelectExpression();
+        $dateField = "CASE\n            WHEN p.data_conversao IS NOT NULL THEN p.data_conversao\n            WHEN p.data_inicio_traducao IS NOT NULL THEN p.data_inicio_traducao\n            ELSE p.data_criacao\n        END";
 
         $sql = "SELECT
                     p.id,
@@ -2563,6 +2579,7 @@ public function create($data, $files)
                     p.categorias_servico,
                     p.valor_total,
                     p.status_processo,
+                    {$dateField} AS data_filtro,
                     p.data_conversao,
                     {$statusFinanceiroSelect},
                     COALESCE(u.nome_completo, 'Sistema') AS nome_vendedor,
@@ -2570,7 +2587,8 @@ public function create($data, $files)
                     {$sdrExpression} AS sdr_id,
                     c.nome_cliente,
                     COALESCE(comm_vendedor.total_comissao_vendedor, 0) AS valor_comissao_vendedor,
-                    COALESCE(comm_sdr.total_comissao_sdr, 0) AS valor_comissao_sdr
+                    COALESCE(comm_sdr.total_comissao_sdr, 0) AS valor_comissao_sdr,
+                    (SELECT COALESCE(SUM(d.quantidade), 0) FROM documentos d WHERE d.processo_id = p.id) AS total_documentos
                 FROM processos p
                 JOIN clientes c ON p.cliente_id = c.id
                 LEFT JOIN vendedores v ON p.vendedor_id = v.id
@@ -2588,7 +2606,6 @@ public function create($data, $files)
                     GROUP BY venda_id
                 ) comm_sdr ON comm_sdr.venda_id = p.id
                 WHERE p.valor_total > 0
-                  AND p.data_conversao IS NOT NULL
                   AND p.status_processo IN ('" . implode("','", $serviceStatuses) . "')";
 
         $params = [];
@@ -2609,16 +2626,16 @@ public function create($data, $files)
         }
 
         if (!empty($filters['data_inicio'])) {
-            $sql .= ' AND p.data_conversao >= :data_inicio';
-            $params[':data_inicio'] = $filters['data_inicio'] . ' 00:00:00';
+            $sql .= " AND DATE({$dateField}) >= :data_inicio";
+            $params[':data_inicio'] = $filters['data_inicio'];
         }
 
         if (!empty($filters['data_fim'])) {
-            $sql .= ' AND p.data_conversao <= :data_fim';
-            $params[':data_fim'] = $filters['data_fim'] . ' 23:59:59';
+            $sql .= " AND DATE({$dateField}) <= :data_fim";
+            $params[':data_fim'] = $filters['data_fim'];
         }
 
-        $sql .= ' ORDER BY p.data_conversao DESC';
+        $sql .= " ORDER BY {$dateField} DESC";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
@@ -2635,21 +2652,26 @@ public function create($data, $files)
         foreach ($processos as &$processo) {
             $valorTotal = (float) ($processo['valor_total'] ?? 0);
             $vendorPercent = (float) ($processo['percentual_comissao_vendedor'] ?? 0);
+            $hasSdr = !empty($processo['sdr_id'])
+                && $sdrPercent > 0
+                && $this->isSdrUser((int) $processo['sdr_id']);
 
-            $valorComissaoVendedor = (float) ($processo['valor_comissao_vendedor'] ?? 0);
-            if ($valorComissaoVendedor <= 0) {
+            if ($hasSdr) {
+                $adjustedVendorPercent = max(0, $vendorPercent - $sdrPercent);
+                $valorComissaoVendedor = round($valorTotal * ($adjustedVendorPercent / 100), 2);
+                $valorComissaoSdr = round($valorTotal * ($sdrPercent / 100), 2);
+
+                $processo['percentual_comissao_vendedor'] = $adjustedVendorPercent;
+                $processo['percentual_comissao_sdr'] = $sdrPercent;
+            } else {
                 $valorComissaoVendedor = $this->calculateVendorCommission($processo, $vendorPercent);
-            }
-
-            $valorComissaoSdr = (float) ($processo['valor_comissao_sdr'] ?? 0);
-            if ($valorComissaoSdr <= 0 && $sdrPercent > 0 && in_array($processo['status_processo'], $serviceStatuses, true)) {
-                $valorComissaoSdr = $valorTotal > 0 ? ($valorTotal * $sdrPercent) / 100 : 0.0;
+                $valorComissaoSdr = 0.0;
+                $processo['percentual_comissao_vendedor'] = $vendorPercent;
+                $processo['percentual_comissao_sdr'] = 0.0;
             }
 
             $processo['valor_comissao_vendedor'] = $valorComissaoVendedor;
             $processo['valor_comissao_sdr'] = $valorComissaoSdr;
-            $processo['percentual_comissao_vendedor'] = $valorTotal > 0 ? round(($valorComissaoVendedor / $valorTotal) * 100, 2) : 0.0;
-            $processo['percentual_comissao_sdr'] = $valorTotal > 0 ? round(($valorComissaoSdr / $valorTotal) * 100, 2) : 0.0;
 
             $totals['valor_total'] += $valorTotal;
             $totals['comissao_vendedor'] += $valorComissaoVendedor;
@@ -2675,6 +2697,24 @@ public function create($data, $files)
         } catch (PDOException $exception) {
             error_log('Erro ao buscar percentual de comissão SDR: ' . $exception->getMessage());
             return 0.0;
+        }
+    }
+
+    private function isSdrUser(int $userId): bool
+    {
+        try {
+            $stmt = $this->pdo->prepare('SELECT perfil FROM users WHERE id = :id LIMIT 1');
+            $stmt->execute([':id' => $userId]);
+            $perfil = $stmt->fetchColumn();
+
+            if ($perfil === false || $perfil === null) {
+                return false;
+            }
+
+            return strtolower((string) $perfil) === 'sdr';
+        } catch (PDOException $exception) {
+            error_log('Erro ao verificar perfil de SDR para o usuário ' . $userId . ': ' . $exception->getMessage());
+            return false;
         }
     }
         
