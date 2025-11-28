@@ -1602,6 +1602,19 @@ public function create($data, $files)
     {
         $sdrExpression = $this->getSdrIdSelectExpression();
 
+        $serviceStatuses = [
+            'Serviço Pendente',
+            'Serviço pendente',
+            'Serviço em Andamento',
+            'Serviço em andamento',
+            'Pendente de pagamento',
+            'Pendente de documentos',
+            'Concluído',
+            'Finalizado'
+        ];
+
+        $statusPlaceholders = implode(',', array_map(static fn($index) => ':status' . $index, array_keys($serviceStatuses)));
+
         $sql = "SELECT
                     p.id,
                     p.orcamento_numero,
@@ -1616,16 +1629,23 @@ public function create($data, $files)
                 FROM processos p
                 INNER JOIN clientes c ON c.id = p.cliente_id
                 WHERE p.vendedor_id = :vendorId
-                  AND p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado', 'Concluído', 'Finalizado')
+                  AND p.status_processo IN ({$statusPlaceholders})
                   AND p.data_conversao IS NOT NULL
                   AND p.data_conversao BETWEEN :monthStart AND :monthEnd
                 ORDER BY p.data_conversao DESC";
 
         $stmt = $this->pdo->prepare($sql);
-        $stmt->bindValue(':vendorId', $vendorId, PDO::PARAM_INT);
-        $stmt->bindValue(':monthStart', $monthStart);
-        $stmt->bindValue(':monthEnd', $monthEnd);
-        $stmt->execute();
+        $params = [
+            ':vendorId' => $vendorId,
+            ':monthStart' => $monthStart,
+            ':monthEnd' => $monthEnd,
+        ];
+
+        foreach ($serviceStatuses as $index => $status) {
+            $params[':status' . $index] = $status;
+        }
+
+        $stmt->execute($params);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
@@ -1634,6 +1654,19 @@ public function create($data, $files)
     {
         $sdrExpression = $this->getSdrIdSelectExpression();
 
+        $serviceStatuses = [
+            'Serviço Pendente',
+            'Serviço pendente',
+            'Serviço em Andamento',
+            'Serviço em andamento',
+            'Pendente de pagamento',
+            'Pendente de documentos',
+            'Concluído',
+            'Finalizado'
+        ];
+
+        $statusPlaceholders = implode(',', array_map(static fn($index) => ':status' . $index, array_keys($serviceStatuses)));
+
         $sql = "SELECT
                     p.id,
                     p.orcamento_numero,
@@ -1648,12 +1681,16 @@ public function create($data, $files)
                 FROM processos p
                 INNER JOIN clientes c ON c.id = p.cliente_id
                 WHERE p.vendedor_id = :vendorId
-                  AND p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Recusado', 'Finalizado')
+                  AND p.status_processo IN ({$statusPlaceholders})
                   AND p.data_conversao IS NOT NULL";
 
         $params = [
             ':vendorId' => $vendorId,
         ];
+
+        foreach ($serviceStatuses as $index => $status) {
+            $params[':status' . $index] = $status;
+        }
 
         if (!empty($startDate)) {
             $sql .= " AND p.data_conversao >= :startDate";
@@ -2580,7 +2617,7 @@ public function create($data, $files)
         ];
 
         $sdrExpression = $this->getSdrIdSelectExpression();
-        $sdrSelect = "COALESCE({$sdrExpression}, COALESCE(comm_sdr.sdr_id, 0)) AS sdr_id";
+        $sdrSelect = "COALESCE({$sdrExpression}, comm_sdr.sdr_id, 0) AS sdr_id";
         $statusFinanceiroSelect = $this->getStatusFinanceiroSelectExpression();
 
         $sql = "SELECT
@@ -2631,7 +2668,7 @@ public function create($data, $files)
         }
 
         if (!empty($filters['sdr_id'])) {
-            $sql .= " AND COALESCE({$sdrExpression}, COALESCE(comm_sdr.sdr_id, 0)) = :sdr_id";
+            $sql .= " AND COALESCE({$sdrExpression}, comm_sdr.sdr_id, 0) = :sdr_id";
             $params[':sdr_id'] = (int) $filters['sdr_id'];
         }
 
