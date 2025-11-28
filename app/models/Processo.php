@@ -2572,7 +2572,6 @@ public function create($data, $files)
         ];
 
         $sdrExpression = $this->getSdrIdSelectExpression();
-        $sdrSelect = "{$sdrExpression} AS sdr_id";
         $statusFinanceiroSelect = $this->getStatusFinanceiroSelectExpression();
 
         $sql = "SELECT
@@ -2586,7 +2585,7 @@ public function create($data, $files)
                     {$statusFinanceiroSelect},
                     COALESCE(u.nome_completo, 'Sistema') AS nome_vendedor,
                     COALESCE(v.percentual_comissao, 0) AS percentual_comissao_vendedor,
-                    {$sdrSelect},
+                    {$sdrExpression} AS sdr_id,
                     c.nome_cliente,
                     COALESCE(comm_vendedor.total_comissao_vendedor, 0) AS valor_comissao_vendedor,
                     COALESCE(comm_sdr.total_comissao_sdr, 0) AS valor_comissao_sdr
@@ -2691,16 +2690,15 @@ public function create($data, $files)
 
     private function getSdrCommissionPercent(): float
     {
-        $defaultPercent = 0.5;
         try {
             $stmt = $this->pdo->prepare("SELECT valor FROM configuracoes_comissao WHERE tipo_regra = 'percentual_sdr' AND ativo = 1 ORDER BY id DESC LIMIT 1");
             $stmt->execute();
             $value = $stmt->fetchColumn();
 
-            return $value !== false && $value !== null ? (float) $value : $defaultPercent;
+            return $value !== false && $value !== null ? (float) $value : 0.0;
         } catch (PDOException $exception) {
             error_log('Erro ao buscar percentual de comissão SDR: ' . $exception->getMessage());
-            return $defaultPercent;
+            return 0.0;
         }
     }
         
