@@ -5,6 +5,7 @@ require_once __DIR__ . '/../models/Processo.php';
 require_once __DIR__ . '/../models/Vendedor.php';
 require_once __DIR__ . '/../models/Comissao.php'; // Model para comissões
 require_once __DIR__ . '/../models/User.php';
+require_once __DIR__ . '/../utils/FinanceiroCalculator.php';
 
 class VendedorReportController
 {
@@ -71,6 +72,21 @@ class VendedorReportController
             $vendasMensais[$mes] += $venda['valor_total'];
         }
         ksort($vendasMensais); // Ordena por data
+
+        $totalPeriodo = array_reduce($vendasDoPeriodo, function ($carry, $item) {
+            return $carry + (float) ($item['valor_total'] ?? 0);
+        }, 0.0);
+
+        $caixaPorVendedor = FinanceiroCalculator::calcularCaixaPorVendedor($this->pdo, $data_inicio, $data_fim);
+        $resumoFinanceiro = null;
+        if (!empty($filters['vendedor_id'])) {
+            foreach ($caixaPorVendedor as $linha) {
+                if ((int) ($linha['vendedor_id'] ?? 0) === (int) $filters['vendedor_id']) {
+                    $resumoFinanceiro = $linha;
+                    break;
+                }
+            }
+        }
 
         $labels_vendas = json_encode(array_keys($vendasMensais));
         $valores_vendas = json_encode(array_values($vendasMensais));
