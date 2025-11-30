@@ -344,7 +344,8 @@ class Notificacao
             $params[':grupo_destino'] = trim($grupoDestino);
         }
 
-        $sql = 'UPDATE notificacoes SET resolvido = 1, lida = 1 WHERE ' . implode(' AND ', $conditions);
+        $sql = 'UPDATE notificacoes SET resolvido = 1, lida = 1, data_resolucao = CURRENT_TIMESTAMP WHERE '
+            . implode(' AND ', $conditions);
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
     }
@@ -512,15 +513,11 @@ class Notificacao
         }
 
         $normalizedStatus = ProcessStatus::normalizeStatus($row['status_processo'] ?? '');
-        $budgetPendingStatuses = [
-            ProcessStatus::normalizeStatus(ProcessStatus::BUDGET_PENDING),
-        ];
-        $servicePendingStatuses = [
-            ProcessStatus::normalizeStatus(ProcessStatus::SERVICE_PENDING),
-        ];
+        $budgetPendingStatus = ProcessStatus::normalizeStatus(ProcessStatus::BUDGET_PENDING);
+        $servicePendingStatus = ProcessStatus::normalizeStatus(ProcessStatus::SERVICE_PENDING);
 
         if (in_array($alertType, [ProcessAlertType::BUDGET_PENDING, 'processo_pendente_orcamento'], true)) {
-            return !in_array($normalizedStatus, $budgetPendingStatuses, true);
+            return $normalizedStatus !== $budgetPendingStatus;
         }
 
         if (
@@ -532,7 +529,9 @@ class Notificacao
         ) {
             // "processo_servico_pendente" é usado por notificações do vendedor e
             // precisa ser tratado como pendência de serviço para auto-resolver ao sair desse status.
-            return !in_array($normalizedStatus, $servicePendingStatuses, true);
+            // Se o processo não estiver mais em "Serviço Pendente", a pendência foi sanada
+            // e a notificação deve ser marcada como resolvida/lida automaticamente.
+            return $normalizedStatus !== $servicePendingStatus;
         }
 
         return false;
