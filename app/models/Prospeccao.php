@@ -694,6 +694,55 @@ class Prospeccao
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function getSdrPerformanceRanking(?string $startDate = null, ?string $endDate = null): array
+    {
+        $conditions = ['p.sdrId IS NOT NULL'];
+        $params = [];
+
+        if (!empty($startDate)) {
+            $conditions[] = 'p.data_prospeccao >= :startDate';
+            $params[':startDate'] = $startDate . ' 00:00:00';
+        }
+
+        if (!empty($endDate)) {
+            $conditions[] = 'p.data_prospeccao <= :endDate';
+            $params[':endDate'] = $endDate . ' 23:59:59';
+        }
+
+        $whereSql = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+
+        $sql = "SELECT
+                    u.nome_completo AS sdr,
+                    COUNT(p.id) AS total_leads,
+                    SUM(CASE WHEN p.status = 'Convertido' THEN 1 ELSE 0 END) AS leads_convertidos,
+                    COALESCE(ag.total_agendamentos, 0) AS total_agendamentos
+                FROM prospeccoes p
+                INNER JOIN users u ON u.id = p.sdrId
+                LEFT JOIN (
+                    SELECT a.sdrId, COUNT(*) AS total_agendamentos
+                    FROM agendamentos a
+                    GROUP BY a.sdrId
+                ) ag ON ag.sdrId = p.sdrId
+                $whereSql
+                GROUP BY u.id, u.nome_completo, COALESCE(ag.total_agendamentos, 0)
+                ORDER BY leads_convertidos DESC, total_leads DESC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rows as &$row) {
+            $totalLeads = (int) ($row['total_leads'] ?? 0);
+            $converted = (int) ($row['leads_convertidos'] ?? 0);
+            $row['taxa_conversao'] = $totalLeads > 0 ? ($converted / $totalLeads) * 100 : 0;
+        }
+
+        unset($row);
+
+        return $rows;
+    }
+
     public function getSdrWorkSummary(?string $startDate = null, ?string $endDate = null): array
     {
         $conditions = ['p.sdrId IS NOT NULL'];

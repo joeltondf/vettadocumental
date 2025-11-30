@@ -29,6 +29,9 @@ class GerenteDashboardController
         $vendedores = $vendedorModel->getAll();
         $performance = [];
 
+        $vendorPerformanceRanking = $processoModel->getVendorPerformanceRanking($startDate, $endDate);
+        $sdrPerformanceRanking = $prospeccaoModel->getSdrPerformanceRanking($startDate, $endDate);
+
         foreach ($vendedores as $vendedor) {
             $vId = $vendedor['id'];
             $userId = $vendedor['user_id'];

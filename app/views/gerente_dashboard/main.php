@@ -30,6 +30,8 @@ $budgetOverview = $budgetOverview ?? [
     'closedValue' => 0.0,
     'averageBudgetValue' => 0.0,
 ];
+$vendorPerformanceRanking = $vendorPerformanceRanking ?? [];
+$sdrPerformanceRanking = $sdrPerformanceRanking ?? [];
 
 $totalSdrLeads = array_sum(array_column($sdrSummary, 'totalLeads'));
 $assignedSdrLeads = array_sum(array_column($sdrSummary, 'assignedLeads'));
@@ -196,6 +198,94 @@ $averageSdrConversion = $totalSdrLeads > 0 ? ($convertedSdrLeads / $totalSdrLead
         <?php endif; ?>
       </tbody>
     </table>
+  </div>
+</div>
+
+<div class="mt-10 bg-white p-4 rounded-lg shadow">
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+    <div>
+      <p class="text-sm uppercase text-gray-500 font-semibold">Performance de Equipe</p>
+      <h3 class="text-xl font-bold text-gray-800">Rankings e KPIs por função</h3>
+    </div>
+    <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-sm font-semibold">
+      <i class="fas fa-chart-line"></i> Visão comparativa
+    </span>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="border border-gray-100 rounded-lg overflow-hidden">
+      <div class="px-4 py-3 bg-gray-50 flex items-center justify-between">
+        <h4 class="text-md font-semibold text-gray-800">Ranking de Vendedores</h4>
+        <span class="text-xs text-gray-500">Ordenado por valor vendido</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 text-sm">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="px-4 py-2 text-left font-semibold text-gray-700">Posição</th>
+              <th class="px-4 py-2 text-left font-semibold text-gray-700">Vendedor</th>
+              <th class="px-4 py-2 text-center font-semibold text-gray-700">Qtd. Vendas</th>
+              <th class="px-4 py-2 text-right font-semibold text-gray-700">Total Vendido (R$)</th>
+              <th class="px-4 py-2 text-right font-semibold text-gray-700">Ticket Médio (R$)</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200">
+            <?php foreach ($vendorPerformanceRanking as $index => $item): ?>
+              <tr class="hover:bg-gray-50">
+                <td class="px-4 py-2 font-semibold text-gray-700">#<?= $index + 1 ?></td>
+                <td class="px-4 py-2 text-gray-800"><?= htmlspecialchars($item['vendedor']) ?></td>
+                <td class="px-4 py-2 text-center"><?= (int) ($item['qtd_vendas'] ?? 0) ?></td>
+                <td class="px-4 py-2 text-right text-green-700 font-semibold">R$ <?= number_format((float) ($item['total_vendido'] ?? 0), 2, ',', '.') ?></td>
+                <td class="px-4 py-2 text-right text-gray-700">R$ <?= number_format((float) ($item['ticket_medio'] ?? 0), 2, ',', '.') ?></td>
+              </tr>
+            <?php endforeach; ?>
+            <?php if (empty($vendorPerformanceRanking)): ?>
+              <tr>
+                <td colspan="5" class="px-4 py-3 text-center text-gray-500">Nenhum resultado para o período selecionado.</td>
+              </tr>
+            <?php endif; ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="border border-gray-100 rounded-lg overflow-hidden">
+      <div class="px-4 py-3 bg-gray-50 flex items-center justify-between">
+        <h4 class="text-md font-semibold text-gray-800">Performance de SDRs</h4>
+        <span class="text-xs text-gray-500">Conversão e atividades</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 text-sm">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="px-4 py-2 text-left font-semibold text-gray-700">Posição</th>
+              <th class="px-4 py-2 text-left font-semibold text-gray-700">SDR</th>
+              <th class="px-4 py-2 text-center font-semibold text-gray-700">Leads</th>
+              <th class="px-4 py-2 text-center font-semibold text-gray-700">Agendamentos</th>
+              <th class="px-4 py-2 text-center font-semibold text-gray-700">Convertidos</th>
+              <th class="px-4 py-2 text-center font-semibold text-gray-700">Taxa (%)</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200">
+            <?php foreach ($sdrPerformanceRanking as $index => $item): ?>
+              <tr class="hover:bg-gray-50">
+                <td class="px-4 py-2 font-semibold text-gray-700">#<?= $index + 1 ?></td>
+                <td class="px-4 py-2 text-gray-800"><?= htmlspecialchars($item['sdr']) ?></td>
+                <td class="px-4 py-2 text-center"><?= (int) ($item['total_leads'] ?? 0) ?></td>
+                <td class="px-4 py-2 text-center"><?= (int) ($item['total_agendamentos'] ?? 0) ?></td>
+                <td class="px-4 py-2 text-center"><?= (int) ($item['leads_convertidos'] ?? 0) ?></td>
+                <td class="px-4 py-2 text-center text-indigo-700 font-semibold"><?= number_format((float) ($item['taxa_conversao'] ?? 0), 2, ',', '.') ?></td>
+              </tr>
+            <?php endforeach; ?>
+            <?php if (empty($sdrPerformanceRanking)): ?>
+              <tr>
+                <td colspan="6" class="px-4 py-3 text-center text-gray-500">Nenhum resultado para o período selecionado.</td>
+              </tr>
+            <?php endif; ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </div>
 
