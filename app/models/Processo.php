@@ -3410,4 +3410,38 @@ public function create($data, $files)
         $digits = preg_replace('/\D+/', '', (string)$value);
         return $digits === '' ? null : (int)$digits;
     }
+
+    public function getVendorPerformanceRanking(?string $startDate = null, ?string $endDate = null): array
+    {
+        $conditions = ["p.status_processo IN ('Concluído', 'Serviço em andamento', 'Pendente de pagamento')"];
+        $params = [];
+
+        if (!empty($startDate)) {
+            $conditions[] = 'p.data_criacao >= :startDate';
+            $params[':startDate'] = $startDate . ' 00:00:00';
+        }
+
+        if (!empty($endDate)) {
+            $conditions[] = 'p.data_criacao <= :endDate';
+            $params[':endDate'] = $endDate . ' 23:59:59';
+        }
+
+        $whereSql = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+
+        $sql = "SELECT
+                    u.nome_completo AS vendedor,
+                    COUNT(p.id) AS qtd_vendas,
+                    SUM(p.valor_total) AS total_vendido,
+                    AVG(p.valor_total) AS ticket_medio
+                FROM processos p
+                JOIN users u ON p.vendedor_id = u.id
+                $whereSql
+                GROUP BY p.vendedor_id, u.nome_completo
+                ORDER BY total_vendido DESC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }
