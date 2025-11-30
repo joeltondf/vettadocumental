@@ -24,7 +24,7 @@ function fetchRealCashFlow(PDO $pdo, string $startDate, string $endDate): array
                 'Entrada/Parcela 1' AS tipo_lancamento,
                 c.nome_cliente AS nome_cliente,
                 p.titulo AS processo,
-                COALESCE(p.orcamento_valor_entrada, p.valor_recebido, 0) AS valor,
+                COALESCE(p.orcamento_valor_entrada, 0) AS valor,
                 'Confirmado' AS status
             FROM processos p
             JOIN clientes c ON p.cliente_id = c.id
@@ -38,7 +38,7 @@ function fetchRealCashFlow(PDO $pdo, string $startDate, string $endDate): array
                 'Parcela 2/Final' AS tipo_lancamento,
                 c.nome_cliente AS nome_cliente,
                 p.titulo AS processo,
-                COALESCE(p.orcamento_valor_restante, p.valor_restante, 0) AS valor,
+                COALESCE(p.orcamento_valor_restante, 0) AS valor,
                 'Confirmado' AS status
             FROM processos p
             JOIN clientes c ON p.cliente_id = c.id
@@ -91,8 +91,8 @@ function fetchAccountsReceivable(PDO $pdo): array
 {
     $sql = "SELECT c.nome_cliente AS cliente,
                    p.data_pagamento_2 AS vencimento,
-                   CASE WHEN p.data_pagamento_1 IS NULL THEN COALESCE(p.orcamento_valor_entrada, p.valor_recebido, 0) ELSE 0 END AS valor_entrada_pendente,
-                   CASE WHEN p.data_pagamento_2 IS NULL THEN COALESCE(p.orcamento_valor_restante, p.valor_restante, 0) ELSE 0 END AS valor_restante_pendente
+                   CASE WHEN p.data_pagamento_1 IS NULL THEN COALESCE(p.orcamento_valor_entrada, 0) ELSE 0 END AS valor_entrada_pendente,
+                   CASE WHEN p.data_pagamento_2 IS NULL THEN COALESCE(p.orcamento_valor_restante, 0) ELSE 0 END AS valor_restante_pendente
             FROM processos p
             JOIN clientes c ON p.cliente_id = c.id
             WHERE p.status_fluxo_pagamento IN ('Pendente', 'Parcial')
