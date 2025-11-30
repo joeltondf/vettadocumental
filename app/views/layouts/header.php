@@ -133,10 +133,12 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
                                 <span>Vendas &amp; CRM</span>
                                 <i class="fas fa-chevron-down text-xs ml-1"></i>
                             </button>
-                            <div id="crm-menu" class="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg py-1 z-20 hidden">
-                                <a href="<?php echo APP_URL; ?>/processos.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Nova Venda</a>
-                                <a href="<?php echo APP_URL; ?>/crm/prospeccoes/kanban.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Prospecção</a>
-                                <a href="<?php echo APP_URL; ?>/crm/clientes/lista.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Clientes</a>
+                            <div id="crm-menu" class="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg py-1 z-20 hidden">
+                                <a href="<?php echo APP_URL; ?>/processos.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Nova Venda / Orçamento</a>
+                                <a href="<?php echo APP_URL; ?>/crm/prospeccoes/kanban.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Meus Leads (Kanban)</a>
+                                <a href="<?php echo APP_URL; ?>/crm/clientes/lista.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Lista de Clientes</a>
+                                <a href="<?php echo APP_URL; ?>/distribuir_leads.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Distribuição de Leads</a>
+                                <a href="<?php echo APP_URL; ?>/crm/clientes/importar.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Importar Clientes (CSV/Bitrix)</a>
                             </div>
                         </div>
 
