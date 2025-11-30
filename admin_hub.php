@@ -57,12 +57,9 @@ require_once __DIR__ . '/app/views/layouts/header.php';
                 </div>
             </div>
             <nav class="space-y-2" aria-label="Menu Administrativo">
+                <p class="text-xs uppercase tracking-wide text-slate-500 font-semibold">Cadastros</p>
                 <a href="#produtos-orcamento" class="flex items-center justify-between px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800 font-medium hover:border-theme-color">
-                    <span><i class="fas fa-box-open mr-2 text-theme-color"></i>Produtos de Orçamento</span>
-                    <i class="fas fa-chevron-right text-xs"></i>
-                </a>
-                <a href="<?php echo APP_URL; ?>/users.php" class="flex items-center justify-between px-3 py-2 rounded-lg border border-slate-200 text-slate-700 hover:border-theme-color">
-                    <span><i class="fas fa-users-cog mr-2 text-slate-600"></i>Usuários &amp; Permissões</span>
+                    <span><i class="fas fa-box-open mr-2 text-theme-color"></i>Produtos &amp; Serviços</span>
                     <i class="fas fa-chevron-right text-xs"></i>
                 </a>
                 <a href="<?php echo APP_URL; ?>/categorias.php" class="flex items-center justify-between px-3 py-2 rounded-lg border border-slate-200 text-slate-700 hover:border-theme-color">
@@ -73,8 +70,26 @@ require_once __DIR__ . '/app/views/layouts/header.php';
                     <span><i class="fas fa-language mr-2 text-slate-600"></i>Tradutores</span>
                     <i class="fas fa-chevron-right text-xs"></i>
                 </a>
+
+                <p class="pt-2 text-xs uppercase tracking-wide text-slate-500 font-semibold">Equipe</p>
+                <a href="<?php echo APP_URL; ?>/users.php" class="flex items-center justify-between px-3 py-2 rounded-lg border border-slate-200 text-slate-700 hover:border-theme-color">
+                    <span><i class="fas fa-users-cog mr-2 text-slate-600"></i>Usuários &amp; Permissões</span>
+                    <i class="fas fa-chevron-right text-xs"></i>
+                </a>
+
+                <p class="pt-2 text-xs uppercase tracking-wide text-slate-500 font-semibold">Sistema</p>
+                <a href="<?php echo APP_URL; ?>/cron_automacao.php" class="flex items-center justify-between px-3 py-2 rounded-lg border border-slate-200 text-slate-700 hover:border-theme-color">
+                    <span><i class="fas fa-bullhorn mr-2 text-slate-600"></i>Automação de Marketing / Campanhas</span>
+                    <i class="fas fa-chevron-right text-xs"></i>
+                </a>
+                <a href="<?php echo APP_URL; ?>/logs.php" class="flex items-center justify-between px-3 py-2 rounded-lg border border-slate-200 text-slate-700 hover:border-theme-color">
+                    <span><i class="fas fa-clipboard-list mr-2 text-slate-600"></i>Logs de Auditoria</span>
+                    <i class="fas fa-chevron-right text-xs"></i>
+                </a>
+
+                <p class="pt-2 text-xs uppercase tracking-wide text-slate-500 font-semibold">Config</p>
                 <a href="<?php echo APP_URL; ?>/admin.php?action=smtp_settings" class="flex items-center justify-between px-3 py-2 rounded-lg border border-slate-200 text-slate-700 hover:border-theme-color">
-                    <span><i class="fas fa-envelope-open-text mr-2 text-slate-600"></i>Configurações de E-mail/SMTP</span>
+                    <span><i class="fas fa-envelope-open-text mr-2 text-slate-600"></i>E-mail &amp; SMTP</span>
                     <i class="fas fa-chevron-right text-xs"></i>
                 </a>
             </nav>

@@ -89,6 +89,7 @@ class RelatoriosController
                         c.nome_cliente AS nome_cliente,
                         p.titulo AS processo,
                         COALESCE(p.orcamento_valor_entrada, 0) AS valor,
+                        p.servico_tipo,
                         'Confirmado' AS status
                     FROM processos p
                     JOIN clientes c ON p.cliente_id = c.id
@@ -103,6 +104,7 @@ class RelatoriosController
                         c.nome_cliente AS nome_cliente,
                         p.titulo AS processo,
                         COALESCE(p.orcamento_valor_restante, 0) AS valor,
+                        p.servico_tipo,
                         'Confirmado' AS status
                     FROM processos p
                     JOIN clientes c ON p.cliente_id = c.id
@@ -126,11 +128,59 @@ class RelatoriosController
             return $carry + (float) ($item['valor'] ?? 0);
         }, 0.0);
 
+        $today = date('Y-m-d');
+        $nextWeek = date('Y-m-d', strtotime('+7 days'));
+        $evolucaoDiaria = array_fill(1, 31, 0);
+        $receitaPorCategoria = [];
+
+        $panorama = [
+            'entradas_hoje' => 0.0,
+            'entradas_mes' => 0.0,
+            'a_receber_7' => 0.0,
+            'inadimplencia' => 0.0,
+        ];
+
+        foreach ($entradas as $entrada) {
+            $valor = (float) ($entrada['valor'] ?? 0);
+            $data = $entrada['data_movimento'] ?? '';
+            $servicoTipo = $entrada['servico_tipo'] ?? 'Não informado';
+
+            if ($data === '') {
+                continue;
+            }
+
+            $dia = (int) date('j', strtotime($data));
+            if ($dia >= 1 && $dia <= 31 && date('Y-m', strtotime($data)) === date('Y-m', strtotime($inicio))) {
+                $evolucaoDiaria[$dia] += $valor;
+            }
+
+            $receitaPorCategoria[$servicoTipo] = ($receitaPorCategoria[$servicoTipo] ?? 0) + $valor;
+
+            if ($data === $today) {
+                $panorama['entradas_hoje'] += $valor;
+            }
+
+            if (date('Y-m', strtotime($data)) === date('Y-m')) {
+                $panorama['entradas_mes'] += $valor;
+            }
+
+            if ($data > $today && $data <= $nextWeek) {
+                $panorama['a_receber_7'] += $valor;
+            }
+
+            if ($data < $today) {
+                $panorama['inadimplencia'] += $valor;
+            }
+        }
+
         return [
             'entradas' => $entradas,
             'total' => $total,
             'inicio' => $inicio,
             'fim' => $fim,
+            'panorama' => $panorama,
+            'evolucao_diaria' => $evolucaoDiaria,
+            'receita_por_categoria' => $receitaPorCategoria,
         ];
     }
 
