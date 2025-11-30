@@ -19,11 +19,6 @@ if (isset($_GET['id'])) {
     }
 }
 
-if ($action === 'index') {
-    header('Location: admin_hub.php#produtos-orcamento');
-    exit();
-}
-
 switch ($action) {
     case 'store':
         $controller->store();
@@ -35,6 +30,6 @@ switch ($action) {
         $controller->delete($id);
         break;
     default:
-        header('Location: admin_hub.php#produtos-orcamento');
-        exit();
+        $controller->index();
+        break;
 }

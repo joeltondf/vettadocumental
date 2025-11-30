@@ -20,7 +20,7 @@ $bodyClass = isset($bodyClass) ? trim($bodyClass) : 'bg-slate-100 text-slate-800
 $user_perfil = $_SESSION['user_perfil'] ?? 'guest';
 $crm_access = in_array($user_perfil, ['admin', 'gerencia', 'supervisor', 'vendedor', 'sdr']);
 $finance_access = in_array($user_perfil, ['admin', 'gerencia', 'financeiro']);
-$admin_access = in_array($user_perfil, ['admin', 'gerencia']);
+$admin_access = in_array($user_perfil, ['admin', 'gerencia', 'supervisor']);
 $is_vendedor = ($user_perfil === 'vendedor');
 $is_sdr = ($user_perfil === 'sdr');
 
@@ -126,30 +126,55 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
 
                 <div class="hidden md:block">
                     <div class="ml-10 flex items-baseline space-x-4">
-                        <a href="<?php echo $homeUrl; ?>" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($currentPage == basename($homeUrl)) ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Dashboard</a>
+                        
+                        <?php if ($is_vendedor): ?>
+                            <a href="<?php echo APP_URL; ?>/dashboard_vendedor.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($currentPage == 'dashboard_vendedor.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Meu Dashboard</a>
+                            <a href="<?php echo APP_URL; ?>/relatorio_vendedor.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($currentPage == 'relatorio_vendedor.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Meus Relatórios</a>
+                        <?php elseif ($is_sdr): ?>
+                            <a href="<?php echo APP_URL; ?>/sdr_dashboard.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($currentPage == 'sdr_dashboard.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Painel SDR</a>
+                            <a href="<?php echo APP_URL; ?>/crm/clientes/lista.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo $isCrmClientesPage ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Leads</a>
+                            <a href="<?php echo APP_URL; ?>/crm/agendamentos/calendario.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo $isCrmAgendaPage ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Agendamentos</a>
+                            <a href="<?php echo APP_URL; ?>/crm/prospeccoes/kanban.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo $isProspeccoesKanban ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Kanban Geral</a>
+                            <a href="<?php echo APP_URL; ?>/crm/prospeccoes/lista.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo $isProspeccoesList || $isProspeccoesOther ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Prospeções</a>
+                        <?php else: ?>
+                            <a href="<?php echo APP_URL; ?>/dashboard.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($currentPage == 'dashboard.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Home</a>
+                            <a href="<?php echo APP_URL; ?>/clientes.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($currentPage == 'clientes.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Clientes</a>
+                        <?php endif; ?>
 
+                        <?php if ($crm_access && !$is_sdr): ?>
                         <div class="relative">
-                            <button id="crm-menu-button" class="px-3 py-2 rounded-md text-sm font-medium <?php echo $isCrmPage ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">
-                                <span>Vendas &amp; CRM</span>
+                            <button id="crm-menu-button" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($isCrmPage) ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">
+                                <span>CRM</span>
                                 <i class="fas fa-chevron-down text-xs ml-1"></i>
                             </button>
-                            <div id="crm-menu" class="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg py-1 z-20 hidden">
-                                <a href="<?php echo APP_URL; ?>/processos.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Nova Venda</a>
-                                <a href="<?php echo APP_URL; ?>/crm/prospeccoes/kanban.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Prospecção</a>
-                                <a href="<?php echo APP_URL; ?>/crm/clientes/lista.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Clientes</a>
+                            <div id="crm-menu" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20 hidden">
+                                <a href="<?php echo APP_URL; ?>/crm/prospeccoes/kanban.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Kanban</a>
+                                <a href="<?php echo APP_URL; ?>/crm/agendamentos/calendario.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Agendamentos</a>
+                                <a href="<?php echo APP_URL; ?>/crm/clientes/lista.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Leads</a>
+                                <a href="<?php echo APP_URL; ?>/crm/prospeccoes/lista.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Prospecções</a>
                             </div>
                         </div>
-
-                        <a href="<?php echo APP_URL; ?>/processos.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($currentPage == 'processos.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Processos</a>
-
-                        <a href="<?php echo APP_URL; ?>/relatorios.php" class="px-3 py-2 rounded-md text-sm font-medium flex items-center space-x-2 <?php echo ($currentPage == 'relatorios.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">
-                            <i class="fas fa-chart-line"></i><span>Relatórios &amp; BI</span>
-                        </a>
-
+                        <?php endif; ?>
+                        
+                        <?php if ($finance_access): ?>
+                        <div class="relative">
+                            <button id="finance-menu-button" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($isFinancePage) ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">
+                                <span>Financeiro</span>
+                                <i class="fas fa-chevron-down text-xs ml-1"></i>
+                            </button>
+                            <div id="finance-menu" class="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg py-1 z-20 hidden">
+                                <a href="<?php echo APP_URL; ?>/fluxo_caixa.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Controle Financeiro</a>
+                                <a href="<?php echo APP_URL; ?>/financeiro.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Relatório de Serviços</a>
+                                <a href="<?php echo APP_URL; ?>/vendas.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Relatório de Vendas</a>
+                            </div>
+                        </div>
+                        <?php endif; ?>
                         <?php if ($admin_access): ?>
-                        <a href="<?php echo APP_URL; ?>/admin_hub.php" class="px-3 py-2 rounded-md text-sm font-medium flex items-center space-x-2 <?php echo ($currentPage == 'admin_hub.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">
-                            <i class="fas fa-cog"></i><span>Administração</span>
-                        </a>
+                            <a href="<?php echo APP_URL; ?>/gerente_dashboard.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($currentPage == 'gerente_dashboard.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Painel Gestão</a>
+
+                            <a href="<?php echo APP_URL; ?>/admin.php" class="px-3 py-2 rounded-md text-sm font-bold <?php echo ($currentPage == 'admin.php') ? 'bg-theme-color text-white' : 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800'; ?>">Administração</a>
+
+                            <a href="<?php echo APP_URL; ?>/logs.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($currentPage == 'logs.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Auditoria</a>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -267,19 +292,8 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
             </div>
         </div>
 
-        <div class="md:hidden hidden" id="mobile-menu">
-            <div class="px-2 pt-2 pb-3 space-y-1">
-                <a href="<?php echo $homeUrl; ?>" class="block px-3 py-2 rounded-md text-base font-medium <?php echo ($currentPage == basename($homeUrl)) ? 'bg-theme-color text-white font-bold' : 'text-gray-700 hover:bg-gray-100'; ?>">Dashboard</a>
-                <a href="<?php echo APP_URL; ?>/processos.php" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">Nova Venda</a>
-                <a href="<?php echo APP_URL; ?>/crm/prospeccoes/kanban.php" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">Prospecção</a>
-                <a href="<?php echo APP_URL; ?>/crm/clientes/lista.php" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">Clientes</a>
-                <a href="<?php echo APP_URL; ?>/processos.php" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">Processos</a>
-                <a href="<?php echo APP_URL; ?>/relatorios.php" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">Relatórios &amp; BI</a>
-                <?php if ($admin_access): ?>
-                <a href="<?php echo APP_URL; ?>/admin_hub.php" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">Administração</a>
-                <?php endif; ?>
-            </div>
-        </div>
+        <div class="md:hidden hidden" id="mobile-menu"> 
+             </div>
     </nav>
 
     <main class="max-w-[95%] mx-auto py-6 sm:px-6 lg:px-8">
@@ -325,6 +339,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const crmMenuButton = document.getElementById('crm-menu-button');
     const crmMenu = document.getElementById('crm-menu');
+    const financeMenuButton = document.getElementById('finance-menu-button');
+    const financeMenu = document.getElementById('finance-menu');
     const notificationMenuButton = document.getElementById('notification-menu-button');
     const notificationMenu = document.getElementById('notification-menu');
 
@@ -333,7 +349,7 @@ document.addEventListener('DOMContentLoaded', function () {
         
         button.addEventListener('click', function (event) {
             event.stopPropagation();
-            [crmMenu, notificationMenu].forEach(otherMenu => {
+            [crmMenu, financeMenu, notificationMenu].forEach(otherMenu => {
                 if (otherMenu && otherMenu !== menu) {
                     otherMenu.classList.add('hidden');
                 }
@@ -343,13 +359,15 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     setupDropdown(crmMenuButton, crmMenu);
+    setupDropdown(financeMenuButton, financeMenu);
     setupDropdown(notificationMenuButton, notificationMenu);
 
     window.addEventListener('click', function (event) {
-        [crmMenu, notificationMenu].forEach(menu => {
+        [crmMenu, financeMenu, notificationMenu].forEach(menu => {
             if (menu && !menu.classList.contains('hidden')) {
                 let button = null;
                 if (menu === crmMenu) button = crmMenuButton;
+                if (menu === financeMenu) button = financeMenuButton;
                 if (menu === notificationMenu) button = notificationMenuButton;
 
                 if (!menu.contains(event.target) && (button && !button.contains(event.target))) {
