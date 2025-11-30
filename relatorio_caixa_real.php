@@ -15,61 +15,42 @@ function sanitizeDate(?string $value): string
 
 function fetchRealCashFlow(PDO $pdo, string $startDate, string $endDate): array
 {
-    $conditions = [];
-    $params = [];
+    $start = $startDate !== '' ? $startDate : date('Y-m-01');
+    $end = $endDate !== '' ? $endDate : date('Y-m-t');
 
-    if ($startDate !== '') {
-        $conditions[] = 'DATE(p.data_pagamento_1) >= :entrada_inicio';
-        $conditions[] = 'DATE(p.data_pagamento_2) >= :entrada_inicio';
-        $params[':entrada_inicio'] = $startDate;
-    }
+    $sql = "SELECT 
+                p.id,
+                p.data_pagamento_1 AS data_movimento,
+                'Entrada/Parcela 1' AS tipo_lancamento,
+                c.nome_cliente AS nome_cliente,
+                p.titulo AS processo,
+                COALESCE(p.orcamento_valor_entrada, p.valor_recebido, 0) AS valor,
+                'Confirmado' AS status
+            FROM processos p
+            JOIN clientes c ON p.cliente_id = c.id
+            WHERE p.data_pagamento_1 BETWEEN :data_inicio AND :data_fim
 
-    if ($endDate !== '') {
-        $conditions[] = 'DATE(p.data_pagamento_1) <= :entrada_fim';
-        $conditions[] = 'DATE(p.data_pagamento_2) <= :entrada_fim';
-        $params[':entrada_fim'] = $endDate;
-    }
-
-    $whereEntrada = [];
-    $whereRestante = [];
-
-    foreach ($conditions as $condition) {
-        if (str_contains($condition, 'data_pagamento_1')) {
-            $whereEntrada[] = str_replace('data_pagamento_2', 'data_pagamento_1', $condition);
-        }
-        if (str_contains($condition, 'data_pagamento_2')) {
-            $whereRestante[] = $condition;
-        }
-    }
-
-    $whereEntradaSql = empty($whereEntrada) ? '' : ' AND ' . implode(' AND ', $whereEntrada);
-    $whereRestanteSql = empty($whereRestante) ? '' : ' AND ' . implode(' AND ', $whereRestante);
-
-    $sql = "(
-                SELECT p.data_pagamento_1 AS data_recebimento,
-                       c.nome_cliente AS cliente,
-                       p.titulo AS processo,
-                       'Entrada' AS tipo,
-                       COALESCE(p.orcamento_valor_entrada, p.valor_recebido, 0) AS valor
-                FROM processos p
-                JOIN clientes c ON p.cliente_id = c.id
-                WHERE p.data_pagamento_1 IS NOT NULL {$whereEntradaSql}
-            )
             UNION ALL
-            (
-                SELECT p.data_pagamento_2 AS data_recebimento,
-                       c.nome_cliente AS cliente,
-                       p.titulo AS processo,
-                       'Restante' AS tipo,
-                       COALESCE(p.orcamento_valor_restante, p.valor_restante, 0) AS valor
-                FROM processos p
-                JOIN clientes c ON p.cliente_id = c.id
-                WHERE p.data_pagamento_2 IS NOT NULL {$whereRestanteSql}
-            )
-            ORDER BY data_recebimento ASC";
+
+            SELECT 
+                p.id,
+                p.data_pagamento_2 AS data_movimento,
+                'Parcela 2/Final' AS tipo_lancamento,
+                c.nome_cliente AS nome_cliente,
+                p.titulo AS processo,
+                COALESCE(p.orcamento_valor_restante, p.valor_restante, 0) AS valor,
+                'Confirmado' AS status
+            FROM processos p
+            JOIN clientes c ON p.cliente_id = c.id
+            WHERE p.data_pagamento_2 BETWEEN :data_inicio AND :data_fim
+
+            ORDER BY data_movimento DESC";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
+    $stmt->execute([
+        ':data_inicio' => $start,
+        ':data_fim' => $end,
+    ]);
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -220,10 +201,10 @@ $totalCashFlow = sumCashFlow($realCashFlow);
                         <?php else: ?>
                             <?php foreach ($realCashFlow as $entrada): ?>
                                 <tr>
-                                    <td><?php echo htmlspecialchars(formatDate($entrada['data_recebimento'])); ?></td>
-                                    <td><?php echo htmlspecialchars($entrada['cliente']); ?></td>
-                                    <td><?php echo htmlspecialchars($entrada['processo']); ?></td>
-                                    <td><?php echo htmlspecialchars($entrada['tipo']); ?></td>
+                                    <td><?php echo htmlspecialchars(formatDate($entrada['data_movimento'] ?? null)); ?></td>
+                                    <td><?php echo htmlspecialchars($entrada['nome_cliente'] ?? ''); ?></td>
+                                    <td><?php echo htmlspecialchars($entrada['processo'] ?? ''); ?></td>
+                                    <td><?php echo htmlspecialchars($entrada['tipo_lancamento'] ?? ''); ?></td>
                                     <td class="text-end fw-semibold"><?php echo htmlspecialchars(formatCurrency($entrada['valor'])); ?></td>
                                 </tr>
                             <?php endforeach; ?>

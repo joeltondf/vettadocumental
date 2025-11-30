@@ -933,14 +933,8 @@ class ProcessosController
         $statusAnterior = $processo['status_processo'];
         $clienteId = (int)($processo['cliente_id'] ?? 0);
 
-        $novoStatusNormalizado = $this->normalizeStatusName($novoStatus);
-        $servicoEmAndamentoNormalizado = $this->normalizeStatusName(ProcessStatus::SERVICE_IN_PROGRESS);
-        $dataPagamentoUm = $processo['data_pagamento_1'] ?? null;
-
-        if ($novoStatusNormalizado === $servicoEmAndamentoNormalizado && empty($dataPagamentoUm)) {
-            $_SESSION['error_message'] = 'Ação Bloqueada: É necessário registrar a Data do Pagamento 1 antes de iniciar o serviço.';
-            header('Location: processos.php?action=view&id=' . $processoId);
-            exit();
+        if ($this->shouldBlockServiceStart($novoStatus, $processo)) {
+            $this->handleServiceStartBlock($processoId);
         }
 
         if (!$this->canUpdateStatus($processo, $novoStatus)) {
@@ -3080,6 +3074,47 @@ class ProcessosController
             default:
                 return 'Pagamento único';
         }
+    }
+
+    private function isJsonRequest(): bool
+    {
+        $requestedWith = $_SERVER['HTTP_X_REQUESTED_WITH'] ?? '';
+        $acceptHeader = $_SERVER['HTTP_ACCEPT'] ?? '';
+
+        return strcasecmp($requestedWith, 'XMLHttpRequest') === 0
+            || str_contains($acceptHeader, 'application/json');
+    }
+
+    private function shouldBlockServiceStart(string $novoStatus, array $dadosProcesso): bool
+    {
+        $novoStatusNormalizado = $this->normalizeStatusName($novoStatus);
+        $servicoEmAndamentoNormalizado = $this->normalizeStatusName(ProcessStatus::SERVICE_IN_PROGRESS);
+        $dataPagamentoUm = $dadosProcesso['data_pagamento_1'] ?? null;
+        $valorTotal = isset($dadosProcesso['valor_total']) ? (float) $dadosProcesso['valor_total'] : 0.0;
+
+        return $novoStatusNormalizado === $servicoEmAndamentoNormalizado
+            && empty($dataPagamentoUm)
+            && $valorTotal > 0.0;
+    }
+
+    private function handleServiceStartBlock(int $processoId): void
+    {
+        $response = [
+            'status' => 'error',
+            'message' => 'BLOQUEIO FINANCEIRO: Não é possível iniciar o serviço (mudar status para "Serviço em andamento") sem registrar o recebimento da Entrada/Pagamento 1.',
+            'code' => 'FINANCEIRO_001',
+        ];
+
+        if ($this->isJsonRequest()) {
+            header('Content-Type: application/json');
+            http_response_code(400);
+            echo json_encode($response);
+            exit();
+        }
+
+        $_SESSION['error_message'] = $response['message'];
+        header('Location: processos.php?action=view&id=' . $processoId);
+        exit();
     }
 
     private function normalizeStatusName(?string $status): string
