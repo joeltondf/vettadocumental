@@ -18,7 +18,7 @@
     </div>
 
     <div class="bg-white p-6 rounded-lg shadow-md mb-6">
-        <form method="GET" action="fluxo_caixa.php">
+        <form method="GET" action="<?php echo htmlspecialchars($filters['form_action'] ?? 'fluxo_caixa.php'); ?>">
             <h3 class="text-xl font-semibold mb-4">Filtrar Período</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
