@@ -719,9 +719,11 @@ class Prospeccao
                 FROM prospeccoes p
                 INNER JOIN users u ON u.id = p.sdrId
                 LEFT JOIN (
-                    SELECT a.sdrId, COUNT(*) AS total_agendamentos
+                    SELECT pr.sdrId, COUNT(*) AS total_agendamentos
                     FROM agendamentos a
-                    GROUP BY a.sdrId
+                    INNER JOIN prospeccoes pr ON pr.id = a.prospeccao_id
+                    WHERE pr.sdrId IS NOT NULL
+                    GROUP BY pr.sdrId
                 ) ag ON ag.sdrId = p.sdrId
                 $whereSql
                 GROUP BY u.id, u.nome_completo, COALESCE(ag.total_agendamentos, 0)
