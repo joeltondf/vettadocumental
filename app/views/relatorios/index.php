@@ -19,10 +19,10 @@
                 <?php
                     $tabs = [
                         'visao-geral' => 'Visão Geral',
-                        'comercial' => 'Comercial',
-                        'pre-vendas' => 'SDR / Pré-Vendas',
-                        'operacional' => 'Operacional',
                         'financeiro' => 'Financeiro (Caixa Real)',
+                        'comercial' => 'Comercial (Vendas)',
+                        'pre-vendas' => 'Pré-Vendas (SDR)',
+                        'operacional' => 'Operacional',
                     ];
                 ?>
                 <?php foreach ($tabs as $slug => $label): ?>
@@ -53,8 +53,8 @@
         <div id="tab-financeiro" class="tab-content hidden">
             <div class="flex items-center justify-between mb-4">
                 <div>
-                    <h2 class="text-xl font-semibold text-slate-800">Caixa Real</h2>
-                    <p class="text-sm text-slate-500">Panorama de recebimentos e tabela detalhada</p>
+                    <h2 class="text-xl font-semibold text-slate-800">Regime de Caixa</h2>
+                    <p class="text-sm text-slate-500">Filtrado por data de pagamento</p>
                 </div>
                 <form method="GET" class="flex items-center space-x-3">
                     <div>
@@ -70,43 +70,6 @@
                     </button>
                 </form>
             </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                    <p class="text-sm text-slate-500">Entradas Hoje</p>
-                    <p class="text-2xl font-bold text-slate-800">R$ <?php echo number_format($financeiro['panorama']['entradas_hoje'] ?? 0, 2, ',', '.'); ?></p>
-                </div>
-                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                    <p class="text-sm text-slate-500">Entradas no Mês</p>
-                    <p class="text-2xl font-bold text-slate-800">R$ <?php echo number_format($financeiro['panorama']['entradas_mes'] ?? 0, 2, ',', '.'); ?></p>
-                </div>
-                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                    <p class="text-sm text-slate-500">A Receber (7 dias)</p>
-                    <p class="text-2xl font-bold text-theme-color">R$ <?php echo number_format($financeiro['panorama']['a_receber_7'] ?? 0, 2, ',', '.'); ?></p>
-                </div>
-                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                    <p class="text-sm text-slate-500">Inadimplência</p>
-                    <p class="text-2xl font-bold text-red-600">R$ <?php echo number_format($financeiro['panorama']['inadimplencia'] ?? 0, 2, ',', '.'); ?></p>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                <div class="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                    <div class="flex items-center justify-between mb-3">
-                        <h3 class="text-lg font-semibold text-slate-800">Evolução do Mês (R$)</h3>
-                        <span class="text-xs text-slate-500">Dias x Valores recebidos</span>
-                    </div>
-                    <canvas id="chartEvolucao"></canvas>
-                </div>
-                <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                    <div class="flex items-center justify-between mb-3">
-                        <h3 class="text-lg font-semibold text-slate-800">Receita por Categoria</h3>
-                        <span class="text-xs text-slate-500">Distribuição</span>
-                    </div>
-                    <canvas id="chartCategorias"></canvas>
-                </div>
-            </div>
-
             <div class="overflow-x-auto border border-slate-200 rounded-xl">
                 <table class="min-w-full divide-y divide-slate-200 text-sm">
                     <thead class="bg-slate-50">
@@ -221,7 +184,6 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 const tabButtons = document.querySelectorAll('.tab-button');
 const tabContents = document.querySelectorAll('.tab-content');
@@ -248,60 +210,4 @@ tabButtons.forEach(button => {
         localStorage.setItem('relatoriosTab', slug);
     });
 });
-
-const evolucaoLabels = <?php echo json_encode(array_keys($financeiro['evolucao_diaria'] ?? [])); ?>;
-const evolucaoValores = <?php echo json_encode(array_values($financeiro['evolucao_diaria'] ?? [])); ?>;
-const categoriaLabels = <?php echo json_encode(array_keys($financeiro['receita_por_categoria'] ?? [])); ?>;
-const categoriaValores = <?php echo json_encode(array_values($financeiro['receita_por_categoria'] ?? [])); ?>;
-
-const barColors = evolucaoLabels.map(() => 'rgba(37, 99, 235, 0.8)');
-const pieColors = categoriaLabels.map((_, index) => {
-    const palette = ['#0f766e', '#2563eb', '#7c3aed', '#f97316', '#db2777', '#16a34a', '#2563eb66'];
-    return palette[index % palette.length];
-});
-
-if (document.getElementById('chartEvolucao')) {
-    new Chart(document.getElementById('chartEvolucao'), {
-        type: 'bar',
-        data: {
-            labels: evolucaoLabels,
-            datasets: [{
-                label: 'Valor Recebido (R$)',
-                data: evolucaoValores,
-                backgroundColor: barColors,
-                borderRadius: 6,
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { ticks: { maxRotation: 0, minRotation: 0 } },
-                y: { beginAtZero: true }
-            }
-        }
-    });
-}
-
-if (document.getElementById('chartCategorias')) {
-    new Chart(document.getElementById('chartCategorias'), {
-        type: 'pie',
-        data: {
-            labels: categoriaLabels,
-            datasets: [{
-                data: categoriaValores,
-                backgroundColor: pieColors,
-                borderWidth: 1,
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'bottom'
-                }
-            }
-        }
-    });
-}
 </script>
