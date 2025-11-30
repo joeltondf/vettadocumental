@@ -186,10 +186,32 @@ function normalize_status_info(?string $status): array {
     return ['normalized' => $normalized, 'label' => $label];
 }
 
+function format_payment_flow_status(?string $status): array
+{
+    $normalized = mb_strtolower(trim((string)($status ?? '')));
+
+    $label = 'Pendente';
+    $classes = 'bg-red-100 text-red-800';
+
+    if ($normalized === 'parcial') {
+        $label = 'Parcial';
+        $classes = 'bg-yellow-100 text-yellow-800';
+    } elseif ($normalized === 'quitado') {
+        $label = 'Quitado';
+        $classes = 'bg-green-100 text-green-800';
+    }
+
+    return [
+        'label' => $label,
+        'class' => $classes,
+    ];
+}
+
 $rawStatus = $processo['status_processo'] ?? '';
 $statusInfo = normalize_status_info($rawStatus);
 $statusLabel = $statusInfo['label'];
 $statusNormalized = $statusInfo['normalized'];
+$paymentFlowBadge = format_payment_flow_status($processo['status_fluxo_pagamento'] ?? null);
 $status_classes = 'bg-gray-100 text-gray-800';
 switch ($statusNormalized) {
     case 'orçamento':
@@ -623,7 +645,12 @@ $prospectionLabel = $prospectionCode !== ''
                     <input type="hidden" name="data_inicio_traducao" id="hidden_data_inicio_traducao" data-original-name="data_inicio_traducao">
                     <input type="hidden" name="prazo_dias" id="hidden_prazo_dias" data-original-name="prazo_dias">
                     <div>
-                        <label for="status_processo" class="block text-sm font-medium text-gray-700">Mudar Status para:</label>
+                        <label for="status_processo" class="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                            Mudar Status para:
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full <?php echo htmlspecialchars($paymentFlowBadge['class']); ?>" title="Status do fluxo de pagamento">
+                                <?php echo htmlspecialchars($paymentFlowBadge['label']); ?>
+                            </span>
+                        </label>
                         <select id="status_processo" name="status_processo" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                             <?php $statusOptions = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Cancelado']; ?>
                             <?php foreach ($statusOptions as $stat): ?>
@@ -1096,16 +1123,26 @@ document.addEventListener('DOMContentLoaded', function() {
   //-----------------------------------------------------
   // Lógica 1: Validação de Mudança de Status para "Serviço Pendente"
   //-----------------------------------------------------
-  const statusSelect = $id('status_processo');
-  const statusForm = $id('status-change-form'); // O formulário principal
-  const requirementsModal = $id('modal-status-requirements'); // O novo modal
-  const confirmStatusChangeBtn = $id('confirm-status-change');
-  const cancelStatusChangeBtn = $id('cancel-status-change');
+    const statusSelect = $id('status_processo');
+    const statusForm = $id('status-change-form'); // O formulário principal
+    const requirementsModal = $id('modal-status-requirements'); // O novo modal
+    const confirmStatusChangeBtn = $id('confirm-status-change');
+    const cancelStatusChangeBtn = $id('cancel-status-change');
 
   // hiddens do form principal (usados só na mudança de status)
-  const hEnvio = $id('hidden_data_inicio_traducao');
-  const hPrazoDias = $id('hidden_prazo_dias');
-  const hiddenDeadlineFields = [hEnvio, hPrazoDias];
+    const hEnvio = $id('hidden_data_inicio_traducao');
+    const hPrazoDias = $id('hidden_prazo_dias');
+    const hiddenDeadlineFields = [hEnvio, hPrazoDias];
+
+    const paymentDateOne = <?php echo json_encode($processo['data_pagamento_1'] ?? null); ?>;
+    if (statusSelect) {
+      const serviceInProgressOption = Array.from(statusSelect.options || []).find((option) => option.value === 'Serviço em Andamento');
+
+      if (serviceInProgressOption && (!paymentDateOne || String(paymentDateOne).trim() === '')) {
+        serviceInProgressOption.disabled = true;
+        serviceInProgressOption.title = 'Registre a Data do Pagamento 1 antes de iniciar o serviço.';
+      }
+    }
 
   const registerOriginalName = (field) => {
     if (!field) return;

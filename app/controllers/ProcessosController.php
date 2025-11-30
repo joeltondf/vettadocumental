@@ -933,6 +933,16 @@ class ProcessosController
         $statusAnterior = $processo['status_processo'];
         $clienteId = (int)($processo['cliente_id'] ?? 0);
 
+        $novoStatusNormalizado = $this->normalizeStatusName($novoStatus);
+        $servicoEmAndamentoNormalizado = $this->normalizeStatusName(ProcessStatus::SERVICE_IN_PROGRESS);
+        $dataPagamentoUm = $processo['data_pagamento_1'] ?? null;
+
+        if ($novoStatusNormalizado === $servicoEmAndamentoNormalizado && empty($dataPagamentoUm)) {
+            $_SESSION['error_message'] = 'Ação Bloqueada: É necessário registrar a Data do Pagamento 1 antes de iniciar o serviço.';
+            header('Location: processos.php?action=view&id=' . $processoId);
+            exit();
+        }
+
         if (!$this->canUpdateStatus($processo, $novoStatus)) {
             $_SESSION['error_message'] = 'Você não tem permissão para executar esta ação.';
             header('Location: processos.php?action=view&id=' . $processoId);
