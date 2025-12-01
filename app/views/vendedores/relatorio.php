@@ -9,6 +9,13 @@
     </div>
 </div>
 
+<div class="mb-4">
+    <div class="bg-blue-50 border border-blue-200 text-blue-900 px-4 py-3 rounded">
+        <p class="font-semibold">Base de datas</p>
+        <p class="text-sm">Os dados são filtrados pela <strong>data de venda (data_criacao)</strong> dentro do intervalo informado.</p>
+    </div>
+</div>
+
 <div class="bg-white p-4 rounded-lg shadow-md mb-6">
     <form method="GET" action="relatorio_vendedor.php">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
@@ -31,6 +38,19 @@
         <canvas id="vendasMensaisChart"></canvas>
     </div>
 </div>
+
+<?php if (!empty($resumoFinanceiro)): ?>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+    <div class="bg-green-50 border border-green-200 p-4 rounded-lg">
+        <p class="text-sm text-green-700">Total Recebido (Caixa Real)</p>
+        <p class="text-2xl font-bold text-green-900">R$ <?php echo number_format($resumoFinanceiro['total_recebido'] ?? 0, 2, ',', '.'); ?></p>
+    </div>
+    <div class="bg-indigo-50 border border-indigo-200 p-4 rounded-lg">
+        <p class="text-sm text-indigo-700">Total Vendido no Período</p>
+        <p class="text-2xl font-bold text-indigo-900">R$ <?php echo number_format($resumoFinanceiro['total_vendido'] ?? 0, 2, ',', '.'); ?></p>
+    </div>
+</div>
+<?php endif; ?>
 
 <div class="bg-white shadow-md rounded-lg overflow-hidden">
     <h3 class="text-xl font-semibold p-4 border-b">Detalhes do Período</h3>
@@ -60,6 +80,12 @@
                             <td class="px-5 py-4 border-b text-center"><span class="px-2 py-1 font-semibold leading-tight rounded-full bg-yellow-100 text-yellow-800">Pendente</span></td>
                         </tr>
                     <?php endforeach; ?>
+                    <tr class="bg-gray-50 font-semibold">
+                        <td colspan="3" class="px-5 py-3 text-right">Total</td>
+                        <td class="px-5 py-3 text-right">R$ <?php echo number_format($totalPeriodo, 2, ',', '.'); ?></td>
+                        <td class="px-5 py-3 text-right">&mdash;</td>
+                        <td class="px-5 py-3 text-center">&nbsp;</td>
+                    </tr>
                 <?php endif; ?>
             </tbody>
         </table>
