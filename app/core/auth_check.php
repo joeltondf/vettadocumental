@@ -44,7 +44,6 @@ if (isset($_SESSION['user_id'])) {
         $allowedRootPages = [
         'dashboard.php', // << ADICIONADO: Permite processar ações como a de excluir notificação.
         'dashboard_vendedor.php',
-        'relatorio_vendedor.php',
         'login.php', // Para a ação de logout
         'clientes.php', // << ADICIONADO: Permite o acesso à edição de cliente
         'processos.php', // << ADICIONADO: Permite o acesso à criação de orçamento
@@ -85,7 +84,7 @@ if (isset($_SESSION['user_id'])) {
     
     // --- REGRA 2: PROTEÇÃO DAS PÁGINAS DO VENDEDOR ---
     // Se um usuário que NÃO É vendedor tentar acessar as páginas exclusivas do vendedor...
-    $vendorOnlyPages = ['dashboard_vendedor.php', 'relatorio_vendedor.php'];
+    $vendorOnlyPages = ['dashboard_vendedor.php'];
     if ($userProfile !== 'vendedor' && in_array($currentPage, $vendorOnlyPages)) {
         // ...ele é redirecionado para o seu próprio dashboard principal.
         header('Location: ' . APP_URL . '/dashboard.php');

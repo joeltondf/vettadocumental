@@ -33,7 +33,7 @@ $isProspeccoesList = $isProspeccoesSection && strpos($_SERVER['PHP_SELF'], 'list
 $isProspeccoesKanban = $isProspeccoesSection && strpos($_SERVER['PHP_SELF'], 'kanban.php') !== false;
 $isProspeccoesOther = $isProspeccoesSection && !$isProspeccoesList && !$isProspeccoesKanban;
 $isCrmAgendaPage = $isCrmPage && strpos($_SERVER['PHP_SELF'], '/crm/agendamentos/') !== false;
-$financePages = ['gestao_administrativa.php', 'gestao_lancamentos.php', 'relatorios_bi.php', 'vendas.php'];
+$financePages = ['gestao_administrativa.php', 'gestao_lancamentos.php', 'relatorios_bi.php', 'vendas.php', 'painel.php'];
 $isFinancePage = in_array($currentPage, $financePages);
 $homeUrl = APP_URL . '/dashboard.php';
 if ($is_vendedor) {
@@ -129,7 +129,6 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
                         
                         <?php if ($is_vendedor): ?>
                             <a href="<?php echo APP_URL; ?>/dashboard_vendedor.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($currentPage == 'dashboard_vendedor.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Meu Dashboard</a>
-                            <a href="<?php echo APP_URL; ?>/relatorio_vendedor.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($currentPage == 'relatorio_vendedor.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Meus Relatórios</a>
                         <?php elseif ($is_sdr): ?>
                             <a href="<?php echo APP_URL; ?>/sdr_dashboard.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($currentPage == 'sdr_dashboard.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Painel SDR</a>
                             <a href="<?php echo APP_URL; ?>/crm/clientes/lista.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo $isCrmClientesPage ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Leads</a>
@@ -163,6 +162,7 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
                                 <i class="fas fa-chevron-down text-xs ml-1"></i>
                             </button>
                             <div id="finance-menu" class="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg py-1 z-20 hidden">
+                                <a href="<?php echo APP_URL; ?>/painel.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"><i class="fas fa-chart-pie mr-2"></i>Painel Unificado</a>
                                 <a href="<?php echo APP_URL; ?>/gestao_lancamentos.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"><i class="fas fa-table-list mr-2"></i>Lançamentos Manuais</a>
                                 <a href="<?php echo APP_URL; ?>/gestao_administrativa.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"><i class="fas fa-clipboard-list mr-2"></i>Gestão Administrativa</a>
                                 <a href="<?php echo APP_URL; ?>/vendas.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"><i class="fas fa-chart-bar mr-2"></i>Relatório de Vendas</a>
