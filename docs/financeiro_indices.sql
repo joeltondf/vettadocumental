@@ -1,0 +1,28 @@
+-- Script de apoio para otimização das consultas financeiras.
+-- Não execute em produção sem validar o ambiente.
+
+-- Índices sugeridos para melhorar filtros por data.
+-- CREATE INDEX idx_processos_data_pagamento_1 ON processos (data_pagamento_1);
+-- CREATE INDEX idx_processos_data_pagamento_2 ON processos (data_pagamento_2);
+-- CREATE INDEX idx_lancamentos_financeiros_data ON lancamentos_financeiros (data_lancamento);
+
+-- View para consolidar movimentações financeiras sem alterar tabelas existentes.
+-- CREATE VIEW v_movimentacoes AS
+-- SELECT 'Entrada' AS tipo,
+--        p.titulo AS descricao,
+--        COALESCE(p.orcamento_valor_entrada, 0) + COALESCE(p.orcamento_valor_restante, 0) AS valor,
+--        COALESCE(p.data_pagamento_1, p.data_pagamento_2) AS data,
+--        'Processo' AS origem,
+--        p.vendedor_id,
+--        p.sdr_id
+-- FROM processos p
+-- UNION ALL
+-- SELECT CASE WHEN lf.tipo_lancamento = 'RECEITA' THEN 'Entrada' ELSE 'Saída' END AS tipo,
+--        lf.descricao,
+--        lf.valor,
+--        lf.data_lancamento AS data,
+--        'Lançamento manual' AS origem,
+--        p.vendedor_id,
+--        p.sdr_id
+-- FROM lancamentos_financeiros lf
+-- LEFT JOIN processos p ON lf.processo_id = p.id;
