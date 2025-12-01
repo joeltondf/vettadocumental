@@ -26,27 +26,30 @@ class FinanceiroController
             $filters['end_date'] = date('Y-m-t');
             $filters['group_by'] = 'month';
             $filters['vendedor_id'] = null;
-            $filters['forma_pagamento_id'] = null;
             $filters['cliente_id'] = null;
+            $filters['sdr_id'] = null;
         }
 
+        $startDate = $filters['start_date'] ?? date('Y-m-01');
+        $endDate = $filters['end_date'] ?? date('Y-m-t');
+
         $modelFilters = [
-            'data_inicio' => $filters['start_date'] ?? date('Y-m-01'),
-            'data_fim' => $filters['end_date'] ?? date('Y-m-t'),
+            'data_inicio' => $startDate . ' 00:00:00',
+            'data_fim' => $endDate . ' 23:59:59',
             'vendedor_id' => $filters['vendedor_id'] ?? null,
-            'forma_pagamento_id' => $filters['forma_pagamento_id'] ?? null,
             'cliente_id' => $filters['cliente_id'] ?? null,
+            'sdr_id' => $filters['sdr_id'] ?? null,
         ];
 
         $groupBy = $filters['group_by'] ?? 'month';
 
         $processos = $this->processoModel->getFinancialData($modelFilters);
-        $overallSummary = $this->processoModel->getOverallFinancialSummary($filters['start_date'], $filters['end_date'], $modelFilters);
-        $aggregatedTotals = $this->processoModel->getAggregatedFinancialTotals($filters['start_date'], $filters['end_date'], $modelFilters, $groupBy);
+        $overallSummary = $this->processoModel->getOverallFinancialSummary($startDate, $endDate, $modelFilters);
+        $aggregatedTotals = $this->processoModel->getAggregatedFinancialTotals($startDate, $endDate, $modelFilters, $groupBy);
 
         $vendedores = $this->processoModel->getAllVendedores();
-        $formas_pagamento = $this->processoModel->getAllFormasPagamento();
         $clientes = $this->processoModel->getAllClientes();
+        $sdrs = $this->processoModel->getAllSdrs();
         $statusFinanceiroOptions = $this->processoModel->getStatusFinanceiroOptions();
 
         $pageTitle = 'Gestão Administrativa';

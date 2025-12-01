@@ -7,8 +7,8 @@ $overallSummary = $overallSummary ?? [
     'media_valor_documento' => 0,
 ];
 $vendedores = $vendedores ?? [];
-$formas_pagamento = $formas_pagamento ?? [];
 $clientes = $clientes ?? [];
+$sdrs = $sdrs ?? [];
 $filters = $filters ?? [];
 $aggregatedTotals = $aggregatedTotals ?? [];
 $statusFinanceiroOptions = $statusFinanceiroOptions ?? [
@@ -128,13 +128,13 @@ $formatVendorName = static function ($value): string {
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8'); ?>">
 
             <label class="flex flex-col gap-1 text-sm font-semibold text-gray-700">
-                Data inicial
+                Data inicial (conversão)
                 <input type="date" name="start_date" id="start_date" value="<?= htmlspecialchars($filters['start_date'] ?? date('Y-m-01'), ENT_QUOTES, 'UTF-8'); ?>"
                     class="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
             </label>
 
             <label class="flex flex-col gap-1 text-sm font-semibold text-gray-700">
-                Data final
+                Data final (conversão)
                 <input type="date" name="end_date" id="end_date" value="<?= htmlspecialchars($filters['end_date'] ?? date('Y-m-t'), ENT_QUOTES, 'UTF-8'); ?>"
                     class="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
             </label>
@@ -174,20 +174,6 @@ $formatVendorName = static function ($value): string {
             </label>
 
             <label class="flex flex-col gap-1 text-sm font-semibold text-gray-700">
-                Forma de pagamento
-                <select name="forma_pagamento_id" id="forma_pagamento_id"
-                    class="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
-                    <option value="">Todas</option>
-                    <?php foreach ($formas_pagamento as $forma): ?>
-                        <option value="<?= htmlspecialchars((string) ($forma['id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
-                            <?= ((string) ($filters['forma_pagamento_id'] ?? '') === (string) ($forma['id'] ?? '')) ? 'selected' : ''; ?>>
-                            <?= htmlspecialchars($forma['nome'] ?? '', ENT_QUOTES, 'UTF-8'); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-
-            <label class="flex flex-col gap-1 text-sm font-semibold text-gray-700">
                 Vendedor
                 <select name="vendedor_id" id="vendedor_id"
                     class="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
@@ -196,6 +182,20 @@ $formatVendorName = static function ($value): string {
                         <option value="<?= htmlspecialchars((string) ($vendedor['id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                             <?= ((string) ($filters['vendedor_id'] ?? '') === (string) ($vendedor['id'] ?? '')) ? 'selected' : ''; ?>>
                             <?= htmlspecialchars($formatVendorName($vendedor['nome_vendedor'] ?? null), ENT_QUOTES, 'UTF-8'); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+
+            <label class="flex flex-col gap-1 text-sm font-semibold text-gray-700">
+                SDR
+                <select name="sdr_id" id="sdr_id"
+                    class="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                    <option value="">Todos</option>
+                    <?php foreach ($sdrs as $sdr): ?>
+                        <option value="<?= htmlspecialchars((string) ($sdr['id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                            <?= ((string) ($filters['sdr_id'] ?? '') === (string) ($sdr['id'] ?? '')) ? 'selected' : ''; ?>>
+                            <?= htmlspecialchars($sdr['nome_completo'] ?? '', ENT_QUOTES, 'UTF-8'); ?>
                         </option>
                     <?php endforeach; ?>
                 </select>
@@ -266,9 +266,7 @@ $formatVendorName = static function ($value): string {
                         <th class="px-3 py-2 text-left min-w-[14rem]">Cliente</th>
                         <th class="px-3 py-2 text-left min-w-[16rem]">Serviço</th>
                         <th class="px-3 py-2 text-left">Vendedor</th>
-                        <th class="px-3 py-2 text-left">Forma de pagamento</th>
                         <th class="px-3 py-2 text-right">Valor total</th>
-                        <th class="px-3 py-2 text-right">Desconto</th>
                         <th class="px-3 py-2 text-right">Valor recebido</th>
                         <th class="px-3 py-2 text-right">Valor restante</th>
                         <th class="px-3 py-2 text-right">Comissão vendedor</th>
@@ -283,7 +281,7 @@ $formatVendorName = static function ($value): string {
                 <tbody class="divide-y divide-gray-100 bg-white text-gray-700">
                     <?php if (empty($processos)): ?>
                         <tr>
-                            <td colspan="16" class="px-4 py-6 text-center text-xs text-gray-500">Nenhum processo encontrado para os filtros selecionados.</td>
+                            <td colspan="14" class="px-4 py-6 text-center text-xs text-gray-500">Nenhum processo encontrado para os filtros selecionados.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($processos as $processo):
@@ -298,7 +296,6 @@ $formatVendorName = static function ($value): string {
                                 $omieDisplay = $omieTrimmed !== '' ? $omieTrimmed : '0';
                             }
                             $valorTotal = $formatCurrency($processo['valor_total'] ?? 0);
-                            $desconto = $formatCurrency($processo['desconto'] ?? 0);
                             $valorRecebido = $formatCurrency($processo['valor_recebido'] ?? 0);
                             $valorRestante = $formatCurrency($processo['valor_restante'] ?? 0);
                             $comissaoVendedor = $formatCurrency($processo['total_comissao_vendedor'] ?? 0);
@@ -310,7 +307,7 @@ $formatVendorName = static function ($value): string {
                             $hasSecondParcel = $parcelCount >= 2;
                             $secondPaymentRaw = $processo['data_pagamento_2'] ?? null;
                             $secondPaymentDate = $formatDate($secondPaymentRaw);
-                            $conversionDate = $formatDate($processo['data_pagamento_1'] ?? null);
+                            $conversionDate = $formatDate($processo['data_conversao'] ?? null);
                             $needsSecondParcel = $hasSecondParcel && $rawValorRestanteNumeric > 0.01;
                             $parcelLabel = $parcelCount === 1 ? 'Pagamento único' : sprintf('%d parcelas', $parcelCount);
                             ?>
@@ -327,37 +324,18 @@ $formatVendorName = static function ($value): string {
                                     <?= htmlspecialchars($processo['cliente_nome'] ?? '', ENT_QUOTES, 'UTF-8'); ?>
                                 </td>
                                 <td class="px-3 py-2">
-                                    <?= htmlspecialchars($processo['titulo'] ?? $processo['categorias_servico'] ?? '', ENT_QUOTES, 'UTF-8'); ?>
+                                    <a href="/processos.php?action=view&id=<?= htmlspecialchars($processId, ENT_QUOTES, 'UTF-8'); ?>" class="text-blue-600 hover:underline">
+                                        <?= htmlspecialchars($processo['titulo'] ?? $processo['categorias_servico'] ?? '', ENT_QUOTES, 'UTF-8'); ?>
+                                    </a>
                                 </td>
                                 <td class="px-3 py-2">
                                     <?= htmlspecialchars($formatVendorName($processo['nome_vendedor'] ?? null), ENT_QUOTES, 'UTF-8'); ?>
-                                </td>
-                                <td class="px-3 py-2">
-                                    <select class="editable-select w-full rounded-md border border-gray-300 px-2 py-1 text-[0.75rem] focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                                        data-field="forma_pagamento_id" data-id="<?= htmlspecialchars((string) $processId, ENT_QUOTES, 'UTF-8'); ?>" aria-label="Selecionar forma de pagamento">
-                                        <option value="">Não informado</option>
-                                        <?php foreach ($formas_pagamento as $forma):
-                                            $formaId = (string) ($forma['id'] ?? '');
-                                            $selected = ((string) ($processo['forma_pagamento_id'] ?? '') === $formaId) ? 'selected' : '';
-                                            ?>
-                                            <option value="<?= htmlspecialchars($formaId, ENT_QUOTES, 'UTF-8'); ?>" <?= $selected; ?>>
-                                                <?= htmlspecialchars($forma['nome'] ?? '', ENT_QUOTES, 'UTF-8'); ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
                                 </td>
                                 <td class="px-3 py-2 text-right">
                                     <span class="editable-content inline-flex min-w-[5rem] justify-end rounded px-2 py-1" contenteditable="true"
                                         data-field="valor_total" data-id="<?= htmlspecialchars((string) $processId, ENT_QUOTES, 'UTF-8'); ?>" data-value-type="currency"
                                         data-original-value="<?= htmlspecialchars($valorTotal, ENT_QUOTES, 'UTF-8'); ?>">
                                         <?= htmlspecialchars($valorTotal, ENT_QUOTES, 'UTF-8'); ?>
-                                    </span>
-                                </td>
-                                <td class="px-3 py-2 text-right">
-                                    <span class="editable-content inline-flex min-w-[5rem] justify-end rounded px-2 py-1" contenteditable="true"
-                                        data-field="desconto" data-id="<?= htmlspecialchars((string) $processId, ENT_QUOTES, 'UTF-8'); ?>" data-value-type="currency"
-                                        data-original-value="<?= htmlspecialchars($desconto, ENT_QUOTES, 'UTF-8'); ?>">
-                                        <?= htmlspecialchars($desconto, ENT_QUOTES, 'UTF-8'); ?>
                                     </span>
                                 </td>
                                 <td class="px-3 py-2 text-right">

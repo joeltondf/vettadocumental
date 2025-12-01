@@ -1203,22 +1203,27 @@ public function create($data, $files)
     {
         $this->loadProcessColumns();
 
+        $hasPaymentDate1 = $this->hasProcessColumn('data_pagamento_1');
+        $hasPaymentDate2 = $this->hasProcessColumn('data_pagamento_2');
+        $conversionColumn = $this->hasProcessColumn('data_conversao') ? 'p.data_conversao' : ($hasPaymentDate1 ? 'p.data_pagamento_1' : 'p.data_criacao');
+        $valorEntradaExpr = $this->hasProcessColumn('orcamento_valor_entrada') ? 'COALESCE(p.orcamento_valor_entrada, 0)' : '0';
+        $valorParcela2Expr = $this->hasProcessColumn('orcamento_valor_restante') ? 'COALESCE(p.orcamento_valor_restante, 0)' : 'GREATEST(COALESCE(p.valor_total, 0) - COALESCE(p.orcamento_valor_entrada, 0), 0)';
+        $valorRecebidoExpr = 'COALESCE(' . ($hasPaymentDate1 ? "CASE WHEN p.data_pagamento_1 IS NOT NULL THEN {$valorEntradaExpr} ELSE 0 END" : '0') . ', 0)'
+            . ' + COALESCE(' . ($hasPaymentDate2 ? "CASE WHEN p.data_pagamento_2 IS NOT NULL THEN {$valorParcela2Expr} ELSE 0 END" : '0') . ', 0)';
+
         $selectParts = [
             'p.id',
             'p.titulo',
             'p.valor_total',
             'p.data_criacao',
             'p.categorias_servico',
-            'p.forma_pagamento_id',
             'p.os_numero_omie',
             'p.os_numero_conta_azul',
             'p.orcamento_numero',
             'p.data_finalizacao_real',
             'c.nome_cliente AS cliente_nome',
             "COALESCE(u.nome_completo, 'Sistema') AS nome_vendedor",
-            'fp.nome AS forma_pagamento_nome',
-            'pay.data_referencia AS data_pagamento',
-            'pay.valor_entrada AS valor_recebido',
+            "{$valorRecebidoExpr} AS valor_recebido",
             '(SELECT COALESCE(SUM(d.quantidade), 0) FROM documentos d WHERE d.processo_id = p.id) AS total_documentos',
         ];
 
@@ -1228,13 +1233,21 @@ public function create($data, $files)
             $selectParts[] = '1 AS orcamento_parcelas';
         }
 
-        $selectParts[] = $this->hasProcessColumn('data_pagamento_1')
+        $selectParts[] = $hasPaymentDate1
             ? 'p.data_pagamento_1'
             : 'NULL AS data_pagamento_1';
 
-        $selectParts[] = $this->hasProcessColumn('data_pagamento_2')
+        $selectParts[] = $hasPaymentDate2
             ? 'p.data_pagamento_2'
             : 'NULL AS data_pagamento_2';
+
+        $selectParts[] = $this->hasProcessColumn('data_conversao')
+            ? 'p.data_conversao'
+            : ($hasPaymentDate1 ? 'p.data_pagamento_1 AS data_conversao' : 'p.data_criacao AS data_conversao');
+
+        $selectParts[] = $hasPaymentDate1
+            ? 'COALESCE(p.data_pagamento_1, p.data_lancamento_receita) AS data_pagamento'
+            : 'COALESCE(p.data_lancamento_receita, p.data_criacao) AS data_pagamento';
 
         $selectParts[] = $this->hasProcessColumn('desconto')
             ? 'COALESCE(p.desconto, 0) AS desconto'
@@ -1252,29 +1265,11 @@ public function create($data, $files)
         $selectParts[] = 'COALESCE(comm.total_comissao_vendedor, 0) AS total_comissao_vendedor';
         $selectParts[] = 'COALESCE(comm.total_comissao_sdr, 0) AS total_comissao_sdr';
 
-        $paymentSubquery = "(
-                SELECT
-                    p.id AS processo_id,
-                    COALESCE(p.data_pagamento_1, p.data_lancamento_receita) AS data_referencia,
-                    COALESCE(p.orcamento_valor_entrada, 0) AS valor_entrada
-                FROM processos p
-                WHERE p.data_pagamento_1 BETWEEN :data_inicio AND :data_fim
-                UNION ALL
-                SELECT
-                    p.id AS processo_id,
-                    p.data_pagamento_2 AS data_referencia,
-                    COALESCE(p.orcamento_valor_restante, 0) AS valor_entrada
-                FROM processos p
-                WHERE p.data_pagamento_2 BETWEEN :data_inicio AND :data_fim
-            ) pay";
-
         $sql = 'SELECT ' . implode(",\n               ", $selectParts)
-            . "\nFROM {$paymentSubquery}
-                JOIN processos AS p ON p.id = pay.processo_id
+            . "\nFROM processos AS p
                 JOIN clientes AS c ON p.cliente_id = c.id
                 LEFT JOIN vendedores AS v ON p.vendedor_id = v.id
                 LEFT JOIN users AS u ON v.user_id = u.id
-                LEFT JOIN formas_pagamento AS fp ON p.forma_pagamento_id = fp.id
                 LEFT JOIN (
                     SELECT venda_id,
                            SUM(CASE WHEN tipo_comissao = 'vendedor' THEN valor_comissao ELSE 0 END) AS total_comissao_vendedor,
@@ -1283,10 +1278,12 @@ public function create($data, $files)
                     GROUP BY venda_id
                 ) comm ON comm.venda_id = p.id";
 
-        $where = ["p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado')"];
+        $where = ["p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado')",
+            "{$conversionColumn} BETWEEN :data_inicio AND :data_fim",
+        ];
         $params = [
-            ':data_inicio' => ($filters['data_inicio'] ?? date('Y-m-01')) . ' 00:00:00',
-            ':data_fim' => ($filters['data_fim'] ?? date('Y-m-t')) . ' 23:59:59',
+            ':data_inicio' => $filters['data_inicio'] ?? (date('Y-m-01') . ' 00:00:00'),
+            ':data_fim' => $filters['data_fim'] ?? (date('Y-m-t') . ' 23:59:59'),
         ];
 
         if (!empty($filters['vendedor_id'])) {
@@ -1294,18 +1291,19 @@ public function create($data, $files)
             $params[':vendedor_id'] = $filters['vendedor_id'];
         }
 
-        if (!empty($filters['forma_pagamento_id'])) {
-            $where[] = 'p.forma_pagamento_id = :forma_pagamento_id';
-            $params[':forma_pagamento_id'] = $filters['forma_pagamento_id'];
-        }
-
         if (!empty($filters['cliente_id'])) {
             $where[] = 'p.cliente_id = :cliente_id';
             $params[':cliente_id'] = $filters['cliente_id'];
         }
 
+        if (!empty($filters['sdr_id'])) {
+            $sdrExpression = $this->getSdrIdSelectExpression();
+            $where[] = "{$sdrExpression} = :sdr_id";
+            $params[':sdr_id'] = $filters['sdr_id'];
+        }
+
         $sql .= ' WHERE ' . implode(' AND ', $where);
-        $sql .= ' ORDER BY pay.data_referencia DESC, p.id DESC';
+        $sql .= " ORDER BY {$conversionColumn} DESC, p.id DESC";
 
         try {
             $stmt = $this->pdo->prepare($sql);
@@ -1325,73 +1323,76 @@ public function create($data, $files)
      */
     public function getOverallFinancialSummary($start_date, $end_date, array $filters = []): array
     {
+        $hasPaymentDate1 = $this->hasProcessColumn('data_pagamento_1');
+        $hasPaymentDate2 = $this->hasProcessColumn('data_pagamento_2');
         $valorRestanteExpr = $this->getValorRestanteExpression();
+        $conversionColumn = $this->hasProcessColumn('data_conversao') ? 'p.data_conversao' : ($hasPaymentDate1 ? 'p.data_pagamento_1' : 'p.data_criacao');
+        $valorEntradaExpr = $this->hasProcessColumn('orcamento_valor_entrada') ? 'COALESCE(p.orcamento_valor_entrada, 0)' : '0';
+        $valorParcela2Expr = $this->hasProcessColumn('orcamento_valor_restante') ? 'COALESCE(p.orcamento_valor_restante, 0)' : 'GREATEST(COALESCE(p.valor_total, 0) - COALESCE(p.orcamento_valor_entrada, 0), 0)';
+        $valorRecebidoExpr = 'COALESCE(' . ($hasPaymentDate1 ? "CASE WHEN p.data_pagamento_1 IS NOT NULL THEN {$valorEntradaExpr} ELSE 0 END" : '0') . ', 0)'
+            . ' + COALESCE(' . ($hasPaymentDate2 ? "CASE WHEN p.data_pagamento_2 IS NOT NULL THEN {$valorParcela2Expr} ELSE 0 END" : '0') . ', 0)';
 
-        $paymentsSubquery = "(
-                SELECT
-                    p.id AS processo_id,
-                    COALESCE(p.data_pagamento_1, p.data_lancamento_receita) AS data_referencia,
-                    COALESCE(p.orcamento_valor_entrada, 0) AS valor_entrada
-                FROM processos p
-                WHERE p.data_pagamento_1 BETWEEN :start_date AND :end_date
-                UNION ALL
-                SELECT
-                    p.id AS processo_id,
-                    p.data_pagamento_2 AS data_referencia,
-                    COALESCE(p.orcamento_valor_restante, 0) AS valor_entrada
-                FROM processos p
-                WHERE p.data_pagamento_2 BETWEEN :start_date AND :end_date
-            ) pagamentos";
+        $startDateTime = (!empty($start_date) && preg_match('/\d{2}:\d{2}:\d{2}$/', (string) $start_date))
+            ? $start_date
+            : (($start_date ?: date('Y-m-01')) . ' 00:00:00');
+        $endDateTime = (!empty($end_date) && preg_match('/\d{2}:\d{2}:\d{2}$/', (string) $end_date))
+            ? $end_date
+            : (($end_date ?: date('Y-m-t')) . ' 23:59:59');
 
-        $paymentsGrouped = "(
-                SELECT processo_id, SUM(valor_entrada) AS valor_pago_total
-                FROM {$paymentsSubquery}
+        $commissionsSubquery = "(
+                SELECT venda_id,
+                       SUM(CASE WHEN tipo_comissao = 'vendedor' THEN valor_comissao ELSE 0 END) AS total_comissao_vendedor,
+                       SUM(CASE WHEN tipo_comissao = 'sdr' THEN valor_comissao ELSE 0 END) AS total_comissao_sdr
+                FROM comissoes
+                GROUP BY venda_id
+            ) comm";
+
+        $docsSubquery = "(
+                SELECT processo_id, SUM(COALESCE(quantidade, 0)) AS total_documentos
+                FROM documentos
                 GROUP BY processo_id
-            ) pay";
+            ) docs";
 
-        $base_where_sql = " FROM {$paymentsGrouped}
-                JOIN processos p ON p.id = pay.processo_id
-                WHERE p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado')";
+        $sql_totals = "SELECT
+                        SUM(COALESCE(p.valor_total, 0)) AS total_valor_total,
+                        SUM({$valorRecebidoExpr}) AS total_valor_entrada,
+                        SUM({$valorRestanteExpr}) AS total_valor_restante,
+                        SUM(COALESCE(comm.total_comissao_vendedor, 0)) AS total_comissao_vendedor,
+                        SUM(COALESCE(comm.total_comissao_sdr, 0)) AS total_comissao_sdr,
+                        SUM(COALESCE(docs.total_documentos, 0)) AS total_documentos
+                FROM processos p
+                LEFT JOIN {$commissionsSubquery} ON comm.venda_id = p.id
+                LEFT JOIN {$docsSubquery} ON docs.processo_id = p.id
+                WHERE p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado')
+                  AND {$conversionColumn} BETWEEN :start_date AND :end_date";
+
         $params = [
-            ':start_date' => $start_date . ' 00:00:00',
-            ':end_date' => $end_date . ' 23:59:59'
+            ':start_date' => $startDateTime,
+            ':end_date' => $endDateTime,
         ];
 
         if (!empty($filters['vendedor_id'])) {
-            $base_where_sql .= " AND p.vendedor_id = :vendedor_id";
+            $sql_totals .= " AND p.vendedor_id = :vendedor_id";
             $params[':vendedor_id'] = $filters['vendedor_id'];
         }
-        if (!empty($filters['forma_pagamento_id']) && $filters['forma_pagamento_id'] !== 'todos') {
-            $base_where_sql .= " AND p.forma_pagamento_id = :forma_pagamento_id";
-            $params[':forma_pagamento_id'] = $filters['forma_pagamento_id'];
-        }
+
         if (!empty($filters['cliente_id'])) {
-            $base_where_sql .= " AND p.cliente_id = :cliente_id";
+            $sql_totals .= " AND p.cliente_id = :cliente_id";
             $params[':cliente_id'] = $filters['cliente_id'];
         }
 
-        $sql_totals = "SELECT
-                        SUM(pay.valor_pago_total) AS total_valor_total,
-                        SUM(pay.valor_pago_total) AS total_valor_entrada,
-                        SUM({$valorRestanteExpr}) AS total_valor_restante,
-                        SUM(CASE WHEN c.tipo_comissao = 'vendedor' THEN COALESCE(c.valor_comissao, 0) ELSE 0 END) AS total_comissao_vendedor,
-                        SUM(CASE WHEN c.tipo_comissao = 'sdr' THEN COALESCE(c.valor_comissao, 0) ELSE 0 END) AS total_comissao_sdr
-                " . $base_where_sql . "
-                LEFT JOIN comissoes c ON c.venda_id = p.id";
-
-        $sql_docs_count = "SELECT SUM(d.quantidade)
-                           FROM {$paymentsGrouped}
-                           JOIN processos p ON p.id = pay.processo_id
-                           JOIN documentos d ON d.processo_id = p.id" . str_replace(' FROM ' . $paymentsGrouped, '', $base_where_sql);
+        if (!empty($filters['sdr_id'])) {
+            $sdrExpression = $this->getSdrIdSelectExpression();
+            $sql_totals .= " AND {$sdrExpression} = :sdr_id";
+            $params[':sdr_id'] = $filters['sdr_id'];
+        }
 
         try {
             $stmt_totals = $this->pdo->prepare($sql_totals);
             $stmt_totals->execute($params);
             $summary = $stmt_totals->fetch(PDO::FETCH_ASSOC);
 
-            $stmt_docs = $this->pdo->prepare($sql_docs_count);
-            $stmt_docs->execute($params);
-            $total_documentos_soma = $stmt_docs->fetchColumn();
+            $total_documentos_soma = $summary['total_documentos'] ?? 0;
 
             $media_valor_documento = 0;
             if (!empty($total_documentos_soma) && $total_documentos_soma > 0) {
@@ -1779,46 +1780,41 @@ public function create($data, $files)
 
         $groupBy = in_array($groupBy, ['day', 'month', 'year'], true) ? $groupBy : 'month';
 
+        $hasPaymentDate1 = $this->hasProcessColumn('data_pagamento_1');
+        $hasPaymentDate2 = $this->hasProcessColumn('data_pagamento_2');
+        $conversionColumn = $this->hasProcessColumn('data_conversao') ? 'p.data_conversao' : ($hasPaymentDate1 ? 'p.data_pagamento_1' : 'p.data_criacao');
+        $valorEntradaExpr = $this->hasProcessColumn('orcamento_valor_entrada') ? 'COALESCE(p.orcamento_valor_entrada, 0)' : '0';
+        $valorParcela2Expr = $this->hasProcessColumn('orcamento_valor_restante') ? 'COALESCE(p.orcamento_valor_restante, 0)' : 'GREATEST(COALESCE(p.valor_total, 0) - COALESCE(p.orcamento_valor_entrada, 0), 0)';
+        $valorRecebidoExpr = 'COALESCE(' . ($hasPaymentDate1 ? "CASE WHEN p.data_pagamento_1 IS NOT NULL THEN {$valorEntradaExpr} ELSE 0 END" : '0') . ', 0)'
+            . ' + COALESCE(' . ($hasPaymentDate2 ? "CASE WHEN p.data_pagamento_2 IS NOT NULL THEN {$valorParcela2Expr} ELSE 0 END" : '0') . ', 0)';
+        $valorRestanteExpr = $this->getValorRestanteExpression();
+
         switch ($groupBy) {
             case 'day':
-                $periodExpression = "DATE_FORMAT(pay.data_referencia, '%Y-%m-%d')";
+                $periodExpression = "DATE_FORMAT({$conversionColumn}, '%Y-%m-%d')";
                 $orderBy = 'period ASC';
                 break;
             case 'year':
-                $periodExpression = "DATE_FORMAT(pay.data_referencia, '%Y')";
+                $periodExpression = "DATE_FORMAT({$conversionColumn}, '%Y')";
                 $orderBy = 'period DESC';
                 break;
             default:
-                $periodExpression = "DATE_FORMAT(pay.data_referencia, '%Y-%m')";
+                $periodExpression = "DATE_FORMAT({$conversionColumn}, '%Y-%m')";
                 $orderBy = 'period DESC';
         }
 
-        $paymentSubquery = "(
-                SELECT
-                    p.id AS processo_id,
-                    COALESCE(p.data_pagamento_1, p.data_lancamento_receita) AS data_referencia,
-                    COALESCE(p.orcamento_valor_entrada, 0) AS valor_entrada
-                FROM processos p
-                WHERE p.data_pagamento_1 BETWEEN :start_date AND :end_date
-                UNION ALL
-                SELECT
-                    p.id AS processo_id,
-                    p.data_pagamento_2 AS data_referencia,
-                    COALESCE(p.orcamento_valor_restante, 0) AS valor_entrada
-                FROM processos p
-                WHERE p.data_pagamento_2 BETWEEN :start_date AND :end_date
-            ) pay";
+        $startDateTime = (!empty($startDate) && preg_match('/\d{2}:\d{2}:\d{2}$/', (string) $startDate)) ? $startDate : ($startDate . ' 00:00:00');
+        $endDateTime = (!empty($endDate) && preg_match('/\d{2}:\d{2}:\d{2}$/', (string) $endDate)) ? $endDate : ($endDate . ' 23:59:59');
 
         $sql = "SELECT
                     {$periodExpression} AS period,
                     COUNT(*) AS process_count,
-                    SUM(COALESCE(pay.valor_entrada, 0)) AS total_valor_total,
-                    SUM(COALESCE(pay.valor_entrada, 0)) AS total_valor_recebido,
-                    SUM(COALESCE(p.valor_restante, 0)) AS total_valor_restante,
+                    SUM(COALESCE(p.valor_total, 0)) AS total_valor_total,
+                    SUM({$valorRecebidoExpr}) AS total_valor_recebido,
+                    SUM({$valorRestanteExpr}) AS total_valor_restante,
                     SUM(COALESCE(comm.total_comissao_vendedor, 0)) AS total_comissao_vendedor,
                     SUM(COALESCE(comm.total_comissao_sdr, 0)) AS total_comissao_sdr
-                FROM {$paymentSubquery}
-                JOIN processos p ON p.id = pay.processo_id
+                FROM processos p
                 LEFT JOIN (
                     SELECT venda_id,
                            SUM(CASE WHEN tipo_comissao = 'vendedor' THEN valor_comissao ELSE 0 END) AS total_comissao_vendedor,
@@ -1826,11 +1822,12 @@ public function create($data, $files)
                     FROM comissoes
                     GROUP BY venda_id
                 ) comm ON comm.venda_id = p.id
-                WHERE p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado')";
+                WHERE p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado')
+                  AND {$conversionColumn} BETWEEN :start_date AND :end_date";
 
         $params = [
-            ':start_date' => $startDate . ' 00:00:00',
-            ':end_date' => $endDate . ' 23:59:59',
+            ':start_date' => $startDateTime,
+            ':end_date' => $endDateTime,
         ];
 
         if (!empty($filters['vendedor_id'])) {
@@ -1838,14 +1835,15 @@ public function create($data, $files)
             $params[':vendedor_id'] = $filters['vendedor_id'];
         }
 
-        if (!empty($filters['forma_pagamento_id'])) {
-            $sql .= ' AND p.forma_pagamento_id = :forma_pagamento_id';
-            $params[':forma_pagamento_id'] = $filters['forma_pagamento_id'];
-        }
-
         if (!empty($filters['cliente_id'])) {
             $sql .= ' AND p.cliente_id = :cliente_id';
             $params[':cliente_id'] = $filters['cliente_id'];
+        }
+
+        if (!empty($filters['sdr_id'])) {
+            $sdrExpression = $this->getSdrIdSelectExpression();
+            $sql .= " AND {$sdrExpression} = :sdr_id";
+            $params[':sdr_id'] = $filters['sdr_id'];
         }
 
         $sql .= ' GROUP BY period ORDER BY ' . $orderBy;
