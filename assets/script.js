@@ -484,7 +484,7 @@ const ProcessForm = {
  */
 const InlineEditor = {
     // Constante para a URL da API de atualização.
-    API_URL: '/financeiro.php?action=update_field',
+    API_URL: '/gestao_administrativa.php?action=update_field',
 
     /**
      * Inicializa o módulo, configurando listeners para células e selects editáveis.
