@@ -82,16 +82,17 @@ class FinanceiroCalculator
 
     private static function buscarLancamentosPorTipo(PDO $pdo, string $inicio, string $fim, string $tipo): array
     {
-        $sql = "SELECT id,
-                       descricao,
-                       processo_id,
-                       cliente_id,
-                       CAST(valor AS DECIMAL(10,2)) AS valor,
-                       data_lancamento,
-                       tipo_lancamento
-                FROM lancamentos_financeiros
-                WHERE tipo_lancamento = :tipo
-                  AND data_lancamento BETWEEN :inicio AND :fim";
+        $sql = "SELECT l.id,
+                       l.descricao,
+                       l.processo_id,
+                       CASE WHEN l.processo_id IS NOT NULL THEN p.cliente_id ELSE NULL END AS cliente_id,
+                       CAST(l.valor AS DECIMAL(10,2)) AS valor,
+                       l.data_lancamento,
+                       l.tipo_lancamento
+                FROM lancamentos_financeiros l
+                LEFT JOIN processos p ON l.processo_id = p.id
+                WHERE l.tipo_lancamento = :tipo
+                  AND l.data_lancamento BETWEEN :inicio AND :fim";
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute([

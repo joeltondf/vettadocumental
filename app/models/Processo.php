@@ -640,6 +640,7 @@ public function create($data, $files)
             'data_pagamento_2',
             'comprovante_pagamento_1',
             'comprovante_pagamento_2',
+            'data_conversao',
             'cliente_id',
         ];
 

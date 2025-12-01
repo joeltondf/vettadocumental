@@ -275,6 +275,7 @@ $formatVendorName = static function ($value): string {
                         <th class="px-3 py-2 text-right">Comissão SDR</th>
                         <th class="px-3 py-2 text-left">Parcelas</th>
                         <th class="px-3 py-2 text-left">Status financeiro</th>
+                        <th class="px-3 py-2 text-left">Data conversão</th>
                         <th class="px-3 py-2 text-left">Data pagamento</th>
                         <th class="px-3 py-2 text-left">Data criação</th>
                     </tr>
@@ -282,7 +283,7 @@ $formatVendorName = static function ($value): string {
                 <tbody class="divide-y divide-gray-100 bg-white text-gray-700">
                     <?php if (empty($processos)): ?>
                         <tr>
-                            <td colspan="15" class="px-4 py-6 text-center text-xs text-gray-500">Nenhum processo encontrado para os filtros selecionados.</td>
+                            <td colspan="16" class="px-4 py-6 text-center text-xs text-gray-500">Nenhum processo encontrado para os filtros selecionados.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($processos as $processo):
@@ -309,6 +310,7 @@ $formatVendorName = static function ($value): string {
                             $hasSecondParcel = $parcelCount >= 2;
                             $secondPaymentRaw = $processo['data_pagamento_2'] ?? null;
                             $secondPaymentDate = $formatDate($secondPaymentRaw);
+                            $conversionDate = $formatDate($processo['data_pagamento_1'] ?? null);
                             $needsSecondParcel = $hasSecondParcel && $rawValorRestanteNumeric > 0.01;
                             $parcelLabel = $parcelCount === 1 ? 'Pagamento único' : sprintf('%d parcelas', $parcelCount);
                             ?>
@@ -405,6 +407,9 @@ $formatVendorName = static function ($value): string {
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
+                                </td>
+                                <td class="px-3 py-2">
+                                    <?= htmlspecialchars($conversionDate, ENT_QUOTES, 'UTF-8'); ?>
                                 </td>
                                 <td class="px-3 py-2">
                                     <?php $displayDate = $formatDate($rawPaymentDate); ?>
