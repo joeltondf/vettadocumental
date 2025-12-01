@@ -4,7 +4,7 @@ require_once 'config.php';
 require_once 'app/core/auth_check.php';
 require_once 'app/controllers/FluxoCaixaController.php';
 require_once __DIR__ . '/app/core/access_control.php';
-require_permission(['admin', 'financeiro', 'gerencia']);
+require_permission(['admin', 'financeiro', 'gerencia', 'vendedor']);
 
 $controller = new FluxoCaixaController($pdo);
 $action = $_GET['action'] ?? 'index';
