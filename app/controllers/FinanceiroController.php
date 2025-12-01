@@ -49,10 +49,10 @@ class FinanceiroController
         $clientes = $this->processoModel->getAllClientes();
         $statusFinanceiroOptions = $this->processoModel->getStatusFinanceiroOptions();
 
-        $pageTitle = 'Gestão Administrativa';
+        $pageTitle = 'Relatório Financeiro';
 
         require_once __DIR__ . '/../views/layouts/header.php';
-        require_once __DIR__ . '/../views/gestao_administrativa/lista.php';
+        require_once __DIR__ . '/../views/financeiro/lista.php';
         require_once __DIR__ . '/../views/layouts/footer.php';
     }
 
@@ -124,15 +124,6 @@ class FinanceiroController
             'message' => 'Campo atualizado com sucesso.',
         ]);
         exit;
-    }
-
-    public function getVendedorIdFromUser(int $userId): ?int
-    {
-        if ($userId <= 0) {
-            return null;
-        }
-
-        return $this->processoModel->getVendedorIdByUserId($userId);
     }
 
     private function getCsrfToken(): string

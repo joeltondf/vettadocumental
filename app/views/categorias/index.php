@@ -2,7 +2,7 @@
         <div class="flex items-center justify-between mb-6">
         <h1 class="text-3xl font-bold text-gray-800">Gerenciar Grupos Financeiros</h1>
 
-        <a href="gestao_lancamentos.php" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md flex items-center">
+        <a href="fluxo_caixa.php" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md flex items-center">
             <i class="fas fa-arrow-left mr-2"></i>
             Voltar ao Fluxo de Caixa
         </a>

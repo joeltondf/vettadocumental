@@ -1,5 +1,5 @@
     <div class="flex items-center justify-between mb-6">
-        <h1 class="text-3xl font-bold text-gray-800">Gestão de Lançamentos</h1>
+        <h1 class="text-3xl font-bold text-gray-800">Controle Financeiro</h1>
 
         <?php // Apenas perfis de admin ou gerencia podem ver o botão
         if (isset($_SESSION['user_perfil']) && in_array($_SESSION['user_perfil'], ['admin', 'gerencia'])): ?>
@@ -18,7 +18,7 @@
     </div>
 
     <div class="bg-white p-6 rounded-lg shadow-md mb-6">
-        <form method="GET" action="gestao_lancamentos.php">
+        <form method="GET" action="fluxo_caixa.php">
             <h3 class="text-xl font-semibold mb-4">Filtrar Período</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -63,7 +63,7 @@
     
 <div class="bg-white p-8 rounded-md shadow-lg border border-gray-200 mb-8">
     <h3 id="form-title" class="text-2xl font-bold text-gray-800 mb-6 border-b-2 border-gray-100 pb-5">Adicionar Novo Lançamento 💰</h3>
-    <form id="lancamento-form" action="gestao_lancamentos.php?action=store" method="POST" class="space-y-6">
+    <form id="lancamento-form" action="fluxo_caixa.php?action=store" method="POST" class="space-y-6">
         <input type="hidden" name="id" id="lancamento_id">
         <input type="hidden" name="finalizado" id="finalizado" value="0">
 
@@ -255,7 +255,7 @@
                                     <button type="button" class="text-amber-600 hover:text-amber-900" onclick='openAdjustModal(<?php echo $lancamento['id']; ?>, <?php echo json_encode($lancamento['descricao'], JSON_HEX_APOS); ?>)'>Ajustar</button>
 
                                     <?php if (empty($lancamento['finalizado'])): ?>
-                                        <form action="/gestao_lancamentos.php?action=finalizar" method="POST" style="display: inline;">
+                                        <form action="/fluxo_caixa.php?action=finalizar" method="POST" style="display: inline;">
                                             <input type="hidden" name="id" value="<?php echo $lancamento['id']; ?>">
                                             <button type="submit" class="text-green-700 hover:text-green-900" style="background:none; border:none; padding:0; font:inherit; cursor:pointer;">Finalizar</button>
                                         </form>
@@ -301,7 +301,7 @@
                 <i class="fas fa-times"></i>
             </button>
             <h3 class="text-xl font-semibold text-gray-800 mb-4">Registrar Ajuste</h3>
-            <form id="adjust-form" action="/gestao_lancamentos.php?action=ajustar" method="POST" class="space-y-4">
+            <form id="adjust-form" action="/fluxo_caixa.php?action=ajustar" method="POST" class="space-y-4">
                 <input type="hidden" name="id" id="adjust-id">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Lançamento</label>
@@ -350,7 +350,7 @@
 
         // Muda o título e a ação do formulário
         title.textContent = 'Editar Lançamento';
-        form.action = 'gestao_lancamentos.php?action=update';
+        form.action = 'fluxo_caixa.php?action=update';
 
         // Preenche os campos do formulário
         idInput.value = lancamento.id;

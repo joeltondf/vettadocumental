@@ -61,12 +61,6 @@ class FluxoCaixaController {
             'category' => $_GET['category'] ?? null,
         ];
 
-        $perfilUsuario = $_SESSION['user_perfil'] ?? '';
-        $isPerfilGestor = in_array($perfilUsuario, ['admin', 'gerencia', 'financeiro'], true);
-        if (!$isPerfilGestor && isset($_SESSION['user_id'])) {
-            $filters['user_id'] = (int) $_SESSION['user_id'];
-        }
-
     $lancamentos = $this->lancamentoFinanceiroModel->getAllPaginated($page, 20, $search, $filters);
     $lancamentoLogs = $this->lancamentoLogModel->getByLancamentoIds(array_column($lancamentos, 'id'));
     $totalLancamentos = $this->lancamentoFinanceiroModel->countAll($search, $filters);
@@ -144,7 +138,7 @@ class FluxoCaixaController {
             $_SESSION['error_message'] = 'Erro ao salvar lançamento: ' . $e->getMessage();
         }
 
-        header('Location: /gestao_lancamentos.php');
+        header('Location: /fluxo_caixa.php');
         exit();
     }
 
@@ -158,13 +152,13 @@ class FluxoCaixaController {
 
             if (!$registro) {
                 $_SESSION['error_message'] = 'Lançamento não encontrado.';
-                header('Location: /gestao_lancamentos.php');
+                header('Location: /fluxo_caixa.php');
                 exit();
             }
 
             if (!empty($registro['finalizado'])) {
                 $_SESSION['error_message'] = 'Registro finalizado não pode ser alterado.';
-                header('Location: /gestao_lancamentos.php');
+                header('Location: /fluxo_caixa.php');
                 exit();
             }
 
@@ -186,7 +180,7 @@ class FluxoCaixaController {
             $_SESSION['error_message'] = 'Erro ao atualizar lançamento: ' . $e->getMessage();
         }
 
-        header('Location: /gestao_lancamentos.php');
+        header('Location: /fluxo_caixa.php');
         exit();
     }
 
@@ -198,7 +192,7 @@ class FluxoCaixaController {
 
         if (!$id) {
             $_SESSION['error_message'] = 'Lançamento não encontrado.';
-            header('Location: /gestao_lancamentos.php');
+            header('Location: /fluxo_caixa.php');
             exit();
         }
 
@@ -209,7 +203,7 @@ class FluxoCaixaController {
             $_SESSION['error_message'] = 'Não foi possível finalizar: ' . $e->getMessage();
         }
 
-        header('Location: /gestao_lancamentos.php');
+        header('Location: /fluxo_caixa.php');
         exit();
     }
 
@@ -232,7 +226,7 @@ class FluxoCaixaController {
             $_SESSION['error_message'] = 'Erro ao registrar ajuste: ' . $e->getMessage();
         }
 
-        header('Location: /gestao_lancamentos.php');
+        header('Location: /fluxo_caixa.php');
         exit();
     }
 
@@ -276,7 +270,7 @@ class FluxoCaixaController {
                 $_SESSION['error_message'] = 'Erro ao apagar o lançamento.';
             }
         }
-        header('Location: /gestao_lancamentos.php');
+        header('Location: /fluxo_caixa.php');
         exit();
     }
 }

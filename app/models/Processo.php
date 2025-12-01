@@ -2228,34 +2228,6 @@ public function create($data, $files)
         }
     }
 
-    public function getAllSdrs(): array
-    {
-        $sql = "SELECT id, nome_completo FROM users WHERE perfil = 'sdr' AND ativo = 1 ORDER BY nome_completo";
-
-        try {
-            $stmt = $this->pdo->query($sql);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            error_log('Erro ao buscar SDRs: ' . $e->getMessage());
-            return [];
-        }
-    }
-
-    public function getVendedorIdByUserId(int $userId): ?int
-    {
-        try {
-            $stmt = $this->pdo->prepare('SELECT id FROM vendedores WHERE user_id = :user_id LIMIT 1');
-            $stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
-            $stmt->execute();
-
-            $result = $stmt->fetchColumn();
-            return $result !== false ? (int) $result : null;
-        } catch (PDOException $e) {
-            error_log('Erro ao localizar vendedor pelo usuário: ' . $e->getMessage());
-            return null;
-        }
-    }
-
     /**
      * Retorna todas as formas de pagamento para uso em selects.
      * @return array
