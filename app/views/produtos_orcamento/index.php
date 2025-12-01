@@ -6,7 +6,7 @@ $pageTitle = 'Produtos de Orçamento';
 <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="flex items-center justify-between mb-6">
         <h1 class="text-3xl font-bold text-gray-800">Produtos/Documentos</h1>
-        <a href="fluxo_caixa.php" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md flex items-center">
+        <a href="gestao_lancamentos.php" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md flex items-center">
             <i class="fas fa-arrow-left mr-2"></i>
             Voltar ao Fluxo de Caixa
         </a>

@@ -33,7 +33,7 @@ $isProspeccoesList = $isProspeccoesSection && strpos($_SERVER['PHP_SELF'], 'list
 $isProspeccoesKanban = $isProspeccoesSection && strpos($_SERVER['PHP_SELF'], 'kanban.php') !== false;
 $isProspeccoesOther = $isProspeccoesSection && !$isProspeccoesList && !$isProspeccoesKanban;
 $isCrmAgendaPage = $isCrmPage && strpos($_SERVER['PHP_SELF'], '/crm/agendamentos/') !== false;
-$financePages = ['financeiro.php', 'fluxo_caixa.php', 'vendas.php'];
+$financePages = ['gestao_administrativa.php', 'gestao_lancamentos.php', 'relatorios_bi.php', 'vendas.php'];
 $isFinancePage = in_array($currentPage, $financePages);
 $homeUrl = APP_URL . '/dashboard.php';
 if ($is_vendedor) {
@@ -159,13 +159,14 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
                         <?php if ($finance_access): ?>
                         <div class="relative">
                             <button id="finance-menu-button" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($isFinancePage) ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">
-                                <span>Financeiro</span>
+                                <span>Gestão Admin</span>
                                 <i class="fas fa-chevron-down text-xs ml-1"></i>
                             </button>
-                            <div id="finance-menu" class="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg py-1 z-20 hidden">
-                                <a href="<?php echo APP_URL; ?>/fluxo_caixa.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Controle Financeiro</a>
-                                <a href="<?php echo APP_URL; ?>/financeiro.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Relatório de Serviços</a>
-                                <a href="<?php echo APP_URL; ?>/vendas.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Relatório de Vendas</a>
+                            <div id="finance-menu" class="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg py-1 z-20 hidden">
+                                <a href="<?php echo APP_URL; ?>/gestao_lancamentos.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"><i class="fas fa-table-list mr-2"></i>Gestão de Lançamentos</a>
+                                <a href="<?php echo APP_URL; ?>/gestao_administrativa.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"><i class="fas fa-clipboard-list mr-2"></i>Gestão Administrativa</a>
+                                <a href="<?php echo APP_URL; ?>/vendas.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"><i class="fas fa-chart-bar mr-2"></i>Relatório de Vendas</a>
+                                <a href="<?php echo APP_URL; ?>/relatorios_bi.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"><i class="fas fa-chart-line mr-2"></i>Relatórios &amp; BI</a>
                             </div>
                         </div>
                         <?php endif; ?>
