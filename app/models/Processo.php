@@ -1267,9 +1267,8 @@ public function create($data, $files)
                 WHERE p.data_pagamento_2 BETWEEN :data_inicio AND :data_fim
             ) pay";
 
-        $sql = 'SELECT ' . implode(",
-               ", $selectParts) . "
-                FROM {$paymentSubquery}
+        $sql = 'SELECT ' . implode(",\n               ", $selectParts)
+            . "\nFROM {$paymentSubquery}
                 JOIN processos AS p ON p.id = pay.processo_id
                 JOIN clientes AS c ON p.cliente_id = c.id
                 LEFT JOIN vendedores AS v ON p.vendedor_id = v.id
@@ -1281,7 +1280,7 @@ public function create($data, $files)
                            SUM(CASE WHEN tipo_comissao = 'sdr' THEN valor_comissao ELSE 0 END) AS total_comissao_sdr
                     FROM comissoes
                     GROUP BY venda_id
-                ) comm ON comm.venda_id = p.id';
+                ) comm ON comm.venda_id = p.id";
 
         $where = ["p.status_processo NOT IN ('Orçamento', 'Orçamento Pendente', 'Cancelado', 'Recusado')"];
         $params = [
