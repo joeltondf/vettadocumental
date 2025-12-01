@@ -154,11 +154,6 @@ class LancamentoFinanceiro {
             $params[':category'] = $filters['category'];
         }
 
-        if (!empty($filters['user_id'])) {
-            $sql .= " AND lf.user_id = :user_id";
-            $params[':user_id'] = $filters['user_id'];
-        }
-
         $sql .= " ORDER BY lf.data_vencimento DESC, lf.id DESC LIMIT :limit OFFSET :offset";
         
         $stmt = $this->pdo->prepare($sql);
@@ -206,11 +201,6 @@ class LancamentoFinanceiro {
             $params[':category'] = $filters['category'];
         }
 
-        if (!empty($filters['user_id'])) {
-            $sql .= " AND lf.user_id = :user_id";
-            $params[':user_id'] = $filters['user_id'];
-        }
-
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchColumn();
@@ -249,11 +239,6 @@ class LancamentoFinanceiro {
         if (!empty($filters['category'])) {
             $sql .= " AND lf.categoria_id = :category";
             $params[':category'] = $filters['category'];
-        }
-
-        if (!empty($filters['user_id'])) {
-            $sql .= " AND lf.user_id = :user_id";
-            $params[':user_id'] = $filters['user_id'];
         }
 
         $stmt = $this->pdo->prepare($sql);
