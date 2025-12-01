@@ -24,7 +24,14 @@ class PainelUnificadoController
         $startDate = $filters['start_date'] ?? date('Y-m-01');
         $endDate = $filters['end_date'] ?? date('Y-m-t');
 
-        $dadosFluxo = $this->financeiroService->calcularRegimeDeCaixa($this->pdo, $startDate, $endDate);
+        $dadosFluxo = $this->financeiroService->calcularRegimeDeCaixa(
+            $this->pdo,
+            $startDate,
+            $endDate,
+            $filters['vendedor_id'] ?? null,
+            $filters['sdr_id'] ?? null,
+            $filters['status_financeiro'] ?? null
+        );
 
         $modelFilters = [
             'data_inicio' => $startDate . ' 00:00:00',

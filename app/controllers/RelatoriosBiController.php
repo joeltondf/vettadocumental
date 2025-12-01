@@ -22,7 +22,14 @@ class RelatoriosBiController
     public function index(array $filters): void
     {
         $pageTitle = 'Relatórios & BI';
-        $resultado = $this->financeiroService->calcularRegimeDeCaixa($this->pdo, $filters['start_date'], $filters['end_date']);
+        $resultado = $this->financeiroService->calcularRegimeDeCaixa(
+            $this->pdo,
+            $filters['start_date'],
+            $filters['end_date'],
+            $filters['vendedor_id'] ?? null,
+            $filters['sdr_id'] ?? null,
+            $filters['status_financeiro'] ?? null
+        );
 
         $vendedores = $this->processoModel->getAllVendedores();
         $sdrs = $this->processoModel->getAllSdrs();
