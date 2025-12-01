@@ -389,49 +389,6 @@ public function create($data, $files)
         error_log('Erro ao criar processo: ' . $e->getMessage());
         return false;
     }
-    public function buscarPorFiltros(array $filters): array
-    {
-        $sql = "SELECT p.*, c.nome_cliente AS cliente_nome, u.nome_completo AS vendedor_nome, sdr.nome_completo AS sdr_nome
-                FROM processos p
-                LEFT JOIN clientes c ON p.cliente_id = c.id
-                LEFT JOIN users u ON p.vendedor_id = u.id
-                LEFT JOIN users sdr ON p.sdr_id = sdr.id
-                WHERE 1=1";
-        $params = [];
-
-        if (!empty($filters['start_date'])) {
-            $sql .= " AND p.data_criacao >= :start_date";
-            $params[':start_date'] = $filters['start_date'] . ' 00:00:00';
-        }
-
-        if (!empty($filters['end_date'])) {
-            $sql .= " AND p.data_criacao <= :end_date";
-            $params[':end_date'] = $filters['end_date'] . ' 23:59:59';
-        }
-
-        if (!empty($filters['vendedor'])) {
-            $sql .= " AND p.vendedor_id = :vendedor";
-            $params[':vendedor'] = $filters['vendedor'];
-        }
-
-        if (!empty($filters['sdr'])) {
-            $sql .= " AND p.sdr_id = :sdr";
-            $params[':sdr'] = $filters['sdr'];
-        }
-
-        if (!empty($filters['status'])) {
-            $sql .= " AND p.status_processo = :status";
-            $params[':status'] = $filters['status'];
-        }
-
-        $sql .= ' ORDER BY p.data_criacao DESC';
-
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
 }
 
 
@@ -1009,49 +966,6 @@ public function create($data, $files)
         error_log("Erro ao buscar processos filtrados: " . $e->getMessage());
         return [];
     }
-    public function buscarPorFiltros(array $filters): array
-    {
-        $sql = "SELECT p.*, c.nome_cliente AS cliente_nome, u.nome_completo AS vendedor_nome, sdr.nome_completo AS sdr_nome
-                FROM processos p
-                LEFT JOIN clientes c ON p.cliente_id = c.id
-                LEFT JOIN users u ON p.vendedor_id = u.id
-                LEFT JOIN users sdr ON p.sdr_id = sdr.id
-                WHERE 1=1";
-        $params = [];
-
-        if (!empty($filters['start_date'])) {
-            $sql .= " AND p.data_criacao >= :start_date";
-            $params[':start_date'] = $filters['start_date'] . ' 00:00:00';
-        }
-
-        if (!empty($filters['end_date'])) {
-            $sql .= " AND p.data_criacao <= :end_date";
-            $params[':end_date'] = $filters['end_date'] . ' 23:59:59';
-        }
-
-        if (!empty($filters['vendedor'])) {
-            $sql .= " AND p.vendedor_id = :vendedor";
-            $params[':vendedor'] = $filters['vendedor'];
-        }
-
-        if (!empty($filters['sdr'])) {
-            $sql .= " AND p.sdr_id = :sdr";
-            $params[':sdr'] = $filters['sdr'];
-        }
-
-        if (!empty($filters['status'])) {
-            $sql .= " AND p.status_processo = :status";
-            $params[':status'] = $filters['status'];
-        }
-
-        $sql .= ' ORDER BY p.data_criacao DESC';
-
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
 }
 
     /**
@@ -1164,49 +1078,6 @@ public function create($data, $files)
         error_log("Erro ao contar processos filtrados: " . $e->getMessage());
         return 0;
     }
-    public function buscarPorFiltros(array $filters): array
-    {
-        $sql = "SELECT p.*, c.nome_cliente AS cliente_nome, u.nome_completo AS vendedor_nome, sdr.nome_completo AS sdr_nome
-                FROM processos p
-                LEFT JOIN clientes c ON p.cliente_id = c.id
-                LEFT JOIN users u ON p.vendedor_id = u.id
-                LEFT JOIN users sdr ON p.sdr_id = sdr.id
-                WHERE 1=1";
-        $params = [];
-
-        if (!empty($filters['start_date'])) {
-            $sql .= " AND p.data_criacao >= :start_date";
-            $params[':start_date'] = $filters['start_date'] . ' 00:00:00';
-        }
-
-        if (!empty($filters['end_date'])) {
-            $sql .= " AND p.data_criacao <= :end_date";
-            $params[':end_date'] = $filters['end_date'] . ' 23:59:59';
-        }
-
-        if (!empty($filters['vendedor'])) {
-            $sql .= " AND p.vendedor_id = :vendedor";
-            $params[':vendedor'] = $filters['vendedor'];
-        }
-
-        if (!empty($filters['sdr'])) {
-            $sql .= " AND p.sdr_id = :sdr";
-            $params[':sdr'] = $filters['sdr'];
-        }
-
-        if (!empty($filters['status'])) {
-            $sql .= " AND p.status_processo = :status";
-            $params[':status'] = $filters['status'];
-        }
-
-        $sql .= ' ORDER BY p.data_criacao DESC';
-
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
 }
 
     public function getProcessesForTvPanel(array $filters = []): array
@@ -3649,47 +3520,4 @@ public function create($data, $files)
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-    public function buscarPorFiltros(array $filters): array
-    {
-        $sql = "SELECT p.*, c.nome_cliente AS cliente_nome, u.nome_completo AS vendedor_nome, sdr.nome_completo AS sdr_nome
-                FROM processos p
-                LEFT JOIN clientes c ON p.cliente_id = c.id
-                LEFT JOIN users u ON p.vendedor_id = u.id
-                LEFT JOIN users sdr ON p.sdr_id = sdr.id
-                WHERE 1=1";
-        $params = [];
-
-        if (!empty($filters['start_date'])) {
-            $sql .= " AND p.data_criacao >= :start_date";
-            $params[':start_date'] = $filters['start_date'] . ' 00:00:00';
-        }
-
-        if (!empty($filters['end_date'])) {
-            $sql .= " AND p.data_criacao <= :end_date";
-            $params[':end_date'] = $filters['end_date'] . ' 23:59:59';
-        }
-
-        if (!empty($filters['vendedor'])) {
-            $sql .= " AND p.vendedor_id = :vendedor";
-            $params[':vendedor'] = $filters['vendedor'];
-        }
-
-        if (!empty($filters['sdr'])) {
-            $sql .= " AND p.sdr_id = :sdr";
-            $params[':sdr'] = $filters['sdr'];
-        }
-
-        if (!empty($filters['status'])) {
-            $sql .= " AND p.status_processo = :status";
-            $params[':status'] = $filters['status'];
-        }
-
-        $sql .= ' ORDER BY p.data_criacao DESC';
-
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
 }
