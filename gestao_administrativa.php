@@ -28,8 +28,8 @@ $startDate = filter_input(INPUT_GET, 'start_date', FILTER_SANITIZE_FULL_SPECIAL_
 $endDate = filter_input(INPUT_GET, 'end_date', FILTER_SANITIZE_FULL_SPECIAL_CHARS) ?: date('Y-m-t');
 $groupBy = filter_input(INPUT_GET, 'group_by', FILTER_SANITIZE_FULL_SPECIAL_CHARS) ?: 'month';
 $vendedorId = $forcedVendedorId ?? (filter_input(INPUT_GET, 'vendedor_id', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: null);
-$formaPagamentoId = filter_input(INPUT_GET, 'forma_pagamento_id', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 $clienteId = filter_input(INPUT_GET, 'cliente_id', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: null;
+$sdrId = filter_input(INPUT_GET, 'sdr_id', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: null;
 
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $startDate)) {
     $startDate = date('Y-m-01');
@@ -50,8 +50,8 @@ $filters = [
     'end_date' => $endDate,
     'group_by' => $groupBy,
     'vendedor_id' => $vendedorId,
-    'forma_pagamento_id' => $formaPagamentoId === false ? null : $formaPagamentoId,
     'cliente_id' => $clienteId,
+    'sdr_id' => $sdrId,
 ];
 
 $controller->index($filters);
