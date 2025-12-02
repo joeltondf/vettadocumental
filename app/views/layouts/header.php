@@ -166,7 +166,6 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
                                 <a href="<?php echo APP_URL; ?>/gestao_lancamentos.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"><i class="fas fa-table-list mr-2"></i>Lançamentos Manuais</a>
                                 <a href="<?php echo APP_URL; ?>/gestao_administrativa.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"><i class="fas fa-clipboard-list mr-2"></i>Gestão Administrativa</a>
                                 <a href="<?php echo APP_URL; ?>/vendas.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"><i class="fas fa-chart-bar mr-2"></i>Relatório de Vendas</a>
-                                <a href="<?php echo APP_URL; ?>/relatorios_bi.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"><i class="fas fa-chart-line mr-2"></i>Relatórios &amp; BI</a>
                             </div>
                         </div>
                         <?php endif; ?>
