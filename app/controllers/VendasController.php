@@ -2,17 +2,20 @@
 // Carrega os Models necessários para o relatório
 require_once __DIR__ . '/../models/Processo.php';
 require_once __DIR__ . '/../models/Vendedor.php';
+require_once __DIR__ . '/../models/User.php';
 require_once __DIR__ . '/../core/access_control.php';
 
 class VendasController {
     private $pdo;
     private $processoModel;
     private $vendedorModel;
+    private $userModel;
 
     public function __construct($pdo) {
         $this->pdo = $pdo;
         $this->processoModel = new Processo($this->pdo);
         $this->vendedorModel = new Vendedor($this->pdo);
+        $this->userModel = new User($this->pdo);
     }
 
     /**
@@ -58,6 +61,15 @@ class VendasController {
         $resultadoComissoes = $this->processoModel->getCommissionsByFilter($filtros);
         $processos = $resultadoComissoes['processos'];
 
+        foreach ($processos as &$proc) {
+            if (!empty($proc['sdr_id'])) {
+                $sdrUser = $this->userModel->getById((int) $proc['sdr_id']);
+                $proc['nome_sdr'] = $sdrUser['nome_completo'] ?? null;
+            }
+        }
+
+        unset($proc);
+
         header('Content-Type: text/csv; charset=UTF-8');
         header('Content-Disposition: attachment; filename="relatorio_vendas.csv"');
 
@@ -65,15 +77,17 @@ class VendasController {
         fputcsv($output, [
             'Data de Entrada',
             'Processo',
-            'Vendedor',
             'Data de Conversão',
             'Valor Total',
+            'Vendedor',
             '% Comissão Vend.',
             'Comissão Vend.',
+            'SDR',
             '% Comissão SDR',
             'Comissão SDR',
             'Situação de Pagamento',
-            'Pagamento'
+            'Pagamento',
+            'Status do Serviço'
         ], ';');
 
         $paymentStatuses = [
@@ -99,15 +113,17 @@ class VendasController {
             fputcsv($output, [
                 !empty($proc['data_criacao']) ? date('d/m/Y', strtotime($proc['data_criacao'])) : '—',
                 '#' . $proc['id'] . ' - ' . ($proc['titulo'] ?? ''),
-                $proc['nome_vendedor'],
                 !empty($dataConversao) ? date('d/m/Y', strtotime($dataConversao)) : '—',
                 number_format($proc['valor_total'], 2, ',', '.'),
+                $proc['nome_vendedor'],
                 number_format($proc['percentual_comissao_vendedor'] ?? 0, 2, ',', '.') . '%',
                 number_format($proc['valor_comissao_vendedor'] ?? 0, 2, ',', '.'),
+                $proc['nome_sdr'] ?? '—',
                 number_format($proc['percentual_comissao_sdr'] ?? 0, 2, ',', '.') . '%',
                 number_format($proc['valor_comissao_sdr'] ?? 0, 2, ',', '.'),
                 $statusLabel,
                 $tipoPagamento,
+                $proc['status_processo'] ?? '—',
             ], ';');
         }
 
@@ -146,7 +162,12 @@ class VendasController {
 
         $vendasPorVendedor = [];
 
-        foreach ($processosFiltrados as $proc) {
+        foreach ($processosFiltrados as &$proc) {
+            if (!empty($proc['sdr_id'])) {
+                $sdrUser = $this->userModel->getById((int) $proc['sdr_id']);
+                $proc['nome_sdr'] = $sdrUser['nome_completo'] ?? null;
+            }
+
             $stats['total_documentos'] += $proc['total_documentos'];
 
             $vendedorNome = $proc['nome_vendedor'];
@@ -155,6 +176,8 @@ class VendasController {
             }
             $vendasPorVendedor[$vendedorNome] += $proc['valor_total'];
         }
+
+        unset($proc);
 
         arsort($vendasPorVendedor);
         $stats['ranking_vendedores'] = $vendasPorVendedor;

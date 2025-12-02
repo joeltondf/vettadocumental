@@ -108,100 +108,129 @@
         </div>
     </div>
     
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="lg:col-span-2 bg-white shadow-md rounded-lg overflow-hidden">
-            <h3 class="text-xl font-semibold p-4 border-b">Detalhes dos Processos</h3>
-            <div class="overflow-x-auto">
-                <?php if (!empty($isPrint)): ?>
-                    <style>
-                        @media print {
-                            .no-print { display: none !important; }
-                            nav, footer { display: none !important; }
-                            body { margin: 0 16px; background: #fff; }
-                        }
-                    </style>
-                <?php endif; ?>
-                <table class="min-w-full leading-normal">
-                    <thead>
-                        <tr>
-                            <th class="px-5 py-3 border-b-2 text-left text-sm">Data de Entrada</th>
-                            <th class="px-5 py-3 border-b-2 text-left text-sm">Processo</th>
-                            <th class="px-5 py-3 border-b-2 text-left text-sm">Vendedor</th>
-                            <th class="px-5 py-3 border-b-2 text-left text-sm">Data de Conversão</th>
-                            <th class="px-5 py-3 border-b-2 text-right text-sm">Valor Total</th>
-                            <th class="px-5 py-3 border-b-2 text-right text-sm text-yellow-700 font-semibold">% Comissão Vend.</th>
-                            <th class="px-5 py-3 border-b-2 text-right text-sm text-yellow-700 font-semibold">Comissão Vend.</th>
-                            <th class="px-5 py-3 border-b-2 text-right text-sm text-blue-700 font-semibold">% Comissão SDR</th>
-                            <th class="px-5 py-3 border-b-2 text-right text-sm text-blue-700 font-semibold">Comissão SDR</th>
-                            <th class="px-5 py-3 border-b-2 text-center text-sm">Situação de Pagamento</th>
-                            <th class="px-5 py-3 border-b-2 text-center text-sm">Pagamento</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($processosFiltrados)): ?>
-                            <tr><td colspan="11" class="text-center p-5 text-sm">Nenhum processo encontrado para os filtros selecionados.</td></tr>
-                        <?php else: ?>
-                            <?php foreach ($processosFiltrados as $proc): ?>
-                                <?php
-                                    $statusKey = strtolower($proc['status_financeiro'] ?? 'pendente');
-                                    $statusConfig = $paymentStatuses[$statusKey] ?? $paymentStatuses['pendente'];
+    <div class="bg-white shadow-md rounded-lg overflow-hidden mt-6">
+        <h3 class="text-xl font-semibold p-4 border-b">Detalhes dos Processos</h3>
+        <div class="overflow-x-auto">
+            <?php if (!empty($isPrint)): ?>
+                <style>
+                    @media print {
+                        .no-print { display: none !important; }
+                        nav, footer { display: none !important; }
+                        body { margin: 0 16px; background: #fff; }
+                    }
+                </style>
+            <?php endif; ?>
+            <table class="min-w-full leading-normal">
+                <thead>
+                    <tr>
+                        <th class="px-5 py-3 border-b-2 text-left text-sm whitespace-nowrap">Data de Entrada</th>
+                        <th class="px-5 py-3 border-b-2 text-left text-sm whitespace-nowrap">Processo</th>
+                        <th class="px-5 py-3 border-b-2 text-left text-sm whitespace-nowrap">Data de Conversão</th>
+                        <th class="px-5 py-3 border-b-2 text-right text-sm whitespace-nowrap">Valor Total</th>
+                        <th class="px-5 py-3 border-b-2 text-left text-sm whitespace-nowrap min-w-[140px]">Vendedor</th>
+                        <th class="px-5 py-3 border-b-2 text-right text-sm text-yellow-700 font-semibold whitespace-nowrap">% Comissão Vend.</th>
+                        <th class="px-5 py-3 border-b-2 text-right text-sm text-yellow-700 font-semibold whitespace-nowrap">Comissão Vend.</th>
+                        <th class="px-5 py-3 border-b-2 text-left text-sm whitespace-nowrap min-w-[140px]">SDR</th>
+                        <th class="px-5 py-3 border-b-2 text-right text-sm text-blue-700 font-semibold whitespace-nowrap">% Comissão SDR</th>
+                        <th class="px-5 py-3 border-b-2 text-right text-sm text-blue-700 font-semibold whitespace-nowrap">Comissão SDR</th>
+                        <th class="px-5 py-3 border-b-2 text-center text-sm whitespace-nowrap">Situação de Pagamento</th>
+                        <th class="px-5 py-3 border-b-2 text-center text-sm whitespace-nowrap">Pagamento</th>
+                        <th class="px-5 py-3 border-b-2 text-center text-sm whitespace-nowrap">Status do Serviço</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($processosFiltrados)): ?>
+                        <tr><td colspan="13" class="text-center p-5 text-sm">Nenhum processo encontrado para os filtros selecionados.</td></tr>
+                    <?php else: ?>
+                        <?php foreach ($processosFiltrados as $proc): ?>
+                            <?php
+                                $statusKey = strtolower($proc['status_financeiro'] ?? 'pendente');
+                                $statusConfig = $paymentStatuses[$statusKey] ?? $paymentStatuses['pendente'];
 
-                                    if ($statusKey == 'pago') {
-                                        $tipoPagamento = 'Entrada';
-                                    } elseif ($statusKey == 'parcial') {
-                                        $tipoPagamento = 'Entrada/Pendente';
-                                    } else {
-                                        $tipoPagamento = 'Pendente';
-                                    }
-                                    $corPagamento = [
-                                        'Entrada' => 'bg-green-100 text-green-800',
-                                        'Entrada/Pendente' => 'bg-yellow-100 text-yellow-800',
-                                        'Pendente' => 'bg-red-100 text-red-800',
-                                    ];
-                                ?>
-                                <tr>
-                                    <td class="px-5 py-4 border-b text-sm text-gray-500 text-center">
-                                        <?php echo !empty($proc['data_criacao']) ? date('d/m/Y', strtotime($proc['data_criacao'])) : '—'; ?>
-                                    </td>
-                                    <td class="px-5 py-4 border-b text-sm"><a href="processos.php?action=view&id=<?php echo $proc['id']; ?>" class="text-blue-600 hover:underline">#<?php echo $proc['id']; ?> - <?php echo htmlspecialchars($proc['titulo']); ?></a></td>
-                                    <td class="px-5 py-4 border-b text-sm flex items-center">
-                                        <span class="mr-1 text-yellow-500">👤</span>
-                                        <?php echo htmlspecialchars($formatVendorName($proc['nome_vendedor'] ?? null)); ?>
-                                    </td>
-                                    <td class="px-5 py-4 border-b text-sm">
-                                        <?php
-                                            $dataServico = $proc['data_conversao'] ?? $proc['data_filtro'] ?? null;
-                                            echo !empty($dataServico) ? date('d/m/Y', strtotime($dataServico)) : '—';
-                                        ?>
-                                    </td>
-                                    <td class="px-5 py-4 border-b text-right text-sm">R$ <?php echo number_format($proc['valor_total'], 2, ',', '.'); ?></td>
-                                    <td class="px-5 py-4 border-b text-right text-sm text-yellow-700 font-semibold">
-                                        <span class="inline-flex items-center justify-end w-full"><span class="mr-1 text-yellow-500">👤</span><?php echo number_format($proc['percentual_comissao_vendedor'] ?? 0, 2, ',', '.'); ?>%</span>
-                                    </td>
-                                    <td class="px-5 py-4 border-b text-right text-sm text-yellow-700 font-semibold">
-                                        <span class="inline-flex items-center justify-end w-full"><span class="mr-1 text-yellow-500">👤</span>R$ <?php echo number_format($proc['valor_comissao_vendedor'] ?? 0, 2, ',', '.'); ?></span>
-                                    </td>
-                                    <td class="px-5 py-4 border-b text-right text-sm text-blue-700 font-semibold">
-                                        <span class="inline-flex items-center justify-end w-full"><span class="mr-1 text-blue-500">🎯</span><?php echo number_format($proc['percentual_comissao_sdr'] ?? 0, 2, ',', '.'); ?>%</span>
-                                    </td>
-                                    <td class="px-5 py-4 border-b text-right text-sm text-blue-700 font-semibold">
-                                        <span class="inline-flex items-center justify-end w-full"><span class="mr-1 text-blue-500">🎯</span>R$ <?php echo number_format($proc['valor_comissao_sdr'] ?? 0, 2, ',', '.'); ?></span>
-                                    </td>
-                                    <td class="px-5 py-4 border-b text-center text-sm">
-                                        <span class="inline-flex items-center px-3 py-1 text-sm font-semibold rounded-full <?php echo $statusConfig['class']; ?>">
-                                            <?php echo $statusConfig['label']; ?>
-                                        </span>
-                                    </td>
-                                    <td class="px-5 py-4 border-b text-center text-sm">
-                                        <span class="inline-flex items-center px-3 py-1 text-sm font-semibold rounded-full <?php echo $corPagamento[$tipoPagamento] ?? 'bg-gray-100 text-gray-800'; ?>">
-                                            <?php echo $tipoPagamento; ?>
-                                        </span>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
+                                if ($statusKey == 'pago') {
+                                    $tipoPagamento = 'Entrada';
+                                } elseif ($statusKey == 'parcial') {
+                                    $tipoPagamento = 'Entrada/Pendente';
+                                } else {
+                                    $tipoPagamento = 'Pendente';
+                                }
+                                $corPagamento = [
+                                    'Entrada' => 'bg-green-100 text-green-800',
+                                    'Entrada/Pendente' => 'bg-yellow-100 text-yellow-800',
+                                    'Pendente' => 'bg-red-100 text-red-800',
+                                ];
+
+                                $statusServico = trim((string) ($proc['status_processo'] ?? '—'));
+                                $badgeServico = [
+                                    'classes' => 'bg-gray-100 text-gray-800',
+                                    'label' => $statusServico !== '' ? $statusServico : '—',
+                                ];
+
+                                if (stripos($statusServico, 'conclu') !== false || stripos($statusServico, 'finaliz') !== false) {
+                                    $badgeServico['classes'] = 'bg-green-100 text-green-800';
+                                } elseif (stripos($statusServico, 'andamento') !== false) {
+                                    $badgeServico['classes'] = 'bg-yellow-100 text-yellow-800';
+                                }
+                            ?>
+                            <tr>
+                                <td class="px-5 py-4 border-b text-gray-500 text-xs whitespace-nowrap">
+                                    <?php echo !empty($proc['data_criacao']) ? date('d/m/Y', strtotime($proc['data_criacao'])) : '—'; ?>
+                                </td>
+                                <td class="px-5 py-4 border-b text-sm">
+                                    <a href="processos.php?action=view&id=<?php echo $proc['id']; ?>" class="text-blue-600 hover:underline whitespace-nowrap">
+                                        #<?php echo $proc['id']; ?> - <?php echo htmlspecialchars($proc['titulo']); ?>
+                                    </a>
+                                </td>
+                                <td class="px-5 py-4 border-b text-sm whitespace-nowrap">
+                                    <?php
+                                        $dataServico = $proc['data_conversao'] ?? $proc['data_filtro'] ?? null;
+                                        echo !empty($dataServico) ? date('d/m/Y', strtotime($dataServico)) : '—';
+                                    ?>
+                                </td>
+                                <td class="px-5 py-4 border-b text-right text-sm whitespace-nowrap">R$ <?php echo number_format($proc['valor_total'], 2, ',', '.'); ?></td>
+                                <td class="px-5 py-4 border-b text-sm whitespace-nowrap min-w-[140px]">
+                                    <span class="text-purple-700 text-xs mr-1">👤</span>
+                                    <?php echo htmlspecialchars($formatVendorName($proc['nome_vendedor'] ?? null)); ?>
+                                </td>
+                                <td class="px-5 py-4 border-b text-right text-sm text-yellow-700 font-semibold whitespace-nowrap">
+                                    <span class="inline-flex items-center justify-end w-full"><span class="mr-1 text-yellow-500">👤</span><?php echo number_format($proc['percentual_comissao_vendedor'] ?? 0, 2, ',', '.'); ?>%</span>
+                                </td>
+                                <td class="px-5 py-4 border-b text-right text-sm text-yellow-700 font-semibold whitespace-nowrap">
+                                    <span class="inline-flex items-center justify-end w-full"><span class="mr-1 text-yellow-500">👤</span>R$ <?php echo number_format($proc['valor_comissao_vendedor'] ?? 0, 2, ',', '.'); ?></span>
+                                </td>
+                                <td class="px-5 py-4 border-b text-sm whitespace-nowrap min-w-[140px]">
+                                    <?php if (!empty($proc['nome_sdr'])): ?>
+                                        <span class="mr-1 text-blue-500">🎯</span>
+                                        <span class="text-xs whitespace-nowrap"><?php echo htmlspecialchars($proc['nome_sdr']); ?></span>
+                                    <?php else: ?>
+                                        —
+                                    <?php endif; ?>
+                                </td>
+                                <td class="px-5 py-4 border-b text-right text-sm text-blue-700 font-semibold whitespace-nowrap">
+                                    <span class="inline-flex items-center justify-end w-full"><span class="mr-1 text-blue-500">🎯</span><?php echo number_format($proc['percentual_comissao_sdr'] ?? 0, 2, ',', '.'); ?>%</span>
+                                </td>
+                                <td class="px-5 py-4 border-b text-right text-sm text-blue-700 font-semibold whitespace-nowrap">
+                                    <span class="inline-flex items-center justify-end w-full"><span class="mr-1 text-blue-500">🎯</span>R$ <?php echo number_format($proc['valor_comissao_sdr'] ?? 0, 2, ',', '.'); ?></span>
+                                </td>
+                                <td class="px-5 py-4 border-b text-center text-sm whitespace-nowrap">
+                                    <span class="inline-flex items-center px-3 py-1 text-sm font-semibold rounded-full <?php echo $statusConfig['class']; ?>">
+                                        <?php echo $statusConfig['label']; ?>
+                                    </span>
+                                </td>
+                                <td class="px-5 py-4 border-b text-center text-sm whitespace-nowrap">
+                                    <span class="inline-flex items-center px-3 py-1 text-sm font-semibold rounded-full <?php echo $corPagamento[$tipoPagamento] ?? 'bg-gray-100 text-gray-800'; ?>">
+                                        <?php echo $tipoPagamento; ?>
+                                    </span>
+                                </td>
+                                <td class="px-5 py-4 border-b text-center text-sm whitespace-nowrap">
+                                    <span class="inline-flex items-center px-3 py-1 text-sm font-semibold rounded-full <?php echo $badgeServico['classes']; ?>">
+                                        <?php echo htmlspecialchars($badgeServico['label']); ?>
+                                    </span>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
         </div>
     </div>
