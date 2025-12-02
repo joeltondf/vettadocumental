@@ -2,17 +2,20 @@
 // Carrega os Models necessários para o relatório
 require_once __DIR__ . '/../models/Processo.php';
 require_once __DIR__ . '/../models/Vendedor.php';
+require_once __DIR__ . '/../models/User.php';
 require_once __DIR__ . '/../core/access_control.php';
 
 class VendasController {
     private $pdo;
     private $processoModel;
     private $vendedorModel;
+    private $userModel;
 
     public function __construct($pdo) {
         $this->pdo = $pdo;
         $this->processoModel = new Processo($this->pdo);
         $this->vendedorModel = new Vendedor($this->pdo);
+        $this->userModel = new User($this->pdo);
     }
 
     /**
@@ -29,11 +32,125 @@ class VendasController {
             'data_fim' => $_GET['data_fim'] ?? null
         ];
 
+        $action = $_GET['action'] ?? null;
+
+        if ($action === 'export_csv') {
+            $this->exportCsv($filtros);
+            return;
+        }
+
+        if ($action === 'print') {
+            $this->printReport($filtros);
+            return;
+        }
+
+        $reportData = $this->prepareReportData($filtros);
+        extract($reportData);
+
+        // Carrega a view do relatório
+        $pageTitle = "Relatório de Vendas";
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/vendas/index.php';
+        require_once __DIR__ . '/../views/layouts/footer.php';
+    }
+
+    public function exportCsv(array $filtros): void
+    {
+        require_permission(['admin', 'gerencia']);
+
+        $resultadoComissoes = $this->processoModel->getCommissionsByFilter($filtros);
+        $processos = $resultadoComissoes['processos'];
+
+        foreach ($processos as &$proc) {
+            if (!empty($proc['sdr_id'])) {
+                $sdrUser = $this->userModel->getById((int) $proc['sdr_id']);
+                $proc['nome_sdr'] = $sdrUser['nome_completo'] ?? null;
+            }
+        }
+
+        unset($proc);
+
+        header('Content-Type: text/csv; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="relatorio_vendas.csv"');
+
+        $output = fopen('php://output', 'w');
+        fputcsv($output, [
+            'Data de Entrada',
+            'Processo',
+            'Data de Conversão',
+            'Valor Total',
+            'Vendedor',
+            '% Comissão Vend.',
+            'Comissão Vend.',
+            'SDR',
+            '% Comissão SDR',
+            'Comissão SDR',
+            'Situação de Pagamento',
+            'Pagamento',
+            'Status do Serviço'
+        ], ';');
+
+        $paymentStatuses = [
+            'pago' => 'Pago',
+            'parcial' => 'Parcial',
+            'pendente' => 'Pendente',
+        ];
+
+        foreach ($processos as $proc) {
+            $statusKey = strtolower($proc['status_financeiro'] ?? 'pendente');
+            $statusLabel = $paymentStatuses[$statusKey] ?? $paymentStatuses['pendente'];
+
+            if ($statusKey == 'pago') {
+                $tipoPagamento = 'Entrada';
+            } elseif ($statusKey == 'parcial') {
+                $tipoPagamento = 'Entrada/Pendente';
+            } else {
+                $tipoPagamento = 'Pendente';
+            }
+
+            $dataConversao = $proc['data_conversao'] ?? ($proc['data_filtro'] ?? null);
+
+            fputcsv($output, [
+                !empty($proc['data_criacao']) ? date('d/m/Y', strtotime($proc['data_criacao'])) : '—',
+                '#' . $proc['id'] . ' - ' . ($proc['titulo'] ?? ''),
+                !empty($dataConversao) ? date('d/m/Y', strtotime($dataConversao)) : '—',
+                number_format($proc['valor_total'], 2, ',', '.'),
+                $proc['nome_vendedor'],
+                number_format($proc['percentual_comissao_vendedor'] ?? 0, 2, ',', '.') . '%',
+                number_format($proc['valor_comissao_vendedor'] ?? 0, 2, ',', '.'),
+                $proc['nome_sdr'] ?? '—',
+                number_format($proc['percentual_comissao_sdr'] ?? 0, 2, ',', '.') . '%',
+                number_format($proc['valor_comissao_sdr'] ?? 0, 2, ',', '.'),
+                $statusLabel,
+                $tipoPagamento,
+                $proc['status_processo'] ?? '—',
+            ], ';');
+        }
+
+        fclose($output);
+        exit;
+    }
+
+    public function printReport(array $filtros): void
+    {
+        require_permission(['admin', 'gerencia']);
+
+        $reportData = $this->prepareReportData($filtros);
+        extract($reportData);
+
+        $isPrint = true;
+        $pageTitle = "Relatório de Vendas";
+        require_once __DIR__ . '/../views/layouts/header.php';
+        require_once __DIR__ . '/../views/vendas/index.php';
+        // Intencionalmente sem rodapé para impressão limpa
+    }
+
+    private function prepareReportData(array $filtros): array
+    {
         $resultadoComissoes = $this->processoModel->getCommissionsByFilter($filtros);
         $processosFiltrados = $resultadoComissoes['processos'];
         $totais = $resultadoComissoes['totais'];
 
-        // --- CÁLCULO PARA OS CARDS ---
         $stats = [
             'valor_total_vendido' => $totais['valor_total'],
             'total_documentos' => 0,
@@ -45,7 +162,12 @@ class VendasController {
 
         $vendasPorVendedor = [];
 
-        foreach ($processosFiltrados as $proc) {
+        foreach ($processosFiltrados as &$proc) {
+            if (!empty($proc['sdr_id'])) {
+                $sdrUser = $this->userModel->getById((int) $proc['sdr_id']);
+                $proc['nome_sdr'] = $sdrUser['nome_completo'] ?? null;
+            }
+
             $stats['total_documentos'] += $proc['total_documentos'];
 
             $vendedorNome = $proc['nome_vendedor'];
@@ -55,12 +177,12 @@ class VendasController {
             $vendasPorVendedor[$vendedorNome] += $proc['valor_total'];
         }
 
-        // Ordena o ranking de vendedores
+        unset($proc);
+
         arsort($vendasPorVendedor);
         $stats['ranking_vendedores'] = $vendasPorVendedor;
         $stats['ticket_medio'] = count($processosFiltrados) > 0 ? $stats['valor_total_vendido'] / count($processosFiltrados) : 0;
-        
-        // Busca a lista de vendedores e SDRs para popular os filtros
+
         $vendedores = $this->vendedorModel->getAll();
         $sdrs = [];
         try {
@@ -71,11 +193,7 @@ class VendasController {
             error_log('Erro ao carregar SDRs para filtro: ' . $exception->getMessage());
         }
 
-        // Carrega a view do relatório
-        $pageTitle = "Relatório de Vendas";
-        require_once __DIR__ . '/../views/layouts/header.php';
-        require_once __DIR__ . '/../views/vendas/index.php'; // A view será atualizada no próximo passo
-        require_once __DIR__ . '/../views/layouts/footer.php';
+        return compact('filtros', 'processosFiltrados', 'totais', 'stats', 'vendedores', 'sdrs');
     }
     public function converter_para_servico() {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
