@@ -2665,7 +2665,6 @@ public function create($data, $files)
                     p.orcamento_numero,
                     p.titulo,
                     p.categorias_servico,
-                    p.data_criacao,
                     p.valor_total,
                     p.status_processo,
                     {$dateField} AS data_filtro,
@@ -2800,7 +2799,7 @@ public function create($data, $files)
                 return false;
             }
 
-            return in_array(strtolower((string) $perfil), ['sdr', 'colaborador'], true);
+            return strtolower((string) $perfil) === 'sdr';
         } catch (PDOException $exception) {
             error_log('Erro ao verificar perfil de SDR para o usuário ' . $userId . ': ' . $exception->getMessage());
             return false;
