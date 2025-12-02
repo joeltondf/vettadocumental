@@ -1,28 +1,31 @@
 <?php
 
+require_once __DIR__ . '/BaseReportController.php';
 require_once __DIR__ . '/../services/FinanceiroService.php';
 require_once __DIR__ . '/../models/Processo.php';
 
 use App\Services\FinanceiroService;
 
-class PainelUnificadoController
+class PainelUnificadoController extends BaseReportController
 {
-    private PDO $pdo;
     private Processo $processoModel;
     private FinanceiroService $financeiroService;
 
     public function __construct(PDO $pdo)
     {
-        $this->pdo = $pdo;
+        parent::__construct($pdo);
         $this->processoModel = new Processo($pdo);
         $this->financeiroService = new FinanceiroService();
     }
 
     public function index(array $filters): void
     {
+        $this->startSessionAndAuth(['gestao', 'admin']);
+
         $pageTitle = 'Painel Unificado';
-        $startDate = $filters['start_date'] ?? date('Y-m-01');
-        $endDate = $filters['end_date'] ?? date('Y-m-t');
+        $dateFilters = $this->sanitizeDateFilters();
+        $startDate = $dateFilters['start_date'];
+        $endDate = $dateFilters['end_date'];
 
         $dadosFluxo = $this->financeiroService->calcularRegimeDeCaixa(
             $this->pdo,
