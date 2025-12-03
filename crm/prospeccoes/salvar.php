@@ -28,8 +28,13 @@ if (!in_array($paymentProfile, $allowedPaymentProfiles, true)) {
 }
 
 $userId = (int) ($_SESSION['user_id'] ?? 0);
-$userPerfil = $_SESSION['user_perfil'] ?? '';
+$perfilSessao = $_SESSION['user_perfil'] ?? ($_SESSION['perfil'] ?? '');
+$userPerfil = is_string($perfilSessao) ? mb_strtolower(trim($perfilSessao), 'UTF-8') : '';
 $userNome = $_SESSION['user_nome'] ?? 'Usuário';
+
+if (strpos($userPerfil, 'sdr') !== false) {
+    $_POST['sdr_id'] = $userId;
+}
 
 $prospectionModel = new Prospeccao($pdo);
 $userModel = new User($pdo);
@@ -78,7 +83,7 @@ try {
     }
 
     $isVendor = $userPerfil === 'vendedor';
-    $isSdr = $userPerfil === 'sdr';
+    $isSdr = strpos($userPerfil, 'sdr') !== false;
 
     if ($isVendor && $userId > 0) {
         $responsavelId = $userId;

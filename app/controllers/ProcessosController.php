@@ -344,6 +344,7 @@ class ProcessosController
             if (isset($_POST['status_proposto'])) {
                 $dadosParaSalvar = $_POST;
                 $dadosParaSalvar = $this->ensureDefaultVendor($dadosParaSalvar);
+                $dadosParaSalvar = $this->applySdrAssignment($dadosParaSalvar);
                 if ($prospectionId !== null) {
                     $dadosParaSalvar['prospeccao_id'] = $prospectionId;
                 }
@@ -417,6 +418,7 @@ class ProcessosController
 
             // Fluxo de orçamento normal
             $dadosProcesso = $this->ensureDefaultVendor($_POST);
+            $dadosProcesso = $this->applySdrAssignment($dadosProcesso);
             if ($prospectionId !== null) {
                 $dadosProcesso['prospeccao_id'] = $prospectionId;
             } else {
@@ -3514,6 +3516,20 @@ class ProcessosController
         $vendorId = $this->determineEffectiveVendorId($data, $processo);
 
         return $vendorId === null;
+    }
+
+    private function applySdrAssignment(array $data): array
+    {
+        $perfil = strtolower((string) ($_SESSION['user_perfil'] ?? ''));
+        $userId = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
+
+        if ($perfil === 'sdr') {
+            $data['sdr_id'] = $userId;
+        } elseif ($perfil === 'vendedor') {
+            $data['sdr_id'] = null;
+        }
+
+        return $data;
     }
 
     private function ensureDefaultVendor(array $data): array

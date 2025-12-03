@@ -101,11 +101,17 @@ class ProspectionConversionService
             throw $exception;
         }
 
-        $queryParams = [
+        $dadosProcesso = [
             'prospeccao_id' => $prospectionId,
             'nome_servico' => $prospection['nome_prospecto'] ?? '',
             'valor_inicial' => $prospection['valor_proposto'] ?? 0,
         ];
+
+        if (array_key_exists('sdr_id', $prospection)) {
+            $dadosProcesso['sdr_id'] = $prospection['sdr_id'];
+        }
+
+        $queryParams = $dadosProcesso;
 
         return APP_URL . '/clientes.php?action=edit&id=' . $clientId . '&' . http_build_query($queryParams);
     }
