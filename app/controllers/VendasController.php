@@ -62,10 +62,7 @@ class VendasController {
         $processos = $resultadoComissoes['processos'];
 
         foreach ($processos as &$proc) {
-            if (!empty($proc['sdr_id'])) {
-                $sdrUser = $this->userModel->getById((int) $proc['sdr_id']);
-                $proc['nome_sdr'] = $sdrUser['nome_completo'] ?? null;
-            }
+            $proc = $this->normalizeSdrData($proc);
         }
 
         unset($proc);
@@ -163,10 +160,7 @@ class VendasController {
         $vendasPorVendedor = [];
 
         foreach ($processosFiltrados as &$proc) {
-            if (!empty($proc['sdr_id'])) {
-                $sdrUser = $this->userModel->getById((int) $proc['sdr_id']);
-                $proc['nome_sdr'] = $sdrUser['nome_completo'] ?? null;
-            }
+            $proc = $this->normalizeSdrData($proc);
 
             $stats['total_documentos'] += $proc['total_documentos'];
 
@@ -183,6 +177,11 @@ class VendasController {
         $stats['ranking_vendedores'] = $vendasPorVendedor;
         $stats['ticket_medio'] = count($processosFiltrados) > 0 ? $stats['valor_total_vendido'] / count($processosFiltrados) : 0;
 
+        $totais['comissao_vendedor'] = array_sum(array_map(static fn($proc) => (float) ($proc['valor_comissao_vendedor'] ?? 0), $processosFiltrados));
+        $totais['comissao_sdr'] = array_sum(array_map(static fn($proc) => (float) ($proc['valor_comissao_sdr'] ?? 0), $processosFiltrados));
+        $stats['comissao_vendedor'] = $totais['comissao_vendedor'];
+        $stats['comissao_sdr'] = $totais['comissao_sdr'];
+
         $vendedores = $this->vendedorModel->getAll();
         $sdrs = [];
         try {
@@ -194,6 +193,28 @@ class VendasController {
         }
 
         return compact('filtros', 'processosFiltrados', 'totais', 'stats', 'vendedores', 'sdrs');
+    }
+
+    private function normalizeSdrData(array $proc): array
+    {
+        if (empty($proc['sdr_id'])) {
+            $proc['nome_sdr'] = 'Sem SDR';
+
+            if (($proc['percentual_comissao_vendedor'] ?? 0) == 0) {
+                $proc['percentual_comissao_vendedor'] = 0.5;
+                $proc['valor_comissao_vendedor'] = round((float) ($proc['valor_total'] ?? 0) * 0.005, 2);
+            }
+
+            $proc['percentual_comissao_sdr'] = 0;
+            $proc['valor_comissao_sdr'] = 0;
+
+            return $proc;
+        }
+
+        $sdrUser = $this->userModel->getById((int)$proc['sdr_id']);
+        $proc['nome_sdr'] = $sdrUser['nome_completo'] ?? null;
+
+        return $proc;
     }
     public function converter_para_servico() {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
