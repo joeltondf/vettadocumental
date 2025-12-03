@@ -2672,7 +2672,6 @@ public function create($data, $files)
                     p.data_conversao,
                     {$statusFinanceiroSelect},
                     COALESCE(u.nome_completo, 'Sistema') AS nome_vendedor,
-                    u.id AS vendedor_user_id,
                     COALESCE(v.percentual_comissao, 0) AS percentual_comissao_vendedor,
                     {$sdrExpression} AS sdr_id,
                     c.nome_cliente,
@@ -2744,8 +2743,7 @@ public function create($data, $files)
             $vendorPercent = (float) ($processo['percentual_comissao_vendedor'] ?? 0);
             $hasSdr = !empty($processo['sdr_id'])
                 && $sdrPercent > 0
-                && $this->isSdrUser((int) $processo['sdr_id'])
-                && (int) $processo['sdr_id'] !== (int) ($processo['vendedor_user_id'] ?? 0);
+                && $this->isSdrUser((int) $processo['sdr_id']);
 
             if ($hasSdr) {
                 $adjustedVendorPercent = max(0, $vendorPercent - $sdrPercent);
