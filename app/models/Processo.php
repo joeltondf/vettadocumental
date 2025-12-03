@@ -2753,9 +2753,11 @@ public function create($data, $files)
                 $processo['percentual_comissao_vendedor'] = $adjustedVendorPercent;
                 $processo['percentual_comissao_sdr'] = $sdrPercent;
             } else {
-                $valorComissaoVendedor = $this->calculateVendorCommission($processo, $vendorPercent);
+                $vendorFinalPercent = $vendorPercent > 0 ? $vendorPercent : $sdrPercent;
+                $valorComissaoVendedor = round($valorTotal * ($vendorFinalPercent / 100), 2);
                 $valorComissaoSdr = 0.0;
-                $processo['percentual_comissao_vendedor'] = $vendorPercent;
+
+                $processo['percentual_comissao_vendedor'] = $vendorFinalPercent;
                 $processo['percentual_comissao_sdr'] = 0.0;
             }
 

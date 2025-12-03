@@ -199,12 +199,12 @@
                                     <span class="inline-flex items-center justify-end w-full"><span class="mr-1 text-yellow-500">👤</span>R$ <?php echo number_format($proc['valor_comissao_vendedor'] ?? 0, 2, ',', '.'); ?></span>
                                 </td>
                                 <td class="px-5 py-4 border-b text-sm whitespace-nowrap min-w-[140px]">
-                                    <?php if (!empty($proc['nome_sdr'])): ?>
-                                        <span class="mr-1 text-blue-500">🎯</span>
-                                        <span class="text-xs whitespace-nowrap"><?php echo htmlspecialchars($proc['nome_sdr']); ?></span>
-                                    <?php else: ?>
-                                        —
-                                    <?php endif; ?>
+                                    <?php
+                                        $sdrNome = trim((string) ($proc['nome_sdr'] ?? ''));
+                                        $sdrLabel = $sdrNome !== '' ? $sdrNome : 'Sem SDR';
+                                    ?>
+                                    <span class="mr-1 text-blue-500">🎯</span>
+                                    <span class="text-xs whitespace-nowrap"><?php echo htmlspecialchars($sdrLabel); ?></span>
                                 </td>
                                 <td class="px-5 py-4 border-b text-right text-sm text-blue-700 font-semibold whitespace-nowrap">
                                     <span class="inline-flex items-center justify-end w-full"><span class="mr-1 text-blue-500">🎯</span><?php echo number_format($proc['percentual_comissao_sdr'] ?? 0, 2, ',', '.'); ?>%</span>
