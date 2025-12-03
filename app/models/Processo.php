@@ -2600,6 +2600,7 @@ public function create($data, $files)
                     p.status_processo,
                     {$statusFinanceiroSelect},
                     COALESCE(u.nome_completo, 'Sistema') AS nome_vendedor,
+                    u.id AS vendedor_user_id,
                     {$this->getSdrIdSelectExpression()} AS sdr_id,
                     c.nome_cliente,
                     (SELECT COALESCE(SUM(d.quantidade), 0) FROM documentos d WHERE d.processo_id = p.id) AS total_documentos
@@ -2663,6 +2664,7 @@ public function create($data, $files)
                     p.data_conversao,
                     {$statusFinanceiroSelect},
                     COALESCE(u.nome_completo, 'Sistema') AS nome_vendedor,
+                    u.id AS vendedor_user_id,
                     COALESCE(v.percentual_comissao, 0) AS percentual_comissao_vendedor,
                     {$sdrExpression} AS sdr_id,
                     c.nome_cliente,
@@ -2732,9 +2734,11 @@ public function create($data, $files)
         foreach ($processos as &$processo) {
             $valorTotal = (float) ($processo['valor_total'] ?? 0);
             $vendorPercent = (float) ($processo['percentual_comissao_vendedor'] ?? 0);
-            $hasSdr = !empty($processo['sdr_id'])
-                && $sdrPercent > 0
-                && $this->isSdrUser((int) $processo['sdr_id']);
+            $hasSdr = !empty($processo['sdr_id']) && $sdrPercent > 0;
+
+            if ($hasSdr && isset($processo['vendedor_user_id'])) {
+                $hasSdr = (int) $processo['sdr_id'] !== (int) $processo['vendedor_user_id'];
+            }
 
             if ($hasSdr) {
                 $adjustedVendorPercent = max(0, $vendorPercent - $sdrPercent);
