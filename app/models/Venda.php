@@ -140,6 +140,48 @@ class Venda
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    public function getRelatorioVendedores($data_inicio = null, $data_fim = null)
+    {
+        $sql = "SELECT 
+                    v.vendedor_id,
+                    v.sdr_id,
+                    SUM(v.valor) AS total_vendas,
+                    SUM(
+                        CASE
+                            WHEN v.sdr_id IS NOT NULL AND v.sdr_id != v.vendedor_id THEN GREATEST(COALESCE(v.comissao_vendedor, 0) - (v.valor * 0.005), 0)
+                            ELSE COALESCE(v.comissao_vendedor, 0)
+                        END
+                    ) AS total_comissao_vendedor,
+                    SUM(
+                        CASE
+                            WHEN v.sdr_id IS NOT NULL THEN v.valor * 0.005
+                            ELSE 0
+                        END
+                    ) AS total_comissao_sdr
+                FROM vendas v
+                WHERE 1=1";
+
+        $params = [];
+
+        if ($data_inicio) {
+            $sql .= " AND DATE(v.data_venda) >= :data_inicio";
+            $params[':data_inicio'] = $data_inicio;
+        }
+
+        if ($data_fim) {
+            $sql .= " AND DATE(v.data_venda) <= :data_fim";
+            $params[':data_fim'] = $data_fim;
+        }
+
+        $sql .= " GROUP BY v.vendedor_id, v.sdr_id";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
     public function getItensByIds($ids) {
         if (empty($ids)) {
             return [];
