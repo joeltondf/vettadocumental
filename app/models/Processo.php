@@ -137,26 +137,17 @@ class Processo
 
         $hasSdrId = $this->hasProcessColumn('sdr_id');
         $hasSdrIdCamel = $this->hasProcessColumn('sdrId');
-        $hasColaborador = $this->hasProcessColumn('colaborador_id');
-
-        if ($hasSdrId && $hasColaborador) {
-            return 'COALESCE(p.sdr_id, p.colaborador_id)';
-        }
-
-        if ($hasSdrIdCamel && $hasColaborador) {
-            return 'COALESCE(p.sdrId, p.colaborador_id)';
-        }
 
         if ($hasSdrId) {
+            // Mantemos apenas o valor explícito de SDR; removemos o fallback para colaborador
+            // para evitar atribuir SDR incorretamente e permitir o uso de "Sem SDR" nos relatórios.
             return 'p.sdr_id';
         }
 
         if ($hasSdrIdCamel) {
+            // Mantemos apenas o valor explícito de SDR; removemos o fallback para colaborador
+            // para evitar atribuir SDR incorretamente e permitir o uso de "Sem SDR" nos relatórios.
             return 'p.sdrId';
-        }
-
-        if ($hasColaborador) {
-            return 'p.colaborador_id';
         }
 
         return 'NULL';
