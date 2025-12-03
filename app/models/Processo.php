@@ -140,13 +140,11 @@ class Processo
         $hasColaborador = $this->hasProcessColumn('colaborador_id');
 
         if ($hasSdrId && $hasColaborador) {
-            // Prioriza o SDR definido no processo e usa o colaborador apenas como fallback quando o SDR não foi preenchido.
-            return 'CASE WHEN p.sdr_id IS NOT NULL THEN p.sdr_id ELSE p.colaborador_id END';
+            return 'COALESCE(p.sdr_id, p.colaborador_id)';
         }
 
         if ($hasSdrIdCamel && $hasColaborador) {
-            // Mantém a mesma priorização para a coluna camelCase, evitando sobrepor o SDR quando já informado.
-            return 'CASE WHEN p.sdrId IS NOT NULL THEN p.sdrId ELSE p.colaborador_id END';
+            return 'COALESCE(p.sdrId, p.colaborador_id)';
         }
 
         if ($hasSdrId) {
@@ -2675,7 +2673,6 @@ public function create($data, $files)
                     {$statusFinanceiroSelect},
                     COALESCE(u.nome_completo, 'Sistema') AS nome_vendedor,
                     COALESCE(v.percentual_comissao, 0) AS percentual_comissao_vendedor,
-                    v.user_id AS vendor_user_id,
                     {$sdrExpression} AS sdr_id,
                     c.nome_cliente,
                     COALESCE(comm_vendedor.total_comissao_vendedor, 0) AS valor_comissao_vendedor,
@@ -2744,32 +2741,23 @@ public function create($data, $files)
         foreach ($processos as &$processo) {
             $valorTotal = (float) ($processo['valor_total'] ?? 0);
             $vendorPercent = (float) ($processo['percentual_comissao_vendedor'] ?? 0);
-            $vendorUserId = isset($processo['vendor_user_id']) ? (int) $processo['vendor_user_id'] : null;
-            $sdrId = isset($processo['sdr_id']) ? (int) $processo['sdr_id'] : null;
+            $hasSdr = !empty($processo['sdr_id'])
+                && $sdrPercent > 0
+                && $this->isSdrUser((int) $processo['sdr_id']);
 
-            // Ajusta os percentuais respeitando o desconto do SDR sem penalizar o vendedor quando forem a mesma pessoa.
-            $hasValidSdr = $sdrId !== null && $sdrId !== $vendorUserId && $this->isSdrUser($sdrId);
+            if ($hasSdr) {
+                $adjustedVendorPercent = max(0, $vendorPercent - $sdrPercent);
+                $valorComissaoVendedor = round($valorTotal * ($adjustedVendorPercent / 100), 2);
+                $valorComissaoSdr = round($valorTotal * ($sdrPercent / 100), 2);
 
-            if ($hasValidSdr) {
-                if ($vendorPercent > 0) {
-                    $adjustedVendorPercent = max($vendorPercent - $sdrPercent, 0);
-                    $adjustedSdrPercent = $sdrPercent;
-                } else {
-                    // Mantém o SDR remunerado mesmo quando o vendedor está com comissão zerada.
-                    $adjustedVendorPercent = 0;
-                    $adjustedSdrPercent = $sdrPercent;
-                }
+                $processo['percentual_comissao_vendedor'] = $adjustedVendorPercent;
+                $processo['percentual_comissao_sdr'] = $sdrPercent;
             } else {
-                // Quando vendedor e SDR são a mesma pessoa (ou não existe SDR), não há desconto de SDR.
-                $adjustedVendorPercent = $vendorPercent;
-                $adjustedSdrPercent = 0;
+                $valorComissaoVendedor = $this->calculateVendorCommission($processo, $vendorPercent);
+                $valorComissaoSdr = 0.0;
+                $processo['percentual_comissao_vendedor'] = $vendorPercent;
+                $processo['percentual_comissao_sdr'] = 0.0;
             }
-
-            $valorComissaoVendedor = round($valorTotal * ($adjustedVendorPercent / 100), 2);
-            $valorComissaoSdr = round($valorTotal * ($adjustedSdrPercent / 100), 2);
-
-            $processo['percentual_comissao_vendedor'] = $adjustedVendorPercent;
-            $processo['percentual_comissao_sdr'] = $adjustedSdrPercent;
 
             $processo['valor_comissao_vendedor'] = $valorComissaoVendedor;
             $processo['valor_comissao_sdr'] = $valorComissaoSdr;
@@ -2794,12 +2782,10 @@ public function create($data, $files)
             $stmt->execute();
             $value = $stmt->fetchColumn();
 
-            // Mantém 0,5% como padrão quando não houver configuração ativa, replicando o percentual histórico.
-            return $value !== false && $value !== null ? (float) $value : 0.5;
+            return $value !== false && $value !== null ? (float) $value : 0.0;
         } catch (PDOException $exception) {
             error_log('Erro ao buscar percentual de comissão SDR: ' . $exception->getMessage());
-            // Em caso de falha na consulta, aplica o fallback de 0,5% para não interromper o relatório.
-            return 0.5;
+            return 0.0;
         }
     }
 
