@@ -2743,8 +2743,6 @@ public function create($data, $files)
         foreach ($processos as &$processo) {
             $valorTotal = (float) ($processo['valor_total'] ?? 0);
             $vendorPercent = (float) ($processo['percentual_comissao_vendedor'] ?? 0);
-            $valorComissaoVendedorExistente = (float) ($processo['valor_comissao_vendedor'] ?? 0);
-            $valorComissaoSdrExistente = (float) ($processo['valor_comissao_sdr'] ?? 0);
             $hasSdr = !empty($processo['sdr_id'])
                 && $sdrPercent > 0
                 && $this->isSdrUser((int) $processo['sdr_id'])
@@ -2762,14 +2760,6 @@ public function create($data, $files)
                 $valorComissaoSdr = 0.0;
                 $processo['percentual_comissao_vendedor'] = $vendorPercent;
                 $processo['percentual_comissao_sdr'] = 0.0;
-            }
-
-            if ($valorComissaoVendedor <= 0 && $valorComissaoVendedorExistente > 0) {
-                $valorComissaoVendedor = $valorComissaoVendedorExistente;
-            }
-
-            if ($valorComissaoSdr <= 0 && $valorComissaoSdrExistente > 0) {
-                $valorComissaoSdr = $valorComissaoSdrExistente;
             }
 
             $processo['valor_comissao_vendedor'] = $valorComissaoVendedor;
@@ -2805,38 +2795,14 @@ public function create($data, $files)
     private function isSdrUser(int $userId): bool
     {
         try {
-            $perfil = $this->getUserPerfil($userId);
-
-            if ($perfil === null) {
-                $stmt = $this->pdo->prepare('SELECT user_id FROM vendedores WHERE id = :id LIMIT 1');
-                $stmt->execute([':id' => $userId]);
-                $resolvedUserId = $stmt->fetchColumn();
-
-                if ($resolvedUserId !== false && $resolvedUserId !== null) {
-                    $perfil = $this->getUserPerfil((int) $resolvedUserId);
-                }
-            }
-
-            return $perfil !== null && strtolower($perfil) === 'sdr';
+            $stmt = $this->pdo->prepare('SELECT perfil FROM users WHERE id = :id LIMIT 1');
+            $stmt->execute([':id' => $userId]);
+            $perfil = $stmt->fetchColumn();
+            return is_string($perfil) && strtolower($perfil) === 'sdr';
         } catch (PDOException $exception) {
             error_log('Erro ao verificar perfil de SDR para o usuário ' . $userId . ': ' . $exception->getMessage());
             return false;
         }
-    }
-
-    private function getUserPerfil(int $userId): ?string
-    {
-        $stmt = $this->pdo->prepare('SELECT perfil FROM users WHERE id = :id LIMIT 1');
-        $stmt->execute([':id' => $userId]);
-        $perfil = $stmt->fetchColumn();
-
-        if ($perfil === false || $perfil === null) {
-            return null;
-        }
-
-        $perfil = trim((string) $perfil);
-
-        return $perfil !== '' ? $perfil : null;
     }
         
 /**
