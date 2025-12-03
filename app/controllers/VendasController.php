@@ -186,7 +186,7 @@ class VendasController {
         $vendedores = $this->vendedorModel->getAll();
         $sdrs = [];
         try {
-            $stmt = $this->pdo->prepare("SELECT DISTINCT u.id, u.nome_completo FROM users u LEFT JOIN processos p ON u.id = p.sdr_id WHERE (u.perfil = 'sdr' OR p.sdr_id IS NOT NULL) AND (u.ativo = 1 OR u.ativo IS NULL) ORDER BY u.nome_completo ASC");
+            $stmt = $this->pdo->prepare("SELECT DISTINCT u.id, u.nome_completo FROM processos p JOIN users u ON p.sdr_id = u.id WHERE p.sdr_id IS NOT NULL ORDER BY u.nome_completo ASC");
             $stmt->execute();
             $sdrs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $exception) {
