@@ -2672,7 +2672,6 @@ public function create($data, $files)
                     p.data_conversao,
                     {$statusFinanceiroSelect},
                     COALESCE(u.nome_completo, 'Sistema') AS nome_vendedor,
-                    u.id AS vendedor_user_id,
                     COALESCE(v.percentual_comissao, 0) AS percentual_comissao_vendedor,
                     {$sdrExpression} AS sdr_id,
                     c.nome_cliente,
@@ -2731,8 +2730,7 @@ public function create($data, $files)
         $stmt->execute($params);
         $processos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Valor fixo de 0,5% para SDR
-        $sdrPercent = 0.5;
+        $sdrPercent = $this->getSdrCommissionPercent();
 
         $totals = [
             'valor_total' => 0.0,
@@ -2745,8 +2743,7 @@ public function create($data, $files)
             $vendorPercent = (float) ($processo['percentual_comissao_vendedor'] ?? 0);
             $hasSdr = !empty($processo['sdr_id'])
                 && $sdrPercent > 0
-                && $this->isSdrUser((int) $processo['sdr_id'])
-                && (int) $processo['sdr_id'] !== (int) ($processo['vendedor_user_id'] ?? 0);
+                && $this->isSdrUser((int) $processo['sdr_id']);
 
             if ($hasSdr) {
                 $adjustedVendorPercent = max(0, $vendorPercent - $sdrPercent);
@@ -2798,7 +2795,12 @@ public function create($data, $files)
             $stmt = $this->pdo->prepare('SELECT perfil FROM users WHERE id = :id LIMIT 1');
             $stmt->execute([':id' => $userId]);
             $perfil = $stmt->fetchColumn();
-            return is_string($perfil) && strtolower($perfil) === 'sdr';
+
+            if ($perfil === false || $perfil === null) {
+                return false;
+            }
+
+            return in_array(strtolower((string) $perfil), ['sdr', 'colaborador'], true);
         } catch (PDOException $exception) {
             error_log('Erro ao verificar perfil de SDR para o usuário ' . $userId . ': ' . $exception->getMessage());
             return false;
