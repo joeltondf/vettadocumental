@@ -2672,6 +2672,7 @@ public function create($data, $files)
                     p.data_conversao,
                     {$statusFinanceiroSelect},
                     COALESCE(u.nome_completo, 'Sistema') AS nome_vendedor,
+                    u.id AS vendedor_user_id,
                     COALESCE(v.percentual_comissao, 0) AS percentual_comissao_vendedor,
                     {$sdrExpression} AS sdr_id,
                     c.nome_cliente,
@@ -2730,7 +2731,8 @@ public function create($data, $files)
         $stmt->execute($params);
         $processos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $sdrPercent = $this->getSdrCommissionPercent();
+        // Valor fixo de 0,5% para SDR
+        $sdrPercent = 0.5;
 
         $totals = [
             'valor_total' => 0.0,
@@ -2741,9 +2743,12 @@ public function create($data, $files)
         foreach ($processos as &$processo) {
             $valorTotal = (float) ($processo['valor_total'] ?? 0);
             $vendorPercent = (float) ($processo['percentual_comissao_vendedor'] ?? 0);
+            $valorComissaoVendedorExistente = (float) ($processo['valor_comissao_vendedor'] ?? 0);
+            $valorComissaoSdrExistente = (float) ($processo['valor_comissao_sdr'] ?? 0);
             $hasSdr = !empty($processo['sdr_id'])
                 && $sdrPercent > 0
-                && $this->isSdrUser((int) $processo['sdr_id']);
+                && $this->isSdrUser((int) $processo['sdr_id'])
+                && (int) $processo['sdr_id'] !== (int) ($processo['vendedor_user_id'] ?? 0);
 
             if ($hasSdr) {
                 $adjustedVendorPercent = max(0, $vendorPercent - $sdrPercent);
@@ -2757,6 +2762,14 @@ public function create($data, $files)
                 $valorComissaoSdr = 0.0;
                 $processo['percentual_comissao_vendedor'] = $vendorPercent;
                 $processo['percentual_comissao_sdr'] = 0.0;
+            }
+
+            if ($valorComissaoVendedor <= 0 && $valorComissaoVendedorExistente > 0) {
+                $valorComissaoVendedor = $valorComissaoVendedorExistente;
+            }
+
+            if ($valorComissaoSdr <= 0 && $valorComissaoSdrExistente > 0) {
+                $valorComissaoSdr = $valorComissaoSdrExistente;
             }
 
             $processo['valor_comissao_vendedor'] = $valorComissaoVendedor;
@@ -2792,19 +2805,38 @@ public function create($data, $files)
     private function isSdrUser(int $userId): bool
     {
         try {
-            $stmt = $this->pdo->prepare('SELECT perfil FROM users WHERE id = :id LIMIT 1');
-            $stmt->execute([':id' => $userId]);
-            $perfil = $stmt->fetchColumn();
+            $perfil = $this->getUserPerfil($userId);
 
-            if ($perfil === false || $perfil === null) {
-                return false;
+            if ($perfil === null) {
+                $stmt = $this->pdo->prepare('SELECT user_id FROM vendedores WHERE id = :id LIMIT 1');
+                $stmt->execute([':id' => $userId]);
+                $resolvedUserId = $stmt->fetchColumn();
+
+                if ($resolvedUserId !== false && $resolvedUserId !== null) {
+                    $perfil = $this->getUserPerfil((int) $resolvedUserId);
+                }
             }
 
-            return in_array(strtolower((string) $perfil), ['sdr', 'colaborador'], true);
+            return $perfil !== null && strtolower($perfil) === 'sdr';
         } catch (PDOException $exception) {
             error_log('Erro ao verificar perfil de SDR para o usuário ' . $userId . ': ' . $exception->getMessage());
             return false;
         }
+    }
+
+    private function getUserPerfil(int $userId): ?string
+    {
+        $stmt = $this->pdo->prepare('SELECT perfil FROM users WHERE id = :id LIMIT 1');
+        $stmt->execute([':id' => $userId]);
+        $perfil = $stmt->fetchColumn();
+
+        if ($perfil === false || $perfil === null) {
+            return null;
+        }
+
+        $perfil = trim((string) $perfil);
+
+        return $perfil !== '' ? $perfil : null;
     }
         
 /**
