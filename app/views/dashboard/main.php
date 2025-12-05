@@ -348,12 +348,14 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : '';
                     <?php $statusOptions = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Pago - A Enviar', 'Pendente de Pagamento', 'Pendente de Documentos', 'Concluído', 'Cancelado']; foreach ($statusOptions as $option): ?>
                             <?php
                                 $optionInfo = dashboard_normalize_status_info($option);
-                                $optionLabel = $optionInfo['label'];
-                                if (!empty($optionInfo['badge_label'])) {
-                                    $optionLabel .= ' (' . $optionInfo['badge_label'] . ')';
-                                }
+                                $optionLabel = !empty($optionInfo['badge_label'])
+                                    ? $optionInfo['badge_label']
+                                    : $optionInfo['label'];
                                 $optionCanonical = mb_strtolower($option);
                                 $optionBadgeKey = !empty($optionInfo['badge_label']) ? mb_strtolower($optionInfo['badge_label']) : null;
+                                $optionClass = !empty($optionInfo['badge_color_classes'])
+                                    ? $optionInfo['badge_color_classes']
+                                    : dashboard_get_status_label_class($optionInfo['normalized'] ?? '');
                                 $isSelected = false;
 
                                 if ($statusSelectedOption !== '__all__' && $selectedStatusCanonical !== '') {
@@ -366,7 +368,7 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : '';
                                     }
                                 }
                             ?>
-                            <option value="<?php echo htmlspecialchars($option, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isSelected ? 'selected' : ''; ?>><?php echo htmlspecialchars($optionLabel); ?></option>
+                            <option value="<?php echo htmlspecialchars($option, ENT_QUOTES, 'UTF-8'); ?>" class="<?php echo htmlspecialchars($optionClass, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isSelected ? 'selected' : ''; ?>><?php echo htmlspecialchars($optionLabel); ?></option>
                     <?php endforeach; ?>
                     </select>
                 </div>
