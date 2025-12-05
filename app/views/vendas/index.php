@@ -183,7 +183,7 @@
                                 </td>
                                 <td class="px-5 py-4 border-b text-sm whitespace-nowrap">
                                     <?php
-                                        $dataServico = $proc['data_conversao'] ?? $proc['data_filtro'] ?? null;
+                                        $dataServico = $proc['data_pagamento'] ?? $proc['data_conversao'] ?? $proc['data_filtro'] ?? null;
                                         echo !empty($dataServico) ? date('d/m/Y', strtotime($dataServico)) : '—';
                                     ?>
                                 </td>
