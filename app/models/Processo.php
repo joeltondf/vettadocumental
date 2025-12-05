@@ -2650,8 +2650,7 @@ public function create($data, $files)
 
         $sdrExpression = $this->getSdrIdSelectExpression();
         $statusFinanceiroSelect = $this->getStatusFinanceiroSelectExpression();
-        $firstInstallmentDate = "(SELECT MIN(lf.data_vencimento) FROM lancamentos_financeiros lf WHERE lf.processo_id = p.id AND lf.tipo_lancamento = 'RECEITA')";
-        $dateField = "COALESCE(\n            {$firstInstallmentDate},\n            p.data_conversao,\n            p.data_inicio_traducao,\n            p.data_criacao\n        )";
+        $dateField = "CASE\n            WHEN p.data_conversao IS NOT NULL THEN p.data_conversao\n            WHEN p.data_inicio_traducao IS NOT NULL THEN p.data_inicio_traducao\n            ELSE p.data_criacao\n        END";
 
         $sql = "SELECT
                     p.id,
@@ -2661,7 +2660,6 @@ public function create($data, $files)
                     p.data_criacao,
                     p.valor_total,
                     p.status_processo,
-                    {$firstInstallmentDate} AS data_primeira_parcela,
                     {$dateField} AS data_filtro,
                     p.data_conversao,
                     {$statusFinanceiroSelect},
