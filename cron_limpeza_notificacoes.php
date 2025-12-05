@@ -21,7 +21,10 @@ $pendingStatuses = [
     'Serviço pendente',
     'Serviço em Andamento',
     'Serviço em andamento',
+    'Pago - A Enviar',
+    'Pendente de Pagamento',
     'Pendente de pagamento',
+    'Pendente de Documentos',
     'Pendente de documentos',
 ];
 

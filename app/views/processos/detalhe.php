@@ -175,8 +175,9 @@ function normalize_status_info(?string $status): array {
         'orçamento pendente' => 'Orçamento Pendente',
         'serviço pendente' => 'Serviço Pendente',
         'serviço em andamento' => 'Serviço em Andamento',
-        'pendente de pagamento' => 'Pendente de pagamento',
-        'pendente de documentos' => 'Pendente de documentos',
+        'pendente de pagamento' => 'Pendente de Pagamento',
+        'pendente de documentos' => 'Pendente de Documentos',
+        'pago - a enviar' => 'Pago - A Enviar',
         'concluído' => 'Concluído',
         'cancelado' => 'Cancelado',
     ];
@@ -653,7 +654,7 @@ $prospectionLabel = $prospectionCode !== ''
                             </span>
                         </label>
                         <select id="status_processo" name="status_processo" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                            <?php $statusOptions = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Cancelado']; ?>
+                            <?php $statusOptions = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Pago - A Enviar', 'Pendente de Pagamento', 'Pendente de Documentos', 'Concluído', 'Cancelado']; ?>
                             <?php foreach ($statusOptions as $stat): ?>
                                 <?php $optionInfo = normalize_status_info($stat); ?>
                                 <?php $optionDisabled = $shouldDisableServiceInProgress && $optionInfo['normalized'] === 'serviço em andamento'; ?>

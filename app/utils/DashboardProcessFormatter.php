@@ -39,11 +39,12 @@ class DashboardProcessFormatter
         'arquivada' => 'cancelado',
         'recusado' => 'cancelado',
         'recusada' => 'cancelado',
+        'pago - a enviar' => 'pago - a enviar',
     ];
 
     private const BADGE_LABELS = [
-        'pendente de pagamento' => 'Pendente de pagamento',
-        'pendente de documentos' => 'Pendente de documentos',
+        'pendente de pagamento' => 'Pendente de Pagamento',
+        'pendente de documentos' => 'Pendente de Documentos',
     ];
 
     private const BADGE_COLOR_CLASSES = [
@@ -66,6 +67,7 @@ class DashboardProcessFormatter
         'orçamento pendente' => 'Orçamento Pendente',
         'serviço pendente' => 'Serviço Pendente',
         'serviço em andamento' => 'Serviço em Andamento',
+        'pago - a enviar' => 'Pago - A Enviar',
         'concluído' => 'Concluído',
         'cancelado' => 'Cancelado',
     ];
@@ -75,6 +77,7 @@ class DashboardProcessFormatter
         'orçamento pendente' => 'text-blue-700',
         'serviço pendente' => 'text-orange-700',
         'serviço em andamento' => 'text-cyan-700',
+        'pago - a enviar' => 'text-cyan-700',
         'concluído' => 'text-purple-700',
         'cancelado' => 'text-red-700',
     ];
@@ -131,7 +134,7 @@ class DashboardProcessFormatter
         return match ($statusNormalized) {
             'orçamento', 'orçamento pendente' => 'bg-blue-50 hover:bg-blue-100',
             'serviço pendente' => 'bg-orange-50 hover:bg-orange-100',
-            'serviço em andamento' => 'bg-cyan-50 hover:bg-cyan-100',
+            'serviço em andamento', 'pago - a enviar' => 'bg-cyan-50 hover:bg-cyan-100',
             'concluído' => 'bg-purple-50 hover:bg-purple-100',
             'cancelado' => 'bg-red-50 hover:bg-red-100',
             default => 'hover:bg-gray-50',

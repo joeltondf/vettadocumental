@@ -158,7 +158,7 @@ $currentCardFilter = $filters['filtro_card'] ?? '';
 if (!array_key_exists($currentCardFilter, $cardFilterLabels)) {
     $currentCardFilter = '';
 }
-$highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defaultStatusApplied ? 'ativos' : '');
+$highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : '';
 
 ?>
 
@@ -345,7 +345,7 @@ $highlightedCardFilter = $currentCardFilter !== '' ? $currentCardFilter : ($defa
                     <select id="status" name="status" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition duration-200">
                         <option value="" <?php echo $statusSelectedOption === '' ? 'selected' : ''; ?>>Selecione um status</option>
                         <option value="__all__" <?php echo $statusSelectedOption === '__all__' ? 'selected' : ''; ?>>Todos os Status</option>
-                    <?php $statusOptions = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Cancelado']; foreach ($statusOptions as $option): ?>
+                    <?php $statusOptions = ['Orçamento Pendente', 'Orçamento', 'Serviço Pendente', 'Serviço em Andamento', 'Pago - A Enviar', 'Pendente de Pagamento', 'Pendente de Documentos', 'Concluído', 'Cancelado']; foreach ($statusOptions as $option): ?>
                             <?php
                                 $optionInfo = dashboard_normalize_status_info($option);
                                 $optionLabel = $optionInfo['label'];
@@ -954,7 +954,8 @@ document.addEventListener('DOMContentLoaded', () => {
             'arquivado': 'cancelado',
             'arquivada': 'cancelado',
             'recusado': 'cancelado',
-            'recusada': 'cancelado'
+            'recusada': 'cancelado',
+            'pago - a enviar': 'pago - a enviar'
         };
 
         const labelMap = {
@@ -962,13 +963,14 @@ document.addEventListener('DOMContentLoaded', () => {
             'orçamento pendente': 'Orçamento Pendente',
             'serviço pendente': 'Serviço Pendente',
             'serviço em andamento': 'Serviço em Andamento',
+            'pago - a enviar': 'Pago - A Enviar',
             'concluído': 'Concluído',
             'cancelado': 'Cancelado',
         };
 
         const badgeLabels = {
-            'pendente de pagamento': 'Pendente de pagamento',
-            'pendente de documentos': 'Pendente de documentos',
+            'pendente de pagamento': 'Pendente de Pagamento',
+            'pendente de documentos': 'Pendente de Documentos',
         };
 
         let normalized = aliases[normalizedInput] ?? normalizedInput;
@@ -1010,6 +1012,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return 'text-orange-700';
             case 'serviço em andamento':
                 return 'text-cyan-700';
+            case 'pago - a enviar':
+                return 'text-cyan-700';
             case 'concluído':
                 return 'text-purple-700';
             case 'cancelado':
@@ -1027,6 +1031,8 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'serviço pendente':
                 return 'bg-orange-50 hover:bg-orange-100';
             case 'serviço em andamento':
+                return 'bg-cyan-50 hover:bg-cyan-100';
+            case 'pago - a enviar':
                 return 'bg-cyan-50 hover:bg-cyan-100';
             case 'concluído':
                 return 'bg-purple-50 hover:bg-purple-100';
