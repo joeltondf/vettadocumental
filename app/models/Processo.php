@@ -2575,10 +2575,14 @@ public function create($data, $files)
     public function getSalesByFilter($filters)
     {
         $statusFinanceiroSelect = $this->getStatusFinanceiroSelectExpression();
-        $dateField = "CASE\n            WHEN p.data_conversao IS NOT NULL THEN p.data_conversao\n            WHEN p.data_inicio_traducao IS NOT NULL THEN p.data_inicio_traducao\n            ELSE p.data_criacao\n        END";
+        $dateField = 'p.data_criacao';
         $serviceStatuses = [
+            'Serviço Pendente',
+            'Serviço pendente',
             'Serviço em Andamento',
             'Serviço em andamento',
+            'Pendente de pagamento',
+            'Pendente de documentos',
             'Concluído',
             'Finalizado',
         ];
@@ -2595,7 +2599,8 @@ public function create($data, $files)
                     p.titulo,
                     p.data_criacao,
                     {$dateField} AS data_filtro,
-                    p.data_conversao,
+                    {$dateField} AS data_conversao,
+                    {$dateField} AS data_pagamento,
                     p.valor_total,
                     p.status_processo,
                     {$statusFinanceiroSelect},
@@ -2642,15 +2647,19 @@ public function create($data, $files)
     public function getCommissionsByFilter(array $filters): array
     {
         $serviceStatuses = [
+            'Serviço Pendente',
+            'Serviço pendente',
             'Serviço em Andamento',
             'Serviço em andamento',
+            'Pendente de pagamento',
+            'Pendente de documentos',
             'Concluído',
             'Finalizado'
         ];
 
         $sdrExpression = $this->getSdrIdSelectExpression();
         $statusFinanceiroSelect = $this->getStatusFinanceiroSelectExpression();
-        $dateField = "CASE\n            WHEN p.data_conversao IS NOT NULL THEN p.data_conversao\n            WHEN p.data_inicio_traducao IS NOT NULL THEN p.data_inicio_traducao\n            ELSE p.data_criacao\n        END";
+        $dateField = 'p.data_criacao';
 
         $sql = "SELECT
                     p.id,
@@ -2661,7 +2670,8 @@ public function create($data, $files)
                     p.valor_total,
                     p.status_processo,
                     {$dateField} AS data_filtro,
-                    p.data_conversao,
+                    {$dateField} AS data_conversao,
+                    {$dateField} AS data_pagamento,
                     {$statusFinanceiroSelect},
                     COALESCE(u.nome_completo, 'Sistema') AS nome_vendedor,
                     u.id AS vendedor_user_id,
