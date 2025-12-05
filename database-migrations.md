@@ -69,7 +69,7 @@ CREATE INDEX `idx_processos_data_inicio_traducao` ON `processos` (`data_inicio_t
 ```sql
 ALTER TABLE `processos`
   MODIFY COLUMN `status_processo`
-    ENUM('Orçamento Pendente','Orçamento','Serviço Pendente','Serviço em Andamento','Pendente de pagamento','Pendente de documentos','Concluído','Cancelado')
+ENUM('Orçamento Pendente','Orçamento','Serviço Pendente','Serviço em Andamento','Pago - A Enviar','Pendente de Pagamento','Pendente de Documentos','Concluído','Cancelado')
     DEFAULT 'Orçamento';
 ```
 
@@ -91,8 +91,8 @@ UPDATE `processos`
  WHERE `status_processo` IN ('Pendente','Serviço pendente','Serviço Pendente','Aprovado');
 
 UPDATE `processos`
-   SET `status_processo` = 'Pendente de pagamento'
- WHERE `status_processo` IN ('Aguardando pagamento','Pendente de pagamento');
+ SET `status_processo` = 'Pendente de Pagamento'
+WHERE `status_processo` IN ('Aguardando pagamento','Pendente de pagamento');
 
 UPDATE `processos`
    SET `status_processo` = 'Pendente de documentos'

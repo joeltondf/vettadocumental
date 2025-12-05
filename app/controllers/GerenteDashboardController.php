@@ -121,7 +121,7 @@ class GerenteDashboardController
                 JOIN users u ON v.user_id = u.id
                 LEFT JOIN processos p
                     ON v.id = p.vendedor_id
-                    AND p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos')
+                    AND p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pago - A Enviar', 'Pendente de Pagamento', 'Pendente de pagamento', 'Pendente de Documentos', 'Pendente de documentos')
                 GROUP BY v.id, u.nome_completo
             ");
             $stmt->execute();
@@ -192,7 +192,10 @@ class GerenteDashboardController
             'Serviço pendente',
             'Serviço em Andamento',
             'Serviço em andamento',
+            'Pago - A Enviar',
+            'Pendente de Pagamento',
             'Pendente de pagamento',
+            'Pendente de Documentos',
             'Pendente de documentos',
             'Concluído',
             'Finalizado',

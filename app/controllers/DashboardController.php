@@ -69,7 +69,7 @@ class DashboardController
             $filters['direction'] = 'ASC';
         }
         $defaultStatusApplied = false;
-        $defaultStatusLabel = 'Serviço em Andamento';
+        $defaultStatusLabel = '__all__';
 
         $hasCardFilter = !empty($filters['filtro_card'] ?? '');
         $isAjaxRequest = isset($filters['ajax']) && $filters['ajax'] === '1';
@@ -169,7 +169,7 @@ class DashboardController
         ];
 
         if ($defaultStatusApplied) {
-            $listTitle = 'Serviços em Andamento';
+            $listTitle = 'Todos os Serviços';
         } elseif (!empty($filters['filtro_card']) && isset($cardFiltersLabels[$filters['filtro_card']])) {
             $listTitle = $cardFiltersLabels[$filters['filtro_card']];
         } elseif ($hasFilters) {

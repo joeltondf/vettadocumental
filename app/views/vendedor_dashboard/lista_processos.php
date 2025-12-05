@@ -128,7 +128,7 @@ $initialVisibleRows = 25;
             <select id="status" name="status" class="w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
                 <option value="">Todos</option>
                 <?php
-                    $statusOptions = ['Orçamento', 'Orçamento Pendente', 'Serviço Pendente', 'Serviço em Andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Cancelado'];
+                    $statusOptions = ['Orçamento', 'Orçamento Pendente', 'Serviço Pendente', 'Serviço em Andamento', 'Pago - A Enviar', 'Pendente de Pagamento', 'Pendente de Documentos', 'Concluído', 'Cancelado'];
                     foreach ($statusOptions as $option):
                         $optionInfo = seller_normalize_status_info($option);
                         $optionLabel = $optionInfo['label'];

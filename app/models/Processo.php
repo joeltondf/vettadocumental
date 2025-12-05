@@ -505,7 +505,7 @@ public function create($data, $files)
             
             // --- INÍCIO DA NOVA LÓGICA DE LANÇAMENTO FINANCEIRO ---
             $newStatus = $data['status_processo'];
-            $statusTrigger = ['Serviço Pendente', 'Serviço em Andamento', 'Serviço pendente', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos']; // Status que disparam a criação da receita
+            $statusTrigger = ['Serviço Pendente', 'Serviço em Andamento', 'Serviço pendente', 'Serviço em andamento', 'Pendente de Pagamento', 'Pendente de Documentos', 'Pago - A Enviar']; // Status que disparam a criação da receita
 
             // Dispara a lógica apenas se o status MUDOU para um dos status do gatilho
             if ($oldStatus != $newStatus && in_array($newStatus, $statusTrigger)) {
@@ -848,7 +848,7 @@ public function create($data, $files)
 
         switch ($filters['filtro_card']) {
             case 'ativos':
-                $where_clauses[] = "LOWER(p.status_processo) IN ('serviço em andamento', 'servico em andamento', 'pendente de pagamento', 'pendente de documentos', 'aguardando pagamento', 'aguardando pagamentos', 'aguardando documento', 'aguardando documentos', 'aguardando documentacao', 'aguardando documentação')";
+                $where_clauses[] = "LOWER(p.status_processo) IN ('serviço em andamento', 'servico em andamento', 'pago - a enviar', 'pendente de pagamento', 'pendente de documentos', 'aguardando pagamento', 'aguardando pagamentos', 'aguardando documento', 'aguardando documentos', 'aguardando documentacao', 'aguardando documentação')";
                 break;
             case 'pendentes':
                 $where_clauses[] = "p.status_processo IN ('Serviço Pendente', 'Serviço pendente')";
@@ -873,13 +873,13 @@ public function create($data, $files)
         $where_clauses[] = "p.vendedor_id = :vendedor_id";
         $params[':vendedor_id'] = $filters['vendedor_id'];
     }
-    if (!empty($filters['status']) && $filters['status'] !== '__all__') {
-        $statusValue = mb_strtolower($filters['status']);
-        if (in_array($statusValue, ['serviço em andamento', 'servico em andamento'], true)) {
-            $where_clauses[] = "LOWER(p.status_processo) IN ('serviço em andamento', 'servico em andamento', 'pendente de pagamento', 'pendente de documentos', 'aguardando pagamento', 'aguardando pagamentos', 'aguardando documento', 'aguardando documentos', 'aguardando documentacao', 'aguardando documentação')";
-        } else {
-            $where_clauses[] = "p.status_processo = :status";
-            $params[':status'] = $filters['status'];
+        if (!empty($filters['status']) && $filters['status'] !== '__all__') {
+            $statusValue = mb_strtolower($filters['status']);
+            if (in_array($statusValue, ['serviço em andamento', 'servico em andamento'], true)) {
+                $where_clauses[] = "LOWER(p.status_processo) IN ('serviço em andamento', 'servico em andamento', 'pago - a enviar', 'pendente de pagamento', 'pendente de documentos', 'aguardando pagamento', 'aguardando pagamentos', 'aguardando documento', 'aguardando documentos', 'aguardando documentacao', 'aguardando documentação')";
+            } else {
+                $where_clauses[] = "p.status_processo = :status";
+                $params[':status'] = $filters['status'];
         }
     }
     if (!empty($filters['titulo'])) {
@@ -1168,8 +1168,9 @@ public function create($data, $files)
             'Orçamento Pendente',
             'Serviço Pendente',
             'Serviço em Andamento',
-            'Pendente de pagamento',
-            'Pendente de documentos',
+            'Pago - A Enviar',
+            'Pendente de Pagamento',
+            'Pendente de Documentos',
             'Serviço',
             'Serviço Pendente com Serviço',
             'Serviço em andamento',
@@ -1438,8 +1439,8 @@ public function create($data, $files)
         $sql = "SELECT
                     SUM(CASE WHEN p.status_processo IN ('Orçamento', 'Orçamento Pendente'){$budgetDateCondition} THEN 1 ELSE 0 END) AS budgetCount,
                     SUM(CASE WHEN p.status_processo IN ('Orçamento', 'Orçamento Pendente'){$budgetDateCondition} THEN COALESCE(p.valor_total, 0) ELSE 0 END) AS budgetValue,
-                    SUM(CASE WHEN p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos') AND p.data_conversao IS NOT NULL{$serviceDateCondition} THEN 1 ELSE 0 END) AS pipelineCount,
-                    SUM(CASE WHEN p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos') AND p.data_conversao IS NOT NULL{$serviceDateCondition} THEN COALESCE(p.valor_total, 0) ELSE 0 END) AS pipelineValue,
+                    SUM(CASE WHEN p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pago - A Enviar', 'Pendente de Pagamento', 'Pendente de Documentos') AND p.data_conversao IS NOT NULL{$serviceDateCondition} THEN 1 ELSE 0 END) AS pipelineCount,
+                    SUM(CASE WHEN p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pago - A Enviar', 'Pendente de Pagamento', 'Pendente de Documentos') AND p.data_conversao IS NOT NULL{$serviceDateCondition} THEN COALESCE(p.valor_total, 0) ELSE 0 END) AS pipelineValue,
                     SUM(CASE WHEN p.status_processo IN ('Concluído', 'Finalizado') AND p.data_conversao IS NOT NULL{$serviceDateCondition} THEN 1 ELSE 0 END) AS closedCount,
                     SUM(CASE WHEN p.status_processo IN ('Concluído', 'Finalizado') AND p.data_conversao IS NOT NULL{$serviceDateCondition} THEN COALESCE(p.valor_total, 0) ELSE 0 END) AS closedValue
                 FROM processos p";
@@ -1525,8 +1526,9 @@ public function create($data, $files)
             'Serviço pendente',
             'Serviço em Andamento',
             'Serviço em andamento',
-            'Pendente de pagamento',
-            'Pendente de documentos',
+            'Pago - A Enviar',
+            'Pendente de Pagamento',
+            'Pendente de Documentos',
             'Concluído',
             'Finalizado'
         ];
@@ -1723,10 +1725,11 @@ public function create($data, $files)
             'Serviço pendente',
             'Serviço em Andamento',
             'Serviço em andamento',
-            'Pendente de pagamento',
+            'Pago - A Enviar',
             'Pendente de Pagamento',
-            'Pendente de documentos',
-            'Pendente de Documentos'
+            'Pendente de pagamento',
+            'Pendente de Documentos',
+            'Pendente de documentos'
         ];
 
         $placeholders = implode(',', array_fill(0, count($activeStatuses), '?'));
@@ -2581,7 +2584,10 @@ public function create($data, $files)
             'Serviço pendente',
             'Serviço em Andamento',
             'Serviço em andamento',
+            'Pago - A Enviar',
+            'Pendente de Pagamento',
             'Pendente de pagamento',
+            'Pendente de Documentos',
             'Pendente de documentos',
             'Concluído',
             'Finalizado',
@@ -2651,7 +2657,10 @@ public function create($data, $files)
             'Serviço pendente',
             'Serviço em Andamento',
             'Serviço em andamento',
+            'Pago - A Enviar',
+            'Pendente de Pagamento',
             'Pendente de pagamento',
+            'Pendente de Documentos',
             'Pendente de documentos',
             'Concluído',
             'Finalizado'
@@ -2919,7 +2928,7 @@ public function create($data, $files)
                 WHERE 
                     p.data_previsao_entrega IS NOT NULL
                     AND p.data_previsao_entrega < CURDATE()
-                    AND p.status_processo NOT IN ('Concluído', 'Finalizado', 'Cancelado', 'Arquivado', 'Recusado', 'Pendente de pagamento', 'Pendente de documentos')
+                    AND p.status_processo NOT IN ('Concluído', 'Finalizado', 'Cancelado', 'Arquivado', 'Recusado', 'Pendente de Pagamento', 'Pendente de pagamento', 'Pendente de Documentos', 'Pendente de documentos')
                 ORDER BY p.data_previsao_entrega ASC";
         
         $stmt = $this->pdo->prepare($sql);
@@ -2980,7 +2989,7 @@ public function create($data, $files)
                 JOIN categorias_financeiras cf ON doc.tipo_documento = cf.nome_categoria
                 WHERE
                     p.data_criacao BETWEEN ? AND ?
-                    AND p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pendente de pagamento', 'Pendente de documentos', 'Concluído', 'Finalizado')
+                    AND p.status_processo IN ('Serviço Pendente', 'Serviço pendente', 'Serviço em Andamento', 'Serviço em andamento', 'Pago - A Enviar', 'Pendente de Pagamento', 'Pendente de pagamento', 'Pendente de Documentos', 'Pendente de documentos', 'Concluído', 'Finalizado')
                     AND cf.servico_tipo IN ($placeholders)
                 GROUP BY
                     cf.servico_tipo";
@@ -3497,7 +3506,7 @@ public function create($data, $files)
 
     public function getVendorPerformanceRanking(?string $startDate = null, ?string $endDate = null): array
     {
-        $conditions = ["p.status_processo IN ('Concluído', 'Serviço em andamento', 'Pendente de pagamento')"];
+        $conditions = ["p.status_processo IN ('Concluído', 'Serviço em andamento', 'Serviço em Andamento', 'Pago - A Enviar', 'Pendente de Pagamento', 'Pendente de pagamento')"];
         $params = [];
 
         if (!empty($startDate)) {

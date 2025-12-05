@@ -47,8 +47,9 @@ if (!function_exists('process_list_normalize_status')) {
             'orçamento pendente' => 'Orçamento Pendente',
             'serviço pendente' => 'Serviço Pendente',
             'serviço em andamento' => 'Serviço em Andamento',
-            'pendente de pagamento' => 'Pendente de pagamento',
-            'pendente de documentos' => 'Pendente de documentos',
+            'pendente de pagamento' => 'Pendente de Pagamento',
+            'pendente de documentos' => 'Pendente de Documentos',
+            'pago - a enviar' => 'Pago - A Enviar',
             'concluído' => 'Concluído',
             'cancelado' => 'Cancelado',
         ];

@@ -1314,9 +1314,11 @@ class ProcessosController
             } elseif ($newStatusNormalized === 'cancelado') {
                 $successMessage = 'Processo cancelado.';
             } elseif ($newStatusNormalized === 'pendente de pagamento') {
-                $successMessage = 'Processo atualizado para Pendente de pagamento.';
+                $successMessage = 'Processo atualizado para Pendente de Pagamento.';
             } elseif ($newStatusNormalized === 'pendente de documentos') {
-                $successMessage = 'Processo atualizado para Pendente de documentos.';
+                $successMessage = 'Processo atualizado para Pendente de Documentos.';
+            } elseif ($newStatusNormalized === 'pago - a enviar') {
+                $successMessage = 'Processo atualizado para Pago - A Enviar.';
             }
             $_SESSION['success_message'] = $successMessage;
         }
@@ -2134,7 +2136,7 @@ class ProcessosController
             if (!$vendedorUserId || $vendedorUserId != ($_SESSION['user_id'] ?? null)) {
                 return false;
             }
-            $allowed = ['Orçamento', ProcessStatus::BUDGET_PENDING, 'Serviço Pendente', 'Pendente de pagamento', 'Pendente de documentos'];
+            $allowed = ['Orçamento', ProcessStatus::BUDGET_PENDING, 'Serviço Pendente', 'Pendente de Pagamento', 'Pendente de Documentos', 'Pago - A Enviar'];
             return in_array($novoStatus, $allowed, true);
         }
 
