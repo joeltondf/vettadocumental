@@ -105,7 +105,7 @@ class VendasController {
                 $tipoPagamento = 'Pendente';
             }
 
-            $dataConversao = $proc['data_conversao'] ?? ($proc['data_filtro'] ?? null);
+            $dataConversao = $proc['data_pagamento'] ?? $proc['data_conversao'] ?? ($proc['data_filtro'] ?? null);
 
             fputcsv($output, [
                 !empty($proc['data_criacao']) ? date('d/m/Y', strtotime($proc['data_criacao'])) : '—',
