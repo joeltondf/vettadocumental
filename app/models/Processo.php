@@ -2054,15 +2054,32 @@ public function create($data, $files)
         ];
 
         if (isset($data['status_processo'])) {
+            // A data_conversao marca quando um orçamento vira serviço ou quando o serviço é criado diretamente.
+            // Para clientes mensalistas a criação pode ocorrer sem pagamento de entrada, mantendo data_pagamento nula.
             $currentProcess = $this->getProcessStatusDataConversao((int) $id);
             $currentStatus = $this->normalizeStatus($currentProcess['status_processo'] ?? '');
             $newStatus = $this->normalizeStatus((string) $data['status_processo']);
 
-            $budgetStatuses = ['orçamento', 'orçamento pendente'];
-            $conversionStatuses = ['serviço em andamento', 'concluído', 'finalizado'];
+            $budgetStatuses = [
+                'orçamento',
+                'orçamento pendente',
+                'orçamento em negociação',
+                'orçamento aguardando cliente',
+            ];
+            $conversionStatuses = [
+                'serviço pendente',
+                'serviço em andamento',
+                'pago - a enviar',
+                'pendente de pagamento',
+                'pendente de documentos',
+                'concluído',
+                'finalizado',
+            ];
 
-            if (in_array($newStatus, $conversionStatuses, true)
-                && (in_array($currentStatus, $budgetStatuses, true) || empty($currentProcess['data_conversao'] ?? null))) {
+            $shouldSetConversionDate = in_array($newStatus, $conversionStatuses, true)
+                && (in_array($currentStatus, $budgetStatuses, true) || empty($currentProcess['data_conversao'] ?? null));
+
+            if ($shouldSetConversionDate) {
                 $data['data_conversao'] = date('Y-m-d H:i:s');
                 $allowed_fields[] = 'data_conversao';
             }
@@ -2668,7 +2685,9 @@ public function create($data, $files)
 
         $sdrExpression = $this->getSdrIdSelectExpression();
         $statusFinanceiroSelect = $this->getStatusFinanceiroSelectExpression();
-        $dateField = 'p.data_criacao';
+        $dateFieldEntrada = 'p.data_criacao';
+        $dateFieldConversao = 'COALESCE(p.data_pagamento_1, p.data_pagamento_2, p.data_conversao)';
+        $orderField = "COALESCE({$dateFieldConversao}, {$dateFieldEntrada})";
 
         $sql = "SELECT
                     p.id,
@@ -2678,15 +2697,17 @@ public function create($data, $files)
                     p.data_criacao,
                     p.valor_total,
                     p.status_processo,
-                    {$dateField} AS data_filtro,
-                    {$dateField} AS data_conversao,
-                    {$dateField} AS data_pagamento,
+                    {$dateFieldEntrada} AS data_entrada,
+                    {$dateFieldEntrada} AS data_filtro,
+                    {$dateFieldConversao} AS data_conversao,
+                    {$dateFieldConversao} AS data_pagamento,
                     {$statusFinanceiroSelect},
                     COALESCE(u.nome_completo, 'Sistema') AS nome_vendedor,
                     u.id AS vendedor_user_id,
                     COALESCE(v.percentual_comissao, 0) AS percentual_comissao_vendedor,
                     {$sdrExpression} AS sdr_id,
                     c.nome_cliente,
+                    c.tipo_assessoria,
                     COALESCE(comm_vendedor.total_comissao_vendedor, 0) AS valor_comissao_vendedor,
                     COALESCE(comm_sdr.total_comissao_sdr, 0) AS valor_comissao_sdr,
                     (SELECT COALESCE(SUM(d.quantidade), 0) FROM documentos d WHERE d.processo_id = p.id) AS total_documentos
@@ -2721,22 +2742,37 @@ public function create($data, $files)
             $params[':status'] = $filters['status'];
         }
 
+        if (!empty($filters['cliente_id'])) {
+            $sql .= ' AND p.cliente_id = :cliente_id';
+            $params[':cliente_id'] = $filters['cliente_id'];
+        }
+
         if (!empty($filters['sdr_id'])) {
             $sql .= " AND {$sdrExpression} = :sdr_id";
             $params[':sdr_id'] = $filters['sdr_id'];
         }
 
-        if (!empty($filters['data_inicio'])) {
-            $sql .= " AND DATE({$dateField}) >= :data_inicio";
-            $params[':data_inicio'] = $filters['data_inicio'];
+        if (!empty($filters['data_entrada_inicio'])) {
+            $sql .= " AND DATE({$dateFieldEntrada}) >= :data_entrada_inicio";
+            $params[':data_entrada_inicio'] = $filters['data_entrada_inicio'];
         }
 
-        if (!empty($filters['data_fim'])) {
-            $sql .= " AND DATE({$dateField}) <= :data_fim";
-            $params[':data_fim'] = $filters['data_fim'];
+        if (!empty($filters['data_entrada_fim'])) {
+            $sql .= " AND DATE({$dateFieldEntrada}) <= :data_entrada_fim";
+            $params[':data_entrada_fim'] = $filters['data_entrada_fim'];
         }
 
-        $sql .= " ORDER BY {$dateField} DESC";
+        if (!empty($filters['data_conversao_inicio'])) {
+            $sql .= " AND DATE({$dateFieldConversao}) >= :data_conversao_inicio";
+            $params[':data_conversao_inicio'] = $filters['data_conversao_inicio'];
+        }
+
+        if (!empty($filters['data_conversao_fim'])) {
+            $sql .= " AND DATE({$dateFieldConversao}) <= :data_conversao_fim";
+            $params[':data_conversao_fim'] = $filters['data_conversao_fim'];
+        }
+
+        $sql .= " ORDER BY {$orderField} DESC";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);

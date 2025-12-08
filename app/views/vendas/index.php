@@ -2,8 +2,8 @@
 
     <div class="bg-white p-4 rounded-lg shadow-md mb-6">
         <form action="vendas.php" method="GET">
-            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-                <div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 items-end">
+                <div class="w-full">
                     <label for="vendedor_id" class="block text-sm font-medium text-gray-700">Vendedor</label>
                     <select name="vendedor_id" id="vendedor_id" class="mt-1 block w-full p-2 border-gray-300 rounded-md">
                         <option value="">Todos</option>
@@ -36,7 +36,18 @@
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div>
+                <div class="w-full">
+                    <label for="cliente_id" class="block text-sm font-medium text-gray-700">Cliente</label>
+                    <select name="cliente_id" id="cliente_id" class="mt-1 block w-full p-2 border-gray-300 rounded-md">
+                        <option value="">Todos</option>
+                        <?php foreach ($clientes as $cliente): ?>
+                            <option value="<?php echo $cliente['id']; ?>" <?php echo (isset($filtros['cliente_id']) && $filtros['cliente_id'] == $cliente['id']) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($cliente['nome'] ?? 'Sem nome'); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="w-full">
                     <label for="sdr_id" class="block text-sm font-medium text-gray-700">SDR</label>
                     <select name="sdr_id" id="sdr_id" class="mt-1 block w-full p-2 border-gray-300 rounded-md">
                         <option value="">Todos</option>
@@ -47,21 +58,29 @@
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div>
-                    <label for="data_inicio" class="block text-sm font-medium text-gray-700">Data de Conversão (Início)</label>
-                    <input type="date" name="data_inicio" id="data_inicio" value="<?php echo htmlspecialchars($filtros['data_inicio'] ?? ''); ?>" class="mt-1 block w-full p-2 border-gray-300 rounded-md">
+                <div class="w-full">
+                    <label for="data_entrada_inicio" class="block text-sm font-medium text-gray-700">Data de Entrada (Início)</label>
+                    <input type="date" name="data_entrada_inicio" id="data_entrada_inicio" value="<?php echo htmlspecialchars($filtros['data_entrada_inicio'] ?? ''); ?>" class="mt-1 block w-full p-2 border-gray-300 rounded-md">
                 </div>
-                <div>
-                    <label for="data_fim" class="block text-sm font-medium text-gray-700">Data de Conversão (Fim)</label>
-                    <input type="date" name="data_fim" id="data_fim" value="<?php echo htmlspecialchars($filtros['data_fim'] ?? ''); ?>" class="mt-1 block w-full p-2 border-gray-300 rounded-md">
+                <div class="w-full">
+                    <label for="data_entrada_fim" class="block text-sm font-medium text-gray-700">Data de Entrada (Fim)</label>
+                    <input type="date" name="data_entrada_fim" id="data_entrada_fim" value="<?php echo htmlspecialchars($filtros['data_entrada_fim'] ?? ''); ?>" class="mt-1 block w-full p-2 border-gray-300 rounded-md">
                 </div>
-                <div class="flex space-x-2 no-print">
+                <div class="w-full">
+                    <label for="data_conversao_inicio" class="block text-sm font-medium text-gray-700">Data de Conversão (Início)</label>
+                    <input type="date" name="data_conversao_inicio" id="data_conversao_inicio" value="<?php echo htmlspecialchars($filtros['data_conversao_inicio'] ?? ''); ?>" class="mt-1 block w-full p-2 border-gray-300 rounded-md">
+                </div>
+                <div class="w-full">
+                    <label for="data_conversao_fim" class="block text-sm font-medium text-gray-700">Data de Conversão (Fim)</label>
+                    <input type="date" name="data_conversao_fim" id="data_conversao_fim" value="<?php echo htmlspecialchars($filtros['data_conversao_fim'] ?? ''); ?>" class="mt-1 block w-full p-2 border-gray-300 rounded-md">
+                </div>
+                <div class="flex space-x-2 no-print sm:col-span-2 lg:col-span-1">
                     <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">Filtrar</button>
                     <a href="vendas.php" class="w-full text-center bg-gray-300 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-400">Limpar</a>
                 </div>
             </div>
         </form>
-        <p class="text-sm text-gray-600 mt-3">O período considera a data de criação do processo. Quando houver SDR, o vendedor recebe 4,5% (de 5%) e o SDR 0,5%.</p>
+        <p class="text-sm text-gray-600 mt-3">Use a Data de Entrada para filtrar pela criação do processo e a Data de Conversão para o pagamento ou mudança efetiva para serviço. Quando houver SDR, o vendedor recebe 4,5% (de 5%) e o SDR 0,5%.</p>
         <div class="flex flex-wrap gap-2 mt-4 no-print">
             <?php $queryString = http_build_query(array_filter($filtros)); ?>
             <a href="vendas.php?action=export_csv<?php echo $queryString ? '&' . $queryString : ''; ?>" class="bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300">Exportar CSV</a>
@@ -70,30 +89,30 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-6 gap-6 mb-8">
-        <div class="bg-green-100 p-6 rounded-lg shadow text-center">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+        <div class="bg-green-100 p-4 rounded-lg shadow text-center">
             <h4 class="text-lg font-semibold text-green-800">Valor Total Vendido</h4>
-            <p class="text-3xl font-bold text-green-900 mt-2">R$ <?php echo number_format($stats['valor_total_vendido'], 2, ',', '.'); ?></p>
+            <p class="text-2xl md:text-3xl font-bold text-green-900 mt-2">R$ <?php echo number_format($stats['valor_total_vendido'], 2, ',', '.'); ?></p>
         </div>
-        <div class="bg-indigo-100 p-6 rounded-lg shadow text-center">
+        <div class="bg-indigo-100 p-4 rounded-lg shadow text-center">
             <h4 class="text-lg font-semibold text-indigo-800">Ticket Médio</h4>
-            <p class="text-3xl font-bold text-indigo-900 mt-2">R$ <?php echo number_format($stats['ticket_medio'], 2, ',', '.'); ?></p>
+            <p class="text-2xl md:text-3xl font-bold text-indigo-900 mt-2">R$ <?php echo number_format($stats['ticket_medio'], 2, ',', '.'); ?></p>
         </div>
-        <div class="bg-yellow-100 p-6 rounded-lg shadow text-center">
+        <div class="bg-yellow-100 p-4 rounded-lg shadow text-center">
             <h4 class="text-lg font-semibold text-yellow-800">Comissão Vendedor</h4>
-            <p class="text-3xl font-bold text-yellow-900 mt-2">R$ <?php echo number_format($stats['comissao_vendedor'], 2, ',', '.'); ?></p>
+            <p class="text-2xl md:text-3xl font-bold text-yellow-900 mt-2">R$ <?php echo number_format($stats['comissao_vendedor'], 2, ',', '.'); ?></p>
         </div>
-        <div class="bg-blue-100 p-6 rounded-lg shadow text-center">
+        <div class="bg-blue-100 p-4 rounded-lg shadow text-center">
             <h4 class="text-lg font-semibold text-blue-800">Comissão SDR</h4>
-            <p class="text-3xl font-bold text-blue-900 mt-2">R$ <?php echo number_format($stats['comissao_sdr'], 2, ',', '.'); ?></p>
+            <p class="text-2xl md:text-3xl font-bold text-blue-900 mt-2">R$ <?php echo number_format($stats['comissao_sdr'], 2, ',', '.'); ?></p>
         </div>
-        <div class="bg-purple-100 p-6 rounded-lg shadow text-center">
+        <div class="bg-purple-100 p-4 rounded-lg shadow text-center">
             <h4 class="text-lg font-semibold text-purple-800">Processos</h4>
-            <p class="text-3xl font-bold text-purple-900 mt-2"><?php echo count($processosFiltrados); ?></p>
+            <p class="text-2xl md:text-3xl font-bold text-purple-900 mt-2"><?php echo count($processosFiltrados); ?></p>
         </div>
-        <div class="bg-white shadow-md p-6 rounded-lg">
-            <h3 class="text-xl font-semibold border-b pb-3 mb-3">Ranking de Vendedores</h3>
-            <ol class="list-decimal list-inside space-y-2">
+        <div class="bg-white shadow-md p-4 rounded-lg">
+            <h3 class="text-lg font-semibold border-b pb-3 mb-3">Ranking de Vendedores</h3>
+            <ol class="list-decimal list-inside space-y-2 text-sm">
                 <?php if (empty($stats['ranking_vendedores'])): ?>
                     <li class="text-gray-500 text-sm">Nenhum dado para exibir.</li>
                 <?php else: ?>
@@ -120,10 +139,12 @@
                     }
                 </style>
             <?php endif; ?>
-            <table class="min-w-full leading-normal text-xs">
+            <table class="min-w-full leading-normal text-xs sm:text-sm">
                 <thead>
                     <tr>
                         <th class="px-5 py-3 border-b-2 text-left whitespace-nowrap">Processo</th>
+                        <th class="px-5 py-3 border-b-2 text-left whitespace-nowrap">Cliente / Assessoria</th>
+                        <th class="px-5 py-3 border-b-2 text-left whitespace-nowrap">Data de Entrada</th>
                         <th class="px-5 py-3 border-b-2 text-left whitespace-nowrap">Data de Conversão</th>
                         <th class="px-5 py-3 border-b-2 text-right whitespace-nowrap">Valor Total</th>
                         <th class="px-5 py-3 border-b-2 text-left whitespace-nowrap min-w-[140px]">Vendedor</th>
@@ -139,7 +160,7 @@
                 </thead>
                 <tbody>
                     <?php if (empty($processosFiltrados)): ?>
-                        <tr><td colspan="12" class="text-center p-5 text-sm">Nenhum processo encontrado para os filtros selecionados.</td></tr>
+                        <tr><td colspan="13" class="text-center p-5 text-sm">Nenhum processo encontrado para os filtros selecionados.</td></tr>
                     <?php else: ?>
                         <?php foreach ($processosFiltrados as $proc): ?>
                             <?php
@@ -178,9 +199,22 @@
                                     </a>
                                 </td>
                                 <td class="px-5 py-4 border-b whitespace-nowrap">
+                                    <div class="flex flex-col gap-1">
+                                        <span class="font-semibold text-gray-800 text-xs sm:text-sm leading-tight"><?php echo htmlspecialchars($proc['nome_cliente'] ?? '—'); ?></span>
+                                        <?php if (($proc['tipo_assessoria'] ?? '') === 'Mensalista'): ?>
+                                            <span class="bg-blue-100 text-blue-800 text-[11px] font-medium px-2 py-1 rounded inline-flex w-fit">Mensalista</span>
+                                        <?php else: ?>
+                                            <span class="bg-green-100 text-green-800 text-[11px] font-medium px-2 py-1 rounded inline-flex w-fit">À vista</span>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                                <td class="px-5 py-4 border-b whitespace-nowrap">
+                                    <?php echo !empty($proc['data_entrada']) ? date('d/m/Y', strtotime($proc['data_entrada'])) : '—'; ?>
+                                </td>
+                                <td class="px-5 py-4 border-b whitespace-nowrap">
                                     <?php
-                                        $dataServico = $proc['data_criacao'] ?? $proc['data_conversao'] ?? $proc['data_pagamento'] ?? $proc['data_filtro'] ?? null;
-                                        echo !empty($dataServico) ? date('d/m/Y', strtotime($dataServico)) : '—';
+                                        $dataConversao = $proc['data_conversao'] ?? null;
+                                        echo !empty($dataConversao) ? date('d/m/Y', strtotime($dataConversao)) : '—';
                                     ?>
                                 </td>
                                 <td class="px-5 py-4 border-b text-right whitespace-nowrap">R$ <?php echo number_format($proc['valor_total'], 2, ',', '.'); ?></td>
