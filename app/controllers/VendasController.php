@@ -207,11 +207,14 @@ class VendasController {
         if (($proc['vendedor_user_id'] ?? 0) == 17 || $nomeVendedor === 'sistema') {
             $proc['percentual_comissao_vendedor'] = 0;
             $proc['valor_comissao_vendedor'] = 0;
-            $proc['percentual_comissao_sdr'] = 0;
-            $proc['valor_comissao_sdr'] = 0;
 
-            if (empty($proc['sdr_id'])) {
+            if (!empty($proc['sdr_id'])) {
+                $sdrUser = $this->userModel->getById((int) $proc['sdr_id']);
+                $proc['nome_sdr'] = $sdrUser['nome_completo'] ?? 'Sem SDR';
+            } else {
                 $proc['nome_sdr'] = 'Sem SDR';
+                $proc['percentual_comissao_sdr'] = 0;
+                $proc['valor_comissao_sdr'] = 0;
             }
 
             return $proc;
