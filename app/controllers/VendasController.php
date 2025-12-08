@@ -28,8 +28,11 @@ class VendasController {
         $filtros = [
             'vendedor_id' => $_GET['vendedor_id'] ?? null,
             'sdr_id' => $_GET['sdr_id'] ?? null,
-            'data_inicio' => $_GET['data_inicio'] ?? null,
-            'data_fim' => $_GET['data_fim'] ?? null
+            'cliente_id' => $_GET['cliente_id'] ?? null,
+            'data_entrada_inicio' => $_GET['data_entrada_inicio'] ?? null,
+            'data_entrada_fim' => $_GET['data_entrada_fim'] ?? null,
+            'data_conversao_inicio' => $_GET['data_conversao_inicio'] ?? null,
+            'data_conversao_fim' => $_GET['data_conversao_fim'] ?? null,
         ];
 
         $action = $_GET['action'] ?? null;
@@ -105,10 +108,10 @@ class VendasController {
                 $tipoPagamento = 'Pendente';
             }
 
-            $dataConversao = $proc['data_criacao'] ?? $proc['data_conversao'] ?? ($proc['data_filtro'] ?? null);
+            $dataConversao = $proc['data_conversao'] ?? ($proc['data_filtro'] ?? null);
 
             fputcsv($output, [
-                !empty($proc['data_criacao']) ? date('d/m/Y', strtotime($proc['data_criacao'])) : '—',
+                !empty($proc['data_entrada']) ? date('d/m/Y', strtotime($proc['data_entrada'])) : '—',
                 '#' . $proc['id'] . ' - ' . ($proc['titulo'] ?? ''),
                 !empty($dataConversao) ? date('d/m/Y', strtotime($dataConversao)) : '—',
                 number_format($proc['valor_total'], 2, ',', '.'),
@@ -192,7 +195,9 @@ class VendasController {
             error_log('Erro ao carregar SDRs para filtro: ' . $exception->getMessage());
         }
 
-        return compact('filtros', 'processosFiltrados', 'totais', 'stats', 'vendedores', 'sdrs');
+        $clientes = $this->processoModel->getAllClientes();
+
+        return compact('filtros', 'processosFiltrados', 'totais', 'stats', 'vendedores', 'sdrs', 'clientes');
     }
 
     private function normalizeSdrData(array $proc): array
