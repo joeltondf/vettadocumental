@@ -210,10 +210,7 @@ class VendasController {
             $proc['percentual_comissao_sdr'] = 0;
             $proc['valor_comissao_sdr'] = 0;
 
-            if (!empty($proc['sdr_id'])) {
-                $sdrUser = $this->userModel->getById((int) $proc['sdr_id']);
-                $proc['nome_sdr'] = $sdrUser['nome_completo'] ?? 'Sem SDR';
-            } else {
+            if (empty($proc['sdr_id'])) {
                 $proc['nome_sdr'] = 'Sem SDR';
             }
 
