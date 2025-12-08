@@ -142,25 +142,26 @@
             <table class="min-w-full leading-normal text-xs sm:text-sm">
                 <thead>
                     <tr>
-                        <th class="px-5 py-3 border-b-2 text-left whitespace-nowrap">Processo</th>
-                        <th class="px-5 py-3 border-b-2 text-left whitespace-nowrap">Cliente / Assessoria</th>
-                        <th class="px-5 py-3 border-b-2 text-left whitespace-nowrap">Data de Entrada</th>
-                        <th class="px-5 py-3 border-b-2 text-left whitespace-nowrap">Data de Conversão</th>
-                        <th class="px-5 py-3 border-b-2 text-right whitespace-nowrap">Valor Total</th>
-                        <th class="px-5 py-3 border-b-2 text-left whitespace-nowrap min-w-[140px]">Vendedor</th>
-                        <th class="px-5 py-3 border-b-2 text-right text-yellow-700 font-semibold whitespace-nowrap">% Comissão Vend.</th>
-                        <th class="px-5 py-3 border-b-2 text-right text-yellow-700 font-semibold whitespace-nowrap">Comissão Vend.</th>
-                        <th class="px-5 py-3 border-b-2 text-left whitespace-nowrap min-w-[140px]">SDR</th>
-                        <th class="px-5 py-3 border-b-2 text-right text-blue-700 font-semibold whitespace-nowrap">% Comissão SDR</th>
-                        <th class="px-5 py-3 border-b-2 text-right text-blue-700 font-semibold whitespace-nowrap">Comissão SDR</th>
-                        <th class="px-5 py-3 border-b-2 text-center whitespace-nowrap">Situação de Pagamento</th>
-                        <th class="px-5 py-3 border-b-2 text-center whitespace-nowrap">Pagamento</th>
-                        <th class="px-5 py-3 border-b-2 text-center whitespace-nowrap">Status do Serviço</th>
+                        <th class="px-3 py-2 border-b-2 text-left whitespace-nowrap min-w-[180px]">Processo</th>
+                        <th class="px-3 py-2 border-b-2 text-left whitespace-nowrap w-20">OMIE</th>
+                        <th class="px-3 py-2 border-b-2 text-left whitespace-nowrap min-w-[180px]">Cliente / Assessoria</th>
+                        <th class="px-3 py-2 border-b-2 text-left whitespace-nowrap">Data de Entrada</th>
+                        <th class="px-3 py-2 border-b-2 text-left whitespace-nowrap">Data de Conversão</th>
+                        <th class="px-3 py-2 border-b-2 text-right whitespace-nowrap">Valor Total</th>
+                        <th class="px-3 py-2 border-b-2 text-left whitespace-nowrap min-w-[140px]">Vendedor</th>
+                        <th class="px-3 py-2 border-b-2 text-right text-yellow-700 font-semibold whitespace-nowrap">% Comissão Vend.</th>
+                        <th class="px-3 py-2 border-b-2 text-right text-yellow-700 font-semibold whitespace-nowrap">Comissão Vend.</th>
+                        <th class="px-3 py-2 border-b-2 text-left whitespace-nowrap min-w-[140px]">SDR</th>
+                        <th class="px-3 py-2 border-b-2 text-right text-blue-700 font-semibold whitespace-nowrap">% Comissão SDR</th>
+                        <th class="px-3 py-2 border-b-2 text-right text-blue-700 font-semibold whitespace-nowrap">Comissão SDR</th>
+                        <th class="px-3 py-2 border-b-2 text-center whitespace-nowrap">Situação de Pagamento</th>
+                        <th class="px-3 py-2 border-b-2 text-center whitespace-nowrap">Pagamento</th>
+                        <th class="px-3 py-2 border-b-2 text-center whitespace-nowrap">Status do Serviço</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($processosFiltrados)): ?>
-                        <tr><td colspan="13" class="text-center p-5 text-sm">Nenhum processo encontrado para os filtros selecionados.</td></tr>
+                        <tr><td colspan="15" class="text-center p-5 text-sm">Nenhum processo encontrado para os filtros selecionados.</td></tr>
                     <?php else: ?>
                         <?php foreach ($processosFiltrados as $proc): ?>
                             <?php
@@ -192,43 +193,49 @@
                                     $badgeServico['classes'] = 'bg-yellow-100 text-yellow-800';
                                 }
                             ?>
-                            <tr>
-                                <td class="px-5 py-4 border-b">
-                                    <a href="processos.php?action=view&id=<?php echo $proc['id']; ?>" class="text-blue-600 hover:underline whitespace-nowrap">
-                                        #<?php echo $proc['id']; ?> - <?php echo htmlspecialchars($proc['titulo']); ?>
+                            <tr class="text-[11px] sm:text-xs">
+                                <td class="px-3 py-2 border-b align-top">
+                                    <a href="processos.php?action=view&id=<?php echo $proc['id']; ?>" class="text-blue-600 hover:underline block truncate" title="<?php echo htmlspecialchars($proc['titulo']); ?>">
+                                        <?php echo htmlspecialchars($proc['titulo']); ?>
                                     </a>
                                 </td>
-                                <td class="px-5 py-4 border-b whitespace-nowrap">
-                                    <div class="flex flex-col gap-1">
-                                        <span class="font-semibold text-gray-800 text-xs sm:text-sm leading-tight"><?php echo htmlspecialchars($proc['nome_cliente'] ?? '—'); ?></span>
+                                <td class="px-3 py-2 border-b align-top whitespace-nowrap w-20" title="<?php echo htmlspecialchars($proc['os_numero_omie'] ?? ''); ?>">
+                                    <?php
+                                        $numeroOmie = trim((string) ($proc['os_numero_omie'] ?? ''));
+                                        echo $numeroOmie !== '' ? htmlspecialchars(mb_substr($numeroOmie, -5)) : '—';
+                                    ?>
+                                </td>
+                                <td class="px-3 py-2 border-b align-top">
+                                    <div class="flex flex-col gap-1 max-w-[220px]">
+                                        <span class="font-semibold text-gray-800 truncate" title="<?php echo htmlspecialchars($proc['nome_cliente'] ?? '—'); ?>"><?php echo htmlspecialchars($proc['nome_cliente'] ?? '—'); ?></span>
                                         <?php if (($proc['tipo_assessoria'] ?? '') === 'Mensalista'): ?>
-                                            <span class="bg-blue-100 text-blue-800 text-[11px] font-medium px-2 py-1 rounded inline-flex w-fit">Mensalista</span>
+                                            <span class="bg-blue-100 text-blue-800 text-[10px] sm:text-[11px] font-medium px-2 py-1 rounded inline-flex w-fit">Mensalista</span>
                                         <?php else: ?>
-                                            <span class="bg-green-100 text-green-800 text-[11px] font-medium px-2 py-1 rounded inline-flex w-fit">À vista</span>
+                                            <span class="bg-green-100 text-green-800 text-[10px] sm:text-[11px] font-medium px-2 py-1 rounded inline-flex w-fit">À vista</span>
                                         <?php endif; ?>
                                     </div>
                                 </td>
-                                <td class="px-5 py-4 border-b whitespace-nowrap">
+                                <td class="px-3 py-2 border-b whitespace-nowrap align-top">
                                     <?php echo !empty($proc['data_entrada']) ? date('d/m/Y', strtotime($proc['data_entrada'])) : '—'; ?>
                                 </td>
-                                <td class="px-5 py-4 border-b whitespace-nowrap">
+                                <td class="px-3 py-2 border-b whitespace-nowrap align-top">
                                     <?php
                                         $dataConversao = $proc['data_conversao'] ?? null;
                                         echo !empty($dataConversao) ? date('d/m/Y', strtotime($dataConversao)) : '—';
                                     ?>
                                 </td>
-                                <td class="px-5 py-4 border-b text-right whitespace-nowrap">R$ <?php echo number_format($proc['valor_total'], 2, ',', '.'); ?></td>
-                                <td class="px-5 py-4 border-b whitespace-nowrap min-w-[140px]">
+                                <td class="px-3 py-2 border-b text-right whitespace-nowrap align-top">R$ <?php echo number_format($proc['valor_total'], 2, ',', '.'); ?></td>
+                                <td class="px-3 py-2 border-b whitespace-nowrap min-w-[140px] align-top">
                                     <span class="text-purple-700 text-xs mr-1">👤</span>
-                                    <?php echo htmlspecialchars($formatVendorName($proc['nome_vendedor'] ?? null)); ?>
+                                    <span class="inline-block truncate max-w-[140px]" title="<?php echo htmlspecialchars($formatVendorName($proc['nome_vendedor'] ?? null)); ?>"><?php echo htmlspecialchars($formatVendorName($proc['nome_vendedor'] ?? null)); ?></span>
                                 </td>
-                                <td class="px-5 py-4 border-b text-right text-yellow-700 font-semibold whitespace-nowrap">
+                                <td class="px-3 py-2 border-b text-right text-yellow-700 font-semibold whitespace-nowrap align-top">
                                     <span class="inline-flex items-center justify-end w-full"><span class="mr-1 text-yellow-500">👤</span><?php echo number_format($proc['percentual_comissao_vendedor'] ?? 0, 2, ',', '.'); ?>%</span>
                                 </td>
-                                <td class="px-5 py-4 border-b text-right text-yellow-700 font-semibold whitespace-nowrap">
+                                <td class="px-3 py-2 border-b text-right text-yellow-700 font-semibold whitespace-nowrap align-top">
                                     <span class="inline-flex items-center justify-end w-full"><span class="mr-1 text-yellow-500">👤</span>R$ <?php echo number_format($proc['valor_comissao_vendedor'] ?? 0, 2, ',', '.'); ?></span>
                                 </td>
-                                <td class="px-5 py-4 border-b whitespace-nowrap min-w-[140px]">
+                                <td class="px-3 py-2 border-b whitespace-nowrap min-w-[140px] align-top">
                                     <?php
                                         $sdrNome = trim((string) ($proc['nome_sdr'] ?? ''));
                                         $sdrLabel = $sdrNome !== '' ? $sdrNome : 'Sem SDR';
@@ -236,23 +243,23 @@
                                     <span class="mr-1 text-blue-500">🎯</span>
                                     <span class="text-xs whitespace-nowrap"><?php echo htmlspecialchars($sdrLabel); ?></span>
                                 </td>
-                                <td class="px-5 py-4 border-b text-right text-blue-700 font-semibold whitespace-nowrap">
+                                <td class="px-3 py-2 border-b text-right text-blue-700 font-semibold whitespace-nowrap align-top">
                                     <span class="inline-flex items-center justify-end w-full"><span class="mr-1 text-blue-500">🎯</span><?php echo number_format($proc['percentual_comissao_sdr'] ?? 0, 2, ',', '.'); ?>%</span>
                                 </td>
-                                <td class="px-5 py-4 border-b text-right text-blue-700 font-semibold whitespace-nowrap">
+                                <td class="px-3 py-2 border-b text-right text-blue-700 font-semibold whitespace-nowrap align-top">
                                     <span class="inline-flex items-center justify-end w-full"><span class="mr-1 text-blue-500">🎯</span>R$ <?php echo number_format($proc['valor_comissao_sdr'] ?? 0, 2, ',', '.'); ?></span>
                                 </td>
-                                <td class="px-5 py-4 border-b text-center whitespace-nowrap">
+                                <td class="px-3 py-2 border-b text-center whitespace-nowrap align-top">
                                     <span class="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full <?php echo $statusConfig['class']; ?>">
                                         <?php echo $statusConfig['label']; ?>
                                     </span>
                                 </td>
-                                <td class="px-5 py-4 border-b text-center whitespace-nowrap">
+                                <td class="px-3 py-2 border-b text-center whitespace-nowrap align-top">
                                     <span class="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full <?php echo $corPagamento[$tipoPagamento] ?? 'bg-gray-100 text-gray-800'; ?>">
                                         <?php echo $tipoPagamento; ?>
                                     </span>
                                 </td>
-                                <td class="px-5 py-4 border-b text-center whitespace-nowrap">
+                                <td class="px-3 py-2 border-b text-center whitespace-nowrap align-top">
                                     <span class="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full <?php echo $badgeServico['classes']; ?>">
                                         <?php echo htmlspecialchars($badgeServico['label']); ?>
                                     </span>
