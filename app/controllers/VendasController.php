@@ -202,6 +202,21 @@ class VendasController {
 
     private function normalizeSdrData(array $proc): array
     {
+        // Se o vendedor for o usuário 17 (Sistema), zere todas as comissões e retorne
+        $nomeVendedor = strtolower(trim($proc['nome_vendedor'] ?? ''));
+        if (($proc['vendedor_user_id'] ?? 0) == 17 || $nomeVendedor === 'sistema') {
+            $proc['percentual_comissao_vendedor'] = 0;
+            $proc['valor_comissao_vendedor'] = 0;
+            $proc['percentual_comissao_sdr'] = 0;
+            $proc['valor_comissao_sdr'] = 0;
+
+            if (empty($proc['sdr_id'])) {
+                $proc['nome_sdr'] = 'Sem SDR';
+            }
+
+            return $proc;
+        }
+
         if (empty($proc['sdr_id'])) {
             $proc['nome_sdr'] = 'Sem SDR';
 
