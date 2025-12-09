@@ -2694,9 +2694,7 @@ public function create($data, $files)
 
         $sdrExpression = $this->getSdrIdSelectExpression();
         $statusFinanceiroSelect = $this->getStatusFinanceiroSelectExpression();
-        $dateFieldEntrada = 'p.data_criacao';
         $dateFieldConversao = 'COALESCE(p.data_pagamento_1, p.data_pagamento_2, p.data_conversao)';
-        $orderField = "COALESCE({$dateFieldConversao}, {$dateFieldEntrada})";
 
         $sql = "SELECT
                     p.id,
@@ -2707,8 +2705,8 @@ public function create($data, $files)
                     p.data_criacao,
                     p.valor_total,
                     p.status_processo,
-                    {$dateFieldEntrada} AS data_entrada,
-                    {$dateFieldEntrada} AS data_filtro,
+                    p.data_criacao AS data_entrada,
+                    {$dateFieldConversao} AS data_filtro,
                     {$dateFieldConversao} AS data_conversao,
                     {$dateFieldConversao} AS data_pagamento,
                     {$statusFinanceiroSelect},
@@ -2762,16 +2760,6 @@ public function create($data, $files)
             $params[':sdr_id'] = $filters['sdr_id'];
         }
 
-        if (!empty($filters['data_entrada_inicio'])) {
-            $sql .= " AND DATE({$dateFieldEntrada}) >= :data_entrada_inicio";
-            $params[':data_entrada_inicio'] = $filters['data_entrada_inicio'];
-        }
-
-        if (!empty($filters['data_entrada_fim'])) {
-            $sql .= " AND DATE({$dateFieldEntrada}) <= :data_entrada_fim";
-            $params[':data_entrada_fim'] = $filters['data_entrada_fim'];
-        }
-
         if (!empty($filters['data_conversao_inicio'])) {
             $sql .= " AND DATE({$dateFieldConversao}) >= :data_conversao_inicio";
             $params[':data_conversao_inicio'] = $filters['data_conversao_inicio'];
@@ -2782,7 +2770,7 @@ public function create($data, $files)
             $params[':data_conversao_fim'] = $filters['data_conversao_fim'];
         }
 
-        $sql .= " ORDER BY {$orderField} DESC";
+        $sql .= " ORDER BY {$dateFieldConversao} DESC";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);

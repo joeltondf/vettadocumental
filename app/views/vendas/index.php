@@ -59,19 +59,11 @@
                     </select>
                 </div>
                 <div class="w-full">
-                    <label for="data_entrada_inicio" class="block text-sm font-medium text-gray-700">Data de Entrada (Início)</label>
-                    <input type="date" name="data_entrada_inicio" id="data_entrada_inicio" value="<?php echo htmlspecialchars($filtros['data_entrada_inicio'] ?? ''); ?>" class="mt-1 block w-full p-2 border-gray-300 rounded-md">
-                </div>
-                <div class="w-full">
-                    <label for="data_entrada_fim" class="block text-sm font-medium text-gray-700">Data de Entrada (Fim)</label>
-                    <input type="date" name="data_entrada_fim" id="data_entrada_fim" value="<?php echo htmlspecialchars($filtros['data_entrada_fim'] ?? ''); ?>" class="mt-1 block w-full p-2 border-gray-300 rounded-md">
-                </div>
-                <div class="w-full">
-                    <label for="data_conversao_inicio" class="block text-sm font-medium text-gray-700">Data de Conversão (Início)</label>
+                    <label for="data_conversao_inicio" class="block text-sm font-medium text-gray-700">Período da Conversão (Início)</label>
                     <input type="date" name="data_conversao_inicio" id="data_conversao_inicio" value="<?php echo htmlspecialchars($filtros['data_conversao_inicio'] ?? ''); ?>" class="mt-1 block w-full p-2 border-gray-300 rounded-md">
                 </div>
                 <div class="w-full">
-                    <label for="data_conversao_fim" class="block text-sm font-medium text-gray-700">Data de Conversão (Fim)</label>
+                    <label for="data_conversao_fim" class="block text-sm font-medium text-gray-700">Período da Conversão (Fim)</label>
                     <input type="date" name="data_conversao_fim" id="data_conversao_fim" value="<?php echo htmlspecialchars($filtros['data_conversao_fim'] ?? ''); ?>" class="mt-1 block w-full p-2 border-gray-300 rounded-md">
                 </div>
                 <div class="flex space-x-2 no-print sm:col-span-2 lg:col-span-1">
@@ -80,7 +72,7 @@
                 </div>
             </div>
         </form>
-        <p class="text-sm text-gray-600 mt-3">Use a Data de Entrada para filtrar pela criação do processo e a Data de Conversão para o pagamento ou mudança efetiva para serviço. Quando houver SDR, o vendedor recebe 4,5% (de 5%) e o SDR 0,5%.</p>
+        <p class="text-sm text-gray-600 mt-3">O período de conversão filtra pela data de pagamento ou mudança efetiva para serviço. Quando houver SDR, o vendedor recebe 4,5% (de 5%) e o SDR 0,5%.</p>
         <div class="flex flex-wrap gap-2 mt-4 no-print">
             <?php $queryString = http_build_query(array_filter($filtros)); ?>
             <a href="vendas.php?action=export_csv<?php echo $queryString ? '&' . $queryString : ''; ?>" class="bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300">Exportar CSV</a>
