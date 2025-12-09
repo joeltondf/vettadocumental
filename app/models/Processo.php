@@ -217,7 +217,7 @@ class Processo
     private function getProcessStatusDataConversao(int $id): ?array
     {
         try {
-            $stmt = $this->pdo->prepare('SELECT status_processo, data_conversao FROM processos WHERE id = :id');
+            $stmt = $this->pdo->prepare('SELECT status_processo, data_conversao, os_numero_omie FROM processos WHERE id = :id');
             $stmt->execute([':id' => $id]);
 
             return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
@@ -2060,6 +2060,8 @@ public function create($data, $files)
             $currentProcess = $this->getProcessStatusDataConversao((int) $id);
             $currentStatus = $this->normalizeStatus($currentProcess['status_processo'] ?? '');
             $newStatus = $this->normalizeStatus((string) $data['status_processo']);
+            $hasConversionDate = !empty($currentProcess['data_conversao']);
+            $hasOmieServiceOrder = !empty($currentProcess['os_numero_omie']);
 
             $budgetStatuses = [
                 'orçamento',
@@ -2078,7 +2080,9 @@ public function create($data, $files)
             ];
 
             $shouldSetConversionDate = in_array($newStatus, $conversionStatuses, true)
-                && (in_array($currentStatus, $budgetStatuses, true) || empty($currentProcess['data_conversao'] ?? null));
+                && !$hasConversionDate
+                && !$hasOmieServiceOrder
+                && (in_array($currentStatus, $budgetStatuses, true) || $currentStatus === '');
 
             if ($shouldSetConversionDate) {
                 $data['data_conversao'] = date('Y-m-d H:i:s');
@@ -2174,12 +2178,16 @@ public function create($data, $files)
             $currentProcess = $this->getProcessStatusDataConversao($id);
             $currentStatus = $this->normalizeStatus($currentProcess['status_processo'] ?? '');
             $newStatus = $this->normalizeStatus((string) $data['status_processo']);
+            $hasConversionDate = !empty($currentProcess['data_conversao']);
+            $hasOmieServiceOrder = !empty($currentProcess['os_numero_omie']);
 
             $budgetStatuses = ['orçamento', 'orçamento pendente'];
             $conversionStatuses = ['serviço em andamento', 'concluído', 'finalizado'];
 
             if (in_array($newStatus, $conversionStatuses, true)
-                && (in_array($currentStatus, $budgetStatuses, true) || empty($currentProcess['data_conversao'] ?? null))) {
+                && !$hasConversionDate
+                && !$hasOmieServiceOrder
+                && (in_array($currentStatus, $budgetStatuses, true) || $currentStatus === '')) {
                 $data['data_conversao'] = date('Y-m-d H:i:s');
             }
         }
@@ -3366,9 +3374,10 @@ public function create($data, $files)
      */
     public function salvarNumeroOsOmie(int $processoId, string $osNumero): bool
     {
-        $sql = "UPDATE processos SET os_numero_omie = ? WHERE id = ?";
+        $dataConversao = date('Y-m-d H:i:s');
+        $sql = "UPDATE processos SET os_numero_omie = ?, data_conversao = COALESCE(data_conversao, ?) WHERE id = ?";
         $stmt = $this->pdo->prepare($sql);
-        return $stmt->execute([$osNumero, $processoId]);
+        return $stmt->execute([$osNumero, $dataConversao, $processoId]);
     }
 
     public function getServicesSummary(?string $startDate = null, ?string $endDate = null): array
