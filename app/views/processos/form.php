@@ -148,6 +148,7 @@ $postagemValorUnitario = $formatCurrencyInput($processo['postagem_valor_unitario
     <input type="hidden" name="return_to" value="<?php echo htmlspecialchars($return_url); ?>">
     <?php if ($isEditMode): ?>
         <input type="hidden" name="id" value="<?php echo $processo['id']; ?>">
+        <input type="hidden" name="status_processo" value="<?php echo htmlspecialchars($processo['status_processo'] ?? ''); ?>">
     <?php endif; ?>
     <?php if (!empty($prospeccaoId)): ?>
         <input type="hidden" name="prospeccao_id" value="<?php echo htmlspecialchars((string) $prospeccaoId); ?>">
@@ -164,8 +165,7 @@ $postagemValorUnitario = $formatCurrencyInput($processo['postagem_valor_unitario
             echo '<input type="hidden" name="status_processo" value="Orçamento">';
         }
     }
-    // Se for modo de edição, nenhum campo de status é adicionado, 
-    // então o status original do processo é preservado ao salvar.
+    // Em modo de edição, o status atual é enviado pelo campo hidden acima.
     ?>
 
     <?php if ($disableFields): ?>

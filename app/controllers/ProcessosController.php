@@ -498,8 +498,16 @@ class ProcessosController
         $devePreservarStatus = !$statusInformadoNoFormulario
             && in_array($perfilUsuario, $perfisQuePreservamStatus, true);
 
-        if ($devePreservarStatus || !$statusInformadoNoFormulario) {
-            $dadosParaAtualizar['status_processo'] = $processoOriginal['status_processo'];
+        if (!$statusInformadoNoFormulario) {
+            $statusAtual = $processoOriginal['status_processo'] ?? null;
+            $processoAtualizado = $this->processoModel->getById($id_existente);
+            if (isset($processoAtualizado['processo']['status_processo'])) {
+                $statusAtual = $processoAtualizado['processo']['status_processo'];
+            }
+
+            if ($statusAtual !== null && $statusAtual !== '') {
+                $dadosParaAtualizar['status_processo'] = $statusAtual;
+            }
         }
 
         if (!$devePreservarStatus) {
