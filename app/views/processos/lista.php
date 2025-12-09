@@ -28,6 +28,9 @@ if (!function_exists('process_list_normalize_status')) {
             'aguardando documentação' => 'pendente de documentos',
             'pendente de pagamento' => 'pendente de pagamento',
             'pendente de documentos' => 'pendente de documentos',
+            'pago – a enviar' => 'pago - a enviar',
+            'pago – a enviar.' => 'pago - a enviar',
+            'pago - a enviar.' => 'pago - a enviar',
             'finalizado' => 'concluído',
             'finalizada' => 'concluído',
             'concluido' => 'concluído',
@@ -125,6 +128,9 @@ $baseAppUrl = defined('APP_URL') ? APP_URL : '';
                                     break;
                                 case 'pendente de documentos':
                                     $statusClasses = 'bg-violet-200 text-violet-900';
+                                    break;
+                                case 'pago - a enviar':
+                                    $statusClasses = 'bg-cyan-200 text-cyan-900';
                                     break;
                                 case 'concluído':
                                     $statusClasses = 'bg-green-200 text-green-900';

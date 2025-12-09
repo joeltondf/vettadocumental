@@ -40,6 +40,9 @@ class DashboardProcessFormatter
         'recusado' => 'cancelado',
         'recusada' => 'cancelado',
         'pago - a enviar' => 'pago - a enviar',
+        'pago – a enviar' => 'pago - a enviar',
+        'pago - a enviar.' => 'pago - a enviar',
+        'pago – a enviar.' => 'pago - a enviar',
     ];
 
     private const BADGE_LABELS = [
@@ -67,6 +70,7 @@ class DashboardProcessFormatter
         'orçamento pendente' => 'Orçamento Pendente',
         'serviço pendente' => 'Serviço Pendente',
         'serviço em andamento' => 'Serviço em Andamento',
+        'pago – a enviar' => 'Pago - A Enviar',
         'pago - a enviar' => 'Pago - A Enviar',
         'concluído' => 'Concluído',
         'cancelado' => 'Cancelado',
@@ -143,7 +147,10 @@ class DashboardProcessFormatter
 
     public static function getStatusLabelClass(string $statusNormalized): string
     {
-        return self::STATUS_LABEL_CLASSES[$statusNormalized] ?? 'text-gray-700';
+        return self::STATUS_LABEL_CLASSES[$statusNormalized]
+            ?? (in_array($statusNormalized, ['pago – a enviar', 'pago - a enviar.'], true)
+                ? self::STATUS_LABEL_CLASSES['pago - a enviar']
+                : 'text-gray-700');
     }
 
     public static function buildDeadlineDescriptor(array $process, array $colors = []): array

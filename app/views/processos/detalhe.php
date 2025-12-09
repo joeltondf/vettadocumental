@@ -158,6 +158,9 @@ function normalize_status_info(?string $status): array {
         'aguardando documentação' => 'pendente de documentos',
         'pendente de pagamento' => 'pendente de pagamento',
         'pendente de documentos' => 'pendente de documentos',
+        'pago – a enviar' => 'pago - a enviar',
+        'pago – a enviar.' => 'pago - a enviar',
+        'pago - a enviar.' => 'pago - a enviar',
         'finalizado' => 'concluído',
         'finalizada' => 'concluído',
         'concluido' => 'concluído',
@@ -230,6 +233,9 @@ switch ($statusNormalized) {
         break;
     case 'pendente de documentos':
         $status_classes = 'bg-violet-100 text-violet-800';
+        break;
+    case 'pago - a enviar':
+        $status_classes = 'bg-cyan-200 text-cyan-900';
         break;
     case 'concluído':
         $status_classes = 'bg-green-100 text-green-800';
