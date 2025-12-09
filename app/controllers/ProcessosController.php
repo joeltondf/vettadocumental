@@ -2152,6 +2152,7 @@ class ProcessosController
             'serviço em andamento',
             'pendente de pagamento',
             'pendente de documentos',
+            'pago - a enviar',
             'concluído',
             'cancelado',
         ];
