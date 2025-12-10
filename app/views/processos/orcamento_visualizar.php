@@ -126,6 +126,28 @@ $totalQuantity = array_reduce(
     0
 );
 
+$summaryCounts = [];
+foreach ($budgetItems as $item) {
+    $quantity = (int)($item['quantity'] ?? 1);
+    $title = $item['title'] ?? '';
+
+    if (stripos($title, 'tradução') !== false) {
+        $type = 'Traduções Juramentadas';
+    } elseif (stripos($title, 'apost') !== false) {
+        $type = 'Apostilamento';
+    } elseif (stripos($title, 'crc') !== false) {
+        $type = 'CRC';
+    } elseif (stripos($title, 'ata') !== false) {
+        $type = 'Ata Notarial';
+    } else {
+        $type = 'Outros';
+    }
+
+    $summaryCounts[$type] = ($summaryCounts[$type] ?? 0) + $quantity;
+}
+
+$totalServices = array_sum($summaryCounts);
+
 ?>
 
 <?php if ($fullPage): ?>
@@ -244,13 +266,19 @@ $totalQuantity = array_reduce(
         </div>
     </section>
 
-    <p class="text-xs text-gray-600 mt-2">Resumo: Foram listados <?php echo htmlspecialchars((string)count($budgetItems)); ?> item(ns), totalizando <?php echo htmlspecialchars((string)$totalQuantity); ?> unidade(s).</p>
+    <div class="mt-4">
+        <p class="font-bold mb-1">Resumo:</p>
+        <?php foreach ($summaryCounts as $type => $count): ?>
+            <p class="text-sm"><?php echo htmlspecialchars($type); ?>: <?php echo $count; ?></p>
+        <?php endforeach; ?>
+        <p class="text-sm font-semibold mt-2">Total de Serviços: <?php echo $totalServices; ?></p>
+    </div>
 
     <!-- Total e Pagamento -->
     <section class="flex justify-end mb-8">
         <div class="w-full md:w-1/2 lg:w-1/3">
             <div class="flex justify-between py-2 text-gray-800 font-bold border-b border-gray-200">
-                <span>Total de documentos</span>
+                <span>Total de trabalhos</span>
                 <span><?php echo $totalQuantity; ?></span>
             </div>
             <div class="flex justify-between py-2 text-gray-600">
