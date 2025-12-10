@@ -255,6 +255,7 @@ class ProcessosController
 
         // Busca o logo do sistema a partir das configurações
         $system_logo = $this->configModel->get('system_logo');
+        $secondary_logo = $this->configModel->get('secondary_logo');
 
         $html = $this->buildBudgetHtml(
             $processoData['processo'],
@@ -265,6 +266,7 @@ class ProcessosController
                 'showPrintButton' => true,
                 'user' => $responsibleUser,
                 'system_logo' => $system_logo, // Passa o logo para a função que monta o HTML
+                'secondary_logo' => $secondary_logo,
             ]
         );
 
@@ -1963,6 +1965,7 @@ class ProcessosController
         }
 
         $systemLogo = $this->configModel->get('system_logo');
+        $secondaryLogo = $this->configModel->get('secondary_logo');
 
         $body = $this->buildBudgetHtml($process, $documents, $client, [
             'fullPage' => true,
@@ -1970,6 +1973,7 @@ class ProcessosController
             'showPrintButton' => false,
             'user' => $user,
             'system_logo' => $systemLogo,
+            'secondary_logo' => $secondaryLogo,
         ]);
 
         if (!empty($clientEmail)) {
@@ -2000,6 +2004,7 @@ class ProcessosController
             'showPrintButton' => false,
             'user' => null,
             'system_logo' => null, // Adiciona um valor padrão para o novo parâmetro
+            'secondary_logo' => null,
         ], $options);
 
         $fullPage = $config['fullPage'];
@@ -2007,6 +2012,7 @@ class ProcessosController
         $showPrintButton = $config['showPrintButton'];
         $user = $config['user'];
         $system_logo = $config['system_logo']; // Extrai o logo para usar na view
+        $secondary_logo = $config['secondary_logo'];
 
         ob_start();
         $viewPath = $isEmail

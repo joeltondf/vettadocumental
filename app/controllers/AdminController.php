@@ -802,6 +802,7 @@ class AdminController
         $pageTitle = "Configurações de Aparência";
         $theme_color = $this->configModel->get('theme_color');
         $system_logo = $this->configModel->get('system_logo');
+        $secondary_logo = $this->configModel->get('secondary_logo');
         $managementPasswordHash = $this->configModel->get('prospection_management_password_hash');
         $managementPasswordDefined = !empty($managementPasswordHash);
         require_once __DIR__ . '/../views/layouts/header.php';
@@ -809,108 +810,130 @@ class AdminController
         require_once __DIR__ . '/../views/layouts/footer.php';
     }
 
-public function saveConfiguracoes()
-{
-    // Inicia a sessão para garantir que as mensagens de feedback funcionam
-    if (session_status() == PHP_SESSION_NONE) {
-        session_start();
-    }
-
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $changes_made = false;
-
-        // 1. Salva a cor do tema
-        if (isset($_POST['theme_color'])) {
-            if ($this->configModel->save('theme_color', $_POST['theme_color'])) {
-                $changes_made = true;
-            }
+    public function saveConfiguracoes()
+    {
+        if (session_status() == PHP_SESSION_NONE) {
+            session_start();
         }
-        
-        // 2. Processa o upload do logótipo, apenas se um ficheiro for enviado
-        if (isset($_FILES['system_logo']) && $_FILES['system_logo']['error'] != UPLOAD_ERR_NO_FILE) {
-            
-            if ($_FILES['system_logo']['error'] === UPLOAD_ERR_OK) {
-                
-                $uploadDir = __DIR__ . '/../../uploads/logos/';
-                
-                // Diagnóstico de permissões
-                if (!is_dir($uploadDir)) {
-                    if (!mkdir($uploadDir, 0777, true)) {
-                        $_SESSION['error_message'] = "ERRO FATAL: Falha ao criar o diretório de uploads. Verifique as permissões do servidor na pasta 'uploads'.";
-                        header('Location: admin.php?action=config');
-                        exit();
-                    }
-                } elseif (!is_writable($uploadDir)) {
-                    $_SESSION['error_message'] = "ERRO DE PERMISSÃO: O diretório 'uploads/logos/' não tem permissão de escrita. É necessário ajustar as permissões no servidor (ex: chmod 775).";
-                    header('Location: admin.php?action=config');
-                    exit();
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $changes_made = false;
+
+            if (isset($_POST['theme_color'])) {
+                if ($this->configModel->save('theme_color', $_POST['theme_color'])) {
+                    $changes_made = true;
                 }
+            }
 
-                $fileInfo = pathinfo($_FILES['system_logo']['name']);
-                $extension = strtolower($fileInfo['extension']);
-                $fileName = 'logo_' . time() . '.' . $extension;
-                $targetPath = $uploadDir . $fileName;
-
-                if (move_uploaded_file($_FILES['system_logo']['tmp_name'], $targetPath)) {
-                    if ($this->configModel->save('system_logo', 'uploads/logos/' . $fileName)) {
+            if (isset($_FILES['system_logo']) && $_FILES['system_logo']['error'] != UPLOAD_ERR_NO_FILE) {
+                $uploadResult = $this->processLogoUpload($_FILES['system_logo'], 'logo_');
+                if ($uploadResult['success']) {
+                    if ($this->configModel->save('system_logo', $uploadResult['path'])) {
                         $changes_made = true;
                     }
                 } else {
-                    $_SESSION['error_message'] = "ERRO: Falha ao mover o ficheiro. Verifique as permissões do servidor.";
+                    $_SESSION['error_message'] = $uploadResult['message'];
                 }
-
-            } else {
-                // Mensagens de erro de upload mais claras
-                $upload_errors = [
-                    UPLOAD_ERR_INI_SIZE   => "O ficheiro excede o limite de tamanho do servidor (upload_max_filesize).",
-                    UPLOAD_ERR_FORM_SIZE  => "O ficheiro excede o limite definido no formulário.",
-                    UPLOAD_ERR_PARTIAL    => "O upload do ficheiro foi feito apenas parcialmente.",
-                    UPLOAD_ERR_NO_TMP_DIR => "Erro de servidor: Falta uma pasta temporária.",
-                    UPLOAD_ERR_CANT_WRITE => "Erro de servidor: Falha ao escrever o ficheiro no disco.",
-                    UPLOAD_ERR_EXTENSION  => "Uma extensão do PHP interrompeu o upload.",
-                ];
-                $error_code = $_FILES['system_logo']['error'];
-                $_SESSION['error_message'] = $upload_errors[$error_code] ?? "Erro de upload desconhecido. Código: " . $error_code;
             }
-        }
 
-        // 3. Atualiza a senha da gerência, caso informada
-        $managementPassword = $_POST['management_password'] ?? '';
-        $managementPasswordConfirmation = $_POST['management_password_confirmation'] ?? '';
-
-        if ($managementPassword !== '' || $managementPasswordConfirmation !== '') {
-            if ($managementPassword === '' || $managementPasswordConfirmation === '') {
-                $_SESSION['error_message'] = 'Preencha e confirme a senha da gerência.';
-            } elseif ($managementPassword !== $managementPasswordConfirmation) {
-                $_SESSION['error_message'] = 'As senhas da gerência informadas não coincidem.';
-            } elseif (strlen($managementPassword) < 6) {
-                $_SESSION['error_message'] = 'A senha da gerência deve ter pelo menos 6 caracteres.';
-            } else {
-                $hashedPassword = password_hash($managementPassword, PASSWORD_DEFAULT);
-                if ($this->configModel->save('prospection_management_password_hash', $hashedPassword)) {
-                    $changes_made = true;
+            if (isset($_FILES['secondary_logo']) && $_FILES['secondary_logo']['error'] != UPLOAD_ERR_NO_FILE) {
+                $uploadResult = $this->processLogoUpload($_FILES['secondary_logo'], 'secondary_logo_');
+                if ($uploadResult['success']) {
+                    if ($this->configModel->save('secondary_logo', $uploadResult['path'])) {
+                        $changes_made = true;
+                    }
                 } else {
-                    $_SESSION['error_message'] = 'Não foi possível atualizar a senha da gerência.';
+                    $_SESSION['error_message'] = $uploadResult['message'];
+                }
+            }
+
+            $managementPassword = $_POST['management_password'] ?? '';
+            $managementPasswordConfirmation = $_POST['management_password_confirmation'] ?? '';
+
+            if ($managementPassword !== '' || $managementPasswordConfirmation !== '') {
+                if ($managementPassword === '' || $managementPasswordConfirmation === '') {
+                    $_SESSION['error_message'] = 'Preencha e confirme a senha da gerência.';
+                } elseif ($managementPassword !== $managementPasswordConfirmation) {
+                    $_SESSION['error_message'] = 'As senhas da gerência informadas não coincidem.';
+                } elseif (strlen($managementPassword) < 6) {
+                    $_SESSION['error_message'] = 'A senha da gerência deve ter pelo menos 6 caracteres.';
+                } else {
+                    $hashedPassword = password_hash($managementPassword, PASSWORD_DEFAULT);
+                    if ($this->configModel->save('prospection_management_password_hash', $hashedPassword)) {
+                        $changes_made = true;
+                    } else {
+                        $_SESSION['error_message'] = 'Não foi possível atualizar a senha da gerência.';
+                    }
+                }
+            }
+
+            if (!isset($_SESSION['error_message'])) {
+                if ($changes_made) {
+                    $_SESSION['success_message'] = "Configurações salvas com sucesso!";
+                } else {
+                    $_SESSION['success_message'] = "Nenhuma alteração foi efetuada.";
                 }
             }
         }
 
-        // Define a mensagem final para o utilizador
-        if (!isset($_SESSION['error_message'])) {
-            if ($changes_made) {
-                $_SESSION['success_message'] = "Configurações salvas com sucesso!";
-            } else {
-                // Se não houve erro, mas nada foi alterado (ex: clicou em salvar sem mudar nada)
-                $_SESSION['success_message'] = "Nenhuma alteração foi efetuada.";
-            }
-        }
+        header('Location: admin.php?action=config');
+        exit();
     }
 
-    // Garante o redirecionamento correto para a página de configurações
-    header('Location: admin.php?action=config');
-    exit();
-}
+    private function processLogoUpload(array $file, string $prefix): array
+    {
+        $uploadDir = __DIR__ . '/../../uploads/logos/';
 
+        if (!is_dir($uploadDir)) {
+            if (!mkdir($uploadDir, 0777, true)) {
+                return [
+                    'success' => false,
+                    'message' => "ERRO FATAL: Falha ao criar o diretório de uploads. Verifique as permissões do servidor na pasta 'uploads'.",
+                ];
+            }
+        } elseif (!is_writable($uploadDir)) {
+            return [
+                'success' => false,
+                'message' => "ERRO DE PERMISSÃO: O diretório 'uploads/logos/' não tem permissão de escrita. É necessário ajustar as permissões no servidor (ex: chmod 775).",
+            ];
+        }
+
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            $upload_errors = [
+                UPLOAD_ERR_INI_SIZE   => "O ficheiro excede o limite de tamanho do servidor (upload_max_filesize).",
+                UPLOAD_ERR_FORM_SIZE  => "O ficheiro excede o limite definido no formulário.",
+                UPLOAD_ERR_PARTIAL    => "O upload do ficheiro foi feito apenas parcialmente.",
+                UPLOAD_ERR_NO_TMP_DIR => "Erro de servidor: Falta uma pasta temporária.",
+                UPLOAD_ERR_CANT_WRITE => "Erro de servidor: Falha ao escrever o ficheiro no disco.",
+                UPLOAD_ERR_EXTENSION  => "Uma extensão do PHP interrompeu o upload.",
+            ];
+
+            $error_code = $file['error'];
+
+            return [
+                'success' => false,
+                'message' => $upload_errors[$error_code] ?? "Erro de upload desconhecido. Código: " . $error_code,
+            ];
+        }
+
+        $fileInfo = pathinfo($file['name']);
+        $extension = strtolower($fileInfo['extension'] ?? '');
+        $fileName = $prefix . time() . '.' . $extension;
+        $targetPath = $uploadDir . $fileName;
+
+        if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
+            return [
+                'success' => false,
+                'message' => 'ERRO: Falha ao mover o ficheiro. Verifique as permissões do servidor.',
+            ];
+        }
+
+        return [
+            'success' => true,
+            'path' => 'uploads/logos/' . $fileName,
+            'message' => null,
+        ];
+    }
     // =======================================================================
     // MÉTODOS DE AUTOMAÇÃO (NOVOS E ATUALIZADOS)
     // =======================================================================

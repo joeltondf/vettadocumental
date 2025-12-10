@@ -48,6 +48,24 @@
             <input type="file" name="system_logo" id="system_logo" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100">
         </div>
 
+        <div class="mt-10">
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Logo Secundária do Orçamento</h3>
+            <p class="text-gray-600 mb-4">Imagem exibida apenas no cabeçalho da visualização do orçamento (não altera a logo principal do sistema).</p>
+
+            <?php
+            $secondary_logo_path = __DIR__ . '/../../../' . $secondary_logo;
+            if (!empty($secondary_logo) && file_exists($secondary_logo_path)):
+            ?>
+                <div class="mb-4">
+                    <p class="font-semibold text-gray-700">Logo secundária atual:</p>
+                    <img src="<?php echo htmlspecialchars(APP_URL . '/' . $secondary_logo); ?>" alt="Logo Secundária Atual" class="mt-2 h-16 w-auto bg-gray-100 p-2 rounded-md">
+                </div>
+            <?php endif; ?>
+
+            <label for="secondary_logo" class="block text-sm font-medium text-gray-700">Enviar nova logo secundária:</label>
+            <input type="file" name="secondary_logo" id="secondary_logo" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100">
+        </div>
+
         <div class="mt-10 border-t pt-6">
             <h3 class="text-xl font-bold text-gray-800 mb-2">Senha da Gerência</h3>
             <p class="text-gray-600 mb-4">Defina uma senha compartilhada para autorizar ações sensíveis nas prospecções sem expor o login individual de um gestor.</p>

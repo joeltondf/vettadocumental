@@ -8,6 +8,7 @@
  * @var array|null $client O cliente.
  * @var array|null $user O usuário responsável.
  * @var string|null $system_logo O caminho para o logo do sistema.
+ * @var string|null $secondary_logo Logo secundária usada apenas no cabeçalho do orçamento.
  * @var bool $fullPage Define se deve renderizar a página HTML completa.
  * @var bool $showPrintButton Define se o botão de impressão deve ser exibido.
  */
@@ -114,6 +115,17 @@ if (!empty($system_logo)) {
     $logo_url = APP_URL . '/' . ltrim($system_logo, '/');
 }
 
+$secondary_logo_url = null;
+if (!empty($secondary_logo)) {
+    $secondary_logo_url = APP_URL . '/' . ltrim($secondary_logo, '/');
+}
+
+$totalQuantity = array_reduce(
+    $budgetItems,
+    static fn($carry, $item) => $carry + (int)($item['quantity'] ?? 0),
+    0
+);
+
 ?>
 
 <?php if ($fullPage): ?>
@@ -160,6 +172,9 @@ if (!empty($system_logo)) {
     <!-- Cabeçalho -->
     <header class="flex justify-between items-center pb-6 border-b-2 border-gray-200">
         <div>
+            <?php if ($secondary_logo_url): ?>
+                <img src="<?php echo htmlspecialchars($secondary_logo_url); ?>" alt="Logo Secundária" class="h-12 w-auto mb-2">
+            <?php endif; ?>
             <?php if ($logo_url): ?>
                 <img src="<?php echo htmlspecialchars($logo_url); ?>" alt="Logo da Empresa" class="h-16 w-auto">
             <?php else: ?>
@@ -231,6 +246,11 @@ if (!empty($system_logo)) {
             </table>
         </div>
     </section>
+
+    <div class="mt-4">
+        <p class="text-gray-700 font-bold">Quantidade total de itens: <?php echo htmlspecialchars((string)$totalQuantity); ?></p>
+        <p class="text-xs text-gray-600">Resumo: Foram listados <?php echo htmlspecialchars((string)count($budgetItems)); ?> item(ns), totalizando <?php echo htmlspecialchars((string)$totalQuantity); ?> unidade(s).</p>
+    </div>
 
     <!-- Total e Pagamento -->
     <section class="flex justify-end mb-8">
