@@ -174,9 +174,6 @@ $totalQuantity = array_reduce(
         <div>
             <?php if ($secondary_logo_url): ?>
                 <img src="<?php echo htmlspecialchars($secondary_logo_url); ?>" alt="Logo Secundária" class="h-12 w-auto mb-2">
-            <?php endif; ?>
-            <?php if ($logo_url): ?>
-                <img src="<?php echo htmlspecialchars($logo_url); ?>" alt="Logo da Empresa" class="h-16 w-auto">
             <?php else: ?>
                 <h1 class="text-3xl font-bold text-gray-800"><?php echo htmlspecialchars(APP_NAME); ?></h1>
             <?php endif; ?>
@@ -247,21 +244,22 @@ $totalQuantity = array_reduce(
         </div>
     </section>
 
-    <div class="mt-4">
-        <p class="text-gray-700 font-bold">Quantidade total de itens: <?php echo htmlspecialchars((string)$totalQuantity); ?></p>
-        <p class="text-xs text-gray-600">Resumo: Foram listados <?php echo htmlspecialchars((string)count($budgetItems)); ?> item(ns), totalizando <?php echo htmlspecialchars((string)$totalQuantity); ?> unidade(s).</p>
-    </div>
+    <p class="text-xs text-gray-600 mt-2">Resumo: Foram listados <?php echo htmlspecialchars((string)count($budgetItems)); ?> item(ns), totalizando <?php echo htmlspecialchars((string)$totalQuantity); ?> unidade(s).</p>
 
     <!-- Total e Pagamento -->
     <section class="flex justify-end mb-8">
         <div class="w-full md:w-1/2 lg:w-1/3">
-            <div class="flex justify-between py-2 border-b">
-                <span class="text-gray-600">Subtotal</span>
-                <span class="text-gray-800"><?php echo $formatCurrency($total); ?></span>
+            <div class="flex justify-between py-2 text-gray-800 font-bold border-b border-gray-200">
+                <span>Total de documentos</span>
+                <span><?php echo $totalQuantity; ?></span>
             </div>
-            <div class="flex justify-between py-2 bg-gray-100 px-4 rounded-md mt-2">
-                <span class="font-bold text-lg text-gray-900">TOTAL</span>
-                <span class="font-bold text-lg text-gray-900"><?php echo $formatCurrency($total); ?></span>
+            <div class="flex justify-between py-2 text-gray-600">
+                <span class="font-bold">Subtotal</span>
+                <span class="font-bold text-gray-800"><?php echo $formatCurrency($total); ?></span>
+            </div>
+            <div class="flex justify-between py-2 px-4 bg-gray-100">
+                <span class="font-bold text-lg text-gray-800">TOTAL</span>
+                <span class="font-bold text-lg text-gray-800"><?php echo $formatCurrency($total); ?></span>
             </div>
         </div>
     </section>
