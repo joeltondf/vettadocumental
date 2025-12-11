@@ -2772,7 +2772,12 @@ public function create($data, $files)
             $params[':data_conversao_fim'] = $filters['data_conversao_fim'];
         }
 
-        $sql .= " ORDER BY {$dateFieldFiltro} DESC";
+        $sql .= " ORDER BY
+            CASE
+                WHEN p.os_numero_omie IS NULL OR p.os_numero_omie = '' THEN 1
+                ELSE 0
+            END,
+            CAST(p.os_numero_omie AS UNSIGNED) ASC";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
