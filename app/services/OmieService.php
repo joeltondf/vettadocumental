@@ -553,9 +553,6 @@ class OmieService {
         if (!$categoria) {
             $serviceType = $this->inferServiceTypeFromDocument($tipoDocumento);
             $categoria = $this->getCategoriaModel()->findByServiceType($serviceType);
-            if (!$categoria) {
-                $categoria = $this->getCategoriaModel()->findByServiceTypeIncludingProdutosOrcamento($serviceType);
-            }
         }
 
         if (!$categoria) {
