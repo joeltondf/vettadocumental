@@ -2085,7 +2085,7 @@ public function create($data, $files)
                 && (in_array($currentStatus, $budgetStatuses, true) || $currentStatus === '');
 
             if ($shouldSetConversionDate) {
-                $data['data_conversao'] = date('Y-m-d H:i:s');
+                $data['data_conversao'] = date('Y-m-d');
                 $allowed_fields[] = 'data_conversao';
             }
         }
@@ -2188,7 +2188,7 @@ public function create($data, $files)
                 && !$hasConversionDate
                 && !$hasOmieServiceOrder
                 && (in_array($currentStatus, $budgetStatuses, true) || $currentStatus === '')) {
-                $data['data_conversao'] = date('Y-m-d H:i:s');
+                $data['data_conversao'] = date('Y-m-d');
             }
         }
 
@@ -3362,7 +3362,7 @@ public function create($data, $files)
      */
     public function salvarNumeroOsOmie(int $processoId, string $osNumero): bool
     {
-        $dataConversao = date('Y-m-d H:i:s');
+        $dataConversao = date('Y-m-d');
         $sql = "UPDATE processos SET os_numero_omie = ?, data_conversao = COALESCE(data_conversao, ?) WHERE id = ?";
         $stmt = $this->pdo->prepare($sql);
         return $stmt->execute([$osNumero, $dataConversao, $processoId]);
