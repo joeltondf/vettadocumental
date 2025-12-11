@@ -431,18 +431,6 @@ class OmieService {
         return $this->makeRequest('/servicos/os/', 'IncluirOS', $payload);
     }
 
-    /**
-     * Atualiza uma Ordem de Serviço existente na Omie.
-     *
-     * @param array $payload Payload completo da OS, incluindo o identificador (cNumOS ou cCodIntOS).
-     * @return array Resposta da API da Omie.
-     * @throws Throwable Se a Omie retornar erro ou ocorrer falha na comunicação.
-     */
-    public function updateServiceOrder(array $payload): array
-    {
-        return $this->makeRequest('/servicos/os/', 'AlterarOS', $payload);
-    }
-
     private function fetchProcessData(int $processoId): array
     {
         $processData = $this->getProcessoModel()->getById($processoId);

@@ -494,21 +494,6 @@ class ProcessosController
         $dadosParaAtualizar = $this->applyPaymentDefaults($dadosParaAtualizar);
         $perfilUsuario = $_SESSION['user_perfil'] ?? '';
         $processoOriginal = $this->processoModel->getById($id_existente)['processo'];
-        if ($perfilUsuario === 'vendedor') {
-            $vendedorResponsavel = $processoOriginal['vendedor_id'] ?? null;
-            $vendedorUserId = $vendedorResponsavel ? $this->vendedorModel->getUserIdByVendedorId($vendedorResponsavel) : null;
-            if ($vendedorUserId && $vendedorUserId != ($_SESSION['user_id'] ?? null)) {
-                $_SESSION['error_message'] = "Você não tem permissão para editar este orçamento.";
-                header('Location: processos.php?action=view&id=' . $id_existente);
-                exit();
-            }
-
-            if (!$this->canVendorEditProcess($processoOriginal)) {
-                $_SESSION['error_message'] = "Vendedores só podem editar processos em Orçamento ou Orçamento pendente.";
-                header('Location: processos.php?action=view&id=' . $id_existente);
-                exit();
-            }
-        }
         $statusInformadoNoFormulario = array_key_exists('status_processo', $dadosParaAtualizar)
             && trim((string)$dadosParaAtualizar['status_processo']) !== '';
         $perfisQuePreservamStatus = ['admin', 'gerencia', 'gerente', 'supervisor'];
@@ -579,7 +564,6 @@ class ProcessosController
                 && !in_array($previousStatusNormalized, $pendingStatuses, true);
             $leftPending = !in_array($novoStatusNormalized, $pendingStatuses, true)
                 && in_array($previousStatusNormalized, $pendingStatuses, true);
-            $canManageOmieOrders = in_array($perfilUsuario, ['admin', 'gerencia', 'supervisor'], true);
 
             if ($enteredPending && $customerId > 0 && $senderId) {
                 $pendingType = $novoStatusNormalized === 'orçamento pendente'
@@ -598,19 +582,7 @@ class ProcessosController
                 }
             }
 
-            $processoAtualizado = $this->processoModel->getById($id_existente);
-            $shouldGenerateOs = $this->shouldGenerateOmieOs($novoStatus);
-            if ($canManageOmieOrders && $this->hasOmieServiceOrder($processoAtualizado['processo'] ?? [])) {
-                try {
-                    $payloadOs = $this->buildServiceOrderPayload($processoAtualizado);
-                    $this->omieService->updateServiceOrder($payloadOs);
-                } catch (Throwable $exception) {
-                    error_log('Erro ao atualizar OS na Omie: ' . $exception->getMessage());
-                    $existingWarning = $_SESSION['warning_message'] ?? '';
-                    $appendMessage = 'Não foi possível atualizar a OS na Omie: ' . $exception->getMessage();
-                    $_SESSION['warning_message'] = trim($existingWarning . ' ' . $appendMessage);
-                }
-            } elseif ($shouldGenerateOs) {
+            if ($this->shouldGenerateOmieOs($novoStatus)) {
                 $this->queueServiceOrderGeneration($id_existente);
             }
             $clienteParaConverter = $dadosParaAtualizar['cliente_id'] ?? $processoOriginal['cliente_id'];
@@ -663,7 +635,6 @@ class ProcessosController
         $processo = $processoData['processo'];
         $formData = $this->consumeFormInput(self::SESSION_KEY_PROCESS_FORM);
 
-        $vendorReadOnly = false;
         // Verificação de permissão de edição
         if ($_SESSION['user_perfil'] === 'vendedor') {
             $vendedor_user_id = $this->vendedorModel->getUserIdByVendedorId($processo['vendedor_id']);
@@ -671,15 +642,6 @@ class ProcessosController
                 $_SESSION['error_message'] = "Você não tem permissão para editar este orçamento.";
                 header('Location: dashboard.php');
                 exit();
-            }
-
-            $vendorReadOnly = !$this->canVendorEditProcess($processo);
-            if ($vendorReadOnly) {
-                $_SESSION['warning_message'] = $_SESSION['warning_message'] ?? '';
-                if (!empty($_SESSION['warning_message'])) {
-                    $_SESSION['warning_message'] .= ' ';
-                }
-                $_SESSION['warning_message'] .= 'Este processo não pode mais ser editado pelo vendedor.';
             }
         } elseif (!in_array($_SESSION['user_perfil'], ['admin', 'gerencia', 'supervisor'])) {
             $_SESSION['error_message'] = "Você não tem permissão para acessar esta página.";
@@ -724,8 +686,6 @@ class ProcessosController
             'loggedInVendedorId' => $loggedInVendedor['id'],
             'loggedInVendedorName' => $loggedInVendedor['name'],
             'defaultVendorId' => $this->getDefaultVendorId(),
-            'disableFields' => $vendorReadOnly,
-            'vendorReadOnly' => $vendorReadOnly,
         ]);
 
         $_SESSION['redirect_after_oauth'] = $_SERVER['REQUEST_URI'];
@@ -3382,18 +3342,6 @@ class ProcessosController
         return in_array($normalizedStatus, ['serviço em andamento', 'serviço pendente'], true);
     }
 
-    private function canVendorEditProcess(array $processo): bool
-    {
-        $normalizedStatus = $this->normalizeStatusName($processo['status_processo'] ?? '');
-
-        return in_array($normalizedStatus, ['orçamento', 'orçamento pendente'], true);
-    }
-
-    private function hasOmieServiceOrder(array $processo): bool
-    {
-        return !empty($processo['codigo_pedido_integracao']) || !empty($processo['os_numero_omie']);
-    }
-
     private function shouldConvertProspectToClient(?string $status): bool
     {
         if ($status === null) {
@@ -4070,60 +4018,6 @@ class ProcessosController
         }
     }
 
-    private function buildServiceOrderPayload(array $processoData): array
-    {
-        if (empty($processoData['processo']) || empty($processoData['documentos'])) {
-            throw new Exception('Dados do processo incompletos para sincronizar com a Omie.');
-        }
-
-        $processo = $processoData['processo'];
-        $documentos = $processoData['documentos'];
-        $cliente = $this->clienteModel->getById($processo['cliente_id']);
-
-        if (empty($cliente['omie_id'])) {
-            throw new Exception("Cliente não possui ID da Omie. Sincronize o cliente primeiro.");
-        }
-
-        $omieServiceCode = $this->configModel->getSetting('omie_os_service_code') ?: '1.07';
-        $omieCategoryCode = $this->configModel->getSetting('omie_os_category_code') ?: '1.01.02';
-        $omieCategoryItemCode = $this->resolveOmieCategoryItemCode($omieCategoryCode);
-        $omieBankAccountCode = $this->resolveOmieBankAccountCode();
-        $omieServiceTaxationCode = $this->resolveOmieServiceTaxationCode();
-
-        $servicosPrestados = $this->buildServiceItems(
-            $processo,
-            $documentos,
-            $omieServiceCode,
-            $omieServiceTaxationCode,
-            $omieCategoryItemCode
-        );
-
-        if (empty($servicosPrestados)) {
-            throw new Exception("O processo não possui serviços para gerar a OS.");
-        }
-
-        $payload = [
-            'Cabecalho' => $this->buildServiceOrderHeader($processo, $cliente),
-            'Email' => $this->buildServiceOrderEmail($cliente),
-            'InformacoesAdicionais' => $this->buildServiceOrderAdditionalInfo(
-                $cliente,
-                $omieCategoryCode,
-                $omieBankAccountCode
-            ),
-            'ServicosPrestados' => $servicosPrestados,
-        ];
-
-        if (!empty($processo['codigo_pedido_integracao'])) {
-            $payload['Cabecalho']['cCodIntOS'] = $processo['codigo_pedido_integracao'];
-        }
-
-        if (!empty($processo['os_numero_omie'])) {
-            $payload['Cabecalho']['cNumOS'] = $processo['os_numero_omie'];
-        }
-
-        return $payload;
-    }
-
     /**
      * Gera uma Ordem de Serviço na Omie a partir de um processo local.
      */
@@ -4135,6 +4029,7 @@ class ProcessosController
                 throw new Exception("Processo não encontrado.");
             }
             $processo = $processoData['processo'];
+            $documentos = $processoData['documentos'];
             $cliente = $this->clienteModel->getById($processo['cliente_id']);
             if (empty($cliente['omie_id'])) {
                 throw new Exception("Cliente não possui ID da Omie. Sincronize o cliente primeiro.");
@@ -4143,7 +4038,35 @@ class ProcessosController
                 return $processo['os_numero_omie'];
             }
 
-            $payload = $this->buildServiceOrderPayload($processoData);
+            // Carrega as configurações da Omie do banco de dados
+            $omieServiceCode = $this->configModel->getSetting('omie_os_service_code') ?: '1.07';
+            $omieCategoryCode = $this->configModel->getSetting('omie_os_category_code') ?: '1.01.02';
+            $omieCategoryItemCode = $this->resolveOmieCategoryItemCode($omieCategoryCode);
+            $omieBankAccountCode = $this->resolveOmieBankAccountCode();
+            $omieServiceTaxationCode = $this->resolveOmieServiceTaxationCode();
+
+            $servicosPrestados = $this->buildServiceItems(
+                $processo,
+                $documentos,
+                $omieServiceCode,
+                $omieServiceTaxationCode,
+                $omieCategoryItemCode
+            );
+
+            if (empty($servicosPrestados)) {
+                throw new Exception("O processo não possui serviços para gerar a OS.");
+            }
+
+            $payload = [
+                'Cabecalho' => $this->buildServiceOrderHeader($processo, $cliente),
+                'Email' => $this->buildServiceOrderEmail($cliente),
+                'InformacoesAdicionais' => $this->buildServiceOrderAdditionalInfo(
+                    $cliente,
+                    $omieCategoryCode,
+                    $omieBankAccountCode
+                ),
+                'ServicosPrestados' => $servicosPrestados,
+            ];
             $response = $this->omieService->createServiceOrder($payload);
             if (!isset($response['cNumOS'])) {
                 throw new Exception('A Omie não retornou o número da OS.');
