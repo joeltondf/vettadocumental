@@ -63,7 +63,13 @@ if ($isVendedor && $loggedInVendedorId) {
 }
 
 // 4. Define se os campos devem ser desabilitados
-$disableFields = false;
+$disableFields = isset($disableFields) ? (bool)$disableFields : false;
+$vendorReadOnly = isset($vendorReadOnly) ? (bool)$vendorReadOnly : false;
+$normalizedStatus = $processStatus ? mb_strtolower(trim((string)$processStatus)) : '';
+$vendorBudgetStatuses = ['orçamento', 'orçamento pendente'];
+$vendorLockedStatus = $isEditMode && $isVendedor && !in_array($normalizedStatus, $vendorBudgetStatuses, true);
+$disableFields = $disableFields || $vendorLockedStatus;
+$vendorReadOnly = $vendorReadOnly || $vendorLockedStatus;
 
 
 
@@ -142,6 +148,12 @@ $postagemValorUnitario = $formatCurrencyInput($processo['postagem_valor_unitario
         &larr; Voltar
     </a>
 </div>
+
+<?php if ($vendorReadOnly): ?>
+    <div class="mb-4 p-4 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded-md">
+        Você está visualizando este processo em modo somente leitura. Vendedores só podem editar processos em Orçamento ou Orçamento pendente.
+    </div>
+<?php endif; ?>
 
 <form action="processos.php?action=<?php echo $isEditMode ? 'update' : 'store'; ?>" method="POST" enctype="multipart/form-data" id="processo-form" class="bg-white shadow-lg rounded-lg p-8 space-y-6">
     
@@ -751,6 +763,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const isEditMode = <?php echo $isEditMode ? 'true' : 'false'; ?>;
     const isVendorProfile = userProfile === 'vendedor';
     const isGestor = ['admin', 'gerencia', 'supervisor'].includes(userProfile);
+    const vendorReadOnly = <?php echo $vendorReadOnly ? 'true' : 'false'; ?>;
     const clienteState = { tipo: 'À vista', servicos: [] };
     const budgetMinAlertMessage = 'Atenção: O valor informado está abaixo do mínimo cadastrado. A supervisão irá validar e o orçamento ficará pendente até a aprovação.';
     const financeServices = <?php echo json_encode($financeiroServicos, JSON_UNESCAPED_UNICODE); ?>;
@@ -763,6 +776,25 @@ document.addEventListener('DOMContentLoaded', function() {
     const budgetOriginSelect = document.getElementById('orcamento_origem');
     if (statusHiddenInput) {
         statusHiddenInput.dataset.originalStatus = statusHiddenInput.value || 'Orçamento';
+    }
+
+    function aplicarModoSomenteLeitura() {
+        const formElement = document.getElementById('processo-form');
+        if (!formElement) {
+            return;
+        }
+
+        const fields = formElement.querySelectorAll('input, select, textarea, button');
+        fields.forEach(element => {
+            if (element.type === 'hidden') {
+                return;
+            }
+            element.disabled = true;
+        });
+    }
+
+    if (vendorReadOnly) {
+        aplicarModoSomenteLeitura();
     }
 
     // Funções de formatação
