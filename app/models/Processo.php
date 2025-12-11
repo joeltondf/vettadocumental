@@ -2694,7 +2694,9 @@ public function create($data, $files)
 
         $sdrExpression = $this->getSdrIdSelectExpression();
         $statusFinanceiroSelect = $this->getStatusFinanceiroSelectExpression();
-        $dateFieldConversao = 'COALESCE(p.data_pagamento_1, p.data_pagamento_2, p.data_conversao)';
+        $dateFieldConversao = 'p.data_conversao';
+        $dateFieldFiltro = $dateFieldConversao;
+        $dateFieldPagamento = 'COALESCE(p.data_pagamento_1, p.data_pagamento_2, p.data_conversao)';
 
         $sql = "SELECT
                     p.id,
@@ -2706,9 +2708,9 @@ public function create($data, $files)
                     p.valor_total,
                     p.status_processo,
                     p.data_criacao AS data_entrada,
-                    {$dateFieldConversao} AS data_filtro,
+                    {$dateFieldFiltro} AS data_filtro,
                     {$dateFieldConversao} AS data_conversao,
-                    {$dateFieldConversao} AS data_pagamento,
+                    {$dateFieldPagamento} AS data_pagamento,
                     {$statusFinanceiroSelect},
                     COALESCE(u.nome_completo, 'Sistema') AS nome_vendedor,
                     u.id AS vendedor_user_id,
@@ -2761,16 +2763,21 @@ public function create($data, $files)
         }
 
         if (!empty($filters['data_conversao_inicio'])) {
-            $sql .= " AND DATE({$dateFieldConversao}) >= :data_conversao_inicio";
+            $sql .= " AND DATE({$dateFieldFiltro}) >= :data_conversao_inicio";
             $params[':data_conversao_inicio'] = $filters['data_conversao_inicio'];
         }
 
         if (!empty($filters['data_conversao_fim'])) {
-            $sql .= " AND DATE({$dateFieldConversao}) <= :data_conversao_fim";
+            $sql .= " AND DATE({$dateFieldFiltro}) <= :data_conversao_fim";
             $params[':data_conversao_fim'] = $filters['data_conversao_fim'];
         }
 
-        $sql .= " ORDER BY {$dateFieldConversao} DESC";
+        $sql .= " ORDER BY
+            CASE
+                WHEN p.os_numero_omie IS NULL OR p.os_numero_omie = '' THEN 1
+                ELSE 0
+            END,
+            CAST(p.os_numero_omie AS UNSIGNED) ASC";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
