@@ -549,44 +549,11 @@ class OmieService {
         }
 
         $categoria = $this->getCategoriaModel()->findReceitaByNome($tipoDocumento);
-        $serviceType = null;
         if (!$categoria) {
-            $serviceType = $this->inferServiceTypeFromDocument($tipoDocumento);
-            $categoria = $this->getCategoriaModel()->findByServiceType($serviceType);
-        }
-
-        if (!$categoria) {
-            throw new RuntimeException(sprintf(
-                'Categoria para "%s" (%s) não encontrada ou não configurada para integração com a Omie.',
-                $tipoDocumento,
-                $serviceType ?? 'desconhecido'
-            ));
+            throw new RuntimeException(sprintf('Categoria financeira "%s" não está configurada para integração com a Omie.', $tipoDocumento));
         }
 
         return $categoria;
-    }
-
-    private function inferServiceTypeFromDocument(string $tipoDocumento): string
-    {
-        $lower = mb_strtolower($tipoDocumento);
-
-        if (strpos($lower, 'apost') !== false) {
-            return 'Apostilamento';
-        }
-
-        if (strpos($lower, 'post') !== false) {
-            return 'Postagem';
-        }
-
-        if (strpos($lower, 'crc') !== false) {
-            return 'CRC';
-        }
-
-        if (strpos($lower, 'tradu') !== false) {
-            return 'Tradução';
-        }
-
-        return 'Outros';
     }
 
     private function resolveOmieProduto(array $categoria, array $documento): array
