@@ -602,7 +602,8 @@ class ProcessosController
             $shouldGenerateOs = $this->shouldGenerateOmieOs($novoStatus);
             if ($canManageOmieOrders && $this->hasOmieServiceOrder($processoAtualizado['processo'] ?? [])) {
                 try {
-                    $this->omieService->updateServiceOrder($id_existente);
+                    $payloadOs = $this->buildServiceOrderPayload($processoAtualizado);
+                    $this->omieService->updateServiceOrder($payloadOs);
                 } catch (Throwable $exception) {
                     error_log('Erro ao atualizar OS na Omie: ' . $exception->getMessage());
                     $existingWarning = $_SESSION['warning_message'] ?? '';

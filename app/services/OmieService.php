@@ -431,61 +431,16 @@ class OmieService {
         return $this->makeRequest('/servicos/os/', 'IncluirOS', $payload);
     }
 
-    public function consultarOS(string $numeroOs): array
-    {
-        return $this->makeRequest('/servicos/os/', 'ConsultarOS', ['cNumOS' => $numeroOs]);
-    }
-
     /**
      * Atualiza uma Ordem de Serviço existente na Omie.
      *
-     * @param int $processoId Identificador do processo a ser sincronizado.
+     * @param array $payload Payload completo da OS, incluindo o identificador (cNumOS ou cCodIntOS).
      * @return array Resposta da API da Omie.
      * @throws Throwable Se a Omie retornar erro ou ocorrer falha na comunicação.
      */
-    public function updateServiceOrder(int $processoId): array
+    public function updateServiceOrder(array $payload): array
     {
-        $processData = $this->fetchProcessData($processoId);
-        $processo = $processData['processo'];
-        $documentos = $processData['documentos'];
-
-        $numeroOs = $this->normalizeString($processo['os_numero_omie'] ?? null);
-        if ($numeroOs === null) {
-            throw new RuntimeException('O processo não possui número de OS salvo para atualização na Omie.');
-        }
-
-        $consultaOs = $this->consultarOS($numeroOs);
-        $servicosExistentes = $this->extractServicosPrestados($consultaOs);
-        $itensIndexados = $this->indexExistingServiceItems($servicosExistentes);
-
-        $omieServiceCode = $this->resolveOmieServiceCode();
-        $omieCategoryCode = $this->resolveOmieCategoryCode();
-        $omieCategoryItemCode = $this->resolveOmieCategoryItemCode($omieCategoryCode);
-        $omieServiceTaxationCode = $this->resolveOmieServiceTaxationCode();
-
-        $servicosAtualizados = $this->buildUpdatedServiceItems(
-            $processoId,
-            $processo,
-            $documentos,
-            $omieServiceCode,
-            $omieServiceTaxationCode,
-            $omieCategoryItemCode,
-            $itensIndexados,
-            $servicosExistentes
-        );
-
-        $payload = [
-            'Cabecalho' => [
-                'cNumOS' => $numeroOs,
-                'dDtPrevisao' => $this->formatDateForOmie($this->resolveProcessDeadline($processo)),
-                'cEtapa' => $this->resolveEtapaCodigo($processo),
-            ],
-            'ServicosPrestados' => $servicosAtualizados,
-        ];
-
-        $response = $this->makeRequest('/servicos/os/', 'AlterarOS', $payload);
-
-        return $response;
+        return $this->makeRequest('/servicos/os/', 'AlterarOS', $payload);
     }
 
     private function fetchProcessData(int $processoId): array
@@ -626,22 +581,6 @@ class OmieService {
         return $categoria;
     }
 
-    private function buildOmieServiceDescription(array $documento, array $processo): string
-    {
-        $tipoDocumento = trim((string)($documento['tipo_documento'] ?? 'Serviço'));
-        $nomeDocumento = trim((string)($documento['nome_documento'] ?? ''));
-
-        if ($nomeDocumento === '') {
-            $orcamentoNumero = trim((string)($processo['orcamento_numero'] ?? ''));
-            $nomeDocumento = $orcamentoNumero === ''
-                ? 'Ref. Orçamento'
-                : 'Ref. Orçamento ' . $orcamentoNumero;
-        }
-
-        $descricaoPartes = array_filter([$tipoDocumento, $nomeDocumento]);
-        return implode(' - ', $descricaoPartes);
-    }
-
     private function inferServiceTypeFromDocument(string $tipoDocumento): string
     {
         $lower = mb_strtolower($tipoDocumento);
@@ -730,60 +669,6 @@ class OmieService {
         }
 
         return $payload;
-    }
-
-    private function resolveOmieServiceCode(): string
-    {
-        $configuredCode = $this->normalizeString($this->configModel->getSetting('omie_os_service_code') ?? null);
-        return $configuredCode ?? '1.07';
-    }
-
-    private function resolveOmieCategoryCode(): string
-    {
-        $configuredCode = $this->normalizeString($this->configModel->getSetting('omie_os_category_code') ?? null);
-        return $configuredCode ?? '1.01.02';
-    }
-
-    private function resolveOmieCategoryItemCode(string $defaultCategoryCode): string
-    {
-        $configuredCode = $this->normalizeString($this->configModel->getSetting('omie_os_category_item_code') ?? null);
-
-        if ($configuredCode !== null) {
-            return $configuredCode;
-        }
-
-        return $defaultCategoryCode;
-    }
-
-    private function resolveOmieServiceTaxationCode(): string
-    {
-        $rawConfiguredCode = $this->configModel->getSetting('omie_os_taxation_code') ?? null;
-        $normalizedCode = $this->normalizeOmieServiceTaxationCode($rawConfiguredCode);
-        $allowedCodes = ['00', '01', '02', '03', '04', '05'];
-
-        if ($normalizedCode !== null && in_array($normalizedCode, $allowedCodes, true)) {
-            return $normalizedCode;
-        }
-
-        return '01';
-    }
-
-    private function normalizeOmieServiceTaxationCode($code): ?string
-    {
-        if ($code === null) {
-            return null;
-        }
-
-        $digitsOnly = preg_replace('/\D+/', '', (string)$code);
-        if ($digitsOnly === '') {
-            return null;
-        }
-
-        if (strlen($digitsOnly) > 2) {
-            return null;
-        }
-
-        return str_pad($digitsOnly, 2, '0', STR_PAD_LEFT);
     }
 
     private function buildAdditionalInfo(array $processo, array $cliente, array $categoryCodes): array
@@ -1128,194 +1013,6 @@ class OmieService {
     private function formatQuantity(float $value): string
     {
         return number_format($value, 4, '.', '');
-    }
-
-    private function extractServicosPrestados(array $serviceOrderData): array
-    {
-        foreach (['ServicosPrestados', 'servicosPrestados', 'servicos_prestados'] as $key) {
-            if (!empty($serviceOrderData[$key]) && is_array($serviceOrderData[$key])) {
-                return $serviceOrderData[$key];
-            }
-        }
-
-        return [];
-    }
-
-    private function indexExistingServiceItems(array $servicosExistentes): array
-    {
-        $indexed = [];
-
-        foreach ($servicosExistentes as $servico) {
-            $key = $this->buildExistingServiceItemKey($servico);
-            if ($key === null) {
-                continue;
-            }
-
-            $indexed[$key] = $servico;
-        }
-
-        return $indexed;
-    }
-
-    private function buildExistingServiceItemKey(array $servico): ?string
-    {
-        $integrationCode = $this->normalizeString($servico['codigo_produto_integracao'] ?? $servico['cCodIntItem'] ?? null);
-        if ($integrationCode !== null) {
-            return $integrationCode;
-        }
-
-        $descricao = $this->normalizeString($servico['cDescServ'] ?? null);
-        return $descricao === null ? null : mb_strtolower($descricao);
-    }
-
-    private function buildDocumentServiceKey(array $documento, string $descricao): string
-    {
-        $integrationCode = $this->normalizeString($documento['codigo_produto_integracao'] ?? $documento['codigo_integracao'] ?? null);
-        if ($integrationCode !== null) {
-            return $integrationCode;
-        }
-
-        return mb_strtolower($descricao);
-    }
-
-    private function matchExistingServiceByDescription(string $descricao, array $indexedItems): ?array
-    {
-        $key = mb_strtolower($descricao);
-        return $indexedItems[$key] ?? null;
-    }
-
-    private function resolveServiceQuantity(array $documento): float
-    {
-        $quantidade = $this->normalizeDecimal($documento['quantidade'] ?? 1);
-        return $quantidade > 0 ? $quantidade : 1.0;
-    }
-
-    private function resolveServiceAmount(array $documento, array $processo): float
-    {
-        $valorUnitario = $this->normalizeDecimal($documento['valor_unitario'] ?? 0);
-        if ($valorUnitario > 0) {
-            return $valorUnitario;
-        }
-
-        $valorTotal = $this->normalizeDecimal($processo['valor_total'] ?? 0);
-        $quantidade = $this->resolveServiceQuantity($documento);
-
-        return $quantidade > 0 ? $valorTotal / $quantidade : $valorTotal;
-    }
-
-    private function resolveDefaultMunicipalServiceCode(array $servicosExistentes): string
-    {
-        foreach ($servicosExistentes as $servico) {
-            $codigo = $this->normalizeString($servico['cCodServMun'] ?? null);
-            if ($codigo !== null) {
-                return $codigo;
-            }
-        }
-
-        $configured = $this->normalizeString($this->configModel->getSetting('omie_os_municipal_service_code') ?? null);
-        if ($configured !== null) {
-            return $configured;
-        }
-
-        return '4.12';
-    }
-
-    private function composeServiceItem(
-        int $processoId,
-        array $documento,
-        array $processo,
-        string $serviceCode,
-        string $serviceTaxationCode,
-        string $categoryItemCode,
-        array $existingItem,
-        int $index,
-        string $defaultMunicipalCode
-    ): array {
-        $descricao = $this->buildOmieServiceDescription($documento, $processo);
-        $quantidade = $this->resolveServiceQuantity($documento);
-        $valorUnitario = $this->resolveServiceAmount($documento, $processo);
-
-        $item = [
-            'cCodCategItem' => $existingItem['cCodCategItem'] ?? $categoryItemCode,
-            'cCodServLC116' => $existingItem['cCodServLC116'] ?? $serviceCode,
-            'cCodServMun' => $existingItem['cCodServMun'] ?? $defaultMunicipalCode,
-            'cDescServ' => $descricao,
-            'cTribServ' => $existingItem['cTribServ'] ?? $serviceTaxationCode,
-            'cRetemISS' => $existingItem['cRetemISS'] ?? 'N',
-            'nQtde' => $this->formatQuantity($quantidade),
-            'nValUnit' => $this->formatCurrency($valorUnitario),
-        ];
-
-        if (isset($existingItem['nSeqItem'])) {
-            $item['nSeqItem'] = $existingItem['nSeqItem'];
-        } else {
-            $item['cCodIntItem'] = $this->buildItemIntegrationCode($processoId, $documento, $index);
-        }
-
-        return $item;
-    }
-
-    private function buildUpdatedServiceItems(
-        int $processoId,
-        array $processo,
-        array $documentos,
-        string $serviceCode,
-        string $serviceTaxationCode,
-        string $categoryItemCode,
-        array $itensIndexados,
-        array $servicosExistentes
-    ): array {
-        $servicos = [];
-        $chavesUtilizadas = [];
-        $defaultMunicipalCode = $this->resolveDefaultMunicipalServiceCode($servicosExistentes);
-
-        foreach ($documentos as $index => $documento) {
-            $descricao = $this->buildOmieServiceDescription($documento, $processo);
-            $documentKey = $this->buildDocumentServiceKey($documento, $descricao);
-            $existingItem = $itensIndexados[$documentKey] ?? $this->matchExistingServiceByDescription($descricao, $itensIndexados);
-
-            if ($existingItem !== null) {
-                $chavesUtilizadas[] = $this->buildExistingServiceItemKey($existingItem) ?? $documentKey;
-            } else {
-                $chavesUtilizadas[] = $documentKey;
-            }
-
-            $servicos[] = $this->composeServiceItem(
-                $processoId,
-                $documento,
-                $processo,
-                $serviceCode,
-                $serviceTaxationCode,
-                $categoryItemCode,
-                $existingItem ?? [],
-                $index,
-                $defaultMunicipalCode
-            );
-        }
-
-        foreach ($itensIndexados as $key => $existingItem) {
-            if (in_array($key, $chavesUtilizadas, true)) {
-                continue;
-            }
-
-            if (!isset($existingItem['nSeqItem'])) {
-                continue;
-            }
-
-            $servicos[] = [
-                'nSeqItem' => $existingItem['nSeqItem'],
-                'cCodCategItem' => $existingItem['cCodCategItem'] ?? $categoryItemCode,
-                'cCodServLC116' => $existingItem['cCodServLC116'] ?? $serviceCode,
-                'cCodServMun' => $existingItem['cCodServMun'] ?? $defaultMunicipalCode,
-                'cDescServ' => $existingItem['cDescServ'] ?? '',
-                'cTribServ' => $existingItem['cTribServ'] ?? $serviceTaxationCode,
-                'cRetemISS' => $existingItem['cRetemISS'] ?? 'N',
-                'nQtde' => $this->formatQuantity(0),
-                'nValUnit' => $this->formatCurrency(0),
-            ];
-        }
-
-        return $servicos;
     }
 
     private function normalizeString($value): ?string
