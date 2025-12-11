@@ -2695,7 +2695,8 @@ public function create($data, $files)
         $sdrExpression = $this->getSdrIdSelectExpression();
         $statusFinanceiroSelect = $this->getStatusFinanceiroSelectExpression();
         $dateFieldConversao = 'p.data_conversao';
-        $dateFieldFiltro = 'COALESCE(p.data_pagamento_1, p.data_pagamento_2, p.data_conversao)';
+        $dateFieldFiltro = $dateFieldConversao;
+        $dateFieldPagamento = 'COALESCE(p.data_pagamento_1, p.data_pagamento_2, p.data_conversao)';
 
         $sql = "SELECT
                     p.id,
@@ -2709,7 +2710,7 @@ public function create($data, $files)
                     p.data_criacao AS data_entrada,
                     {$dateFieldFiltro} AS data_filtro,
                     {$dateFieldConversao} AS data_conversao,
-                    {$dateFieldFiltro} AS data_pagamento,
+                    {$dateFieldPagamento} AS data_pagamento,
                     {$statusFinanceiroSelect},
                     COALESCE(u.nome_completo, 'Sistema') AS nome_vendedor,
                     u.id AS vendedor_user_id,
