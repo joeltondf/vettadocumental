@@ -447,16 +447,6 @@ $postagemValorUnitario = $formatCurrencyInput($formData['postagem_valor_unitario
         </div>
     </div>
 
-    <div id="section-container-outros" class="bg-gray-50 p-6 rounded-lg shadow-lg border border-gray-200 mt-6" style="display: none;">
-        <div class="space-y-4">
-            <div class="flex items-center justify-between border-b border-gray-200 pb-2">
-                <h2 class="text-xl font-semibold text-gray-800">Outros Serviços</h2>
-                <button type="button" class="add-doc-row bg-gray-600 text-white px-4 py-2 rounded-md text-sm hover:bg-gray-700 transition duration-150 ease-in-out" data-section="outros">Adicionar</button>
-            </div>
-            <div id="documentos-container-outros" class="space-y-4"></div>
-        </div>
-    </div>
-
     <fieldset class="border border-gray-200 rounded-md p-6 mt-6">
         <legend class="text-lg font-semibold text-gray-700 px-2 bg-white ml-4">Resumo do Serviço</legend>
 
@@ -687,33 +677,6 @@ $postagemValorUnitario = $formatCurrencyInput($formData['postagem_valor_unitario
         </div>
         <div class="col-span-1 text-right">
             <button type="button" class="remove-doc-row text-red-500 hover:text-red-700 font-bold text-xl">&times;</button>
-        </div>
-    </div>
-</template>
-
-<template id="template-outros">
-    <div class="doc-row grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border border-gray-200 rounded-md bg-white relative items-end">
-        <input type="hidden" name="documentos[outros][{index}][categoria]" value="Outros">
-        <div>
-            <label class="block text-sm font-medium text-gray-700">Tipo de Serviço</label>
-            <select
-                name="documentos[outros][{index}][tipo_documento]"
-                class="servico-select mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2"
-                data-servico-tipo="Outros"
-            >
-                <option value="">Selecione o serviço...</option>
-            </select>
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-gray-700">Descrição</label>
-            <input type="text" name="documentos[outros][{index}][nome_documento]" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2" placeholder="Detalhes">
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-gray-700">Valor</label>
-            <input type="text" name="documentos[outros][{index}][valor_unitario]" class="doc-valor valor-servico mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2" placeholder="0,00">
-        </div>
-        <div class="flex justify-end md:justify-start">
-            <button type="button" class="remove-doc-row bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 text-sm transition duration-150 ease-in-out">Remover</button>
         </div>
     </div>
 </template>
@@ -1099,6 +1062,14 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         const selectedOption = selectElement.options[selectElement.selectedIndex];
+        if (!selectedOption || !selectedOption.value) {
+            const unitaryInput = document.getElementById(`${stage}_valor_unitario`);
+            if (unitaryInput) {
+                unitaryInput.dataset.minValor = '0';
+            }
+            return;
+        }
+
         const valorPadrao = selectedOption?.dataset?.valorPadrao;
         const valorUnitarioInput = document.getElementById(`${stage}_valor_unitario`);
 
