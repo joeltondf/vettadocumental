@@ -2378,7 +2378,16 @@ public function create($data, $files)
             return [];
         }
     }
-    
+
+    /**
+     * Expõe a mesma normalização utilizada no fluxo de persistência para reaproveitamento
+     * por camadas superiores (ex.: validações prévias antes de salvar).
+     */
+    public function previewNormalizedDocuments(array $data): array
+    {
+        return $this->normalizeDocumentsForInsert($data);
+    }
+
     // =======================================================================
     // MÉTODOS PRIVADOS
     // =======================================================================

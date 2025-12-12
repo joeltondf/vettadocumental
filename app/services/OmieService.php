@@ -431,6 +431,11 @@ class OmieService {
         return $this->makeRequest('/servicos/os/', 'IncluirOS', $payload);
     }
 
+    public function updateServiceOrder(array $payload): array
+    {
+        return $this->makeRequest('/servicos/os/', 'AlterarOS', $payload);
+    }
+
     private function fetchProcessData(int $processoId): array
     {
         $processData = $this->getProcessoModel()->getById($processoId);
