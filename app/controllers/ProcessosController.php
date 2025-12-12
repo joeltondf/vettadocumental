@@ -494,6 +494,7 @@ class ProcessosController
         $dadosParaAtualizar = $this->ensureDefaultVendor($dadosParaAtualizar);
         $dadosParaAtualizar = $this->prepareOmieSelectionData($dadosParaAtualizar);
         $dadosParaAtualizar = $this->applyPaymentDefaults($dadosParaAtualizar);
+        $dadosParaAtualizar = $this->ensureStageBudgetCategories($dadosParaAtualizar);
         $perfilUsuario = $_SESSION['user_perfil'] ?? '';
         $processoOriginalData = $this->processoModel->getById($id_existente);
         $processoOriginal = $processoOriginalData['processo'];
@@ -555,6 +556,7 @@ class ProcessosController
         $docsAtualizados = $dadosParaAtualizar['docs'] ?? $dadosParaAtualizar['documentos'] ?? [];
         $documentosAlterados = $docsAtualizados !== $documentosOriginais;
         $hasChanges = $hasFieldChanges || $documentosAlterados;
+        $stageChanges = $this->stageValuesChanged($processoOriginal, $dadosParaAtualizar);
 
         if (!$hasChanges) {
             $_SESSION['success_message'] = 'Nenhuma alteração detectada. Dados preservados.';
@@ -565,7 +567,7 @@ class ProcessosController
         $normalizedDocuments = [];
         if ($hasChanges) {
             $normalizedDocuments = $this->processoModel->previewNormalizedDocuments($dadosParaAtualizar);
-            if (empty($normalizedDocuments)) {
+            if (empty($normalizedDocuments) && !$stageChanges) {
                 $_SESSION['warning_message'] = 'É necessário manter pelo menos um serviço para sincronizar a OS na Omie.';
             }
         }
@@ -575,10 +577,10 @@ class ProcessosController
             ?? $processoOriginal['status_processo']
             ?? null;
         $shouldAttemptOsUpdate = $hasChanges
-            && !empty($normalizedDocuments)
+            && (!empty($normalizedDocuments) || $stageChanges)
             && $this->shouldAttemptOmieOsUpdate($osIdentifiers, $novoStatusParaSincronizar);
 
-        $valorCalculado = $this->calculateDocumentsTotal($normalizedDocuments);
+        $valorCalculado = $this->calculateDocumentsTotal($normalizedDocuments, $dadosParaAtualizar);
         if ($valorCalculado !== null) {
             $dadosParaAtualizar['valor_total_hidden'] = number_format($valorCalculado, 2, '.', '');
             $dadosParaAtualizar['valor_total'] = $dadosParaAtualizar['valor_total_hidden'];
@@ -598,7 +600,14 @@ class ProcessosController
         $link = "/processos.php?action=view&id={$id_existente}";
 
         try {
+            error_log(sprintf(
+                'Processo %d: iniciando atualização. Documentos normalizados: %d. Alterações de estágio: %s',
+                $id_existente,
+                count($normalizedDocuments),
+                $stageChanges ? 'sim' : 'não'
+            ));
             $updateSucceeded = $this->processoModel->update($id_existente, $dadosParaAtualizar, $_FILES);
+            error_log(sprintf('Processo %d: resultado da atualização no banco: %s', $id_existente, $updateSucceeded ? 'sucesso' : 'falha'));
         } catch (\PDOException $exception) {
             error_log('Erro ao atualizar processo ' . $id_existente . ': ' . $exception->getMessage());
             $_SESSION['error_message'] = 'Ocorreu um erro ao atualizar o processo.';
@@ -656,6 +665,7 @@ class ProcessosController
             );
 
             if ($shouldAttemptOsUpdate) {
+                error_log(sprintf('Processo %d: enfileirando atualização de OS na Omie.', $id_existente));
                 $this->queueServiceOrderUpdate($id_existente, $osIdentifiers, $documentosOriginais);
             }
         } else {
@@ -1876,6 +1886,119 @@ class ProcessosController
         return $data;
     }
 
+    private function ensureStageBudgetCategories(array $data): array
+    {
+        $categoriaModel = new CategoriaFinanceira($this->pdo);
+
+        $stages = [
+            'Apostilamento' => [
+                'categoryKey' => 'apostilamento_categoria_id',
+                'valueKey' => 'apostilamento_valor_unitario',
+                'quantityKey' => 'apostilamento_quantidade',
+                'quantityColumn' => 'apostilamento_quantidade_padrao',
+                'valueColumn' => 'apostilamento_valor_padrao',
+                'defaultName' => 'Apostilamento (Automático)',
+            ],
+            'Postagem' => [
+                'categoryKey' => 'postagem_categoria_id',
+                'valueKey' => 'postagem_valor_unitario',
+                'quantityKey' => 'postagem_quantidade',
+                'quantityColumn' => 'postagem_quantidade_padrao',
+                'valueColumn' => 'postagem_valor_padrao',
+                'defaultName' => 'Postagem (Automática)',
+            ],
+        ];
+
+        foreach ($stages as $serviceType => $config) {
+            $categoria = null;
+            $categoriaId = $data[$config['categoryKey']] ?? null;
+
+            if ($categoriaId) {
+                $categoria = $categoriaModel->getById((int) $categoriaId);
+                if (!$this->isValidStageBudgetCategory($categoria, $serviceType)) {
+                    $categoria = null;
+                }
+            }
+
+            if ($categoria === null) {
+                $categoria = $categoriaModel->findBudgetProductByServiceType($serviceType, true);
+            }
+
+            if ($categoria === null) {
+                $payload = [
+                    'nome_categoria' => $config['defaultName'],
+                    'servico_tipo' => $serviceType,
+                    'valor_padrao' => $this->normalizeDecimalValue($data[$config['valueKey']] ?? 0),
+                    'bloquear_valor_minimo' => 0,
+                ];
+
+                $quantityValue = $this->normalizeDecimalValue($data[$config['quantityKey']] ?? null);
+                if ($quantityValue > 0) {
+                    $payload[$config['quantityColumn']] = $quantityValue;
+                }
+
+                $valueDefault = $this->normalizeDecimalValue($data[$config['valueKey']] ?? null);
+                if ($valueDefault > 0) {
+                    $payload[$config['valueColumn']] = $valueDefault;
+                }
+
+                $newId = $categoriaModel->createProdutoOrcamento($payload);
+                if ($newId) {
+                    $categoria = $categoriaModel->getById($newId);
+                }
+            }
+
+            if ($categoria && $this->isValidStageBudgetCategory($categoria, $serviceType)) {
+                $data[$config['categoryKey']] = (int) $categoria['id'];
+            }
+        }
+
+        return $data;
+    }
+
+    private function isValidStageBudgetCategory(?array $categoria, string $serviceType): bool
+    {
+        if ($categoria === null) {
+            return false;
+        }
+
+        return ($categoria['servico_tipo'] ?? '') === $serviceType
+            && ($categoria['tipo_lancamento'] ?? '') === 'RECEITA'
+            && (int)($categoria['eh_produto_orcamento'] ?? 0) === 1
+            && (int)($categoria['ativo'] ?? 0) === 1;
+    }
+
+    private function stageValuesChanged(array $original, array $updated): bool
+    {
+        $fields = [
+            'apostilamento_quantidade' => 'int',
+            'apostilamento_valor_unitario' => 'decimal',
+            'apostilamento_categoria_id' => 'int',
+            'postagem_quantidade' => 'int',
+            'postagem_valor_unitario' => 'decimal',
+            'postagem_categoria_id' => 'int',
+        ];
+
+        foreach ($fields as $field => $type) {
+            $originalValue = $original[$field] ?? null;
+            $updatedValue = $updated[$field] ?? null;
+
+            if ($type === 'int') {
+                $originalValue = $originalValue === null ? null : (int) $originalValue;
+                $updatedValue = $updatedValue === null ? null : (int) $updatedValue;
+            } else {
+                $originalValue = $this->normalizeDecimalValue($originalValue);
+                $updatedValue = $this->normalizeDecimalValue($updatedValue);
+            }
+
+            if ($originalValue !== $updatedValue) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function sanitizeOmieString($value): ?string
     {
         if ($value === null) {
@@ -1932,6 +2055,13 @@ class ProcessosController
         if ($processId <= 0) {
             return;
         }
+
+        error_log(sprintf(
+            'Processo %d: preparando atualização de OS (Omie: %s / Integração: %s).',
+            $processId,
+            $osIdentifiers['nCodOS'] ?? 'N/A',
+            $osIdentifiers['cCodIntOS'] ?? 'N/A'
+        ));
 
         AsyncTaskDispatcher::queue(function () use ($processId, $osIdentifiers, $documentosOriginais) {
             $this->atualizarOsOmie($processId, $osIdentifiers, $documentosOriginais);
@@ -4175,14 +4305,11 @@ class ProcessosController
         });
     }
 
-    private function calculateDocumentsTotal(array $documentos): ?float
+    private function calculateDocumentsTotal(array $documentos, array $dadosProcesso = []): ?float
     {
-        if (empty($documentos)) {
-            return null;
-        }
-
         $total = 0.0;
-
+        $hasValues = false;
+        $hasStageDocuments = false;
         foreach ($documentos as $documento) {
             $quantidade = isset($documento['quantidade']) && (int)$documento['quantidade'] > 0
                 ? (int)$documento['quantidade']
@@ -4190,9 +4317,71 @@ class ProcessosController
             $valorUnitario = isset($documento['valor_unitario']) ? (float)$documento['valor_unitario'] : 0.0;
 
             $total += $quantidade * $valorUnitario;
+            $hasValues = true;
+
+            $categoriaDocumento = isset($documento['categoria']) ? mb_strtolower((string)$documento['categoria']) : '';
+            if (in_array($categoriaDocumento, ['apostilamento', 'postagem'], true)) {
+                $hasStageDocuments = true;
+            }
+        }
+
+        $stageTotals = $this->calculateStageDocumentTotals($dadosProcesso);
+        if (!$hasStageDocuments) {
+            $total += $stageTotals['total'];
+            $hasValues = $hasValues || $stageTotals['hasInput'];
+        } else {
+            $hasValues = $hasValues || !empty($documentos);
+        }
+
+        if (!$hasValues) {
+            return null;
         }
 
         return round($total, 2);
+    }
+
+    private function calculateStageDocumentTotals(array $dadosProcesso): array
+    {
+        $stages = [
+            [
+                'quantityKey' => 'apostilamento_quantidade',
+                'valueKey' => 'apostilamento_valor_unitario',
+            ],
+            [
+                'quantityKey' => 'postagem_quantidade',
+                'valueKey' => 'postagem_valor_unitario',
+            ],
+        ];
+
+        $total = 0.0;
+        $hasInput = false;
+
+        foreach ($stages as $stage) {
+            $hasValue = array_key_exists($stage['valueKey'], $dadosProcesso)
+                && $dadosProcesso[$stage['valueKey']] !== ''
+                && $dadosProcesso[$stage['valueKey']] !== null;
+            $hasQuantity = array_key_exists($stage['quantityKey'], $dadosProcesso)
+                && $dadosProcesso[$stage['quantityKey']] !== ''
+                && $dadosProcesso[$stage['quantityKey']] !== null;
+
+            if (!$hasValue && !$hasQuantity) {
+                continue;
+            }
+
+            $valorUnitario = $this->normalizeDecimalValue($dadosProcesso[$stage['valueKey']] ?? 0);
+            $quantidade = (int)($dadosProcesso[$stage['quantityKey']] ?? 1);
+            if ($quantidade <= 0) {
+                $quantidade = 1;
+            }
+
+            $total += $quantidade * $valorUnitario;
+            $hasInput = true;
+        }
+
+        return [
+            'total' => round($total, 2),
+            'hasInput' => $hasInput,
+        ];
     }
 
     private function calculateOrderItemsTotal(array $items): float
