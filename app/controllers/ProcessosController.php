@@ -498,23 +498,17 @@ class ProcessosController
         $processoOriginalData = $this->processoModel->getById($id_existente);
         $processoOriginal = $processoOriginalData['processo'];
         $documentosOriginais = $processoOriginalData['documentos'] ?? [];
-        $statusInformadoNoFormulario = array_key_exists('status_processo', $dadosParaAtualizar)
-            && trim((string)$dadosParaAtualizar['status_processo']) !== '';
+        $statusInformadoNoFormulario = array_key_exists('status_processo', $_POST)
+            && trim((string)($_POST['status_processo'] ?? '')) !== '';
+
+        if (!isset($dadosParaAtualizar['status_processo'])
+            || trim((string)$dadosParaAtualizar['status_processo']) === ''
+        ) {
+            $dadosParaAtualizar['status_processo'] = $processoOriginal['status_processo'] ?? null;
+        }
         $perfisQuePreservamStatus = ['admin', 'gerencia', 'gerente', 'supervisor'];
         $devePreservarStatus = !$statusInformadoNoFormulario
             && in_array($perfilUsuario, $perfisQuePreservamStatus, true);
-
-        if (!$statusInformadoNoFormulario) {
-            $statusAtual = $processoOriginal['status_processo'] ?? null;
-            $processoAtualizado = $this->processoModel->getById($id_existente);
-            if (isset($processoAtualizado['processo']['status_processo'])) {
-                $statusAtual = $processoAtualizado['processo']['status_processo'];
-            }
-
-            if ($statusAtual !== null && $statusAtual !== '') {
-                $dadosParaAtualizar['status_processo'] = $statusAtual;
-            }
-        }
 
         if (!$devePreservarStatus) {
             $valorAlterado = false;
@@ -562,25 +556,32 @@ class ProcessosController
         $documentosAlterados = $docsAtualizados !== $documentosOriginais;
         $hasChanges = $hasFieldChanges || $documentosAlterados;
 
+        if (!$hasChanges) {
+            $_SESSION['success_message'] = 'Nenhuma alteração detectada. Dados preservados.';
+            header('Location: processos.php?action=view&id=' . $id_existente);
+            exit();
+        }
+
         $normalizedDocuments = [];
         if ($hasChanges) {
             $normalizedDocuments = $this->processoModel->previewNormalizedDocuments($dadosParaAtualizar);
+            if (empty($normalizedDocuments)) {
+                $_SESSION['warning_message'] = 'É necessário manter pelo menos um serviço para sincronizar a OS na Omie.';
+            }
         }
 
         $osIdentifiers = $this->resolveOmieOsIdentifiers($processoOriginal);
         $novoStatusParaSincronizar = $dadosParaAtualizar['status_processo']
             ?? $processoOriginal['status_processo']
             ?? null;
-        $shouldAttemptOsUpdate = $hasChanges && $this->shouldAttemptOmieOsUpdate($osIdentifiers, $novoStatusParaSincronizar);
+        $shouldAttemptOsUpdate = $hasChanges
+            && !empty($normalizedDocuments)
+            && $this->shouldAttemptOmieOsUpdate($osIdentifiers, $novoStatusParaSincronizar);
 
         $valorCalculado = $this->calculateDocumentsTotal($normalizedDocuments);
         if ($valorCalculado !== null) {
             $dadosParaAtualizar['valor_total_hidden'] = number_format($valorCalculado, 2, '.', '');
             $dadosParaAtualizar['valor_total'] = $dadosParaAtualizar['valor_total_hidden'];
-        }
-
-        if ($shouldAttemptOsUpdate && empty($normalizedDocuments)) {
-            $shouldAttemptOsUpdate = false;
         }
 
         if ($this->shouldRequireVendorSelection($dadosParaAtualizar, $processoOriginal)) {
@@ -596,7 +597,16 @@ class ProcessosController
         $customerId = (int)($dadosParaAtualizar['cliente_id'] ?? $processoOriginal['cliente_id'] ?? 0);
         $link = "/processos.php?action=view&id={$id_existente}";
 
-        if ($this->processoModel->update($id_existente, $dadosParaAtualizar, $_FILES)) {
+        try {
+            $updateSucceeded = $this->processoModel->update($id_existente, $dadosParaAtualizar, $_FILES);
+        } catch (\PDOException $exception) {
+            error_log('Erro ao atualizar processo ' . $id_existente . ': ' . $exception->getMessage());
+            $_SESSION['error_message'] = 'Ocorreu um erro ao atualizar o processo.';
+            header('Location: processos.php?action=view&id=' . $id_existente);
+            exit();
+        }
+
+        if ($updateSucceeded) {
             if (!isset($_SESSION['message'])) {
                 $_SESSION['success_message'] = "Processo atualizado com sucesso!";
             }
