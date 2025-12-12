@@ -59,6 +59,32 @@ $pageTitle = 'Produtos de Orçamento';
                     <p class="text-xs text-gray-500 mt-1">A seleção determina em quais formulários o produto estará disponível.</p>
                 </div>
 
+                <div id="etapa-apostilamento-fields" class="md:col-span-2 hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="apostilamento_quantidade_padrao" class="block text-sm font-medium text-gray-700 mb-1">Quantidade padrão da etapa</label>
+                            <input type="number" name="apostilamento_quantidade_padrao" id="apostilamento_quantidade_padrao" class="block w-full p-2 border border-gray-300 rounded-md shadow-sm" min="0" placeholder="Ex: 1">
+                        </div>
+                        <div>
+                            <label for="apostilamento_valor_padrao" class="block text-sm font-medium text-gray-700 mb-1">Valor padrão da etapa (R$)</label>
+                            <input type="text" name="apostilamento_valor_padrao" id="apostilamento_valor_padrao" data-currency-input class="block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="0,00">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="etapa-postagem-fields" class="md:col-span-2 hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="postagem_quantidade_padrao" class="block text-sm font-medium text-gray-700 mb-1">Quantidade padrão da etapa</label>
+                            <input type="number" name="postagem_quantidade_padrao" id="postagem_quantidade_padrao" class="block w-full p-2 border border-gray-300 rounded-md shadow-sm" min="0" placeholder="Ex: 1">
+                        </div>
+                        <div>
+                            <label for="postagem_valor_padrao" class="block text-sm font-medium text-gray-700 mb-1">Valor padrão da etapa (R$)</label>
+                            <input type="text" name="postagem_valor_padrao" id="postagem_valor_padrao" data-currency-input class="block w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="0,00">
+                        </div>
+                    </div>
+                </div>
+
                 <div class="md:col-span-2">
                     <span class="block text-sm font-medium text-gray-700 mb-2">Status do Produto</span>
                     <div class="flex items-center space-x-6">
@@ -211,6 +237,10 @@ function editProduto(produto) {
     const valorPadrao = produto.valor_padrao ?? produto.omie_valor_unitario ?? '';
     setCurrencyValue(valorPadraoInput, valorPadrao);
     document.getElementById('servico_tipo').value = produto.servico_tipo || 'Nenhum';
+    document.getElementById('apostilamento_quantidade_padrao').value = produto.apostilamento_quantidade_padrao || '';
+    setCurrencyValue(document.getElementById('apostilamento_valor_padrao'), produto.apostilamento_valor_padrao || '');
+    document.getElementById('postagem_quantidade_padrao').value = produto.postagem_quantidade_padrao || '';
+    setCurrencyValue(document.getElementById('postagem_valor_padrao'), produto.postagem_valor_padrao || '');
     document.getElementById('bloquear_valor_minimo').checked = Number(produto.bloquear_valor_minimo || 0) === 1;
     setProdutoStatus(produto.ativo ?? 1);
     document.getElementById('codigo_integracao').value = produto.omie_codigo_integracao || '';
@@ -222,6 +252,8 @@ function editProduto(produto) {
     document.getElementById('sincronizar_omie').checked = false;
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    toggleStageFields();
 }
 
 function resetForm() {
@@ -235,6 +267,10 @@ function resetForm() {
     document.getElementById('produto_id').value = '';
     submitButton.innerHTML = '<i class="fas fa-save mr-2"></i> Salvar Produto';
     document.getElementById('servico_tipo').value = 'Nenhum';
+    document.getElementById('apostilamento_quantidade_padrao').value = '';
+    document.getElementById('apostilamento_valor_padrao').value = '';
+    document.getElementById('postagem_quantidade_padrao').value = '';
+    document.getElementById('postagem_valor_padrao').value = '';
     document.getElementById('bloquear_valor_minimo').checked = false;
     setProdutoStatus(1);
     document.getElementById('codigo_integracao').value = '';
@@ -246,5 +282,29 @@ function resetForm() {
     document.getElementById('sincronizar_omie').checked = false;
     const valorPadraoInput = document.getElementById('valor_padrao');
     setCurrencyValue(valorPadraoInput, '');
+
+    toggleStageFields();
 }
+
+function toggleStageFields() {
+    const servicoSelect = document.getElementById('servico_tipo');
+    const apostilamentoFields = document.getElementById('etapa-apostilamento-fields');
+    const postagemFields = document.getElementById('etapa-postagem-fields');
+
+    if (!servicoSelect || !apostilamentoFields || !postagemFields) {
+        return;
+    }
+
+    const selected = servicoSelect.value;
+    apostilamentoFields.classList.toggle('hidden', selected !== 'Apostilamento');
+    postagemFields.classList.toggle('hidden', selected !== 'Postagem');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const servicoSelect = document.getElementById('servico_tipo');
+    if (servicoSelect) {
+        servicoSelect.addEventListener('change', toggleStageFields);
+        toggleStageFields();
+    }
+});
 </script>

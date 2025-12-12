@@ -391,16 +391,27 @@ $postagemValorUnitario = $formatCurrencyInput($formData['postagem_valor_unitario
 
     <div id="section-container-apostilamento" class="bg-yellow-50 p-6 rounded-lg shadow-lg border border-yellow-200 mt-6" style="display: none;">
         <h2 class="text-xl font-semibold text-yellow-800 border-b border-yellow-200 pb-2">Etapa Apostilamento</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
-            <div>
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-6 mt-4 items-end">
+            <div class="md:col-span-2">
                 <label for="apostilamento_quantidade" class="block text-sm font-medium text-gray-700">Quantidade</label>
                 <input type="number" name="apostilamento_quantidade" id="apostilamento_quantidade" value="<?php echo htmlspecialchars($formData['apostilamento_quantidade'] ?? '0'); ?>" class="mt-1 block w-full p-2 border border-yellow-300 rounded-md shadow-sm calculation-trigger">
             </div>
-            <div>
+            <div class="md:col-span-4">
+                <label for="apostilamento_categoria_id" class="block text-sm font-medium text-gray-700">Categoria financeira</label>
+                <select name="apostilamento_categoria_id" id="apostilamento_categoria_id" class="mt-1 block w-full p-2 border border-yellow-300 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500 calculation-trigger" data-stage-target="apostilamento">
+                    <option value="">Selecione...</option>
+                    <?php foreach ($financeiroServicos['Apostilamento'] as $tipo): ?>
+                        <option value="<?php echo htmlspecialchars($tipo['id']); ?>" data-valor-padrao="<?php echo htmlspecialchars($tipo['valor_padrao'] ?? ''); ?>" data-bloqueado="<?php echo $tipo['bloquear_valor_minimo']; ?>" <?php echo (($formData['apostilamento_categoria_id'] ?? null) == $tipo['id']) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($tipo['nome_categoria']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="md:col-span-2">
                 <label for="apostilamento_valor_unitario" class="block text-sm font-medium text-gray-700">Valor Unitário (R$)</label>
                 <input type="text" name="apostilamento_valor_unitario" id="apostilamento_valor_unitario" value="<?php echo htmlspecialchars($apostilamentoValorUnitario); ?>" class="mt-1 block w-full p-2 border border-yellow-300 rounded-md shadow-sm calculation-trigger">
             </div>
-            <div>
+            <div class="md:col-span-4">
                 <label for="apostilamento_valor_total" class="block text-sm font-medium text-gray-700">Valor Total (R$)</label>
                 <input type="text" name="apostilamento_valor_total" id="apostilamento_valor_total" value="<?php echo htmlspecialchars($formData['apostilamento_valor_total'] ?? '0,00'); ?>" class="mt-1 block w-full p-2 border border-yellow-300 rounded-md shadow-sm bg-gray-100" readonly>
             </div>
@@ -409,16 +420,27 @@ $postagemValorUnitario = $formatCurrencyInput($formData['postagem_valor_unitario
 
     <div id="section-container-postagem" class="bg-purple-50 p-6 rounded-lg shadow-lg border border-purple-200 mt-6" style="display: none;">
         <h2 class="text-xl font-semibold text-purple-800 border-b border-purple-200 pb-2">Etapa Postagem / Envio</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
-            <div>
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-6 mt-4 items-end">
+            <div class="md:col-span-2">
                 <label for="postagem_quantidade" class="block text-sm font-medium text-gray-700">Quantidade</label>
                 <input type="number" name="postagem_quantidade" id="postagem_quantidade" value="<?php echo htmlspecialchars($formData['postagem_quantidade'] ?? '0'); ?>" class="mt-1 block w-full p-2 border border-purple-300 rounded-md shadow-sm calculation-trigger">
             </div>
-            <div>
+            <div class="md:col-span-4">
+                <label for="postagem_categoria_id" class="block text-sm font-medium text-gray-700">Categoria financeira</label>
+                <select name="postagem_categoria_id" id="postagem_categoria_id" class="mt-1 block w-full p-2 border border-purple-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 calculation-trigger" data-stage-target="postagem">
+                    <option value="">Selecione...</option>
+                    <?php foreach ($financeiroServicos['Postagem'] as $tipo): ?>
+                        <option value="<?php echo htmlspecialchars($tipo['id']); ?>" data-valor-padrao="<?php echo htmlspecialchars($tipo['valor_padrao'] ?? ''); ?>" data-bloqueado="<?php echo $tipo['bloquear_valor_minimo']; ?>" <?php echo (($formData['postagem_categoria_id'] ?? null) == $tipo['id']) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($tipo['nome_categoria']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="md:col-span-2">
                 <label for="postagem_valor_unitario" class="block text-sm font-medium text-gray-700">Valor Unitário (R$)</label>
                 <input type="text" name="postagem_valor_unitario" id="postagem_valor_unitario" value="<?php echo htmlspecialchars($postagemValorUnitario); ?>" class="mt-1 block w-full p-2 border border-purple-300 rounded-md shadow-sm calculation-trigger">
             </div>
-            <div>
+            <div class="md:col-span-4">
                 <label for="postagem_valor_total" class="block text-sm font-medium text-gray-700">Valor Total (R$)</label>
                 <input type="text" name="postagem_valor_total" id="postagem_valor_total" value="<?php echo htmlspecialchars($formData['postagem_valor_total'] ?? '0,00'); ?>" class="mt-1 block w-full p-2 border border-purple-300 rounded-md shadow-sm bg-gray-100" readonly>
             </div>
@@ -1064,6 +1086,45 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    document.querySelectorAll('select[data-stage-target]').forEach(applyStageCategoryDefaults);
+
+    function applyStageCategoryDefaults(selectElement) {
+        if (!selectElement) {
+            return;
+        }
+
+        const stage = selectElement.dataset.stageTarget;
+        if (!stage) {
+            return;
+        }
+
+        const selectedOption = selectElement.options[selectElement.selectedIndex];
+        const valorPadrao = selectedOption?.dataset?.valorPadrao;
+        const valorUnitarioInput = document.getElementById(`${stage}_valor_unitario`);
+
+        if (valorUnitarioInput) {
+            if (valorPadrao !== undefined && valorPadrao !== '') {
+                const parsedValor = parseFloat(valorPadrao);
+                if (!Number.isNaN(parsedValor)) {
+                    valorUnitarioInput.value = formatMoedaBR(parsedValor);
+                    valorUnitarioInput.dataset.minValor = selectedOption?.dataset?.bloqueado === '1'
+                        ? parsedValor
+                        : '0';
+                }
+            } else {
+                valorUnitarioInput.dataset.minValor = '0';
+            }
+        }
+
+        const quantidadeInput = document.getElementById(`${stage}_quantidade`);
+        const totalInput = document.getElementById(`${stage}_valor_total`);
+        if (quantidadeInput && valorUnitarioInput && totalInput) {
+            const quantidade = parseInt(quantidadeInput.value, 10) || 0;
+            const valor = parseMoedaBR(valorUnitarioInput.value || '0');
+            totalInput.value = formatMoedaBR(quantidade * valor);
+        }
+    }
+
     // === ADICIONAR DOCUMENTOS ===
     window.adicionarDocumento = function(section, data = null, autoAdded = false) {
         const isMensalista = clienteCache.tipo === 'Mensalista' && section === 'tradução';
@@ -1120,6 +1181,12 @@ document.addEventListener('DOMContentLoaded', function () {
     document.body.addEventListener('change', function(e) {
         if (e.target.matches('.servico-select')) {
             applyServiceSelection(e.target);
+            updateAllCalculations();
+            evaluateValorMinimo();
+        }
+
+        if (e.target.matches('select[data-stage-target]')) {
+            applyStageCategoryDefaults(e.target);
             updateAllCalculations();
             evaluateValorMinimo();
         }
