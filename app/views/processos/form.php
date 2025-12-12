@@ -134,23 +134,6 @@ $formatCurrencyInput = static function ($value, string $default = '0,00'): strin
 
 $apostilamentoValorUnitario = $formatCurrencyInput($processo['apostilamento_valor_unitario'] ?? null);
 $postagemValorUnitario = $formatCurrencyInput($processo['postagem_valor_unitario'] ?? null);
-
-$resolveStageDefault = static function (array $lista, $selectedId, $currentFormatted) use ($formatCurrencyInput) {
-    if (!empty($currentFormatted) && $currentFormatted !== '0,00') {
-        return $currentFormatted;
-    }
-
-    foreach ($lista as $item) {
-        if ((string)($item['id'] ?? '') === (string)$selectedId) {
-            return $formatCurrencyInput($item['valor_padrao'] ?? null);
-        }
-    }
-
-    return $currentFormatted;
-};
-
-$apostilamentoValorUnitario = $resolveStageDefault($financeiroServicos['Apostilamento'], $processo['apostilamento_categoria_id'] ?? null, $apostilamentoValorUnitario);
-$postagemValorUnitario = $resolveStageDefault($financeiroServicos['Postagem'], $processo['postagem_categoria_id'] ?? null, $postagemValorUnitario);
 ?>
 
 <div class="flex items-center justify-between mb-6">
@@ -597,17 +580,6 @@ $postagemValorUnitario = $resolveStageDefault($financeiroServicos['Postagem'], $
             <legend class="text-lg font-semibold text-yellow-800 px-2 ml-4">Etapa Apostilamento</legend>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
                 <div>
-                    <label for="apostilamento_categoria_id" class="block text-sm font-medium text-gray-700">Categoria financeira</label>
-                    <select name="apostilamento_categoria_id" id="apostilamento_categoria_id" class="mt-1 block w-full p-2 border border-yellow-300 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500 calculation-trigger" data-stage-target="apostilamento">
-                        <option value="">Selecione...</option>
-                        <?php foreach ($financeiroServicos['Apostilamento'] as $tipo): ?>
-                            <option value="<?php echo htmlspecialchars($tipo['id']); ?>" data-valor-padrao="<?php echo htmlspecialchars($tipo['valor_padrao'] ?? ''); ?>" data-bloqueado="<?php echo $tipo['bloquear_valor_minimo']; ?>" <?php echo (($processo['apostilamento_categoria_id'] ?? null) == $tipo['id']) ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($tipo['nome_categoria']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div>
                     <label for="apostilamento_quantidade" class="block text-sm font-medium text-gray-700">Quantidade</label>
                     <input type="number" name="apostilamento_quantidade" id="apostilamento_quantidade" class="mt-1 block w-full p-2 calculation-trigger border border-yellow-300 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500" value="<?php echo htmlspecialchars($processo['apostilamento_quantidade'] ?? '0'); ?>">
                 </div>
@@ -627,17 +599,6 @@ $postagemValorUnitario = $resolveStageDefault($financeiroServicos['Postagem'], $
         <fieldset class="border border-purple-300 rounded-md p-6 bg-purple-50">
             <legend class="text-lg font-semibold text-purple-800 px-2 ml-4">Etapa Postagem / Envio</legend>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
-                <div>
-                    <label for="postagem_categoria_id" class="block text-sm font-medium text-gray-700">Categoria financeira</label>
-                    <select name="postagem_categoria_id" id="postagem_categoria_id" class="mt-1 block w-full p-2 border border-purple-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 calculation-trigger" data-stage-target="postagem">
-                        <option value="">Selecione...</option>
-                        <?php foreach ($financeiroServicos['Postagem'] as $tipo): ?>
-                            <option value="<?php echo htmlspecialchars($tipo['id']); ?>" data-valor-padrao="<?php echo htmlspecialchars($tipo['valor_padrao'] ?? ''); ?>" data-bloqueado="<?php echo $tipo['bloquear_valor_minimo']; ?>" <?php echo (($processo['postagem_categoria_id'] ?? null) == $tipo['id']) ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($tipo['nome_categoria']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
                 <div>
                     <label for="postagem_quantidade" class="block text-sm font-medium text-gray-700">Quantidade</label>
                     <input type="number" name="postagem_quantidade" id="postagem_quantidade" class="mt-1 block w-full p-2 calculation-trigger border border-purple-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500" value="<?php echo htmlspecialchars($processo['postagem_quantidade'] ?? '0'); ?>">
@@ -1223,10 +1184,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (parceladoEntryInput) {
         parceladoEntryInput.addEventListener('input', updateParceladoRestante);
     }
-
-    document.querySelectorAll('select[data-stage-target]').forEach((select) => {
-        applyStageCategoryDefaults(select);
-    });
     // Aplica a máscara de moeda a todos os campos relevantes em tempo real,
     // inclusive os que forem criados dinamicamente (.doc-price).
     document.body.addEventListener('input', function(e) {
@@ -1243,15 +1200,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 triggerMinValueAlert(target, budgetMinAlertMessage);
                 evaluateBudgetMinValues();
             }
-        }
-    });
-
-    document.body.addEventListener('change', function(e) {
-        const target = e.target;
-        if (target.matches('select[data-stage-target]')) {
-            applyStageCategoryDefaults(target);
-            updateAllCalculations();
-            evaluateBudgetMinValues();
         }
     });
 
@@ -1315,26 +1263,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         updateParceladoRestante();
-    }
-
-    function applyStageCategoryDefaults(select) {
-        if (!select || !select.dataset.stageTarget) {
-            return;
-        }
-
-        const stage = select.dataset.stageTarget;
-        const selectedOption = select.selectedOptions[0];
-        if (!selectedOption) {
-            return;
-        }
-
-        const valorPadrao = selectedOption.dataset.valorPadrao;
-        const unitInput = document.getElementById(`${stage}_valor_unitario`);
-
-        if (unitInput && valorPadrao !== undefined && valorPadrao !== null && valorPadrao !== '') {
-            const parsed = parseFloat(valorPadrao);
-            unitInput.value = Number.isFinite(parsed) ? formatMoedaBR(parsed) : valorPadrao;
-        }
     }
 
     const form = document.getElementById('processo-form');
