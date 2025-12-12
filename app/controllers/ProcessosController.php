@@ -545,12 +545,33 @@ class ProcessosController
             }
         }
 
+        $dadosFiltrados = $dadosParaAtualizar;
+        foreach ([
+            'status_processo',
+            'return_to',
+            'id',
+            'docs',
+            'documentos',
+        ] as $campoIgnorado) {
+            unset($dadosFiltrados[$campoIgnorado]);
+        }
+
+        $processoOriginalFiltrado = array_intersect_key($processoOriginal, $dadosFiltrados);
+        $hasFieldChanges = !empty(array_diff_assoc($dadosFiltrados, $processoOriginalFiltrado));
+        $docsAtualizados = $dadosParaAtualizar['docs'] ?? $dadosParaAtualizar['documentos'] ?? [];
+        $documentosAlterados = $docsAtualizados !== $documentosOriginais;
+        $hasChanges = $hasFieldChanges || $documentosAlterados;
+
+        $normalizedDocuments = [];
+        if ($hasChanges) {
+            $normalizedDocuments = $this->processoModel->previewNormalizedDocuments($dadosParaAtualizar);
+        }
+
         $osIdentifiers = $this->resolveOmieOsIdentifiers($processoOriginal);
         $novoStatusParaSincronizar = $dadosParaAtualizar['status_processo']
             ?? $processoOriginal['status_processo']
             ?? null;
-        $shouldAttemptOsUpdate = $this->shouldAttemptOmieOsUpdate($osIdentifiers, $novoStatusParaSincronizar);
-        $normalizedDocuments = $this->processoModel->previewNormalizedDocuments($dadosParaAtualizar);
+        $shouldAttemptOsUpdate = $hasChanges && $this->shouldAttemptOmieOsUpdate($osIdentifiers, $novoStatusParaSincronizar);
 
         $valorCalculado = $this->calculateDocumentsTotal($normalizedDocuments);
         if ($valorCalculado !== null) {
@@ -558,13 +579,8 @@ class ProcessosController
             $dadosParaAtualizar['valor_total'] = $dadosParaAtualizar['valor_total_hidden'];
         }
 
-        if ($shouldAttemptOsUpdate) {
-            if (empty($normalizedDocuments)) {
-                $_SESSION['error_message'] = 'Informe ao menos um serviço antes de salvar para atualizar a OS na Omie.';
-                $this->rememberFormInput(self::SESSION_KEY_PROCESS_FORM, $dadosParaAtualizar);
-                header('Location: processos.php?action=edit&id=' . $id_existente);
-                exit();
-            }
+        if ($shouldAttemptOsUpdate && empty($normalizedDocuments)) {
+            $shouldAttemptOsUpdate = false;
         }
 
         if ($this->shouldRequireVendorSelection($dadosParaAtualizar, $processoOriginal)) {
