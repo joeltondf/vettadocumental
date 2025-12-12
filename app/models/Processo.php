@@ -445,7 +445,7 @@ public function create($data, $files)
         $stmtOldStatus = $this->pdo->prepare("SELECT status_processo FROM processos WHERE id = ?");
         $stmtOldStatus->execute([$id]);
         $oldStatus = $stmtOldStatus->fetchColumn();
-        $statusParaAtualizar = array_key_exists('status_processo', $data) && $data['status_processo'] !== ''
+        $statusParaAtualizar = array_key_exists('status_processo', $data)
             ? $data['status_processo']
             : $oldStatus;
 
