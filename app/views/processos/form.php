@@ -165,7 +165,7 @@ $postagemValorUnitario = $resolveStageDefault($financeiroServicos['Postagem'], $
     <input type="hidden" name="return_to" value="<?php echo htmlspecialchars($return_url); ?>">
     <?php if ($isEditMode): ?>
         <input type="hidden" name="id" value="<?php echo $processo['id']; ?>">
-        <input type="hidden" name="status_processo" value="<?php echo htmlspecialchars($processo['status_processo'] ?? ''); ?>">
+        <input type="hidden" name="status_processo" value="<?php echo htmlspecialchars($processo['status_processo'] ?? 'Orçamento'); ?>">
     <?php endif; ?>
     <?php if (!empty($prospeccaoId)): ?>
         <input type="hidden" name="prospeccao_id" value="<?php echo htmlspecialchars((string) $prospeccaoId); ?>">
