@@ -174,12 +174,6 @@ class CategoriaFinanceira
             $this->selectColumnOrNull('omie_produtos', 'valor_unitario', 'omie_valor_unitario')
         ]);
 
-        foreach ($this->getStageColumns() as $column => $isPresent) {
-            $selectFields[] = $isPresent
-                ? "cf.{$column}"
-                : "NULL AS {$column}";
-        }
-
         $selectColumns = implode(",\n                ", $selectFields);
 
         $whereClauses = ['cf.eh_produto_orcamento = 1'];
@@ -212,19 +206,10 @@ class CategoriaFinanceira
 
     // NOVO MÉTODO: Cria um produto de orçamento com campos específicos.
     public function createProdutoOrcamento($data) {
-        $baseColumns = [
-            'nome_categoria',
-            'tipo_lancamento',
-            'grupo_principal',
-            'valor_padrao',
-            'servico_tipo',
-            'bloquear_valor_minimo',
-            'eh_produto_orcamento',
-            'ativo'
-        ];
+        $sql = "INSERT INTO categorias_financeiras (nome_categoria, tipo_lancamento, grupo_principal, valor_padrao, servico_tipo, bloquear_valor_minimo, eh_produto_orcamento, ativo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        $stmt = $this->pdo->prepare($sql);
 
-        $placeholders = array_fill(0, count($baseColumns), '?');
-        $values = [
+        $success = $stmt->execute([
             $data['nome_categoria'],
             'RECEITA',
             $data['grupo_principal'] ?? 'Produtos e Serviços',
@@ -232,59 +217,24 @@ class CategoriaFinanceira
             $this->normalizeServiceType($data['servico_tipo'] ?? null),
             isset($data['bloquear_valor_minimo']) ? 1 : 0,
             1,
-            $data['ativo'] ?? 1,
-        ];
-
-        foreach ($this->getStageColumns() as $column => $isPresent) {
-            if ($isPresent) {
-                $baseColumns[] = $column;
-                $placeholders[] = '?';
-                $values[] = $data[$column] ?? null;
-            }
-        }
-
-        $columnsSql = implode(', ', $baseColumns);
-        $placeholdersSql = implode(', ', $placeholders);
-
-        $sql = "INSERT INTO categorias_financeiras ({$columnsSql}) VALUES ({$placeholdersSql})";
-        $stmt = $this->pdo->prepare($sql);
-
-        $success = $stmt->execute($values);
+            $data['ativo'] ?? 1
+        ]);
 
         return $success ? (int)$this->pdo->lastInsertId() : false;
     }
 
     // NOVO MÉTODO: Atualiza um produto de orçamento.
     public function updateProdutoOrcamento($id, $data) {
-        $setParts = [
-            'nome_categoria = ?',
-            'valor_padrao = ?',
-            'servico_tipo = ?',
-            'bloquear_valor_minimo = ?',
-            'ativo = ?',
-        ];
-
-        $values = [
+        $sql = "UPDATE categorias_financeiras SET nome_categoria = ?, valor_padrao = ?, servico_tipo = ?, bloquear_valor_minimo = ?, ativo = ? WHERE id = ? AND eh_produto_orcamento = 1";
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute([
             $data['nome_categoria'],
             $data['valor_padrao'] ?? null,
             $this->normalizeServiceType($data['servico_tipo'] ?? null),
             isset($data['bloquear_valor_minimo']) ? 1 : 0,
             $data['ativo'],
-        ];
-
-        foreach ($this->getStageColumns() as $column => $isPresent) {
-            if ($isPresent) {
-                $setParts[] = "{$column} = ?";
-                $values[] = $data[$column] ?? null;
-            }
-        }
-
-        $setSql = implode(', ', $setParts);
-        $sql = "UPDATE categorias_financeiras SET {$setSql} WHERE id = ? AND eh_produto_orcamento = 1";
-        $stmt = $this->pdo->prepare($sql);
-        $values[] = $id;
-
-        return $stmt->execute($values);
+            $id
+        ]);
     }
     public function getCategoriasFinanceiras($show_inactive = false) {
         $sql = "SELECT * FROM categorias_financeiras WHERE eh_produto_orcamento = 0";
@@ -342,16 +292,6 @@ class CategoriaFinanceira
         }
 
         return 'COALESCE(' . implode(', ', $availableColumns) . ') AS omie_codigo';
-    }
-
-    private function getStageColumns(): array
-    {
-        return [
-            'apostilamento_quantidade_padrao' => $this->tableHasColumn('categorias_financeiras', 'apostilamento_quantidade_padrao'),
-            'apostilamento_valor_padrao' => $this->tableHasColumn('categorias_financeiras', 'apostilamento_valor_padrao'),
-            'postagem_quantidade_padrao' => $this->tableHasColumn('categorias_financeiras', 'postagem_quantidade_padrao'),
-            'postagem_valor_padrao' => $this->tableHasColumn('categorias_financeiras', 'postagem_valor_padrao'),
-        ];
     }
 
     private function selectColumnOrNull(string $table, string $column, string $alias): string
