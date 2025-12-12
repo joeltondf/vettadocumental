@@ -550,9 +550,15 @@ class ProcessosController
             ?? $processoOriginal['status_processo']
             ?? null;
         $shouldAttemptOsUpdate = $this->shouldAttemptOmieOsUpdate($osIdentifiers, $novoStatusParaSincronizar);
+        $normalizedDocuments = $this->processoModel->previewNormalizedDocuments($dadosParaAtualizar);
+
+        $valorCalculado = $this->calculateDocumentsTotal($normalizedDocuments);
+        if ($valorCalculado !== null) {
+            $dadosParaAtualizar['valor_total_hidden'] = number_format($valorCalculado, 2, '.', '');
+            $dadosParaAtualizar['valor_total'] = $dadosParaAtualizar['valor_total_hidden'];
+        }
 
         if ($shouldAttemptOsUpdate) {
-            $normalizedDocuments = $this->processoModel->previewNormalizedDocuments($dadosParaAtualizar);
             if (empty($normalizedDocuments)) {
                 $_SESSION['error_message'] = 'Informe ao menos um serviço antes de salvar para atualizar a OS na Omie.';
                 $this->rememberFormInput(self::SESSION_KEY_PROCESS_FORM, $dadosParaAtualizar);
@@ -4141,6 +4147,26 @@ class ProcessosController
         ], static function ($value) {
             return $value !== null && $value !== '';
         });
+    }
+
+    private function calculateDocumentsTotal(array $documentos): ?float
+    {
+        if (empty($documentos)) {
+            return null;
+        }
+
+        $total = 0.0;
+
+        foreach ($documentos as $documento) {
+            $quantidade = isset($documento['quantidade']) && (int)$documento['quantidade'] > 0
+                ? (int)$documento['quantidade']
+                : 1;
+            $valorUnitario = isset($documento['valor_unitario']) ? (float)$documento['valor_unitario'] : 0.0;
+
+            $total += $quantidade * $valorUnitario;
+        }
+
+        return round($total, 2);
     }
 
     private function calculateOrderItemsTotal(array $items): float
