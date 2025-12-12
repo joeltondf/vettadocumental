@@ -425,14 +425,6 @@ class OmieService {
         $payload = ['cNumOS' => $osNumber];
         return $this->makeRequest('/servicos/os/', 'CancelarOS', $payload);
     }
-
-    /**
-     * Atualiza uma Ordem de Serviço existente na Omie.
-     */
-    public function updateServiceOrder(array $payload): array
-    {
-        return $this->makeRequest('/servicos/os/', 'AlterarOS', $payload);
-    }
     public function createServiceOrder(array $payload): array {
         // Similar à criação de vendas, a criação de OS espera um payload estruturado.
         // Assumimos que o $payload já vem com a estrutura e IDs corretos.
