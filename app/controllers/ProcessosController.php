@@ -1853,13 +1853,106 @@ class ProcessosController
         }
 
         AsyncTaskDispatcher::queue(function () use ($processId) {
-            $serviceOrderNumber = $this->gerarOsOmie($processId);
-            if (!empty($serviceOrderNumber)) {
-                $message = "Ordem de Serviço #{$serviceOrderNumber} gerada na Omie.";
-                $this->appendSessionMessage('success_message', $message);
-                $this->appendSessionMessage('message', $message);
+            try {
+                $processData = $this->processoModel->getById($processId);
+                if (!$processData || empty($processData['processo'])) {
+                    return;
+                }
+
+                $processo = $processData['processo'];
+                $existingOrder = $this->sanitizeOmieDigits($processo['os_numero_omie'] ?? null);
+
+                if ($existingOrder !== null) {
+                    $updatedOrderNumber = $this->atualizarOsOmie($processId);
+                    if (!empty($updatedOrderNumber)) {
+                        $message = "Ordem de Serviço #{$updatedOrderNumber} atualizada na Omie.";
+                        $this->appendSessionMessage('success_message', $message);
+                        $this->appendSessionMessage('message', $message);
+                    }
+
+                    return;
+                }
+
+                $serviceOrderNumber = $this->gerarOsOmie($processId);
+                if (!empty($serviceOrderNumber)) {
+                    $message = "Ordem de Serviço #{$serviceOrderNumber} gerada na Omie.";
+                    $this->appendSessionMessage('success_message', $message);
+                    $this->appendSessionMessage('message', $message);
+                }
+            } catch (Throwable $exception) {
+                error_log('Falha ao sincronizar OS na Omie: ' . $exception->getMessage());
             }
         });
+    }
+
+    private function atualizarOsOmie(int $processoId): ?string
+    {
+        try {
+            $processoData = $this->processoModel->getById($processoId);
+            if (!$processoData) {
+                throw new Exception("Processo não encontrado.");
+            }
+
+            $processo = $processoData['processo'];
+            $omieOrderNumber = $this->sanitizeOmieDigits($processo['os_numero_omie'] ?? null);
+            if ($omieOrderNumber === null) {
+                return $this->gerarOsOmie($processoId);
+            }
+
+            $documentos = $processoData['documentos'];
+            $cliente = $this->clienteModel->getById($processo['cliente_id']);
+            if (empty($cliente['omie_id'])) {
+                throw new Exception("Cliente não possui ID da Omie. Sincronize o cliente primeiro.");
+            }
+
+            $omieServiceCode = $this->configModel->getSetting('omie_os_service_code') ?: '1.07';
+            $omieCategoryCode = $this->configModel->getSetting('omie_os_category_code') ?: '1.01.02';
+            $omieCategoryItemCode = $this->resolveOmieCategoryItemCode($omieCategoryCode);
+            $omieBankAccountCode = $this->resolveOmieBankAccountCode();
+            $omieServiceTaxationCode = $this->resolveOmieServiceTaxationCode();
+
+            $servicosPrestados = $this->buildServiceItems(
+                $processo,
+                $documentos,
+                $omieServiceCode,
+                $omieServiceTaxationCode,
+                $omieCategoryItemCode
+            );
+
+            if (empty($servicosPrestados)) {
+                throw new Exception("O processo não possui serviços para atualizar a OS.");
+            }
+
+            $payload = [
+                'nCodOS' => (int)$omieOrderNumber,
+                'Cabecalho' => $this->buildServiceOrderHeader($processo, $cliente),
+                'InformacoesAdicionais' => $this->buildServiceOrderAdditionalInfo(
+                    $cliente,
+                    $omieCategoryCode,
+                    $omieBankAccountCode
+                ),
+                'ServicosPrestados' => $servicosPrestados,
+            ];
+
+            $response = $this->omieService->updateServiceOrder($payload);
+            if (!empty($response['cNumOS'])) {
+                $this->processoModel->salvarNumeroOsOmie($processoId, $response['cNumOS']);
+                return $response['cNumOS'];
+            }
+
+            return $processo['os_numero_omie'];
+        } catch (Exception $e) {
+            error_log("Falha ao atualizar OS na Omie para o processo ID {$processoId}: " . $e->getMessage());
+
+            $mensagem = "A operação foi concluída, mas não foi possível atualizar a OS na Omie: " . $e->getMessage();
+            if (!empty($_SESSION['warning_message'])) {
+                $_SESSION['warning_message'] .= ' ' . $mensagem;
+            } else {
+                $_SESSION['warning_message'] = $mensagem;
+            }
+
+            return null;
+        }
     }
 
     private function queueServiceOrderCancellation(int $processId): void
