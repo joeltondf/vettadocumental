@@ -445,9 +445,6 @@ public function create($data, $files)
         $stmtOldStatus = $this->pdo->prepare("SELECT status_processo FROM processos WHERE id = ?");
         $stmtOldStatus->execute([$id]);
         $oldStatus = $stmtOldStatus->fetchColumn();
-        $statusParaAtualizar = array_key_exists('status_processo', $data)
-            ? $data['status_processo']
-            : $oldStatus;
 
         $this->pdo->beginTransaction();
         try {
@@ -476,7 +473,7 @@ public function create($data, $files)
                 'cliente_id' => $data['cliente_id'],
                 'vendedor_id' => $this->resolveVendorId($data),
                 'titulo' => $data['titulo'],
-                'status_processo' => $statusParaAtualizar,
+                'status_processo' => $data['status_processo'] ?? 'Orçamento',
                 'orcamento_origem' => $data['orcamento_origem'] ?? null,
                 'categorias_servico' => isset($data['categorias_servico']) ? implode(',', $data['categorias_servico']) : null,
                 'idioma' => $data['idioma'] ?? null,
@@ -511,7 +508,7 @@ public function create($data, $files)
             }
             
             // --- INÍCIO DA NOVA LÓGICA DE LANÇAMENTO FINANCEIRO ---
-            $newStatus = $statusParaAtualizar;
+            $newStatus = $data['status_processo'];
             $statusTrigger = ['Serviço Pendente', 'Serviço em Andamento', 'Serviço pendente', 'Serviço em andamento', 'Pendente de Pagamento', 'Pendente de Documentos', 'Pago - A Enviar']; // Status que disparam a criação da receita
 
             // Dispara a lógica apenas se o status MUDOU para um dos status do gatilho
