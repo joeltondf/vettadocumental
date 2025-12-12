@@ -7,7 +7,6 @@
 
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/Configuracao.php';
-require_once __DIR__ . '/CategoriaFinanceira.php';
 
 class Processo
 {
@@ -2445,8 +2444,6 @@ public function create($data, $files)
             }
         }
 
-        $documents = array_merge($documents, $this->buildStageDocuments($data));
-
         $normalized = [];
         foreach ($documents as $doc) {
             $type = trim((string)($doc['tipo_documento'] ?? ''));
@@ -2497,86 +2494,6 @@ public function create($data, $files)
         }
 
         return $normalized;
-    }
-
-    private function buildStageDocuments(array $data): array
-    {
-        $stages = [
-            [
-                'quantityKey' => 'apostilamento_quantidade',
-                'valueKey' => 'apostilamento_valor_unitario',
-                'categoryIdKey' => 'apostilamento_categoria_id',
-                'type' => 'Apostilamento',
-            ],
-            [
-                'quantityKey' => 'postagem_quantidade',
-                'valueKey' => 'postagem_valor_unitario',
-                'categoryIdKey' => 'postagem_categoria_id',
-                'type' => 'Postagem',
-            ],
-        ];
-
-        require_once __DIR__ . '/CategoriaFinanceira.php';
-        $categoriaModel = new CategoriaFinanceira($this->pdo);
-
-        $documents = [];
-
-        foreach ($stages as $stage) {
-            $rawValue = $data[$stage['valueKey']] ?? null;
-            $parsedValue = $this->parseCurrency($rawValue);
-
-            if ($parsedValue === null) {
-                continue;
-            }
-
-            $quantity = isset($data[$stage['quantityKey']]) ? (int)$data[$stage['quantityKey']] : 0;
-            if ($quantity <= 0) {
-                $quantity = 1;
-            }
-
-            $categoryName = $this->resolveStageCategoryName(
-                $categoriaModel,
-                $data[$stage['categoryIdKey']] ?? null,
-                $stage['type']
-            );
-
-            $documents[] = [
-                'categoria' => $stage['type'],
-                'tipo_documento' => $categoryName,
-                'nome_documento' => $categoryName,
-                'quantidade' => $quantity,
-                'valor_unitario' => $parsedValue,
-            ];
-        }
-
-        return $documents;
-    }
-
-    private function resolveStageCategoryName(
-        CategoriaFinanceira $categoriaModel,
-        $categoryId,
-        string $defaultType
-    ): string {
-        if ($categoryId !== null && $categoryId !== '') {
-            $categoria = $categoriaModel->getById((int)$categoryId);
-            if ($categoria && $this->isMatchingStageCategory($categoria, $defaultType)) {
-                return $categoria['nome_categoria'];
-            }
-        }
-
-        $fallback = $categoriaModel->findBudgetProductByServiceType($defaultType, true);
-        if ($fallback && $this->isMatchingStageCategory($fallback, $defaultType)) {
-            return $fallback['nome_categoria'];
-        }
-
-        return $defaultType;
-    }
-
-    private function isMatchingStageCategory(array $categoria, string $expectedType): bool
-    {
-        return ($categoria['servico_tipo'] ?? '') === $expectedType
-            && ($categoria['tipo_lancamento'] ?? '') === 'RECEITA'
-            && (int)($categoria['eh_produto_orcamento'] ?? 0) === 1;
     }
 
     /**

@@ -158,24 +158,6 @@ class CategoriaFinanceira
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    public function findBudgetProductByServiceType(string $serviceType, bool $includeInactive = false): ?array
-    {
-        $sql = "SELECT * FROM categorias_financeiras WHERE servico_tipo = ? AND tipo_lancamento = 'RECEITA' AND eh_produto_orcamento = 1";
-
-        if (!$includeInactive) {
-            $sql .= " AND ativo = 1";
-        }
-
-        $sql .= " ORDER BY id ASC LIMIT 1";
-
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([$this->normalizeServiceType($serviceType)]);
-
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        return $result === false ? null : $result;
-    }
-
     // NOVO MÉTODO: Busca apenas os produtos de orçamento.
     public function getProdutosOrcamento(bool $includeInactive = false) {
         $selectFields = ['cf.*'];
