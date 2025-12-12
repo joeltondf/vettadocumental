@@ -1324,7 +1324,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const stage = select.dataset.stageTarget;
         const selectedOption = select.selectedOptions[0];
-        if (!selectedOption) {
+        if (!selectedOption || !selectedOption.value) {
             return;
         }
 
