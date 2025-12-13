@@ -1718,9 +1718,13 @@ class ProcessosController
         }
         $processoAtual = $this->processoModel->getById($id);
         $osAnterior = $processoAtual['processo']['os_numero_omie'] ?? null;
-        $osNumero = $this->gerarOsOmie($id);
+        $resultadoOs = $this->gerarOsOmie($id);
+        $osNumero = $resultadoOs['numero'] ?? null;
+        $operacao = $resultadoOs['operation'] ?? null;
         if ($osNumero) {
-            if ($osAnterior) {
+            if ($operacao === 'updated') {
+                $_SESSION['success_message'] = "Ordem de Serviço #{$osNumero} atualizada na Omie com sucesso.";
+            } elseif ($osAnterior) {
                 $_SESSION['success_message'] = "A Ordem de Serviço #{$osNumero} já estava vinculada na Omie.";
             } else {
                 $_SESSION['success_message'] = "Ordem de Serviço #{$osNumero} gerada na Omie com sucesso!";
@@ -1853,9 +1857,14 @@ class ProcessosController
         }
 
         AsyncTaskDispatcher::queue(function () use ($processId) {
-            $serviceOrderNumber = $this->gerarOsOmie($processId);
+            $serviceOrderResult = $this->gerarOsOmie($processId);
+            $serviceOrderNumber = $serviceOrderResult['numero'] ?? null;
+            $operation = $serviceOrderResult['operation'] ?? null;
+
             if (!empty($serviceOrderNumber)) {
-                $message = "Ordem de Serviço #{$serviceOrderNumber} gerada na Omie.";
+                $message = $operation === 'updated'
+                    ? "Ordem de Serviço #{$serviceOrderNumber} atualizada na Omie."
+                    : "Ordem de Serviço #{$serviceOrderNumber} gerada na Omie.";
                 $this->appendSessionMessage('success_message', $message);
                 $this->appendSessionMessage('message', $message);
             }
@@ -3716,6 +3725,29 @@ class ProcessosController
         return $items;
     }
 
+    private function buildUpdateServiceItems(array $servicosPrestados): array
+    {
+        return array_map(static function (array $item): array {
+            return [
+                'codigo_servico_lc116' => $item['cCodServLC116'] ?? '',
+                'codigo_servico_municipal' => $item['cCodServMun'] ?? '',
+                'descricao' => $item['cDescServ'] ?? '',
+                'observacoes' => $item['cDadosAdicItem'] ?? '',
+                'codigo_tributacao_servico' => $item['cTribServ'] ?? '',
+                'reten_iss' => $item['cRetemISS'] ?? 'N',
+                'reten_irrf' => 'S',
+                'reten_pis' => 'S',
+                'aliq_irrf' => 15,
+                'aliq_iss' => 3,
+                'aliq_pis' => 4.5,
+                'aliq_cofins' => 0,
+                'aliq_csll' => 0,
+                'quantidade' => $item['nQtde'] ?? 1,
+                'valor_unitario' => $item['nValUnit'] ?? 0,
+            ];
+        }, $servicosPrestados);
+    }
+
     private function buildFallbackServiceDocument(array $processo): array
     {
         $titulo = trim((string)($processo['titulo'] ?? ''));
@@ -3822,6 +3854,24 @@ class ProcessosController
             'nCodCli' => (int)$cliente['omie_id'],
             'nQtdeParc' => 1,
         ];
+    }
+
+    private function resolveServiceOrderStage(array $processo): string
+    {
+        $candidates = [
+            $processo['etapa_faturamento_codigo'] ?? null,
+            $processo['etapa'] ?? null,
+            $this->configModel->getSetting('omie_default_etapa') ?? null,
+        ];
+
+        foreach ($candidates as $candidate) {
+            $normalized = $this->sanitizeOmieDigits($candidate);
+            if ($normalized !== null) {
+                return str_pad($normalized, 2, '0', STR_PAD_LEFT);
+            }
+        }
+
+        return '10';
     }
 
     private function generateOmieInternalOrderCode(array $processo): string
@@ -4023,7 +4073,7 @@ class ProcessosController
     /**
      * Gera uma Ordem de Serviço na Omie a partir de um processo local.
      */
-    private function gerarOsOmie(int $processoId): ?string
+    private function gerarOsOmie(int $processoId): array
     {
         try {
             $processoData = $this->processoModel->getById($processoId);
@@ -4036,11 +4086,7 @@ class ProcessosController
             if (empty($cliente['omie_id'])) {
                 throw new Exception("Cliente não possui ID da Omie. Sincronize o cliente primeiro.");
             }
-            if (!empty($processo['os_numero_omie'])) {
-                return $processo['os_numero_omie'];
-            }
 
-            // Carrega as configurações da Omie do banco de dados
             $omieServiceCode = $this->configModel->getSetting('omie_os_service_code') ?: '1.07';
             $omieCategoryCode = $this->configModel->getSetting('omie_os_category_code') ?: '1.01.02';
             $omieCategoryItemCode = $this->resolveOmieCategoryItemCode($omieCategoryCode);
@@ -4059,6 +4105,35 @@ class ProcessosController
                 throw new Exception("O processo não possui serviços para gerar a OS.");
             }
 
+            if (!empty($processo['os_numero_omie'])) {
+                $itensParaAtualizacao = $this->buildUpdateServiceItems($servicosPrestados);
+                $processoPayload = [
+                    'numero_os_omie' => $processo['os_numero_omie'],
+                    'codigo_integracao' => $this->generateOmieInternalOrderCode($processo),
+                    'etapa' => $this->resolveServiceOrderStage($processo),
+                    'data_previsao' => $this->calculateServiceForecastDate($processo),
+                    'codigo_cliente_omie' => (int)$cliente['omie_id'],
+                    'quantidade_parcelas' => $processo['orcamento_parcelas'] ?? 1,
+                    'cidade_prestacao' => $this->buildCityDisplayName($cliente),
+                    'codigo_categoria' => $omieCategoryCode,
+                    'codigo_conta_corrente' => $omieBankAccountCode,
+                    'email_cliente' => $this->resolveClientEmail($cliente),
+                ];
+                $observacoes = $processo['observacoes_os'] ?? ($processo['observacoes'] ?? null);
+
+                $response = $this->omieService->updateServiceOrder($processoPayload, $itensParaAtualizacao, $observacoes);
+                $numeroOs = $response['nCodOS'] ?? $processo['os_numero_omie'];
+
+                if (!empty($numeroOs) && $numeroOs !== $processo['os_numero_omie']) {
+                    $this->processoModel->salvarNumeroOsOmie($processoId, $numeroOs);
+                }
+
+                return [
+                    'numero' => $numeroOs,
+                    'operation' => 'updated',
+                ];
+            }
+
             $payload = [
                 'Cabecalho' => $this->buildServiceOrderHeader($processo, $cliente),
                 'Email' => $this->buildServiceOrderEmail($cliente),
@@ -4074,7 +4149,10 @@ class ProcessosController
                 throw new Exception('A Omie não retornou o número da OS.');
             }
             $this->processoModel->salvarNumeroOsOmie($processoId, $response['cNumOS']);
-            return $response['cNumOS'];
+            return [
+                'numero' => $response['cNumOS'],
+                'operation' => 'created',
+            ];
         } catch (Exception $e) {
             error_log("Falha ao gerar OS na Omie para o processo ID {$processoId}: " . $e->getMessage());
 
@@ -4086,7 +4164,10 @@ class ProcessosController
                 $_SESSION['warning_message'] = $mensagem;
             }
 
-            return null;
+            return [
+                'numero' => null,
+                'operation' => 'failed',
+            ];
         }
     }
 }
