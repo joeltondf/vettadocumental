@@ -671,6 +671,47 @@ class ProcessosController
             'Outros' => $categoriaModel->getReceitasPorServico('Outros'),
         ];
 
+        $apostilamentoCategoriaId = $processo['apostilamento_categoria_id'] ?? null;
+        $postagemCategoriaId = $processo['postagem_categoria_id'] ?? null;
+
+        if ($apostilamentoCategoriaId !== null) {
+            $apostilamentoCategoria = $categoriaModel->getById($apostilamentoCategoriaId);
+
+            if (
+                $apostilamentoCategoria
+                && !array_filter(
+                    $financeiroServicos['Apostilamento'],
+                    static fn($categoria) => (int) $categoria['id'] === (int) $apostilamentoCategoria['id']
+                )
+            ) {
+                $financeiroServicos['Apostilamento'][] = [
+                    'id' => $apostilamentoCategoria['id'],
+                    'nome_categoria' => $apostilamentoCategoria['nome_categoria'],
+                    'valor_padrao' => $apostilamentoCategoria['valor_padrao'],
+                    'bloquear_valor_minimo' => $apostilamentoCategoria['bloquear_valor_minimo'],
+                ];
+            }
+        }
+
+        if ($postagemCategoriaId !== null) {
+            $postagemCategoria = $categoriaModel->getById($postagemCategoriaId);
+
+            if (
+                $postagemCategoria
+                && !array_filter(
+                    $financeiroServicos['Postagem'],
+                    static fn($categoria) => (int) $categoria['id'] === (int) $postagemCategoria['id']
+                )
+            ) {
+                $financeiroServicos['Postagem'][] = [
+                    'id' => $postagemCategoria['id'],
+                    'nome_categoria' => $postagemCategoria['nome_categoria'],
+                    'valor_padrao' => $postagemCategoria['valor_padrao'],
+                    'bloquear_valor_minimo' => $postagemCategoria['bloquear_valor_minimo'],
+                ];
+            }
+        }
+
         $this->render('form', [
             'processo' => !empty($formData) ? array_merge($processo, $formData) : $processo,
             'documentos' => $processoData['documentos'],
