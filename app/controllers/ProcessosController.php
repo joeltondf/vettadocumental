@@ -3350,7 +3350,11 @@ class ProcessosController
 
         $normalizedStatus = $this->normalizeStatusName($status);
 
-        return in_array($normalizedStatus, ['serviço em andamento', 'serviço pendente'], true);
+        return in_array($normalizedStatus, [
+            'serviço em andamento',
+            'serviço pendente',
+            'concluído', // agora permite atualizar OS para processos concluídos
+        ], true);
     }
 
     private function shouldConvertProspectToClient(?string $status): bool

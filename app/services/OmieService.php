@@ -441,11 +441,16 @@ class OmieService {
             throw new InvalidArgumentException('O código do cliente na Omie é obrigatório para atualizar a OS.');
         }
 
+        $codigoParcela = $processo['codigo_integracao'] ?? null;
+        $podeUsarCodParc = $codigoParcela !== null && $codigoParcela !== '' && strlen((string)$codigoParcela) <= 3;
+        $detalheCodParc = $podeUsarCodParc
+            ? 'cCodParc informado com até 3 caracteres.'
+            : 'cCodParc omitido por exceder 3 caracteres ou não informado.';
+
         $payload = [
             'Cabecalho' => [
                 'nCodOS' => $numeroOs,
                 'cCodIntOS' => $processo['codigo_integracao'] ?? null,
-                'cCodParc' => $processo['codigo_integracao'] ?? null,
                 'cEtapa' => $processo['etapa'] ?? '10',
                 'dDtPrevisao' => $processo['data_previsao'] ?? date('d/m/Y'),
                 'nCodCli' => $processo['codigo_cliente_omie'] ?? null,
@@ -485,6 +490,10 @@ class OmieService {
             }, $itens),
         ];
 
+        if ($podeUsarCodParc) {
+            $payload['Cabecalho']['cCodParc'] = $codigoParcela;
+        }
+
         $payload['Cabecalho'] = array_filter(
             $payload['Cabecalho'],
             static fn($value) => $value !== null && $value !== ''
@@ -505,7 +514,7 @@ class OmieService {
                 'response' => $response,
             ];
         } catch (Throwable $exception) {
-            error_log('Erro ao atualizar OS na Omie: ' . $exception->getMessage());
+            error_log('Erro ao atualizar OS na Omie: ' . $exception->getMessage() . ' | ' . $detalheCodParc);
             throw $exception;
         }
     }
