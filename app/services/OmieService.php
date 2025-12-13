@@ -428,9 +428,18 @@ class OmieService {
 
     public function updateServiceOrder(array $processo, array $itens, ?string $observacoes = null): array
     {
-        $numeroOs = $processo['numero_os_omie'] ?? $processo['codigo_os'] ?? null;
-        if (empty($numeroOs)) {
-            throw new InvalidArgumentException('O processo não possui uma Ordem de Serviço criada na Omie para ser atualizada.');
+        $numeroOsRaw = $processo['numero_os_omie'] ?? $processo['codigo_os'] ?? null;
+        $nCodOS = null;
+        $cNumOS = null;
+
+        if ($numeroOsRaw !== null && preg_match('/^\d+$/', $numeroOsRaw)) {
+            $numeroOsSemZeros = ltrim($numeroOsRaw, '0');
+            $nCodOS = $numeroOsSemZeros === '' ? 0 : (int)$numeroOsSemZeros;
+            $cNumOS = $numeroOsRaw;
+        }
+
+        if (($nCodOS === null || $nCodOS <= 0) && $cNumOS === null) {
+            throw new InvalidArgumentException('O processo não possui um número de OS válido para ser alterado.');
         }
 
         if (empty($itens)) {
@@ -451,7 +460,6 @@ class OmieService {
 
         $payload = [
             'Cabecalho' => [
-                'nCodOS' => $numeroOs,
                 'cCodIntOS' => $processo['codigo_integracao'] ?? null,
                 'cEtapa' => $processo['etapa'] ?? '10',
                 'dDtPrevisao' => $processo['data_previsao'] ?? date('d/m/Y'),
@@ -492,6 +500,12 @@ class OmieService {
                 ];
             }, $itens),
         ];
+
+        if ($nCodOS !== null && $nCodOS > 0) {
+            $payload['Cabecalho']['nCodOS'] = $nCodOS;
+        } elseif ($cNumOS !== null) {
+            $payload['Cabecalho']['cNumOS'] = $cNumOS;
+        }
 
         $payload['Cabecalho'] = array_filter(
             $payload['Cabecalho'],
