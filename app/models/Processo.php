@@ -261,17 +261,14 @@ public function create($data, $files)
 
         // ===== INÍCIO DA CORREÇÃO =====
         // Query SQL CORRIGIDA: A coluna 'orcamento_comprovantes' foi removida.
-        $hasApostilamentoCategoria = $this->hasProcessColumn('apostilamento_categoria_id');
-        $hasPostagemCategoria = $this->hasProcessColumn('postagem_categoria_id');
-
         $columns = [
             'cliente_id', 'colaborador_id', 'vendedor_id', 'prospeccao_id', 'titulo', 'status_processo',
             'orcamento_numero', 'orcamento_origem', 'orcamento_prazo_calculado',
             'data_previsao_entrega', 'categorias_servico', 'idioma',
             'valor_total', 'orcamento_forma_pagamento', 'orcamento_parcelas', 'orcamento_valor_entrada',
             'data_pagamento_1', 'data_pagamento_2',
-            'apostilamento_quantidade', 'apostilamento_valor_unitario',
-            'postagem_quantidade', 'postagem_valor_unitario', 'observacoes',
+            'apostilamento_quantidade', 'apostilamento_valor_unitario', 'apostilamento_categoria_id',
+            'postagem_quantidade', 'postagem_valor_unitario', 'postagem_categoria_id', 'observacoes',
             'data_entrada', 'data_inicio_traducao', 'traducao_modalidade',
             'prazo_dias', 'traducao_prazo_dias',
             'assinatura_tipo', 'tradutor_id',
@@ -279,16 +276,6 @@ public function create($data, $files)
         ];
 
         $placeholders = array_map(static fn($column) => ':' . $column, $columns);
-
-        if ($hasApostilamentoCategoria) {
-            $columns[] = 'apostilamento_categoria_id';
-            $placeholders[] = ':apostilamento_categoria_id';
-        }
-
-        if ($hasPostagemCategoria) {
-            $columns[] = 'postagem_categoria_id';
-            $placeholders[] = ':postagem_categoria_id';
-        }
 
         $sqlProcesso = sprintf(
             'INSERT INTO processos (%s) VALUES (%s)',
@@ -353,13 +340,8 @@ public function create($data, $files)
             'os_numero_conta_azul' => $omieKeyPreview
         ];
 
-        if ($hasApostilamentoCategoria) {
-            $params['apostilamento_categoria_id'] = $this->sanitizeNullableInt($data['apostilamento_categoria_id'] ?? null);
-        }
-
-        if ($hasPostagemCategoria) {
-            $params['postagem_categoria_id'] = $this->sanitizeNullableInt($data['postagem_categoria_id'] ?? null);
-        }
+        $params['apostilamento_categoria_id'] = $this->sanitizeNullableInt($data['apostilamento_categoria_id'] ?? null);
+        $params['postagem_categoria_id'] = $this->sanitizeNullableInt($data['postagem_categoria_id'] ?? null);
         // ===== FIM DA CORREÇÃO =====
 
         $stmtProcesso->execute($params);
@@ -470,9 +452,6 @@ public function create($data, $files)
 
         $this->pdo->beginTransaction();
         try {
-            $hasApostilamentoCategoria = $this->hasProcessColumn('apostilamento_categoria_id');
-            $hasPostagemCategoria = $this->hasProcessColumn('postagem_categoria_id');
-
             $setParts = [
                 'cliente_id = :cliente_id',
                 'vendedor_id = :vendedor_id',
@@ -490,22 +469,16 @@ public function create($data, $files)
                 'data_pagamento_2 = :data_pagamento_2',
                 'apostilamento_quantidade = :apostilamento_quantidade',
                 'apostilamento_valor_unitario = :apostilamento_valor_unitario',
+                'apostilamento_categoria_id = :apostilamento_categoria_id',
                 'postagem_quantidade = :postagem_quantidade',
                 'postagem_valor_unitario = :postagem_valor_unitario',
+                'postagem_categoria_id = :postagem_categoria_id',
                 'observacoes = :observacoes',
                 'etapa_faturamento_codigo = :etapa_faturamento_codigo',
                 'codigo_categoria = :codigo_categoria',
                 'codigo_conta_corrente = :codigo_conta_corrente',
                 'codigo_cenario_fiscal = :codigo_cenario_fiscal'
             ];
-
-            if ($hasApostilamentoCategoria) {
-                $setParts[] = 'apostilamento_categoria_id = :apostilamento_categoria_id';
-            }
-
-            if ($hasPostagemCategoria) {
-                $setParts[] = 'postagem_categoria_id = :postagem_categoria_id';
-            }
 
             $sqlProcesso = 'UPDATE processos SET ' . implode(', ', $setParts) . ' WHERE id = :id';
             $stmtProcesso = $this->pdo->prepare($sqlProcesso);
@@ -535,20 +508,14 @@ public function create($data, $files)
                 'apostilamento_valor_unitario' => $this->parseCurrency($data['apostilamento_valor_unitario'] ?? null),
                 'postagem_quantidade' => empty($data['postagem_quantidade']) ? null : (int)$data['postagem_quantidade'],
                 'postagem_valor_unitario' => $this->parseCurrency($data['postagem_valor_unitario'] ?? null),
+                'apostilamento_categoria_id' => $this->sanitizeNullableInt($data['apostilamento_categoria_id'] ?? null),
+                'postagem_categoria_id' => $this->sanitizeNullableInt($data['postagem_categoria_id'] ?? null),
                 'observacoes' => $data['observacoes'] ?? '',
                 'etapa_faturamento_codigo' => $this->sanitizeNullableString($data['etapa_faturamento_codigo'] ?? null),
                 'codigo_categoria' => $this->sanitizeNullableString($data['codigo_categoria'] ?? null),
                 'codigo_conta_corrente' => $this->sanitizeNullableInt($data['codigo_conta_corrente'] ?? null),
                 'codigo_cenario_fiscal' => $this->sanitizeNullableInt($data['codigo_cenario_fiscal'] ?? null)
             ];
-
-            if ($hasApostilamentoCategoria) {
-                $params['apostilamento_categoria_id'] = $this->sanitizeNullableInt($data['apostilamento_categoria_id'] ?? null);
-            }
-
-            if ($hasPostagemCategoria) {
-                $params['postagem_categoria_id'] = $this->sanitizeNullableInt($data['postagem_categoria_id'] ?? null);
-            }
             $stmtProcesso->execute($params);
 
             // A lógica para atualizar os documentos também permanece a mesma
