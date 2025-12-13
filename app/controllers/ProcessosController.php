@@ -3340,7 +3340,12 @@ class ProcessosController
     }
 
     /**
-     * Verifica se o status informado exige a geração de uma OS na Omie.
+     * Verifica se o status informado exige a criação ou atualização de uma OS na Omie.
+     *
+     * Incluímos "concluído" para permitir que edições posteriores sincronizem a OS já
+     * existente, inclusive quando o status chega via alias como "finalizado" (normalizado
+     * por {@see normalizeStatusName}). O método continua restrito aos status operacionais,
+     * evitando acionar a Omie para estágios iniciais do processo.
      */
     private function shouldGenerateOmieOs(?string $status): bool
     {
@@ -3350,7 +3355,11 @@ class ProcessosController
 
         $normalizedStatus = $this->normalizeStatusName($status);
 
-        return in_array($normalizedStatus, ['serviço em andamento', 'serviço pendente'], true);
+        return in_array($normalizedStatus, [
+            'serviço em andamento',
+            'serviço pendente',
+            'concluído', // permite atualização de OS para processos concluídos (ex.: "finalizado")
+        ], true);
     }
 
     private function shouldConvertProspectToClient(?string $status): bool
@@ -4105,6 +4114,8 @@ class ProcessosController
                 throw new Exception("O processo não possui serviços para gerar a OS.");
             }
 
+            $normalizedStatus = $this->normalizeStatusName($processo['status_processo'] ?? null);
+
             if (!empty($processo['os_numero_omie'])) {
                 $itensParaAtualizacao = $this->buildUpdateServiceItems($servicosPrestados);
                 $processoPayload = [
@@ -4131,6 +4142,18 @@ class ProcessosController
                 return [
                     'numero' => $numeroOs,
                     'operation' => 'updated',
+                ];
+            }
+
+            if ($normalizedStatus === 'concluído') {
+                $this->appendSessionMessage(
+                    'warning_message',
+                    'Processo concluído sem OS vinculada. Nenhuma nova Ordem de Serviço foi criada.'
+                );
+
+                return [
+                    'numero' => null,
+                    'operation' => 'skipped',
                 ];
             }
 
