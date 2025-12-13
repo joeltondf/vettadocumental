@@ -3850,13 +3850,20 @@ class ProcessosController
 
     private function buildServiceOrderHeader(array $processo, array $cliente): array
     {
+        $quantidadeParcelas = (int)($processo['orcamento_parcelas'] ?? 1);
+        if ($quantidadeParcelas < 1) {
+            $quantidadeParcelas = 1;
+        }
+
+        $codigoParcela = str_pad((string)$quantidadeParcelas, 3, '0', STR_PAD_LEFT);
+
         return [
             'cCodIntOS' => $this->generateOmieInternalOrderCode($processo),
-            'cCodParc' => '000',
+            'cCodParc' => $codigoParcela,
             'cEtapa' => '10',
             'dDtPrevisao' => $this->calculateServiceForecastDate($processo),
             'nCodCli' => (int)$cliente['omie_id'],
-            'nQtdeParc' => 1,
+            'nQtdeParc' => $quantidadeParcelas,
         ];
     }
 
