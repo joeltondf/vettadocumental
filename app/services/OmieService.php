@@ -425,6 +425,90 @@ class OmieService {
         $payload = ['cNumOS' => $osNumber];
         return $this->makeRequest('/servicos/os/', 'CancelarOS', $payload);
     }
+
+    public function updateServiceOrder(array $processo, array $itens, ?string $observacoes = null): array
+    {
+        $numeroOs = $processo['numero_os_omie'] ?? $processo['codigo_os'] ?? null;
+        if (empty($numeroOs)) {
+            throw new InvalidArgumentException('O processo não possui uma Ordem de Serviço criada na Omie para ser atualizada.');
+        }
+
+        if (empty($itens)) {
+            throw new InvalidArgumentException('Nenhum item de serviço foi informado para atualização da OS na Omie.');
+        }
+
+        if (empty($processo['codigo_cliente_omie'])) {
+            throw new InvalidArgumentException('O código do cliente na Omie é obrigatório para atualizar a OS.');
+        }
+
+        $payload = [
+            'Cabecalho' => [
+                'nCodOS' => $numeroOs,
+                'cCodIntOS' => $processo['codigo_integracao'] ?? null,
+                'cCodParc' => $processo['codigo_integracao'] ?? null,
+                'cEtapa' => $processo['etapa'] ?? '10',
+                'dDtPrevisao' => $processo['data_previsao'] ?? date('d/m/Y'),
+                'nCodCli' => $processo['codigo_cliente_omie'] ?? null,
+                'nQtdeParc' => $processo['quantidade_parcelas'] ?? 1,
+            ],
+            'InformacoesAdicionais' => [
+                'cCidPrestServ' => $processo['cidade_prestacao'] ?? null,
+                'cCodCateg' => $processo['codigo_categoria'] ?? null,
+                'cDadosAdicNF' => $observacoes,
+                'nCodCC' => $processo['codigo_conta_corrente'] ?? null,
+            ],
+            'Email' => [
+                'cEnvBoleto' => 'N',
+                'cEnvLink' => 'N',
+                'cEnviarPara' => $processo['email_cliente'] ?? null,
+            ],
+            'ServicosPrestados' => array_map(static function (array $item): array {
+                return [
+                    'cCodServLC116' => $item['codigo_servico_lc116'],
+                    'cCodServMun' => $item['codigo_servico_municipal'],
+                    'cDescServ' => $item['descricao'],
+                    'cDadosAdicItem' => $item['observacoes'] ?? '',
+                    'cTribServ' => $item['codigo_tributacao_servico'],
+                    'cRetemISS' => $item['reten_iss'] ?? 'N',
+                    'impostos' => [
+                        'cRetemIRRF' => $item['reten_irrf'] ?? 'S',
+                        'cRetemPIS' => $item['reten_pis'] ?? 'S',
+                        'nAliqIRRF' => $item['aliq_irrf'] ?? 15,
+                        'nAliqISS' => $item['aliq_iss'] ?? 3,
+                        'nAliqPIS' => $item['aliq_pis'] ?? 4.5,
+                        'nAliqCOFINS' => $item['aliq_cofins'] ?? 0,
+                        'nAliqCSLL' => $item['aliq_csll'] ?? 0,
+                    ],
+                    'nQtde' => $item['quantidade'],
+                    'nValUnit' => $item['valor_unitario'],
+                ];
+            }, $itens),
+        ];
+
+        $payload['Cabecalho'] = array_filter(
+            $payload['Cabecalho'],
+            static fn($value) => $value !== null && $value !== ''
+        );
+
+        try {
+            $endpoint = '/servicos/os/';
+            $response = $this->makeRequest($endpoint, 'AlterarOS', $payload);
+
+            if (isset($response['cCodStatus']) && (string)$response['cCodStatus'] !== '0') {
+                $message = $response['cDescStatus'] ?? 'Status desconhecido retornado pela Omie.';
+                throw new RuntimeException('Falha ao atualizar OS na Omie: ' . $message);
+            }
+
+            return [
+                'success' => true,
+                'nCodOS' => $response['nCodOS'] ?? $numeroOs,
+                'response' => $response,
+            ];
+        } catch (Throwable $exception) {
+            error_log('Erro ao atualizar OS na Omie: ' . $exception->getMessage());
+            throw $exception;
+        }
+    }
     public function createServiceOrder(array $payload): array {
         // Similar à criação de vendas, a criação de OS espera um payload estruturado.
         // Assumimos que o $payload já vem com a estrutura e IDs corretos.
