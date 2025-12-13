@@ -428,23 +428,9 @@ class OmieService {
 
     public function updateServiceOrder(array $processo, array $itens, ?string $observacoes = null): array
     {
-        $numeroOsRaw = $processo['numero_os_omie'] ?? $processo['codigo_os'] ?? null;
-        $nCodOS = null;
-        $cNumOS = null;
-
-        if ($numeroOsRaw !== null && preg_match('/^\d+$/', $numeroOsRaw)) {
-            $numeroOsSemZeros = ltrim($numeroOsRaw, '0');
-            $nCodOS = $numeroOsSemZeros === '' ? null : (int)$numeroOsSemZeros;
-            $cNumOS = $numeroOsRaw;
-        }
-
-        $codigoIntegracao = $processo['codigo_integracao'] ?? null;
-        if ($codigoIntegracao !== null) {
-            $codigoIntegracao = ltrim((string)$codigoIntegracao, '0') ?: null;
-        }
-
-        if (($nCodOS === null && $cNumOS === null) && $codigoIntegracao === null) {
-            throw new InvalidArgumentException('O processo não possui um identificador de OS válido para ser alterado.');
+        $numeroOs = $processo['numero_os_omie'] ?? $processo['codigo_os'] ?? null;
+        if (empty($numeroOs)) {
+            throw new InvalidArgumentException('O processo não possui uma Ordem de Serviço criada na Omie para ser atualizada.');
         }
 
         if (empty($itens)) {
@@ -465,6 +451,8 @@ class OmieService {
 
         $payload = [
             'Cabecalho' => [
+                'nCodOS' => $numeroOs,
+                'cCodIntOS' => $processo['codigo_integracao'] ?? null,
                 'cEtapa' => $processo['etapa'] ?? '10',
                 'dDtPrevisao' => $processo['data_previsao'] ?? date('d/m/Y'),
                 'nCodCli' => $processo['codigo_cliente_omie'] ?? null,
@@ -505,14 +493,6 @@ class OmieService {
             }, $itens),
         ];
 
-        if ($nCodOS !== null) {
-            $payload['Cabecalho']['nCodOS'] = $nCodOS;
-        } elseif ($cNumOS !== null) {
-            $payload['Cabecalho']['cNumOS'] = $cNumOS;
-        } elseif ($codigoIntegracao !== null) {
-            $payload['Cabecalho']['cCodIntOS'] = $codigoIntegracao;
-        }
-
         $payload['Cabecalho'] = array_filter(
             $payload['Cabecalho'],
             static fn($value) => $value !== null && $value !== ''
@@ -529,7 +509,7 @@ class OmieService {
 
             return [
                 'success' => true,
-                'nCodOS' => $response['nCodOS'] ?? $nCodOS ?? $cNumOS ?? $codigoIntegracao,
+                'nCodOS' => $response['nCodOS'] ?? $numeroOs,
                 'response' => $response,
             ];
         } catch (Throwable $exception) {
