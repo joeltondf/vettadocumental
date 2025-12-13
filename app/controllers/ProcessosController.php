@@ -671,6 +671,49 @@ class ProcessosController
             'Outros' => $categoriaModel->getReceitasPorServico('Outros'),
         ];
 
+        $apostilamentoCategoriaId = $processo['apostilamento_categoria_id'] ?? null;
+        $postagemCategoriaId = $processo['postagem_categoria_id'] ?? null;
+
+        $ensureCategoriaNaLista = static function (array $lista, ?array $categoria): array {
+            if (!$categoria) {
+                return $lista;
+            }
+
+            $alreadyExists = array_filter(
+                $lista,
+                static fn($item) => (int) ($item['id'] ?? 0) === (int) ($categoria['id'] ?? 0)
+            );
+
+            if (!empty($alreadyExists)) {
+                return $lista;
+            }
+
+            $lista[] = [
+                'id' => $categoria['id'],
+                'nome_categoria' => $categoria['nome_categoria'],
+                'valor_padrao' => $categoria['valor_padrao'] ?? null,
+                'bloquear_valor_minimo' => $categoria['bloquear_valor_minimo'] ?? 0,
+            ];
+
+            return $lista;
+        };
+
+        if ($apostilamentoCategoriaId !== null) {
+            $apostilamentoCategoria = $categoriaModel->getById($apostilamentoCategoriaId);
+            $financeiroServicos['Apostilamento'] = $ensureCategoriaNaLista(
+                $financeiroServicos['Apostilamento'] ?? [],
+                $apostilamentoCategoria
+            );
+        }
+
+        if ($postagemCategoriaId !== null) {
+            $postagemCategoria = $categoriaModel->getById($postagemCategoriaId);
+            $financeiroServicos['Postagem'] = $ensureCategoriaNaLista(
+                $financeiroServicos['Postagem'] ?? [],
+                $postagemCategoria
+            );
+        }
+
         $this->render('form', [
             'processo' => !empty($formData) ? array_merge($processo, $formData) : $processo,
             'documentos' => $processoData['documentos'],
