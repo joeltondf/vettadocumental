@@ -82,6 +82,13 @@ class Processo
         return number_format((float)$value, 2, '.', '');
     }
 
+    private function formatCurrency($value): ?string
+    {
+        $parsed = $this->parseCurrency($value);
+
+        return $parsed === null ? null : number_format((float)$parsed, 2, '.', '');
+    }
+
     private function loadProcessColumns(): void
     {
         if (!empty($this->processColumns)) {
@@ -2525,7 +2532,65 @@ public function create($data, $files)
             ];
         }
 
-        return $normalized;
+        $extraDocuments = [];
+
+        $apostilamentoQuantity = isset($data['apostilamento_quantidade']) ? (int)$data['apostilamento_quantidade'] : 0;
+        $apostilamentoValue = $this->formatCurrency($data['apostilamento_valor_unitario'] ?? null);
+        if ($apostilamentoQuantity > 0 && $apostilamentoValue !== null) {
+            $extraDocuments[] = [
+                'categoria' => 'Apostilamento',
+                'tipo_documento' => $this->resolveCategoriaFinanceiraNome($data['apostilamento_categoria_id'] ?? null, 'Apostilamento'),
+                'nome_documento' => null,
+                'quantidade' => $apostilamentoQuantity,
+                'valor_unitario' => $apostilamentoValue,
+            ];
+        }
+
+        $postagemQuantity = isset($data['postagem_quantidade']) ? (int)$data['postagem_quantidade'] : 0;
+        $postagemValue = $this->formatCurrency($data['postagem_valor_unitario'] ?? null);
+        if ($postagemQuantity > 0 && $postagemValue !== null) {
+            $extraDocuments[] = [
+                'categoria' => 'Postagem',
+                'tipo_documento' => $this->resolveCategoriaFinanceiraNome($data['postagem_categoria_id'] ?? null, 'Postagem'),
+                'nome_documento' => null,
+                'quantidade' => $postagemQuantity,
+                'valor_unitario' => $postagemValue,
+            ];
+        }
+
+        return array_merge($normalized, $extraDocuments);
+    }
+
+    private function resolveCategoriaFinanceiraNome($categoriaId, string $default): string
+    {
+        if (empty($categoriaId)) {
+            return $default;
+        }
+
+        if (!class_exists('CategoriaFinanceira')) {
+            require_once __DIR__ . '/CategoriaFinanceira.php';
+        }
+
+        $categoria = null;
+
+        if (method_exists('CategoriaFinanceira', 'find')) {
+            $categoria = CategoriaFinanceira::find($categoriaId);
+        }
+
+        if ($categoria === null) {
+            $categoriaModel = new CategoriaFinanceira($this->pdo);
+            $categoria = $categoriaModel->getById($categoriaId);
+        }
+
+        if (is_array($categoria) && isset($categoria['nome_categoria'])) {
+            return $categoria['nome_categoria'];
+        }
+
+        if (is_object($categoria) && isset($categoria->nome_categoria)) {
+            return $categoria->nome_categoria;
+        }
+
+        return $default;
     }
 
     /**
