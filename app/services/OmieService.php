@@ -428,9 +428,31 @@ class OmieService {
 
     public function updateServiceOrder(array $processo, array $itens, ?string $observacoes = null): array
     {
-        $numeroOs = $processo['numero_os_omie'] ?? $processo['codigo_os'] ?? null;
-        if (empty($numeroOs)) {
-            throw new InvalidArgumentException('O processo não possui uma Ordem de Serviço criada na Omie para ser atualizada.');
+        $nCodOS = null;
+        if (isset($processo['codigo_os_omie']) && $processo['codigo_os_omie'] !== '') {
+            $codigoOsValor = $processo['codigo_os_omie'];
+            if (is_numeric($codigoOsValor)) {
+                $nCodOS = (int)$codigoOsValor;
+                if ($nCodOS <= 0) {
+                    $nCodOS = null;
+                }
+            }
+        }
+        $cNumOS = isset($processo['numero_os_omie']) && $processo['numero_os_omie'] !== ''
+            ? (string)$processo['numero_os_omie']
+            : ($processo['codigo_os'] ?? null);
+
+        if ($cNumOS !== null) {
+            $cNumOS = (string)$cNumOS;
+        }
+
+        $codigoIntegracao = $processo['codigo_integracao'] ?? null;
+        if ($codigoIntegracao !== null) {
+            $codigoIntegracao = ltrim((string)$codigoIntegracao, '0') ?: null;
+        }
+
+        if ($nCodOS === null && $codigoIntegracao === null) {
+            throw new InvalidArgumentException('O processo não possui um identificador numérico de OS (nCodOS) ou código de integração (cCodIntOS) válido para alteração.');
         }
 
         if (empty($itens)) {
@@ -449,10 +471,12 @@ class OmieService {
         $codigoParcela = $processo['codigo_parcela_omie']
             ?? str_pad((string)$nParcelas, 3, '0', STR_PAD_LEFT);
 
+        if (count($itens) > 199) {
+            throw new InvalidArgumentException('A Omie permite no máximo 199 serviços por OS.');
+        }
+
         $payload = [
             'Cabecalho' => [
-                'nCodOS' => $numeroOs,
-                'cCodIntOS' => $processo['codigo_integracao'] ?? null,
                 'cEtapa' => $processo['etapa'] ?? '10',
                 'dDtPrevisao' => $processo['data_previsao'] ?? date('d/m/Y'),
                 'nCodCli' => $processo['codigo_cliente_omie'] ?? null,
@@ -470,28 +494,40 @@ class OmieService {
                 'cEnvLink' => 'N',
                 'cEnviarPara' => $processo['email_cliente'] ?? null,
             ],
-            'ServicosPrestados' => array_map(static function (array $item): array {
-                return [
-                    'cCodServLC116' => $item['codigo_servico_lc116'],
-                    'cCodServMun' => $item['codigo_servico_municipal'],
-                    'cDescServ' => $item['descricao'],
-                    'cDadosAdicItem' => $item['observacoes'] ?? '',
-                    'cTribServ' => $item['codigo_tributacao_servico'],
-                    'cRetemISS' => $item['reten_iss'] ?? 'N',
-                    'impostos' => [
-                        'cRetemIRRF' => $item['reten_irrf'] ?? 'S',
-                        'cRetemPIS' => $item['reten_pis'] ?? 'S',
-                        'nAliqIRRF' => $item['aliq_irrf'] ?? 15,
-                        'nAliqISS' => $item['aliq_iss'] ?? 3,
-                        'nAliqPIS' => $item['aliq_pis'] ?? 4.5,
-                        'nAliqCOFINS' => $item['aliq_cofins'] ?? 0,
-                        'nAliqCSLL' => $item['aliq_csll'] ?? 0,
-                    ],
-                    'nQtde' => $item['quantidade'],
-                    'nValUnit' => $item['valor_unitario'],
-                ];
-            }, $itens),
         ];
+
+        $payload['ServicosPrestados'] = [];
+        foreach ($itens as $index => $item) {
+            $payload['ServicosPrestados'][] = [
+                'nSeqItem' => $index + 1,
+                'cCodServLC116' => $item['codigo_servico_lc116'],
+                'cCodServMun' => $item['codigo_servico_municipal'],
+                'cDescServ' => $item['descricao'],
+                'cDadosAdicItem' => $item['observacoes'] ?? '',
+                'cTribServ' => $item['codigo_tributacao_servico'],
+                'cRetemISS' => $item['reten_iss'] ?? 'N',
+                'impostos' => [
+                    'cRetemIRRF' => $item['reten_irrf'] ?? 'S',
+                    'cRetemPIS' => $item['reten_pis'] ?? 'S',
+                    'nAliqIRRF' => $item['aliq_irrf'] ?? 15,
+                    'nAliqISS' => $item['aliq_iss'] ?? 3,
+                    'nAliqPIS' => $item['aliq_pis'] ?? 4.5,
+                    'nAliqCOFINS' => $item['aliq_cofins'] ?? 0,
+                    'nAliqCSLL' => $item['aliq_csll'] ?? 0,
+                ],
+                'nQtde' => $item['quantidade'],
+                'nValUnit' => $item['valor_unitario'],
+            ];
+        }
+
+        if ($nCodOS !== null) {
+            $payload['Cabecalho']['nCodOS'] = $nCodOS;
+        } elseif ($codigoIntegracao !== null) {
+            $payload['Cabecalho']['cCodIntOS'] = $codigoIntegracao;
+        } elseif ($cNumOS !== null) {
+            // cNumOS permanece como último recurso, pois a Omie exige nCodOS ou cCodIntOS na alteração
+            $payload['Cabecalho']['cNumOS'] = $cNumOS;
+        }
 
         $payload['Cabecalho'] = array_filter(
             $payload['Cabecalho'],
@@ -509,7 +545,8 @@ class OmieService {
 
             return [
                 'success' => true,
-                'nCodOS' => $response['nCodOS'] ?? $numeroOs,
+                'nCodOS' => $response['nCodOS'] ?? $nCodOS ?? null,
+                'cNumOS' => $response['cNumOS'] ?? $cNumOS ?? null,
                 'response' => $response,
             ];
         } catch (Throwable $exception) {
