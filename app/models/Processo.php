@@ -3447,10 +3447,16 @@ public function create($data, $files)
      * @param string $osNumero O número da OS da Omie.
      * @return bool
      */
-    public function salvarNumeroOsOmie(int $processoId, string $osNumero, ?int $codigoOsOmie = null): bool
+    public function salvarNumeroOsOmie(
+        int $processoId,
+        string $osNumero,
+        ?int $codigoOsOmie = null,
+        ?int $ultimoSeqItemOs = null
+    ): bool
     {
         $this->loadProcessColumns();
         $hasCodigoOsColumn = $this->hasProcessColumn('codigo_os_omie');
+        $hasUltimoSeqColumn = $this->hasProcessColumn('ultimo_seq_item_os');
         $dataConversao = date('Y-m-d');
         $setParts = [
             'os_numero_omie = ?',
@@ -3464,11 +3470,29 @@ public function create($data, $files)
             $params[] = $codigoOsOmie;
         }
 
+        if ($hasUltimoSeqColumn && $ultimoSeqItemOs !== null) {
+            $setParts[] = 'ultimo_seq_item_os = ?';
+            $params[] = $ultimoSeqItemOs;
+        }
+
         $params[] = $processoId;
 
         $sql = 'UPDATE processos SET ' . implode(', ', $setParts) . ' WHERE id = ?';
         $stmt = $this->pdo->prepare($sql);
         return $stmt->execute($params);
+    }
+
+    public function atualizarUltimoSeqItemOs(int $processoId, int $novoValor): bool
+    {
+        $this->loadProcessColumns();
+
+        if (!$this->hasProcessColumn('ultimo_seq_item_os')) {
+            return false;
+        }
+
+        $stmt = $this->pdo->prepare('UPDATE processos SET ultimo_seq_item_os = ? WHERE id = ?');
+
+        return $stmt->execute([$novoValor, $processoId]);
     }
 
     public function salvarCodigoOsOmie(int $processoId, ?int $codigoOsOmie): bool
