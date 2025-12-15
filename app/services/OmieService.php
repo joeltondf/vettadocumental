@@ -501,21 +501,24 @@ class OmieService {
             throw new InvalidArgumentException('A Omie permite no máximo 199 serviços por OS.');
         }
 
-        $lastSeq = isset($processo['ultimo_seq_item_os']) ? (int)$processo['ultimo_seq_item_os'] : 0;
-
+        $lastSeq = 0;
         try {
             $existingOs = $this->consultarOS($identifiers);
 
-            if (!empty($existingOs['servicos_prestados'])) {
-                foreach ($existingOs['servicos_prestados'] as $itemExistente) {
-                    $seq = isset($itemExistente['nSeqItem']) ? (int)$itemExistente['nSeqItem'] : 0;
-                    if ($seq > $lastSeq) {
-                        $lastSeq = $seq;
-                    }
+            if (empty($existingOs['servicos_prestados'])) {
+                error_log('Consulta da OS na Omie não retornou itens. Identificadores: ' . json_encode($identifiers));
+                throw new RuntimeException('Não foi possível obter a OS na Omie para calcular a sequência de itens.');
+            }
+
+            foreach ($existingOs['servicos_prestados'] as $itemExistente) {
+                $seq = isset($itemExistente['nSeqItem']) ? (int)$itemExistente['nSeqItem'] : 0;
+                if ($seq > $lastSeq) {
+                    $lastSeq = $seq;
                 }
             }
         } catch (Throwable $exception) {
-            error_log('Não foi possível consultar a OS na Omie antes da atualização. Usando sequência local. Identificadores: ' . json_encode($identifiers) . '. Erro: ' . $exception->getMessage());
+            error_log('Não foi possível consultar a OS na Omie antes da atualização. Identificadores: ' . json_encode($identifiers) . '. Erro: ' . $exception->getMessage());
+            throw new RuntimeException('Não foi possível consultar a Ordem de Serviço na Omie. Verifique os identificadores (nCodOS, cCodIntOS, cNumOS) ou tente novamente mais tarde.');
         }
 
         $payload = [
@@ -586,11 +589,6 @@ class OmieService {
             if (isset($response['cCodStatus']) && (string)$response['cCodStatus'] !== '0') {
                 $message = $response['cDescStatus'] ?? 'Status desconhecido retornado pela Omie.';
                 throw new RuntimeException('Falha ao atualizar OS na Omie: ' . $message);
-            }
-
-            $processoId = isset($processo['id']) ? (int)$processo['id'] : null;
-            if ($processoId !== null) {
-                $this->getProcessoModel()->atualizarUltimoSeqItemOs($processoId, $lastSeq + count($itens));
             }
 
             return [

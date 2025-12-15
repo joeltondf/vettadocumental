@@ -4169,7 +4169,6 @@ class ProcessosController
             if (!empty($processo['os_numero_omie'])) {
                 $itensParaAtualizacao = $this->buildUpdateServiceItems($servicosPrestados);
                 $processoPayload = [
-                    'id' => $processoId,
                     'numero_os_omie' => $processo['os_numero_omie'],
                     'codigo_os_omie' => $processo['codigo_os_omie'] ?? null,
                     'codigo_integracao' => $this->generateOmieInternalOrderCode($processo),
@@ -4181,7 +4180,6 @@ class ProcessosController
                     'codigo_categoria' => $omieCategoryCode,
                     'codigo_conta_corrente' => $omieBankAccountCode,
                     'email_cliente' => $this->resolveClientEmail($cliente),
-                    'ultimo_seq_item_os' => $processo['ultimo_seq_item_os'] ?? null,
                 ];
                 $observacoes = $processo['observacoes_os'] ?? ($processo['observacoes'] ?? null);
 
@@ -4227,8 +4225,7 @@ class ProcessosController
             }
 
             $codigoOs = isset($response['nCodOS']) ? (int)$response['nCodOS'] : null;
-            $totalItens = count($servicosPrestados);
-            $this->processoModel->salvarNumeroOsOmie($processoId, $response['cNumOS'], $codigoOs, $totalItens);
+            $this->processoModel->salvarNumeroOsOmie($processoId, $response['cNumOS'], $codigoOs);
             return [
                 'numero' => $response['cNumOS'],
                 'operation' => 'created',
