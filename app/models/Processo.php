@@ -3447,12 +3447,40 @@ public function create($data, $files)
      * @param string $osNumero O número da OS da Omie.
      * @return bool
      */
-    public function salvarNumeroOsOmie(int $processoId, string $osNumero): bool
+    public function salvarNumeroOsOmie(int $processoId, string $osNumero, ?int $codigoOsOmie = null): bool
     {
+        $this->loadProcessColumns();
+        $hasCodigoOsColumn = $this->hasProcessColumn('codigo_os_omie');
         $dataConversao = date('Y-m-d');
-        $sql = "UPDATE processos SET os_numero_omie = ?, data_conversao = COALESCE(data_conversao, ?) WHERE id = ?";
+        $setParts = [
+            'os_numero_omie = ?',
+            'data_conversao = COALESCE(data_conversao, ?)',
+        ];
+
+        $params = [$osNumero, $dataConversao];
+
+        if ($hasCodigoOsColumn) {
+            $setParts[] = 'codigo_os_omie = ?';
+            $params[] = $codigoOsOmie;
+        }
+
+        $params[] = $processoId;
+
+        $sql = 'UPDATE processos SET ' . implode(', ', $setParts) . ' WHERE id = ?';
         $stmt = $this->pdo->prepare($sql);
-        return $stmt->execute([$osNumero, $dataConversao, $processoId]);
+        return $stmt->execute($params);
+    }
+
+    public function salvarCodigoOsOmie(int $processoId, ?int $codigoOsOmie): bool
+    {
+        $this->loadProcessColumns();
+
+        if (!$this->hasProcessColumn('codigo_os_omie')) {
+            return false;
+        }
+
+        $stmt = $this->pdo->prepare('UPDATE processos SET codigo_os_omie = ? WHERE id = ?');
+        return $stmt->execute([$codigoOsOmie, $processoId]);
     }
 
     public function getServicesSummary(?string $startDate = null, ?string $endDate = null): array
@@ -3529,7 +3557,13 @@ public function create($data, $files)
      */
     public function limparNumeroOsOmie(int $processoId): bool
     {
-        $sql = "UPDATE processos SET os_numero_omie = NULL WHERE id = ?";
+        $this->loadProcessColumns();
+        $setParts = ['os_numero_omie = NULL'];
+        if ($this->hasProcessColumn('codigo_os_omie')) {
+            $setParts[] = 'codigo_os_omie = NULL';
+        }
+
+        $sql = 'UPDATE processos SET ' . implode(', ', $setParts) . ' WHERE id = ?';
         $stmt = $this->pdo->prepare($sql);
         return $stmt->execute([$processoId]);
     }
