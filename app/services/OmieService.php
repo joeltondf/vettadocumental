@@ -455,6 +455,7 @@ class OmieService {
                 }
             }
         }
+
         $cNumOS = isset($processo['numero_os_omie']) && $processo['numero_os_omie'] !== ''
             ? (string)$processo['numero_os_omie']
             : ($processo['codigo_os'] ?? null);
@@ -465,8 +466,19 @@ class OmieService {
 
         $codigoIntegracao = $this->normalizeString($processo['codigo_integracao'] ?? null);
 
-        if ($nCodOS === null && $codigoIntegracao === null) {
-            throw new InvalidArgumentException('O processo não possui um identificador numérico de OS (nCodOS) ou código de integração (cCodIntOS) válido para alteração.');
+        $identifiers = [];
+        if ($nCodOS !== null) {
+            $identifiers['nCodOS'] = $nCodOS;
+        }
+        if ($codigoIntegracao !== null) {
+            $identifiers['cCodIntOS'] = $codigoIntegracao;
+        }
+        if ($cNumOS !== null) {
+            $identifiers['cNumOS'] = $cNumOS;
+        }
+
+        if (empty($identifiers)) {
+            throw new InvalidArgumentException('O processo não possui um identificador válido (nCodOS, cCodIntOS ou cNumOS) para alteração na Omie.');
         }
 
         if (empty($itens)) {
@@ -491,28 +503,22 @@ class OmieService {
 
         $lastSeq = 0;
         try {
-            $identifiers = [];
-            if ($nCodOS !== null) {
-                $identifiers['nCodOS'] = $nCodOS;
-            } elseif ($codigoIntegracao !== null) {
-                $identifiers['cCodIntOS'] = $codigoIntegracao;
-            } elseif ($cNumOS !== null) {
-                $identifiers['cNumOS'] = $cNumOS;
+            $existingOs = $this->consultarOS($identifiers);
+
+            if (empty($existingOs['servicos_prestados'])) {
+                error_log('Consulta da OS na Omie não retornou itens. Identificadores: ' . json_encode($identifiers));
+                throw new RuntimeException('Não foi possível obter a OS na Omie para calcular a sequência de itens.');
             }
 
-            if (!empty($identifiers)) {
-                $existingOs = $this->consultarOS($identifiers);
-                if (!empty($existingOs['servicos_prestados'])) {
-                    foreach ($existingOs['servicos_prestados'] as $itemExistente) {
-                        $seq = isset($itemExistente['nSeqItem']) ? (int)$itemExistente['nSeqItem'] : 0;
-                        if ($seq > $lastSeq) {
-                            $lastSeq = $seq;
-                        }
-                    }
+            foreach ($existingOs['servicos_prestados'] as $itemExistente) {
+                $seq = isset($itemExistente['nSeqItem']) ? (int)$itemExistente['nSeqItem'] : 0;
+                if ($seq > $lastSeq) {
+                    $lastSeq = $seq;
                 }
             }
         } catch (Throwable $exception) {
-            error_log('Não foi possível consultar a OS na Omie antes da atualização: ' . $exception->getMessage());
+            error_log('Não foi possível consultar a OS na Omie antes da atualização. Identificadores: ' . json_encode($identifiers) . '. Erro: ' . $exception->getMessage());
+            throw new RuntimeException('Não foi possível consultar a Ordem de Serviço na Omie. Verifique os identificadores (nCodOS, cCodIntOS, cNumOS) ou tente novamente mais tarde.');
         }
 
         $payload = [
