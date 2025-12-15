@@ -4170,7 +4170,6 @@ class ProcessosController
                 $itensParaAtualizacao = $this->buildUpdateServiceItems($servicosPrestados);
                 $processoPayload = [
                     'numero_os_omie' => $processo['os_numero_omie'],
-                    'codigo_os_omie' => $processo['codigo_os_omie'] ?? null,
                     'codigo_integracao' => $this->generateOmieInternalOrderCode($processo),
                     'etapa' => $this->resolveServiceOrderStage($processo),
                     'data_previsao' => $this->calculateServiceForecastDate($processo),
@@ -4184,11 +4183,10 @@ class ProcessosController
                 $observacoes = $processo['observacoes_os'] ?? ($processo['observacoes'] ?? null);
 
                 $response = $this->omieService->updateServiceOrder($processoPayload, $itensParaAtualizacao, $observacoes);
-                $numeroOs = $response['cNumOS'] ?? $processo['os_numero_omie'];
-                $codigoOs = $response['nCodOS'] ?? ($processo['codigo_os_omie'] ?? null);
+                $numeroOs = $response['nCodOS'] ?? $processo['os_numero_omie'];
 
-                if (!empty($numeroOs) || !empty($codigoOs)) {
-                    $this->processoModel->salvarNumeroOsOmie($processoId, $numeroOs, $codigoOs);
+                if (!empty($numeroOs) && $numeroOs !== $processo['os_numero_omie']) {
+                    $this->processoModel->salvarNumeroOsOmie($processoId, $numeroOs);
                 }
 
                 return [
@@ -4223,9 +4221,7 @@ class ProcessosController
             if (!isset($response['cNumOS'])) {
                 throw new Exception('A Omie não retornou o número da OS.');
             }
-
-            $codigoOs = isset($response['nCodOS']) ? (int)$response['nCodOS'] : null;
-            $this->processoModel->salvarNumeroOsOmie($processoId, $response['cNumOS'], $codigoOs);
+            $this->processoModel->salvarNumeroOsOmie($processoId, $response['cNumOS']);
             return [
                 'numero' => $response['cNumOS'],
                 'operation' => 'created',
