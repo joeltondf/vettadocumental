@@ -2764,6 +2764,9 @@ class ProcessosController
         $valorTotal = $this->parseCurrencyValue($input['valor_total'] ?? ($processo['valor_total'] ?? null));
         $valorEntrada = $this->parseCurrencyValue($input['valor_entrada'] ?? ($processo['orcamento_valor_entrada'] ?? null));
 
+        $cliente = $clienteId > 0 ? $this->clienteModel->getById($clienteId) : null;
+        $isMonthlyClient = $this->isMonthlyClient($cliente);
+
         $rawStoredMethod = $processo['orcamento_forma_pagamento'] ?? null;
         $inputMethod = array_key_exists('forma_cobranca', $input) ? $input['forma_cobranca'] : null;
         $methodSource = $inputMethod ?? $rawStoredMethod;
@@ -2796,6 +2799,17 @@ class ProcessosController
         if ($formaCobranca !== 'Pagamento parcelado') {
             $dataPagamento2 = null;
             $valorRestante = $valorTotal !== null ? 0.0 : null;
+        }
+
+        $novoStatusNormalizado = $this->normalizeStatusName($novoStatus);
+        $servicoEmAndamentoNormalizado = $this->normalizeStatusName(ProcessStatus::SERVICE_IN_PROGRESS);
+
+        if ($novoStatusNormalizado === $servicoEmAndamentoNormalizado
+            && ($dataPagamento1 === null || $dataPagamento1 === '')
+            && (float) ($valorTotal ?? 0) > 0.0
+            && ($formaCobranca === 'Pagamento mensal' || $isMonthlyClient)
+        ) {
+            $dataPagamento1 = date('Y-m-d');
         }
 
         $dados = [
@@ -3158,6 +3172,13 @@ class ProcessosController
         }
     }
 
+    private function isMonthlyClient(?array $cliente): bool
+    {
+        $tipoAssessoria = mb_strtolower(trim((string)($cliente['tipo_assessoria'] ?? '')));
+
+        return $tipoAssessoria === 'mensalista';
+    }
+
     private function isJsonRequest(): bool
     {
         $requestedWith = $_SERVER['HTTP_X_REQUESTED_WITH'] ?? '';
@@ -3180,7 +3201,7 @@ class ProcessosController
         $clienteId = (int)($dadosProcesso['cliente_id'] ?? 0);
         if ($clienteId > 0) {
             $cliente = $this->clienteModel->getById($clienteId);
-            if (($cliente['tipo_assessoria'] ?? '') === 'Mensalista') {
+            if ($this->isMonthlyClient($cliente)) {
                 return false;
             }
         }
