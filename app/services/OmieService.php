@@ -501,28 +501,9 @@ class OmieService {
             throw new InvalidArgumentException('A Omie permite no máximo 199 serviços por OS.');
         }
 
-        $lastSeq = isset($processo['ultimo_seq_item_os']) ? (int)$processo['ultimo_seq_item_os'] : 0;
-        $storedLastSeq = $lastSeq;
+        $lastSeqValue = $processo['ultimo_seq_item_os'] ?? null;
+        $lastSeq = $lastSeqValue === null || $lastSeqValue === '' ? 0 : (int)$lastSeqValue;
         $processoId = isset($processo['id']) ? (int)$processo['id'] : null;
-
-        try {
-            $existingOs = $this->consultarOS($identifiers);
-
-            if (!empty($existingOs['servicos_prestados'])) {
-                foreach ($existingOs['servicos_prestados'] as $itemExistente) {
-                    $seq = isset($itemExistente['nSeqItem']) ? (int)$itemExistente['nSeqItem'] : 0;
-                    if ($seq > $lastSeq) {
-                        $lastSeq = $seq;
-                    }
-                }
-            }
-
-            if ($processoId !== null && $lastSeq !== $storedLastSeq) {
-                $this->getProcessoModel()->atualizarUltimoSeqItemOs($processoId, $lastSeq);
-            }
-        } catch (Throwable $exception) {
-            error_log('Não foi possível consultar a OS na Omie antes da atualização. Usando sequência local. Identificadores: ' . json_encode($identifiers) . '. Erro: ' . $exception->getMessage());
-        }
 
         $payload = [
             'Cabecalho' => [
