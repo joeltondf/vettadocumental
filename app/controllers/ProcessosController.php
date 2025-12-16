@@ -3171,6 +3171,20 @@ class ProcessosController
     {
         $novoStatusNormalizado = $this->normalizeStatusName($novoStatus);
         $servicoEmAndamentoNormalizado = $this->normalizeStatusName(ProcessStatus::SERVICE_IN_PROGRESS);
+        $formaCobranca = $this->normalizePaymentMethod($dadosProcesso['orcamento_forma_pagamento'] ?? null);
+
+        if ($formaCobranca === 'Pagamento mensal') {
+            return false;
+        }
+
+        $clienteId = (int)($dadosProcesso['cliente_id'] ?? 0);
+        if ($clienteId > 0) {
+            $cliente = $this->clienteModel->getById($clienteId);
+            if (($cliente['tipo_assessoria'] ?? '') === 'Mensalista') {
+                return false;
+            }
+        }
+
         $dataPagamentoUm = $dadosProcesso['data_pagamento_1'] ?? null;
         $valorTotal = isset($dadosProcesso['valor_total']) ? (float) $dadosProcesso['valor_total'] : 0.0;
 
