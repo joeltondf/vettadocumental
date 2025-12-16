@@ -2852,15 +2852,6 @@ class ProcessosController
             }
         }
 
-        if (!empty($dados['data_pagamento_1'])) {
-            $novoStatusNormalizado = $this->normalizeStatusName($novoStatus);
-            $servicoEmAndamentoNormalizado = $this->normalizeStatusName(ProcessStatus::SERVICE_IN_PROGRESS);
-
-            if ($novoStatusNormalizado === $servicoEmAndamentoNormalizado) {
-                $dados['data_conversao'] = $dados['data_pagamento_1'];
-            }
-        }
-
         return $dados;
     }
 
