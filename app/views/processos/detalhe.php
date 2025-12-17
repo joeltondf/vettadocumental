@@ -652,15 +652,7 @@ $prospectionLabel = $prospectionCode !== ''
                     <input type="hidden" name="data_inicio_traducao" id="hidden_data_inicio_traducao" data-original-name="data_inicio_traducao">
                     <input type="hidden" name="prazo_dias" id="hidden_prazo_dias" data-original-name="prazo_dias">
                     <div>
-                        <?php
-                        $normalizedPaymentMethod = DashboardProcessFormatter::normalizePaymentMethod($processo['orcamento_forma_pagamento'] ?? null);
-                        $isMonthlyBilling = $normalizedPaymentMethod === 'Pagamento mensal';
-                        $isMonthlyClient = ($cliente['tipo_assessoria'] ?? '') === 'Mensalista';
-                        $shouldDisableServiceInProgress = !$isMonthlyBilling
-                            && !$isMonthlyClient
-                            && empty($processo['data_pagamento_1'])
-                            && ((float)($processo['valor_total'] ?? 0)) > 0.0;
-                        ?>
+                        <?php $shouldDisableServiceInProgress = empty($processo['data_pagamento_1']); ?>
                         <label for="status_processo" class="block text-sm font-medium text-gray-700 flex items-center gap-2">
                             Mudar Status para:
                             <span class="px-2 py-1 text-xs font-semibold rounded-full <?php echo htmlspecialchars($paymentFlowBadge['class']); ?>" title="Status do fluxo de pagamento">
@@ -677,7 +669,7 @@ $prospectionLabel = $prospectionCode !== ''
                                 </option>
                             <?php endforeach; ?>
                         </select>
-                        <p class="mt-2 text-xs text-gray-500">O status 'Serviço em andamento' requer Data do Pagamento 1 para cobranças não mensais. Clientes mensalistas podem iniciar sem essa data.</p>
+                        <p class="mt-2 text-xs text-gray-500">O status 'Serviço em andamento' só é liberado após o preenchimento da Data de Pagamento 1.</p>
                     </div>
                     <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700">
                         Atualizar Status
@@ -1128,24 +1120,6 @@ document.addEventListener('DOMContentLoaded', function() {
   // Helpers
   //-----------------------------------------------------
   const $id = (x) => document.getElementById(x);
-  const normalizePaymentMethod = (method) => {
-    const normalized = String(method ?? '').trim().toLowerCase();
-    switch (normalized) {
-      case 'pagamento parcelado':
-      case 'parcelado':
-        return 'Pagamento parcelado';
-      case 'pagamento mensal':
-      case 'mensal':
-        return 'Pagamento mensal';
-      case 'pagamento único':
-      case 'pagamento unico':
-      case 'à vista':
-      case 'a vista':
-        return 'Pagamento único';
-      default:
-        return 'Pagamento único';
-    }
-  };
   const setTodayIfEmpty = (inputEl) => {
     if (inputEl && !inputEl.value) {
       const t = new Date();
@@ -1171,27 +1145,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const hiddenDeadlineFields = [hEnvio, hPrazoDias];
 
     const paymentDateOne = <?php echo json_encode($processo['data_pagamento_1'] ?? null); ?>;
-    const paymentMethod = normalizePaymentMethod(<?php echo json_encode($processo['orcamento_forma_pagamento'] ?? null); ?>);
-    const clientType = <?php echo json_encode($cliente['tipo_assessoria'] ?? null); ?>;
-    const totalValue = Number(<?php echo json_encode((float)($processo['valor_total'] ?? 0)); ?>);
     if (statusSelect) {
       const serviceInProgressOption = Array.from(statusSelect.options || []).find((option) => option.value === 'Serviço em Andamento');
 
-      const isMonthlyPayment = paymentMethod === 'Pagamento mensal';
-      const isMonthlyClient = clientType === 'Mensalista';
-      const shouldDisableServiceInProgress = !isMonthlyPayment
-        && !isMonthlyClient
-        && (!paymentDateOne || String(paymentDateOne).trim() === '')
-        && totalValue > 0;
-
-      if (serviceInProgressOption) {
-        if (shouldDisableServiceInProgress) {
-          serviceInProgressOption.disabled = true;
-          serviceInProgressOption.title = 'Para cobranças não mensais, registre a Data do Pagamento 1 antes de iniciar o serviço.';
-        } else {
-          serviceInProgressOption.disabled = false;
-          serviceInProgressOption.removeAttribute('title');
-        }
+      if (serviceInProgressOption && (!paymentDateOne || String(paymentDateOne).trim() === '')) {
+        serviceInProgressOption.disabled = true;
+        serviceInProgressOption.title = 'Registre a Data do Pagamento 1 antes de iniciar o serviço.';
       }
     }
 
