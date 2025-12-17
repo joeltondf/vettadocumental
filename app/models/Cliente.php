@@ -415,12 +415,6 @@ class Cliente
             $params[':tipo_servico'] = $tipoServico;
         }
 
-        $tipoAssessoria = $filters['tipo_assessoria'] ?? '';
-        if ($tipoAssessoria !== '') {
-            $whereClauses[] = 'tipo_assessoria = :tipo_assessoria';
-            $params[':tipo_assessoria'] = $tipoAssessoria;
-        }
-
         if (array_key_exists('ownerId', $filters)) {
             $ownerId = (int) $filters['ownerId'];
             if ($ownerId > 0) {
