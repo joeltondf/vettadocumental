@@ -567,13 +567,6 @@ class ClientesController
         return in_array($tipoServico, ['Assessoria', 'Balcão'], true) ? $tipoServico : '';
     }
 
-    private function sanitizeTipoAssessoriaFilter($tipoAssessoria): string
-    {
-        $tipoAssessoria = is_string($tipoAssessoria) ? trim($tipoAssessoria) : '';
-
-        return in_array($tipoAssessoria, ['Mensalista', 'À vista'], true) ? $tipoAssessoria : '';
-    }
-
     private function sanitizeTipoPessoaFilter($tipoPessoa): string
     {
         $tipoPessoa = is_string($tipoPessoa) ? trim($tipoPessoa) : '';
@@ -586,13 +579,11 @@ class ClientesController
         $nome = isset($_GET['busca_nome']) ? trim((string) $_GET['busca_nome']) : '';
         $tipoPessoa = $this->sanitizeTipoPessoaFilter($_GET['tipo_pessoa'] ?? '');
         $tipoServico = $this->sanitizeTipoServicoFilter($_GET['tipo_servico'] ?? '');
-        $tipoAssessoria = $this->sanitizeTipoAssessoriaFilter($_GET['tipo_assessoria'] ?? '');
 
         return [
             'busca_nome' => $nome,
             'tipo_pessoa' => $tipoPessoa,
             'tipo_servico' => $tipoServico,
-            'tipo_assessoria' => $tipoAssessoria,
         ];
     }
 
