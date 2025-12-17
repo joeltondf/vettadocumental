@@ -3472,7 +3472,7 @@ public function create($data, $files)
 
         if ($hasUltimoSeqColumn && $ultimoSeqItemOs !== null) {
             $setParts[] = 'ultimo_seq_item_os = ?';
-            $params[] = (int)$ultimoSeqItemOs;
+            $params[] = $ultimoSeqItemOs;
         }
 
         $params[] = $processoId;
@@ -3492,7 +3492,7 @@ public function create($data, $files)
 
         $stmt = $this->pdo->prepare('UPDATE processos SET ultimo_seq_item_os = ? WHERE id = ?');
 
-        return $stmt->execute([(int)$novoValor, $processoId]);
+        return $stmt->execute([$novoValor, $processoId]);
     }
 
     public function salvarCodigoOsOmie(int $processoId, ?int $codigoOsOmie): bool
