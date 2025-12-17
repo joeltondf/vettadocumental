@@ -123,9 +123,9 @@ class CategoriaFinanceira
      * @return array A lista de categorias de receita.
      */
     public function getReceitasPorServico($tipo_servico) {
-        $sql = "SELECT id, nome_categoria, valor_padrao, bloquear_valor_minimo
-                FROM categorias_financeiras
-                WHERE tipo_lancamento = 'RECEITA' AND servico_tipo = ? AND ativo = 1
+        $sql = "SELECT id, nome_categoria, valor_padrao, bloquear_valor_minimo 
+                FROM categorias_financeiras 
+                WHERE tipo_lancamento = 'RECEITA' AND servico_tipo = ? AND ativo = 1 
                 ORDER BY nome_categoria";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([$this->normalizeServiceType($tipo_servico)]);
@@ -145,7 +145,7 @@ class CategoriaFinanceira
 
     public function findByServiceType(string $serviceType, bool $includeInactive = false)
     {
-        $sql = "SELECT * FROM categorias_financeiras WHERE servico_tipo = ? AND tipo_lancamento = 'RECEITA'";
+        $sql = "SELECT * FROM categorias_financeiras WHERE servico_tipo = ? AND tipo_lancamento = 'RECEITA' AND eh_produto_orcamento = 0";
         if (!$includeInactive) {
             $sql .= " AND ativo = 1";
         }
@@ -153,7 +153,7 @@ class CategoriaFinanceira
         $sql .= " ORDER BY id ASC LIMIT 1";
 
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([$this->normalizeServiceType($serviceType)]);
+        $stmt->execute([$serviceType]);
 
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
@@ -370,24 +370,6 @@ class CategoriaFinanceira
         }
 
         $normalized = trim($serviceType);
-        $normalized = mb_convert_encoding($normalized, 'UTF-8', 'UTF-8, ISO-8859-1');
-
-        $normalizedLower = mb_strtolower($normalized, 'UTF-8');
-        $aliases = [
-            'traducao' => 'Tradução',
-            'tradução' => 'Tradução',
-            'traduã§ã£o' => 'Tradução',
-            'traduã§ão' => 'Tradução',
-            'crc' => 'CRC',
-            'apostilamento' => 'Apostilamento',
-            'postagem' => 'Postagem',
-            'outros' => 'Outros',
-            'nenhum' => self::DEFAULT_SERVICE_TYPE,
-        ];
-
-        if (isset($aliases[$normalizedLower])) {
-            return $aliases[$normalizedLower];
-        }
 
         return in_array($normalized, self::SERVICE_TYPES, true)
             ? $normalized
