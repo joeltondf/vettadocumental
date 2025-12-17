@@ -16,6 +16,7 @@ $filters = isset($filters) && is_array($filters)
         'busca_nome'   => $_GET['busca_nome'] ?? '',
         'tipo_pessoa'  => $_GET['tipo_pessoa'] ?? '',
         'tipo_servico' => $_GET['tipo_servico'] ?? '',
+        'tipo_assessoria' => $_GET['tipo_assessoria'] ?? '',
     ];
 
 $formatClientPhone = static function (array $cliente): string {
@@ -105,6 +106,19 @@ $formatClientPhone = static function (array $cliente): string {
                     <option value="" <?php echo ($filters['tipo_servico'] ?? '') === '' ? 'selected' : ''; ?>>Todos</option>
                     <option value="Assessoria" <?php echo ($filters['tipo_servico'] ?? '') === 'Assessoria' ? 'selected' : ''; ?>>Assessoria</option>
                     <option value="Balcão" <?php echo ($filters['tipo_servico'] ?? '') === 'Balcão' ? 'selected' : ''; ?>>Balcão</option>
+                </select>
+            </div>
+
+            <div class="md:w-48">
+                <label for="tipo_assessoria" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Assessoria:</label>
+                <select
+                    id="tipo_assessoria"
+                    name="tipo_assessoria"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                    <option value="" <?php echo ($filters['tipo_assessoria'] ?? '') === '' ? 'selected' : ''; ?>>Todos</option>
+                    <option value="Mensalista" <?php echo ($filters['tipo_assessoria'] ?? '') === 'Mensalista' ? 'selected' : ''; ?>>Mensalista</option>
+                    <option value="À vista" <?php echo ($filters['tipo_assessoria'] ?? '') === 'À vista' ? 'selected' : ''; ?>>À Vista</option>
                 </select>
             </div>
 
