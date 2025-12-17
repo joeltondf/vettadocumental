@@ -3457,12 +3457,13 @@ public function create($data, $files)
         $this->loadProcessColumns();
         $hasCodigoOsColumn = $this->hasProcessColumn('codigo_os_omie');
         $hasUltimoSeqColumn = $this->hasProcessColumn('ultimo_seq_item_os');
+        $dataConversao = date('Y-m-d');
         $setParts = [
             'os_numero_omie = ?',
-            'data_conversao = NOW()',
+            'data_conversao = COALESCE(data_conversao, ?)',
         ];
 
-        $params = [$osNumero];
+        $params = [$osNumero, $dataConversao];
 
         if ($hasCodigoOsColumn) {
             $setParts[] = 'codigo_os_omie = ?';
