@@ -75,7 +75,7 @@ class VendasController {
         fputcsv($output, [
             'Data de Entrada',
             'Processo',
-            'Data de Conversão',
+            'Data Orçamento Omie',
             'Valor Total',
             'Vendedor',
             '% Comissão Vend.',
@@ -106,7 +106,7 @@ class VendasController {
                 $tipoPagamento = 'Pendente';
             }
 
-            $dataConversao = $proc['data_conversao'] ?? ($proc['data_filtro'] ?? null);
+            $dataConversao = $proc['data_inclusao_omie'] ?? null;
 
             fputcsv($output, [
                 !empty($proc['data_entrada']) ? date('d/m/Y', strtotime($proc['data_entrada'])) : '—',

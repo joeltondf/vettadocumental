@@ -224,7 +224,7 @@ class Processo
     private function getProcessStatusDataConversao(int $id): ?array
     {
         try {
-            $stmt = $this->pdo->prepare('SELECT status_processo, data_conversao, os_numero_omie FROM processos WHERE id = :id');
+            $stmt = $this->pdo->prepare('SELECT status_processo, data_conversao, os_numero_omie, data_inclusao_omie FROM processos WHERE id = :id');
             $stmt->execute([':id' => $id]);
 
             return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
@@ -272,7 +272,7 @@ public function create($data, $files)
             'data_entrada', 'data_inicio_traducao', 'traducao_modalidade',
             'prazo_dias', 'traducao_prazo_dias',
             'assinatura_tipo', 'tradutor_id',
-            'etapa_faturamento_codigo', 'codigo_categoria', 'codigo_conta_corrente', 'codigo_cenario_fiscal', 'os_numero_conta_azul'
+            'etapa_faturamento_codigo', 'codigo_categoria', 'codigo_conta_corrente', 'codigo_cenario_fiscal', 'os_numero_conta_azul', 'data_inclusao_omie'
         ];
 
         $placeholders = array_map(static fn($column) => ':' . $column, $columns);
@@ -337,7 +337,10 @@ public function create($data, $files)
             'codigo_categoria' => $this->sanitizeNullableString($data['codigo_categoria'] ?? null),
             'codigo_conta_corrente' => $this->sanitizeNullableInt($data['codigo_conta_corrente'] ?? null),
             'codigo_cenario_fiscal' => $this->sanitizeNullableInt($data['codigo_cenario_fiscal'] ?? null),
-            'os_numero_conta_azul' => $omieKeyPreview
+            'os_numero_conta_azul' => $omieKeyPreview,
+            'data_inclusao_omie' => (!empty($data['os_numero_omie']) && !empty($data['data_inclusao_omie']))
+                ? $data['data_inclusao_omie']
+                : null
         ];
 
         $params['apostilamento_categoria_id'] = $this->sanitizeNullableInt($data['apostilamento_categoria_id'] ?? null);
@@ -516,6 +519,11 @@ public function create($data, $files)
                 'codigo_conta_corrente' => $this->sanitizeNullableInt($data['codigo_conta_corrente'] ?? null),
                 'codigo_cenario_fiscal' => $this->sanitizeNullableInt($data['codigo_cenario_fiscal'] ?? null)
             ];
+
+            if (!empty($data['data_inclusao_omie'])) {
+                $setParts[] = 'data_inclusao_omie = COALESCE(data_inclusao_omie, :data_inclusao_omie)';
+                $params['data_inclusao_omie'] = $data['data_inclusao_omie'];
+            }
             $stmtProcesso->execute($params);
 
             // A lógica para atualizar os documentos também permanece a mesma
@@ -2153,6 +2161,14 @@ public function create($data, $files)
                 }
             }
         }
+
+        if (array_key_exists('os_numero_omie', $data)) {
+            $omieNumber = trim((string)($data['os_numero_omie'] ?? ''));
+            if ($omieNumber !== '') {
+                $fieldsToUpdate[] = "data_inclusao_omie = COALESCE(data_inclusao_omie, :data_inclusao_omie)";
+                $params['data_inclusao_omie'] = $data['data_inclusao_omie'] ?? date('Y-m-d H:i:s');
+            }
+        }
         if ($translationDeadlineProvided) {
             $translationValue = $params['traducao_prazo_dias'] ?? null;
 
@@ -2221,9 +2237,23 @@ public function create($data, $files)
 
         // LÓGICA DA NOVA VERSÃO: Constrói a query de forma flexível.
         $set_parts = [];
-        foreach (array_keys($data) as $key) {
+        $values = [];
+
+        foreach ($data as $key => $value) {
+            if ($key === 'data_inclusao_omie') {
+                if (empty($value)) {
+                    continue;
+                }
+
+                $set_parts[] = 'data_inclusao_omie = COALESCE(data_inclusao_omie, ?)';
+                $values[] = $value;
+                continue;
+            }
+
             $set_parts[] = "`{$key}` = ?";
+            $values[] = $value;
         }
+
         $set_clause = implode(', ', $set_parts);
 
         if (empty($set_clause)) {
@@ -2231,8 +2261,7 @@ public function create($data, $files)
         }
 
         $sql = "UPDATE processos SET {$set_clause} WHERE id = ?";
-        
-        $values = array_values($data);
+
         $values[] = $id;
 
         try {
@@ -2779,7 +2808,7 @@ public function create($data, $files)
 
         $sdrExpression = $this->getSdrIdSelectExpression();
         $statusFinanceiroSelect = $this->getStatusFinanceiroSelectExpression();
-        $dateFieldConversao = 'p.data_conversao';
+        $dateFieldConversao = 'p.data_inclusao_omie';
         $dateFieldFiltro = $dateFieldConversao;
         $dateFieldPagamento = 'COALESCE(p.data_pagamento_1, p.data_pagamento_2, p.data_conversao)';
 
@@ -2790,11 +2819,13 @@ public function create($data, $files)
                     p.os_numero_omie,
                     p.categorias_servico,
                     p.data_criacao,
+                    p.data_inclusao_omie,
                     p.valor_total,
                     p.status_processo,
                     p.data_criacao AS data_entrada,
                     {$dateFieldFiltro} AS data_filtro,
                     {$dateFieldConversao} AS data_conversao,
+                    {$dateFieldConversao} AS data_orcamento_omie,
                     {$dateFieldPagamento} AS data_pagamento,
                     {$statusFinanceiroSelect},
                     COALESCE(u.nome_completo, 'Sistema') AS nome_vendedor,
@@ -2973,10 +3004,10 @@ public function create($data, $files)
 
             $sqlProcesso = "INSERT INTO processos (
                 cliente_id, colaborador_id, vendedor_id, prospeccao_id, titulo, valor_total,
-                status_processo, orcamento_numero, data_entrada, os_numero_conta_azul
+                status_processo, orcamento_numero, data_entrada, os_numero_conta_azul, data_inclusao_omie
             ) VALUES (
                 :cliente_id, :colaborador_id, :vendedor_id, :prospeccao_id, :titulo, :valor_total,
-                :status_processo, :orcamento_numero, :data_entrada, :os_numero_conta_azul
+                :status_processo, :orcamento_numero, :data_entrada, :os_numero_conta_azul, :data_inclusao_omie
             )";
             $stmtProcesso = $this->pdo->prepare($sqlProcesso);
 
@@ -2990,7 +3021,10 @@ public function create($data, $files)
                 'status_processo' => $data['status_processo'] ?? 'Orçamento',
                 'orcamento_numero'=> $orcamento_numero,
                 'data_entrada'    => date('Y-m-d'),
-                'os_numero_conta_azul' => $omieKeyPreview
+                'os_numero_conta_azul' => $omieKeyPreview,
+                'data_inclusao_omie' => (!empty($data['os_numero_omie']) && !empty($data['data_inclusao_omie']))
+                    ? $data['data_inclusao_omie']
+                    : null
             ];
 
             $stmtProcesso->execute($params);
@@ -3452,12 +3486,13 @@ public function create($data, $files)
      * @param string $osNumero O número da OS da Omie.
      * @return bool
      */
-    public function salvarNumeroOsOmie(int $processoId, string $osNumero): bool
+    public function salvarNumeroOsOmie(int $processoId, string $osNumero, ?string $dataInclusaoOmie = null): bool
     {
         $dataConversao = date('Y-m-d');
-        $sql = "UPDATE processos SET os_numero_omie = ?, data_conversao = COALESCE(data_conversao, ?) WHERE id = ?";
+        $dataInclusao = $dataInclusaoOmie ?? date('Y-m-d H:i:s');
+        $sql = "UPDATE processos SET os_numero_omie = ?, data_conversao = COALESCE(data_conversao, ?), data_inclusao_omie = COALESCE(data_inclusao_omie, ?) WHERE id = ?";
         $stmt = $this->pdo->prepare($sql);
-        return $stmt->execute([$osNumero, $dataConversao, $processoId]);
+        return $stmt->execute([$osNumero, $dataConversao, $dataInclusao, $processoId]);
     }
 
     public function getServicesSummary(?string $startDate = null, ?string $endDate = null): array

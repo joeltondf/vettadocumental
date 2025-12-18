@@ -59,11 +59,11 @@
                     </select>
                 </div>
                 <div class="w-full">
-                    <label for="data_conversao_inicio" class="block text-sm font-medium text-gray-700">Data do Orçamento (Início)</label>
+                    <label for="data_conversao_inicio" class="block text-sm font-medium text-gray-700">Data do Orçamento Omie (Início)</label>
                     <input type="date" name="data_conversao_inicio" id="data_conversao_inicio" value="<?php echo htmlspecialchars($filtros['data_conversao_inicio'] ?? ''); ?>" class="mt-1 block w-full p-2 border-gray-300 rounded-md">
                 </div>
                 <div class="w-full">
-                    <label for="data_conversao_fim" class="block text-sm font-medium text-gray-700">Data do Orçamento (Fim)</label>
+                    <label for="data_conversao_fim" class="block text-sm font-medium text-gray-700">Data do Orçamento Omie (Fim)</label>
                     <input type="date" name="data_conversao_fim" id="data_conversao_fim" value="<?php echo htmlspecialchars($filtros['data_conversao_fim'] ?? ''); ?>" class="mt-1 block w-full p-2 border-gray-300 rounded-md">
                 </div>
                 <div class="flex space-x-2 no-print sm:col-span-2 lg:col-span-1">
@@ -72,7 +72,7 @@
                 </div>
             </div>
         </form>
-        <p class="text-sm text-gray-600 mt-3">A Data do Orçamento filtra pela data de pagamento ou mudança efetiva para serviço (data_conversao). Quando houver SDR, o vendedor recebe 4,5% (de 5%) e o SDR 0,5%.</p>
+        <p class="text-sm text-gray-600 mt-3">A Data do Orçamento Omie reflete exclusivamente a data de inclusão no Omie; se estiver vazia, nada é exibido. Quando houver SDR, o vendedor recebe 4,5% (de 5%) e o SDR 0,5%.</p>
         <div class="flex flex-wrap gap-2 mt-4 no-print">
             <?php $queryString = http_build_query(array_filter($filtros)); ?>
             <a href="vendas.php?action=export_csv<?php echo $queryString ? '&' . $queryString : ''; ?>" class="bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300">Exportar CSV</a>
@@ -208,8 +208,8 @@
                                 </td>
                                 <td class="px-3 py-2 border-b whitespace-nowrap align-top">
                                     <?php
-                                        $dataConversao = $proc['data_conversao'] ?? null;
-                                        echo !empty($dataConversao) ? date('d/m/Y', strtotime($dataConversao)) : '—';
+                                        $dataOrcamentoOmie = $proc['data_inclusao_omie'] ?? null;
+                                        echo !empty($dataOrcamentoOmie) ? date('d/m/Y H:i', strtotime($dataOrcamentoOmie)) : '—';
                                     ?>
                                 </td>
                                 <td class="px-3 py-2 border-b text-right whitespace-nowrap align-top">R$ <?php echo number_format($proc['valor_total'], 2, ',', '.'); ?></td>
