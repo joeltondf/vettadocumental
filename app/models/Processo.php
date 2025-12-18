@@ -540,13 +540,20 @@ public function create($data, $files)
                 // Pega todos os documentos do processo que acabamos de atualizar
                 $documentosDoProcesso = $this->getDocumentosByProcessoId($id);
                 $processoCompleto = $this->getById($id)['processo'];
-                
+
                 // Prepara os arrays para agregar os valores
                 $produtosAgregados = ['Tradução' => 0, 'CRC' => 0, 'Outros' => 0];
                 $documentosAgregados = ['Tradução' => [], 'CRC' => [], 'Outros' => []];
 
                 foreach ($documentosDoProcesso as $doc) {
                     $categoriaFinanceira = $categoriaModel->findReceitaByNome($doc['tipo_documento']);
+
+                    if (!$categoriaFinanceira) {
+                        $nomeServico = trim((string) ($doc['tipo_documento'] ?? ''));
+                        $nomeServico = $nomeServico !== '' ? $nomeServico : 'serviço sem nome';
+
+                        throw new \DomainException('Categoria financeira não encontrada para o serviço "' . $nomeServico . '".');
+                    }
 
                     // Verifica se é um 'Produto de Orçamento' para ser agregado
                     if ($categoriaFinanceira && $categoriaFinanceira['eh_produto_orcamento'] == 1) {
@@ -561,26 +568,21 @@ public function create($data, $files)
                             $produtosAgregados['Outros'] += $doc['valor_unitario'];
                             $documentosAgregados['Outros'][] = $doc;
                         }
-
-                        $produtosAgregados[$serviceType] += (float)$doc['valor_unitario'];
-                        $documentosAgregados[$serviceType][] = $doc;
                     } else {
                         // Comportamento antigo: cria lançamento individual para itens que não são produtos de orçamento
-                        if ($categoriaFinanceira) {
-                            $dadosLancamento = [
-                                'descricao' => 'Receita do Orçamento #' . $processoCompleto['orcamento_numero'] . ' - ' . $doc['nome_documento'],
-                                'valor' => $doc['valor_unitario'],
-                                'data_vencimento' => date('Y-m-d'),
-                                'tipo' => 'RECEITA',
-                                'categoria_id' => $categoriaFinanceira['id'],
-                                'cliente_id' => $processoCompleto['cliente_id'],
-                                'processo_id' => $id,
-                                'status' => 'Pendente',
-                                'finalizado' => 0,
-                                'user_id' => $_SESSION['user_id'] ?? null,
-                            ];
-                            $lancamentoModel->create($dadosLancamento);
-                        }
+                        $dadosLancamento = [
+                            'descricao' => 'Receita do Orçamento #' . $processoCompleto['orcamento_numero'] . ' - ' . $doc['nome_documento'],
+                            'valor' => $doc['valor_unitario'],
+                            'data_vencimento' => date('Y-m-d'),
+                            'tipo' => 'RECEITA',
+                            'categoria_id' => $categoriaFinanceira['id'],
+                            'cliente_id' => $processoCompleto['cliente_id'],
+                            'processo_id' => $id,
+                            'status' => 'Pendente',
+                            'finalizado' => 0,
+                            'user_id' => $_SESSION['user_id'] ?? null,
+                        ];
+                        $lancamentoModel->create($dadosLancamento);
                     }
                 }
 
@@ -627,6 +629,9 @@ public function create($data, $files)
             $this->salvarArquivos($id, $files['paymentProofFiles'] ?? null, 'comprovante', $storageContext);
             $this->pdo->commit();
             return true;
+        } catch (DomainException $exception) {
+            $this->pdo->rollBack();
+            throw $exception;
         } catch (Exception $e) {
             $this->pdo->rollBack();
             error_log("Erro ao atualizar processo: " . $e->getMessage());
