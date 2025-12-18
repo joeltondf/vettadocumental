@@ -589,7 +589,7 @@ class OmieService {
                 $quantidade = 1.0;
             }
 
-            $categoria = $this->resolveCategoriaFinanceira($documento);
+            $categoria = $this->resolveCategoriaFinanceira($documento, $processoId);
             $produto = $this->resolveOmieProduto($categoria, $documento);
 
             if (!empty($categoria['omie_codigo_categoria'])) {
@@ -633,10 +633,19 @@ class OmieService {
         ];
     }
 
-    private function resolveCategoriaFinanceira(array $documento): array
+    private function resolveCategoriaFinanceira(array $documento, int $processoId): array
     {
         $tipoDocumento = $this->normalizeString($documento['tipo_documento'] ?? null);
         if ($tipoDocumento === null) {
+            $serviceType = $this->normalizeServiceTypeForCategoria($documento['servico_tipo'] ?? null);
+
+            error_log(sprintf(
+                'Falha ao resolver categoria financeira (processo %d) - tipoDocumento: %s, serviceType: %s',
+                $processoId,
+                $tipoDocumento ?? '(indefinido)',
+                $serviceType ?? '(indefinido)'
+            ));
+
             throw new RuntimeException('Item de orçamento sem categoria financeira definida.');
         }
 
@@ -653,6 +662,13 @@ class OmieService {
             }
         }
         if (!$categoria) {
+            error_log(sprintf(
+                'Categoria financeira não configurada (processo %d) - tipoDocumento: %s, serviceType: %s',
+                $processoId,
+                $tipoDocumento,
+                $serviceType ?? '(indefinido)'
+            ));
+
             throw new RuntimeException(sprintf('Categoria financeira "%s" não está configurada para integração com a Omie.', $tipoDocumento));
         }
 
