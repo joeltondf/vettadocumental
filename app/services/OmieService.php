@@ -642,6 +642,17 @@ class OmieService {
 
         $categoria = $this->getCategoriaModel()->findReceitaByNome($tipoDocumento);
         if (!$categoria) {
+            $serviceType = $this->normalizeString($documento['servico_tipo'] ?? null);
+
+            if ($serviceType !== null) {
+                $categoria = $this->getCategoriaModel()->findByServiceType($serviceType);
+
+                if (!$categoria) {
+                    $categoria = $this->getCategoriaModel()->findByServiceTypeIncludingProdutosOrcamento($serviceType);
+                }
+            }
+        }
+        if (!$categoria) {
             throw new RuntimeException(sprintf('Categoria financeira "%s" não está configurada para integração com a Omie.', $tipoDocumento));
         }
 
