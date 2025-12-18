@@ -72,7 +72,7 @@
                 </div>
             </div>
         </form>
-        <p class="text-sm text-gray-600 mt-3">A Data do Orçamento filtra pela data de pagamento ou mudança efetiva para serviço (data_conversao). Quando houver SDR, o vendedor recebe 4,5% (de 5%) e o SDR 0,5%.</p>
+        <p class="text-sm text-gray-600 mt-3">A Data do Orçamento utiliza a data de inclusão no Omie quando disponível e, na ausência dela, a data de conversão ou pagamento. Quando houver SDR, o vendedor recebe 4,5% (de 5%) e o SDR 0,5%.</p>
         <div class="flex flex-wrap gap-2 mt-4 no-print">
             <?php $queryString = http_build_query(array_filter($filtros)); ?>
             <a href="vendas.php?action=export_csv<?php echo $queryString ? '&' . $queryString : ''; ?>" class="bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300">Exportar CSV</a>
@@ -208,8 +208,8 @@
                                 </td>
                                 <td class="px-3 py-2 border-b whitespace-nowrap align-top">
                                     <?php
-                                        $dataConversao = $proc['data_conversao'] ?? null;
-                                        echo !empty($dataConversao) ? date('d/m/Y', strtotime($dataConversao)) : '—';
+                                        $dataOrcamento = $proc['data_inclusao_omie'] ?? ($proc['data_conversao'] ?? null);
+                                        echo !empty($dataOrcamento) ? date('d/m/Y H:i', strtotime($dataOrcamento)) : '—';
                                     ?>
                                 </td>
                                 <td class="px-3 py-2 border-b text-right whitespace-nowrap align-top">R$ <?php echo number_format($proc['valor_total'], 2, ',', '.'); ?></td>
