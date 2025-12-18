@@ -642,7 +642,7 @@ class OmieService {
 
         $categoria = $this->getCategoriaModel()->findReceitaByNome($tipoDocumento);
         if (!$categoria) {
-            $serviceType = $this->normalizeString($documento['servico_tipo'] ?? null);
+            $serviceType = $this->normalizeServiceTypeForCategoria($documento['servico_tipo'] ?? null);
 
             if ($serviceType !== null) {
                 $categoria = $this->getCategoriaModel()->findByServiceType($serviceType);
@@ -1068,6 +1068,42 @@ class OmieService {
     private function formatQuantity(float $value): string
     {
         return number_format($value, 4, '.', '');
+    }
+
+    private function normalizeServiceTypeForCategoria($serviceType): ?string
+    {
+        if (!is_string($serviceType)) {
+            return null;
+        }
+
+        $trimmed = trim($serviceType);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        $normalizedLower = mb_strtolower($trimmed, 'UTF-8');
+        $normalizedUnaccented = $this->stripAccents($normalizedLower);
+
+        foreach (CategoriaFinanceira::SERVICE_TYPES as $allowedType) {
+            $allowedLower = mb_strtolower($allowedType, 'UTF-8');
+
+            if ($normalizedLower === $allowedLower || $normalizedUnaccented === $this->stripAccents($allowedLower)) {
+                return $allowedType;
+            }
+        }
+
+        return CategoriaFinanceira::DEFAULT_SERVICE_TYPE;
+    }
+
+    private function stripAccents(string $value): string
+    {
+        $transliterated = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+
+        if ($transliterated === false) {
+            return $value;
+        }
+
+        return $transliterated;
     }
 
     private function normalizeString($value): ?string
