@@ -3373,9 +3373,10 @@ public function create($data, $files)
      */
     public function salvarNumeroOsOmie(int $processoId, string $osNumero): bool
     {
-        $sql = "UPDATE processos SET os_numero_omie = ?, data_conversao = NOW() WHERE id = ?";
+        $dataConversao = date('Y-m-d');
+        $sql = "UPDATE processos SET os_numero_omie = ?, data_conversao = COALESCE(data_conversao, ?) WHERE id = ?";
         $stmt = $this->pdo->prepare($sql);
-        return $stmt->execute([$osNumero, $processoId]);
+        return $stmt->execute([$osNumero, $dataConversao, $processoId]);
     }
 
     public function getServicesSummary(?string $startDate = null, ?string $endDate = null): array
