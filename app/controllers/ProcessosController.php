@@ -27,6 +27,7 @@ require_once __DIR__ . '/../models/SistemaLog.php';
 require_once __DIR__ . '/../utils/DocumentValidator.php';
 require_once __DIR__ . '/../utils/OmiePayloadBuilder.php';
 require_once __DIR__ . '/../utils/ProcessStatus.php';
+require_once __DIR__ . '/../models/Prospeccao.php';
 class ProcessosController
 {
     private const DEFAULT_OMIE_SERVICE_TAXATION_CODE = '01';
@@ -49,6 +50,7 @@ class ProcessosController
     private $notificacaoModel;
     private $emailService;
     private $logModel;
+    private $prospeccaoModel;
     private ?int $defaultVendorIdCache = null;
     private bool $defaultVendorResolved = false;
 
@@ -71,6 +73,7 @@ class ProcessosController
         $this->notificacaoModel = new Notificacao($pdo);
         $this->emailService = new EmailService($pdo);
         $this->logModel = new SistemaLog($pdo);
+        $this->prospeccaoModel = new Prospeccao($pdo);
 
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
@@ -947,7 +950,9 @@ class ProcessosController
         $statusAnterior = $processo['status_processo'];
         $clienteId = (int)($processo['cliente_id'] ?? 0);
 
-        if ($this->shouldBlockServiceStart($novoStatus, $processo)) {
+        $statusContext = array_merge($processo, $_POST);
+
+        if ($this->shouldBlockServiceStart($novoStatus, $statusContext)) {
             $this->handleServiceStartBlock($processoId);
         }
 
@@ -1231,7 +1236,7 @@ class ProcessosController
 
             $uploadedProofs = [];
             if (array_key_exists('paymentProofFiles', $_FILES)) {
-                $paymentProofData = $this->processPaymentProofUploads($processId);
+                $paymentProofData = $this->processPaymentProofUploads($processId, $input, $process);
                 $uploadedProofs = $paymentProofData['attachments'] ?? [];
             }
 
@@ -2642,11 +2647,86 @@ class ProcessosController
         }
     }
 
-    private function processPaymentProofUploads(int $processoId): array
+    private function normalizePaymentProfile($profile): ?string
+    {
+        if ($profile === null) {
+            return null;
+        }
+
+        $normalized = mb_strtolower(trim((string)$profile));
+
+        return $normalized === '' ? null : $normalized;
+    }
+
+    private function getClientPaymentProfile($clienteId): ?string
+    {
+        if (empty($clienteId)) {
+            return null;
+        }
+
+        $cliente = $this->clienteModel->getById((int)$clienteId);
+        if (!$cliente) {
+            return null;
+        }
+
+        return $this->normalizePaymentProfile($cliente['perfil_pagamento'] ?? null);
+    }
+
+    private function getProspectPaymentProfile($prospeccaoId): ?string
+    {
+        if (empty($prospeccaoId)) {
+            return null;
+        }
+
+        $prospeccao = $this->prospeccaoModel->getById((int)$prospeccaoId);
+        if (!$prospeccao) {
+            return null;
+        }
+
+        return $this->normalizePaymentProfile($prospeccao['perfil_pagamento'] ?? null);
+    }
+
+    private function isMonthlyBilling(array $input = [], array $processo = []): bool
+    {
+        $formaCobranca = $input['forma_cobranca']
+            ?? $processo['forma_cobranca']
+            ?? $processo['orcamento_forma_pagamento']
+            ?? null;
+
+        $formaNormalizada = mb_strtolower(trim((string)$formaCobranca));
+        if ($formaNormalizada !== '') {
+            if (in_array($formaNormalizada, ['pagamento mensal', 'mensal', 'mensalista'], true)) {
+                return true;
+            }
+
+            $formaPadronizada = mb_strtolower($this->normalizePaymentMethod($formaNormalizada));
+            if ($formaPadronizada === 'pagamento mensal') {
+                return true;
+            }
+        }
+
+        $perfilCliente = $this->getClientPaymentProfile($processo['cliente_id'] ?? null);
+        if ($perfilCliente === 'mensalista') {
+            return true;
+        }
+
+        $perfilProspeccao = $this->getProspectPaymentProfile($processo['prospeccao_id'] ?? null);
+        if ($perfilProspeccao === 'mensalista') {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function processPaymentProofUploads(int $processoId, array $input, array $processo): array
     {
         $files = $_FILES['paymentProofFiles'] ?? null;
 
-        if (!$this->hasValidPaymentProofUpload($files)) {
+        if ($this->isMonthlyBilling($input, $processo)) {
+            return [];
+        }
+
+        if (!$this->hasValidPaymentProofUpload($files, $input, $processo)) {
             throw new InvalidArgumentException('Anexe o comprovante de pagamento antes de finalizar a conversão.');
         }
 
@@ -2660,8 +2740,13 @@ class ProcessosController
         return ['attachments' => $storedProofs];
     }
 
-    private function hasValidPaymentProofUpload($files): bool
+    private function hasValidPaymentProofUpload($files, array $input, array $processo): bool
     {
+        // Clientes mensalistas não precisam enviar comprovante de pagamento
+        if ($this->isMonthlyBilling($input, $processo)) {
+            return true;
+        }
+
         if (empty($files) || !is_array($files)) {
             return false;
         }
@@ -3119,12 +3204,19 @@ class ProcessosController
     {
         $novoStatusNormalizado = $this->normalizeStatusName($novoStatus);
         $servicoEmAndamentoNormalizado = $this->normalizeStatusName(ProcessStatus::SERVICE_IN_PROGRESS);
+
+        if ($novoStatusNormalizado !== $servicoEmAndamentoNormalizado) {
+            return false;
+        }
+
+        if ($this->isMonthlyBilling($dadosProcesso, $dadosProcesso)) {
+            return false;
+        }
+
         $dataPagamentoUm = $dadosProcesso['data_pagamento_1'] ?? null;
         $valorTotal = isset($dadosProcesso['valor_total']) ? (float) $dadosProcesso['valor_total'] : 0.0;
 
-        return $novoStatusNormalizado === $servicoEmAndamentoNormalizado
-            && empty($dataPagamentoUm)
-            && $valorTotal > 0.0;
+        return empty($dataPagamentoUm) && $valorTotal > 0.0;
     }
 
     private function handleServiceStartBlock(int $processoId): void
