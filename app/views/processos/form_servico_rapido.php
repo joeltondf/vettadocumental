@@ -16,6 +16,31 @@ $crcAttachments = isset($crcAttachments) && is_array($crcAttachments) ? $crcAtta
 $paymentProofAttachments = isset($paymentProofAttachments) && is_array($paymentProofAttachments) ? $paymentProofAttachments : [];
 $reuseTranslationForCrc = !empty($formData['reuseTraducaoForCrc'] ?? null);
 
+$isVendedor = (isset($_SESSION['user_perfil']) && $_SESSION['user_perfil'] === 'vendedor');
+$loggedInVendedorId = $loggedInVendedorId ?? null;
+$loggedInVendedorName = $loggedInVendedorName ?? ($_SESSION['user_nome'] ?? '');
+$defaultVendorId = $defaultVendorId ?? null;
+$resolveVendedorNome = static function (array $vendedor): string {
+    foreach (['nome_vendedor', 'nome_completo', 'nome'] as $campoNome) {
+        if (!empty($vendedor[$campoNome])) {
+            return (string) $vendedor[$campoNome];
+        }
+    }
+
+    return '';
+};
+
+if ($isVendedor && $loggedInVendedorId === null && !empty($vendedores)) {
+    $userId = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
+    foreach ($vendedores as $vendedor) {
+        if ($userId !== null && (int) ($vendedor['user_id'] ?? 0) === $userId) {
+            $loggedInVendedorId = isset($vendedor['id']) ? (int) $vendedor['id'] : null;
+            $loggedInVendedorName = $resolveVendedorNome($vendedor) ?: $loggedInVendedorName;
+            break;
+        }
+    }
+}
+
 $legacyDocuments = $formData['documentos'] ?? [];
 $parseLegacyCurrency = static function ($value) {
     if ($value === null || $value === '') {
@@ -110,6 +135,9 @@ if (!empty($formData['categorias_servico'])) {
         $categoriasSelecionadas = array_filter(array_map('trim', explode(',', (string) $formData['categorias_servico'])));
     }
 }
+$vendedor_id_selecionado = $isVendedor && $loggedInVendedorId
+    ? $loggedInVendedorId
+    : ($formData['vendedor_id'] ?? $defaultVendorId ?? null);
 $deadlineDaysValue = $formData['traducao_prazo_dias'] ?? $formData['prazo_dias'] ?? '';
 $deadlinePreview = $formData['data_previsao_entrega'] ?? '';
 
@@ -198,6 +226,25 @@ $postagemValorUnitario = $formatCurrencyInput($formData['postagem_valor_unitario
                     </a>
                 </div>
                 <p class="text-xs text-gray-500 mt-2">Prazo acordado de <span id="prazo-acordado-display" class="font-semibold text-gray-700">--</span> dia(s).</p>
+            </div>
+            <div>
+                <label for="vendedor_id" class="block text-sm font-medium text-gray-700">Vendedor *</label>
+                <?php if ($isVendedor && $loggedInVendedorId): ?>
+                    <input type="hidden" id="vendedor_id" name="vendedor_id" value="<?php echo htmlspecialchars($loggedInVendedorId); ?>">
+                    <div class="mt-1 block w-full rounded-md border border-gray-300 bg-gray-100 p-2 text-gray-700 shadow-sm">
+                        <?php echo htmlspecialchars($loggedInVendedorName ?? ''); ?>
+                    </div>
+                <?php else: ?>
+                    <select name="vendedor_id" id="vendedor_id" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required>
+                        <option value="">Selecione...</option>
+                        <?php if (!empty($vendedores)): foreach ($vendedores as $vendedor): ?>
+                            <?php $nomeVendedor = $resolveVendedorNome($vendedor); ?>
+                            <option value="<?php echo $vendedor['id']; ?>" <?php echo ($vendedor_id_selecionado == $vendedor['id']) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($nomeVendedor); ?>
+                            </option>
+                        <?php endforeach; endif; ?>
+                    </select>
+                <?php endif; ?>
             </div>
             <div class="md:col-span-3">
                 <label class="block text-sm font-semibold text-gray-700">Serviços Contratados *</label>
@@ -296,6 +343,19 @@ $postagemValorUnitario = $formatCurrencyInput($formData['postagem_valor_unitario
                     <select name="assinatura_tipo" id="assinatura_tipo" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
                         <option value="Digital" <?php echo (($formData['assinatura_tipo'] ?? 'Digital') === 'Digital') ? 'selected' : ''; ?>>Assinatura Digital</option>
                         <option value="Física" <?php echo (($formData['assinatura_tipo'] ?? '') === 'Física') ? 'selected' : ''; ?>>Assinatura Física</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="idioma" class="block text-sm font-medium text-gray-700">Idioma</label>
+                    <select name="idioma" id="idioma" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                        <option value="">Selecione o idioma</option>
+                        <?php
+                        $idiomas = ['Português', 'Italiano', 'Espanhol', 'Inglês', 'Francês', 'Alemão'];
+                        foreach ($idiomas as $idioma):
+                            $selected = (($formData['idioma'] ?? '') === $idioma) ? 'selected' : '';
+                            echo "<option value='{$idioma}' {$selected}>{$idioma}</option>";
+                        endforeach;
+                        ?>
                     </select>
                 </div>
             </div>
