@@ -186,7 +186,7 @@ $postagemValorUnitario = $formatCurrencyInput($formData['postagem_valor_unitario
     
     <fieldset class="border border-gray-200 rounded-md p-6">
         <legend class="text-lg font-semibold text-gray-700 px-2 bg-white ml-4">Detalhes do Serviço</legend>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-4">
             <div>
                 <label for="titulo" class="block text-sm font-medium text-gray-700">Nome do Serviço / Família</label>
                 <input type="text" name="titulo" id="titulo" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" value="<?php echo htmlspecialchars($formData['titulo'] ?? ''); ?>" required>
