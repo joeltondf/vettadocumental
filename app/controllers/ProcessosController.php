@@ -2686,32 +2686,69 @@ class ProcessosController
         return $this->normalizePaymentProfile($prospeccao['perfil_pagamento'] ?? null);
     }
 
+    /**
+     * Normaliza textos de pagamento para comparação, removendo acentos e espaços extras.
+     */
+    private function normalizeMonthlyString(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $normalized = trim(mb_strtolower((string)$value));
+        $unaccented = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $normalized);
+        $normalized = $unaccented !== false ? $unaccented : $normalized;
+
+        return $normalized === '' ? null : $normalized;
+    }
+
+    /**
+     * Verifica se o texto contém indicação de cobrança mensal (mensalista, pagamento mensal, etc.).
+     */
+    private function hasMonthlyKeyword(?string $value): bool
+    {
+        $normalized = $this->normalizeMonthlyString($value);
+        if ($normalized === null) {
+            return false;
+        }
+
+        $monthlyIndicators = [
+            'mensal',
+            'mensalidade',
+            'mensalista',
+            'pagamento mensal',
+            'plano mensalista',
+            'recorrente mensal',
+        ];
+
+        foreach ($monthlyIndicators as $indicator) {
+            if (str_contains($normalized, $indicator)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function isMonthlyBilling(array $input = [], array $processo = []): bool
     {
         $formaCobranca = $input['forma_cobranca']
             ?? $processo['forma_cobranca']
+            ?? $input['orcamento_forma_pagamento']
             ?? $processo['orcamento_forma_pagamento']
             ?? null;
 
-        $formaNormalizada = mb_strtolower(trim((string)$formaCobranca));
-        if ($formaNormalizada !== '') {
-            if (in_array($formaNormalizada, ['pagamento mensal', 'mensal', 'mensalista'], true)) {
-                return true;
-            }
-
-            $formaPadronizada = mb_strtolower($this->normalizePaymentMethod($formaNormalizada));
-            if ($formaPadronizada === 'pagamento mensal') {
-                return true;
-            }
+        if ($this->hasMonthlyKeyword($formaCobranca)) {
+            return true;
         }
 
         $perfilCliente = $this->getClientPaymentProfile($processo['cliente_id'] ?? null);
-        if ($perfilCliente === 'mensalista') {
+        if ($this->hasMonthlyKeyword($perfilCliente)) {
             return true;
         }
 
         $perfilProspeccao = $this->getProspectPaymentProfile($processo['prospeccao_id'] ?? null);
-        if ($perfilProspeccao === 'mensalista') {
+        if ($this->hasMonthlyKeyword($perfilProspeccao)) {
             return true;
         }
 
