@@ -1,0 +1,2 @@
+-- Modelo de banco de dados.
+-- TODO: substituir pelo conteúdo completo do arquivo u371107598_dadosnovalis.sql fornecido pelo usuário.
