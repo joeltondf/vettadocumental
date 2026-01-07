@@ -3833,12 +3833,15 @@ class ProcessosController
             $items[] = [
                 'cCodCategItem' => $categoryItemCode,
                 'cCodServLC116' => $serviceCode,
-                'cCodServMun' => '4.12',
+                'cCodServMun' => '8219999',
                 'cDescServ' => $this->buildOmieServiceDescription($documento, $processo),
-                'cTribServ' => $serviceTaxationCode,
+                'cTribServ' => '16',
                 'cRetemISS' => 'N',
                 'nQtde' => 1,
                 'nValUnit' => $this->resolveServiceAmount($documento, $processo),
+                'impostos' => [
+                    'nAliqISS' => 2.0,
+                ],
             ];
         }
 
@@ -4054,25 +4057,7 @@ class ProcessosController
 
     private function buildCityDisplayName(array $cliente): string
     {
-        $city = isset($cliente['cidade']) ? trim((string)$cliente['cidade']) : '';
-        $state = isset($cliente['estado']) ? trim((string)$cliente['estado']) : '';
-
-        if ($city === '' && $state === '') {
-            return '';
-        }
-
-        $uppercase = static function (string $value): string {
-            return function_exists('mb_strtoupper') ? mb_strtoupper($value, 'UTF-8') : strtoupper($value);
-        };
-
-        $cityFormatted = $city === '' ? '' : $uppercase($city);
-        $stateFormatted = $state === '' ? '' : $uppercase($state);
-
-        if ($cityFormatted !== '' && $stateFormatted !== '') {
-            return sprintf('%s (%s)', $cityFormatted, $stateFormatted);
-        }
-
-        return $cityFormatted !== '' ? $cityFormatted : $stateFormatted;
+        return 'BRASILIA (DF)';
     }
 
     private function resolveOmieCategoryItemCode(string $defaultCategoryCode): string
