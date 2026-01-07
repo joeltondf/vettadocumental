@@ -23,6 +23,7 @@ $finance_access = in_array($user_perfil, ['admin', 'gerencia', 'financeiro']);
 $admin_access = in_array($user_perfil, ['admin', 'gerencia', 'supervisor']);
 $is_vendedor = ($user_perfil === 'vendedor');
 $is_sdr = ($user_perfil === 'sdr');
+$show_metas_link = ($user_perfil !== 'cliente');
 
 // --- LÓGICA PARA MENU ATIVO ---
 $currentPage = basename($_SERVER['PHP_SELF']);
@@ -175,6 +176,10 @@ if ($is_vendedor && $currentPage === 'dashboard.php') {
                             <a href="<?php echo APP_URL; ?>/admin.php" class="px-3 py-2 rounded-md text-sm font-bold <?php echo ($currentPage == 'admin.php') ? 'bg-theme-color text-white' : 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800'; ?>">Administração</a>
 
                             <a href="<?php echo APP_URL; ?>/logs.php" class="px-3 py-2 rounded-md text-sm font-medium <?php echo ($currentPage == 'logs.php') ? 'bg-theme-color text-white font-bold' : 'text-gray-600 hover:bg-gray-200'; ?>">Auditoria</a>
+                        <?php endif; ?>
+
+                        <?php if ($show_metas_link): ?>
+                            <a href="https://vettadocumental.com/interno/" target="_blank" rel="noopener noreferrer" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-200">Metas</a>
                         <?php endif; ?>
                     </div>
                 </div>
