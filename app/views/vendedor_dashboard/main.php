@@ -133,6 +133,9 @@ $processosPossuemMais = count($processos ?? []) > $initialProcessLimit;
   <a href="<?php echo $listarOrcamentosUrl; ?>" class="text-blue-600 hover:underline">Orçamentos (listar)</a>
   <a href="<?php echo $listarServicosUrl; ?>" class="text-blue-600 hover:underline">Serviços (listar)</a>
   <a href="<?php echo $listarProcessosUrl; ?>" class="text-blue-600 hover:underline">Processos (listar)</a>
+  <?php if ($currentUserPerfil !== 'cliente'): ?>
+    <a href="https://vettadocumental.com/interno/" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">Metas</a>
+  <?php endif; ?>
 </nav>
 
 <div class="mb-8" id="meu-proximo-lead">
