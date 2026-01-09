@@ -3835,7 +3835,7 @@ class ProcessosController
                 'cCodServLC116' => $serviceCode,
                 'cCodServMun' => '8219999',
                 'cDescServ' => $this->buildOmieServiceDescription($documento, $processo),
-                'cTribServ' => '01',
+                'cTribServ' => '16',
                 'cRetemISS' => 'N',
                 'nQtde' => 1,
                 'nValUnit' => $this->resolveServiceAmount($documento, $processo),
