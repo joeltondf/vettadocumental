@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vetta: Fase Celular</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="hud">
+      <div class="hud__group">
+        <div class="hud__dna">
+          <span class="hud__label">DNA</span>
+          <span id="dnaCount" class="hud__value">0</span>
+        </div>
+        <div class="hud__bar">
+          <div class="hud__bar-header">
+            <span class="hud__label">Vida</span>
+            <span id="hpText" class="hud__value">100/100</span>
+          </div>
+          <div class="bar">
+            <div id="hpBar" class="bar__fill"></div>
+          </div>
+        </div>
+      </div>
+      <div class="hud__group">
+        <div class="hud__bar">
+          <div class="hud__bar-header">
+            <span class="hud__label">Dash</span>
+            <span id="dashLabel" class="hud__value">Pronto</span>
+          </div>
+          <div class="bar bar--dash">
+            <div id="dashBar" class="bar__fill"></div>
+          </div>
+        </div>
+        <div class="hud__bar">
+          <div class="hud__bar-header">
+            <span class="hud__label">Evolução</span>
+            <span id="evolutionLabel" class="hud__value">Fase 1</span>
+          </div>
+          <div class="bar bar--evolution">
+            <div id="evolutionBar" class="bar__fill"></div>
+          </div>
+        </div>
+      </div>
+      <button id="toggleMenu" class="hud__menu">Laboratório Genético [M]</button>
+    </header>
+
+    <main class="game">
+      <canvas id="gameCanvas" width="1200" height="720"></canvas>
+      <div id="floatingTextLayer" class="floating-text-layer"></div>
+
+      <section id="startScreen" class="overlay overlay--active">
+        <div class="overlay__content">
+          <h1 class="overlay__title">Vetta: Fase Celular</h1>
+          <p class="overlay__subtitle">O fragmento do cosmos desperta uma nova vida nas profundezas.</p>
+          <button id="startButton" class="cta">Iniciar Evolução</button>
+        </div>
+      </section>
+
+      <section id="tutorial" class="tutorial">
+        <p>
+          Colete DNA para evoluir. Use <strong>Espaço</strong> para dar dash. Fuja de inimigos maiores;
+          inimigos maiores geram mais DNA quando derrotados.
+        </p>
+      </section>
+
+      <section id="finalScreen" class="overlay">
+        <div class="overlay__content">
+          <h2 class="overlay__title">A mente desperta</h2>
+          <p class="overlay__subtitle">
+            Sua célula desenvolveu um novo cérebro. Em breve, ela pisará em terra firme.
+          </p>
+          <button id="restartButton" class="cta cta--ghost">Reiniciar ciclo</button>
+        </div>
+      </section>
+    </main>
+
+    <aside id="upgradePanel" class="menu">
+      <div class="menu__header">
+        <h2>Laboratório Genético</h2>
+        <button id="closeMenu" class="menu__close">Fechar</button>
+      </div>
+      <div class="menu__cards">
+        <article class="menu__card" data-upgrade="vida">
+          <div class="menu__icon menu__icon--vida"></div>
+          <div class="menu__info">
+            <h3>Vida</h3>
+            <p>Aumenta o HP máximo e cura parte da vida.</p>
+            <div class="menu__meta">
+              <span class="menu__level">Nível: <strong data-level="vida">0</strong></span>
+              <span class="menu__cost">Custo: <strong data-cost="vida">0</strong> DNA</span>
+            </div>
+          </div>
+          <button class="menu__action" data-action="vida">Evoluir</button>
+        </article>
+
+        <article class="menu__card" data-upgrade="tamanho">
+          <div class="menu__icon menu__icon--tamanho"></div>
+          <div class="menu__info">
+            <h3>Tamanho</h3>
+            <p>Expande o raio máximo e reforça sua resistência.</p>
+            <div class="menu__meta">
+              <span class="menu__level">Nível: <strong data-level="tamanho">0</strong></span>
+              <span class="menu__cost">Custo: <strong data-cost="tamanho">0</strong> DNA</span>
+            </div>
+          </div>
+          <button class="menu__action" data-action="tamanho">Evoluir</button>
+        </article>
+
+        <article class="menu__card" data-upgrade="espinhos">
+          <div class="menu__icon menu__icon--espinhos"></div>
+          <div class="menu__info">
+            <h3>Espinhos</h3>
+            <p>Esporões ofensivos para atacar ao colidir.</p>
+            <div class="menu__meta">
+              <span class="menu__level">Nível: <strong data-level="espinhos">0</strong></span>
+              <span class="menu__cost">Custo: <strong data-cost="espinhos">0</strong> DNA</span>
+            </div>
+          </div>
+          <button class="menu__action" data-action="espinhos">Evoluir</button>
+        </article>
+
+        <article class="menu__card" data-upgrade="dash">
+          <div class="menu__icon menu__icon--dash"></div>
+          <div class="menu__info">
+            <h3>Dash</h3>
+            <p>Reduz recarga e amplia velocidade de deslocamento.</p>
+            <div class="menu__meta">
+              <span class="menu__level">Nível: <strong data-level="dash">0</strong></span>
+              <span class="menu__cost">Custo: <strong data-cost="dash">0</strong> DNA</span>
+            </div>
+          </div>
+          <button class="menu__action" data-action="dash">Evoluir</button>
+        </article>
+      </div>
+      <div class="menu__legend">
+        <h4>Tipos de DNA</h4>
+        <ul>
+          <li><span class="legend legend--common"></span> Comum (+10)</li>
+          <li><span class="legend legend--rare"></span> Raro (+25)</li>
+          <li><span class="legend legend--epic"></span> Épico (+60)</li>
+        </ul>
+      </div>
+    </aside>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
