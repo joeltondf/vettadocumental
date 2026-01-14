@@ -45,7 +45,7 @@ class AuthController
             // Agora $this->userModel existe e a chamada do método está correta.
             $user = $this->userModel->getByEmail($email);
 
-            if ($user && password_verify($senha, $user['senha'])) {
+            if ($user && password_verify($senha, $user['password_hash'])) {
                 // Inicia a sessão se não estiver iniciada
                 if (session_status() == PHP_SESSION_NONE) {
                     session_start();

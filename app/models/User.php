@@ -37,7 +37,7 @@ class User
     {
         // Gera o hash da senha para armazenamento seguro.
         $senhaHash = password_hash($senha, PASSWORD_DEFAULT);
-        $sql = "INSERT INTO users (nome_completo, email, senha, perfil, ativo) VALUES (?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO users (nome_completo, email, password_hash, perfil, ativo) VALUES (?, ?, ?, ?, ?)";
         $stmt = $this->pdo->prepare($sql);
 
         try {
@@ -130,7 +130,7 @@ class User
     public function updatePassword(int $id, string $senha)
     {
         $senhaHash = password_hash($senha, PASSWORD_DEFAULT);
-        $sql = "UPDATE users SET senha = ? WHERE id = ?";
+        $sql = "UPDATE users SET password_hash = ? WHERE id = ?";
         $stmt = $this->pdo->prepare($sql);
         return $stmt->execute([$senhaHash, $id]);
     }
