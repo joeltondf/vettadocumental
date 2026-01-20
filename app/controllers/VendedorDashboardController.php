@@ -21,31 +21,9 @@ class VendedorDashboardController
     {
         // 1. Instancia os Models
         $processoModel = new Processo($this->pdo);
-        $clienteModel = new Cliente($this->pdo);
         $prospeccaoModel = new Prospeccao($this->pdo);
-        $comissaoModel = new Comissao($this->pdo);
-
         // 2. Pega os dados do vendedor logado ou informado para gestão
         [$vendedorId, $userId, $percentualComissao] = $this->resolveVendedorContext();
-
-        $timezone = new DateTimeZone('America/Sao_Paulo');
-        $now = new DateTime('now', $timezone);
-        $currentMonthStart = (clone $now)->modify('first day of this month')->setTime(0, 0, 0);
-        $currentMonthEnd = (clone $currentMonthStart)->modify('last day of this month')->setTime(23, 59, 59);
-        $lastMonthStart = (clone $currentMonthStart)->modify('-1 month');
-        $lastMonthEnd = (clone $currentMonthStart)->modify('-1 second');
-
-        $monthStartStr = $currentMonthStart->format('Y-m-d H:i:s');
-        $monthEndStr = $currentMonthEnd->format('Y-m-d H:i:s');
-        $lastMonthStartStr = $lastMonthStart->format('Y-m-d H:i:s');
-        $lastMonthEndStr = $lastMonthEnd->format('Y-m-d H:i:s');
-
-        $orcamentosMesAtual = $processoModel->getVendorBudgetsByMonth($vendedorId, $monthStartStr, $monthEndStr);
-        $servicosMesAtual = $processoModel->getVendorServicesByMonth($vendedorId, $monthStartStr, $monthEndStr);
-        $servicosAtivosMesAnterior = $processoModel->getVendorActiveServicesFromLastMonth($vendedorId, $lastMonthStartStr, $lastMonthEndStr);
-
-        $servicosMesAtual = $this->appendCommissions($servicosMesAtual, $vendedorId, $comissaoModel, $processoModel, $percentualComissao);
-        $servicosAtivosMesAnterior = $this->appendCommissions($servicosAtivosMesAnterior, $vendedorId, $comissaoModel, $processoModel, $percentualComissao);
 
 
         // 3. Busca de dados de Processos (Vendas)
@@ -53,7 +31,6 @@ class VendedorDashboardController
         $filters['vendedor_id'] = $vendedorId;
 
         $todosOsProcessosDoVendedor = $processoModel->getFilteredProcesses($filters, 9999, 0);
-        $totalVendasMes = $processoModel->getVendasTotalMesByVendedor($vendedorId);
 
         // 4. Calcula os Cards de Processos
 
@@ -92,27 +69,16 @@ class VendedorDashboardController
         // 5. Calcula o valor da comissão
         $valorComissao = ($valorTotalFinalizado * $percentualComissao) / 100;
 
-        // 6. Busca de dados e KPIs do CRM
-        $crmStats = $prospeccaoModel->getStatsByResponsavel($userId);
-        $prospeccoesPorStatus = $prospeccaoModel->getProspeccoesCountByStatus($userId);
-        $proximosAgendamentos = $prospeccaoModel->getProximosAgendamentos($userId, 5);
+        // 6. Busca de dados do CRM voltados para ação
         $nextLead = $prospeccaoModel->getNextLeadForVendor($userId);
         $vendorLeads = $prospeccaoModel->getVendorLeads($userId);
-        $labels_funil = json_encode(array_keys($prospeccoesPorStatus));
-        $valores_funil = json_encode(array_values($prospeccoesPorStatus));
         
         // 7. Define a variável '$processos' para a tabela da view.
         $processos = $todosOsProcessosDoVendedor;
 
         // 8. Preparação para a View
-        $clientesParaFiltro = $clienteModel->getAll();
         $pageTitle = 'Meu Painel';
-        $filtrosAtuais = $this->cleanFilterValues($_GET ?? []);
-        $hasFilters = !empty($filtrosAtuais);
-        $totalProcessesCount = count($todosOsProcessosDoVendedor);
-
-        $filters = $filtrosAtuais;
-        $currentVendedorId = $vendedorId;
+        $filters = $this->cleanFilterValues($_GET ?? []);
 
         // Carrega a view
         require_once __DIR__ . '/../views/layouts/header.php';
