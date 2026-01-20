@@ -818,7 +818,7 @@ public function create($data, $files)
     public function getFilteredProcesses(array $filters = [], int $limit = 50, int $offset = 0): array
     {
         $select_part = "SELECT
-                    p.id, p.titulo, p.status_processo, p.data_criacao, p.data_previsao_entrega,
+                    p.id, p.orcamento_numero, p.titulo, p.status_processo, p.data_criacao, p.data_previsao_entrega,
                     p.valor_total, p.prospeccao_id,
                     pr.id_texto AS prospeccao_codigo,
                     pr.nome_prospecto AS prospeccao_nome,
