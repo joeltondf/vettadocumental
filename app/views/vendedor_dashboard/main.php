@@ -592,7 +592,7 @@ $prioridadesLeads = array_slice($prioridadesLeads, 0, 5);
                 <p class="text-sm text-gray-500">Nenhum lead pendente para atendimento imediato.</p>
             <?php endif; ?>
         </div>
-        <div class="bg-white p-5 rounded-lg shadow-md border border-gray-200 lg:col-span-2">
+        <div class="bg-white p-5 rounded-lg shadow-md border border-gray-200 lg:col-span-2 max-h-96 overflow-y-auto">
             <?php if (empty($vendorLeads)): ?>
                 <p class="text-sm text-gray-500 text-center py-6">Nenhum lead atribuído para você no momento.</p>
             <?php else: ?>
