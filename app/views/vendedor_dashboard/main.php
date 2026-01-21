@@ -382,16 +382,16 @@ $prioridadesLeads = array_slice($prioridadesLeads, 0, 5);
     </div>
 </div>
 
-<nav class="flex flex-wrap gap-4 text-sm mb-6">
-  <a href="#acoes-agora" class="text-blue-600 hover:underline">Ações agora</a>
-  <a href="#aguardando-resposta" class="text-blue-600 hover:underline">Aguardando resposta</a>
-  <a href="#risco-problema" class="text-blue-600 hover:underline">Risco / problema</a>
-  <a href="#concluido-resolvido" class="text-blue-600 hover:underline">Concluído</a>
-  <a href="#prioridades-vendas" class="text-blue-600 hover:underline">Prioridades de vendas</a>
-  <a href="#relatorios-acao" class="text-blue-600 hover:underline">Relatórios</a>
-  <a href="<?php echo $listarProcessosUrl; ?>" class="text-blue-600 hover:underline">Lista completa de processos</a>
+<nav class="flex flex-wrap gap-2 text-sm mb-6">
+  <a href="#acoes-agora" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium transition-colors">Ações agora</a>
+  <a href="#aguardando-resposta" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium transition-colors">Aguardando resposta</a>
+  <a href="#risco-problema" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium transition-colors">Risco / problema</a>
+  <a href="#concluido-resolvido" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium transition-colors">Concluído</a>
+  <a href="#prioridades-vendas" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium transition-colors">Prioridades de vendas</a>
+  <a href="#relatorios-acao" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium transition-colors">Relatórios</a>
+  <a href="<?php echo $listarProcessosUrl; ?>" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium transition-colors">Lista completa de processos</a>
   <?php if ($currentUserPerfil !== 'cliente'): ?>
-    <a href="https://vettadocumental.com/interno/" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">Metas</a>
+    <a href="https://vettadocumental.com/interno/" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium transition-colors">Metas</a>
   <?php endif; ?>
 </nav>
 
@@ -437,19 +437,19 @@ $prioridadesLeads = array_slice($prioridadesLeads, 0, 5);
     </div>
 
     <div class="mt-4 bg-white p-4 rounded-lg shadow-md border border-gray-200">
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 text-sm">
-            <div>
-                <label class="block text-xs font-semibold text-gray-500 mb-1" for="filter-status">Status</label>
-                <select id="filter-status" class="w-full border-gray-200 rounded-lg">
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6 text-sm">
+            <div class="flex flex-col gap-2">
+                <label class="block text-xs font-semibold text-gray-500" for="filter-status">Status</label>
+                <select id="filter-status" class="w-full border-gray-200 rounded-lg px-3 py-2">
                     <option value="">Todos</option>
                     <?php foreach ($statusOptions as $statusKey => $statusLabel): ?>
                         <option value="<?php echo htmlspecialchars(seller_normalize_token($statusKey)); ?>"><?php echo htmlspecialchars($statusLabel); ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div>
-                <label class="block text-xs font-semibold text-gray-500 mb-1" for="filter-urgency">Urgência</label>
-                <select id="filter-urgency" class="w-full border-gray-200 rounded-lg">
+            <div class="flex flex-col gap-2">
+                <label class="block text-xs font-semibold text-gray-500" for="filter-urgency">Urgência</label>
+                <select id="filter-urgency" class="w-full border-gray-200 rounded-lg px-3 py-2">
                     <option value="">Todas</option>
                     <option value="overdue">Atrasado</option>
                     <option value="due-today">Entrega hoje</option>
@@ -459,18 +459,18 @@ $prioridadesLeads = array_slice($prioridadesLeads, 0, 5);
                     <option value="no-deadline">Sem prazo</option>
                 </select>
             </div>
-            <div>
-                <label class="block text-xs font-semibold text-gray-500 mb-1" for="filter-client">Cliente</label>
-                <select id="filter-client" class="w-full border-gray-200 rounded-lg">
+            <div class="flex flex-col gap-2">
+                <label class="block text-xs font-semibold text-gray-500" for="filter-client">Cliente</label>
+                <select id="filter-client" class="w-full border-gray-200 rounded-lg px-3 py-2">
                     <option value="">Todos</option>
                     <?php foreach ($clienteOptions as $clienteNome): ?>
                         <option value="<?php echo htmlspecialchars(seller_normalize_token($clienteNome)); ?>"><?php echo htmlspecialchars($clienteNome); ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div>
-                <label class="block text-xs font-semibold text-gray-500 mb-1" for="filter-priority">Prioridade</label>
-                <select id="filter-priority" class="w-full border-gray-200 rounded-lg">
+            <div class="flex flex-col gap-2">
+                <label class="block text-xs font-semibold text-gray-500" for="filter-priority">Prioridade</label>
+                <select id="filter-priority" class="w-full border-gray-200 rounded-lg px-3 py-2">
                     <option value="">Todas</option>
                     <option value="alta">Alta</option>
                     <option value="media">Média</option>
@@ -482,12 +482,12 @@ $prioridadesLeads = array_slice($prioridadesLeads, 0, 5);
 </section>
 
 <section class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
-    <div class="bg-white shadow-md rounded-lg border border-gray-200" id="acoes-agora">
+    <div class="bg-white shadow-md rounded-lg border border-gray-200 flex flex-col" id="acoes-agora">
         <div class="px-6 py-4 border-b">
             <h3 class="text-lg font-semibold text-gray-800">O que preciso fazer agora</h3>
             <p class="text-xs text-gray-500">Pendências, orçamentos para follow-up e urgências do dia.</p>
         </div>
-        <div class="p-4">
+        <div class="p-4 max-h-72 sm:max-h-80 lg:max-h-96 overflow-y-auto">
             <ul class="divide-y divide-gray-200" data-action-list>
                 <?php if (empty($processesByAction['agora'])): ?>
                     <li class="py-4 text-sm text-gray-500" data-empty-state>Nenhuma ação imediata pendente.</li>
@@ -501,12 +501,12 @@ $prioridadesLeads = array_slice($prioridadesLeads, 0, 5);
         </div>
     </div>
 
-    <div class="bg-white shadow-md rounded-lg border border-gray-200" id="aguardando-resposta">
+    <div class="bg-white shadow-md rounded-lg border border-gray-200 flex flex-col" id="aguardando-resposta">
         <div class="px-6 py-4 border-b">
             <h3 class="text-lg font-semibold text-gray-800">Aguardando resposta</h3>
             <p class="text-xs text-gray-500">Itens que dependem do cliente ou de outras equipes.</p>
         </div>
-        <div class="p-4">
+        <div class="p-4 max-h-72 sm:max-h-80 lg:max-h-96 overflow-y-auto">
             <ul class="divide-y divide-gray-200" data-action-list>
                 <?php if (empty($processesByAction['aguardando'])): ?>
                     <li class="py-4 text-sm text-gray-500" data-empty-state>Nenhuma solicitação aguardando resposta.</li>
@@ -520,12 +520,12 @@ $prioridadesLeads = array_slice($prioridadesLeads, 0, 5);
         </div>
     </div>
 
-    <div class="bg-white shadow-md rounded-lg border border-gray-200" id="risco-problema">
+    <div class="bg-white shadow-md rounded-lg border border-gray-200 flex flex-col" id="risco-problema">
         <div class="px-6 py-4 border-b">
             <h3 class="text-lg font-semibold text-gray-800">Risco / problema</h3>
             <p class="text-xs text-gray-500">Processos com atrasos, cancelamentos ou bloqueios.</p>
         </div>
-        <div class="p-4">
+        <div class="p-4 max-h-72 sm:max-h-80 lg:max-h-96 overflow-y-auto">
             <ul class="divide-y divide-gray-200" data-action-list>
                 <?php if (empty($processesByAction['risco'])): ?>
                     <li class="py-4 text-sm text-gray-500" data-empty-state>Nenhum processo em risco no momento.</li>
@@ -539,12 +539,12 @@ $prioridadesLeads = array_slice($prioridadesLeads, 0, 5);
         </div>
     </div>
 
-    <div class="bg-white shadow-md rounded-lg border border-gray-200" id="concluido-resolvido">
+    <div class="bg-white shadow-md rounded-lg border border-gray-200 flex flex-col" id="concluido-resolvido">
         <div class="px-6 py-4 border-b">
             <h3 class="text-lg font-semibold text-gray-800">Concluído / resolvido</h3>
             <p class="text-xs text-gray-500">Processos finalizados e orçamentos aprovados.</p>
         </div>
-        <div class="p-4">
+        <div class="p-4 max-h-72 sm:max-h-80 lg:max-h-96 overflow-y-auto">
             <ul class="divide-y divide-gray-200" data-action-list>
                 <?php if (empty($processesByAction['concluido'])): ?>
                     <li class="py-4 text-sm text-gray-500" data-empty-state>Nenhum processo concluído recentemente.</li>
@@ -592,7 +592,7 @@ $prioridadesLeads = array_slice($prioridadesLeads, 0, 5);
                 <p class="text-sm text-gray-500">Nenhum lead pendente para atendimento imediato.</p>
             <?php endif; ?>
         </div>
-        <div class="bg-white p-5 rounded-lg shadow-md border border-gray-200 lg:col-span-2">
+        <div class="bg-white p-5 rounded-lg shadow-md border border-gray-200 lg:col-span-2 max-h-96 overflow-y-auto">
             <?php if (empty($vendorLeads)): ?>
                 <p class="text-sm text-gray-500 text-center py-6">Nenhum lead atribuído para você no momento.</p>
             <?php else: ?>
